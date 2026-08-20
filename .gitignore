@@ -20,3 +20,6 @@ pgdata/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Copia local del seed (el template versionado es seed-cms.example.json)
+whatsapp-agent/seed-cms.json
