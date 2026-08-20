@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "codigos_verificacion",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cuenta_madre_id", "order": "ASCENDING" },
+        { "fieldPath": "obsoleto", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

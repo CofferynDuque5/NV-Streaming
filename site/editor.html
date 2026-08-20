@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Editor CMS — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="editor">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#04040C;color:#F0F0FA;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;height:100vh;}
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px;}
+    @keyframes pulse{0%,100%{opacity:0.6;}50%{opacity:1;}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+    input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;}
+    input[type=range]::-webkit-slider-track{height:3px;border-radius:2px;background:rgba(255,255,255,0.1);}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#9B3FFF;margin-top:-5.5px;cursor:pointer;}
+    input:focus{outline:none;}
+    input::placeholder{color:rgba(240,240,250,0.25);}
+  </style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+
+  <!-- ══════════════ TOP TOOLBAR ══════════════ -->
+  <div style="height:52px;background:#07071A;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;padding:0 16px;gap:0;flex-shrink:0;z-index:50;">
+
+    <!-- Left: Logo + Page -->
+    <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="position:relative;width:26px;height:26px;flex-shrink:0;border-radius:8px;background:linear-gradient(150deg,#16205e,#0a0a22 55%,#241046);border:1px solid rgba(110,130,255,0.28);display:flex;align-items:center;justify-content:center;overflow:hidden;"><span style="font-family:'Syne',sans-serif;font-weight:800;font-size:11px;background:linear-gradient(135deg,#9fe9ff,#b98cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">NV</span></div>
+        <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.04em;color:#F0F0FA;">NV</span>
+        <span style="padding:2px 7px;background:rgba(200,144,10,0.12);border:1px solid rgba(200,144,10,0.25);border-radius:4px;font-size:10px;font-weight:600;color:#E6B83A;letter-spacing:0.04em;font-family:'JetBrains Mono',monospace;">EDITOR</span>
+      </div>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);"></div>
+      <!-- Page selector -->
+      <div style="position:relative;">
+        <button onClick="{{ togglePageMenu }}" style="display:flex;align-items:center;gap:7px;padding:5px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:7px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.08);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.5)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span style="font-size:12.5px;color:#F0F0FA;font-weight:500;min-width:54px;text-align:left;">{{ page }}</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.4)" stroke-width="1.5"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div style="display:{{ pageMenuDisplay }};position:absolute;top:calc(100% + 6px);left:0;min-width:180px;background:#12122a;border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 16px 44px rgba(0,0,0,0.6);padding:6px;z-index:120;">
+          <sc-for list="{{ pageList }}" as="pg" hint-placeholder-count="6">
+            <div onClick="{{ pg.go }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;background:{{ pg.active ? 'rgba(155,63,255,0.12)' : 'transparent' }};" style-hover="background:rgba(255,255,255,0.06);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ pg.active ? '#B47CFF' : 'rgba(240,240,250,0.4)' }}" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span style="font-size:12.5px;color:{{ pg.sel }};font-weight:{{ pg.active ? '500' : '400' }};">{{ pg.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- Unsaved indicator -->
+      <div style="display:flex;align-items:center;gap:5px;">
+        <div style="width:6px;height:6px;background:#FFB000;border-radius:50%;animation:pulse 2s ease-in-out infinite;"></div>
+        <span style="font-size:11.5px;color:rgba(240,240,250,0.4);">Sin guardar</span>
+      </div>
+    </div>
+
+    <!-- Center: Controls -->
+    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <!-- Undo / Redo -->
+      <div style="display:flex;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:7px;overflow:hidden;">
+        <button style="width:30px;height:28px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;" style-hover="background:rgba(255,255,255,0.07);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.5)" stroke-width="1.5" stroke-linecap="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+        </button>
+        <div style="width:1px;background:rgba(255,255,255,0.07);"></div>
+        <button style="width:30px;height:28px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;" style-hover="background:rgba(255,255,255,0.07);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.5)" stroke-width="1.5" stroke-linecap="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+        </button>
+      </div>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);"></div>
+      <!-- Device toggle -->
+      <div style="display:flex;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:7px;overflow:hidden;padding:3px;gap:2px;">
+        <button onClick="{{ setDesktop }}" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:{{ deskBg }};border:none;border-radius:5px;cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ deskFg }}" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          <span style="font-size:11.5px;color:{{ deskFg }};font-weight:500;">Desktop</span>
+        </button>
+        <button onClick="{{ setMobile }}" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:{{ mobBg }};border:none;border-radius:5px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.06);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ mobFg }}" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+          <span style="font-size:11.5px;color:{{ mobFg }};">Mobile</span>
+        </button>
+      </div>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);"></div>
+      <!-- Zoom -->
+      <button style="display:flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:7px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(240,240,250,0.55);" style-hover="background:rgba(255,255,255,0.07);">
+        75%
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- Right: Actions -->
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button onClick="{{ togglePreview }}" style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:{{ previewBg }};color:{{ previewFg }};border:1px solid rgba(255,255,255,0.1);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.05);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Vista Previa
+      </button>
+      <button style="padding:6px 14px;background:rgba(255,255,255,0.06);color:#F0F0FA;border:1px solid rgba(255,255,255,0.1);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.09);">Guardar borrador</button>
+      <button style="display:flex;align-items:center;gap:6px;padding:6px 16px;background:#9B3FFF;color:white;border:none;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 3px 12px rgba(123,102,255,0.28);" style-hover="background:#B47CFF;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Publicar
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════ THREE-PANEL LAYOUT ══════════════ -->
+  <!-- Reopen strips / preview exit -->
+  <button onClick="{{ toggleLeft }}" title="Mostrar panel" style="display:{{ leftReopen }};position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:90;width:22px;height:60px;align-items:center;justify-content:center;background:#12122a;border:1px solid rgba(255,255,255,0.1);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;" style-hover="background:rgba(155,63,255,0.18);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B47CFF" stroke-width="1.7" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+  <button onClick="{{ toggleRight }}" title="Mostrar panel" style="display:{{ rightReopen }};position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:90;width:22px;height:60px;align-items:center;justify-content:center;background:#12122a;border:1px solid rgba(255,255,255,0.1);border-right:none;border-radius:8px 0 0 8px;cursor:pointer;" style-hover="background:rgba(155,63,255,0.18);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B47CFF" stroke-width="1.7" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+  <button onClick="{{ togglePreview }}" style="display:{{ previewExit }};position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:130;align-items:center;gap:7px;padding:8px 16px;background:#9B3FFF;color:white;border:none;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 8px 24px rgba(155,63,255,0.4);" style-hover="background:#B47CFF;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Salir de vista previa</button>
+  <div style="flex:1;display:flex;overflow:hidden;min-height:0;">
+
+    <!-- ══ LEFT PANEL ══ -->
+    <div style="width:256px;background:#0A0A1E;border-right:1px solid rgba(255,255,255,0.07);display:{{ leftDisplay }};flex-direction:column;overflow:hidden;flex-shrink:0;">
+      <!-- Panel tabs -->
+      <div style="display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+        <button onClick="{{ goLeftSec }}" style="flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:{{ ltSecBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ ltSecCol }};cursor:pointer;font-weight:500;">Secciones</button>
+        <button onClick="{{ goLeftComp }}" style="flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:{{ ltCompBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ ltCompCol }};cursor:pointer;" style-hover="color:#F0F0FA;">Componentes</button>
+        <button onClick="{{ goLeftMed }}" style="flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:{{ ltMedBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ ltMedCol }};cursor:pointer;" style-hover="color:#F0F0FA;">Medios</button>
+        <button onClick="{{ toggleLeft }}" title="Ocultar panel" style="width:30px;background:transparent;border:none;border-left:1px solid rgba(255,255,255,0.07);cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:rgba(255,255,255,0.05);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.5)" stroke-width="1.6" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+      </div>
+
+      <!-- Sections list -->
+      <sc-if value="{{ isSecciones }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;overflow-y:auto;padding:10px 8px;">
+        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.25);font-weight:500;padding:6px 8px 8px;font-family:'JetBrains Mono',monospace;">Estructura de página</div>
+        <sc-for list="{{ sections }}" as="section">
+          <div onClick="{{ section.go }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;margin-bottom:2px;cursor:pointer;background:{{ section.active ? 'rgba(123,102,255,0.12)' : 'transparent' }};border:1px solid {{ section.active ? 'rgba(123,102,255,0.25)' : 'transparent' }};transition:all 0.12s;" style-hover="background:rgba(255,255,255,0.05);">
+            <!-- Drag handle -->
+            <div style="display:flex;flex-direction:column;gap:2px;cursor:grab;flex-shrink:0;padding:2px 1px;" style-hover="opacity:0.8;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:8px;">
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+                <div style="width:2px;height:2px;background:rgba(240,240,250,0.25);border-radius:50%;"></div>
+              </div>
+            </div>
+            <!-- Section color dot -->
+            <div style="width:8px;height:8px;border-radius:2px;background:{{ section.color }};flex-shrink:0;"></div>
+            <!-- Name -->
+            <span style="flex:1;font-size:12.5px;color:{{ section.active ? '#F0F0FA' : 'rgba(240,240,250,0.6)' }};font-weight:{{ section.active ? '500' : '400' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ section.name }}</span>
+            <!-- Visibility toggle -->
+            <button style="width:22px;height:22px;border-radius:5px;background:transparent;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" style-hover="background:rgba(255,255,255,0.08);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="{{ section.visible ? 'rgba(240,240,250,0.5)' : 'rgba(240,240,250,0.2)' }}" stroke-width="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </sc-for>
+        <!-- Add section button -->
+        <button style="width:100%;margin-top:8px;padding:9px;background:rgba(255,255,255,0.04);border:1px dashed rgba(255,255,255,0.12);border-radius:7px;color:rgba(240,240,250,0.45);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s;" style-hover="background:rgba(123,102,255,0.07);border-color:rgba(123,102,255,0.3);color:#B47CFF;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar sección
+        </button>
+      </div></sc-if>
+      <sc-if value="{{ isComponentes }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.25);font-weight:500;padding:2px 2px 10px;font-family:'JetBrains Mono',monospace;">Bloques · arrastra al lienzo</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="8">
+            <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:grab;transition:all 0.14s;" style-hover="background:rgba(155,63,255,0.08);border-color:rgba(155,63,255,0.3);transform:translateY(-2px);">
+              <div style="width:30px;height:30px;border-radius:8px;background:rgba(155,63,255,0.12);border:1px solid rgba(155,63,255,0.25);display:flex;align-items:center;justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B47CFF" stroke-width="1.6">{{ b.icon }}</svg></div>
+              <span style="font-size:10.5px;color:rgba(240,240,250,0.7);text-align:center;line-height:1.2;">{{ b.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div></sc-if>
+      <sc-if value="{{ isMedios }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+        <button style="width:100%;padding:11px;background:rgba(155,63,255,0.1);border:1px dashed rgba(155,63,255,0.35);border-radius:9px;color:#B47CFF;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px;" style-hover="background:rgba(155,63,255,0.16);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>Subir imagen</button>
+        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.25);font-weight:500;padding:2px 2px 10px;font-family:'JetBrains Mono',monospace;">Biblioteca</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <sc-for list="{{ media }}" as="m" hint-placeholder-count="6">
+            <div style="aspect-ratio:1;border-radius:8px;background:{{ m.bg }};border:1px solid rgba(255,255,255,0.08);cursor:pointer;position:relative;overflow:hidden;" style-hover="border-color:rgba(155,63,255,0.4);"><div style="position:absolute;bottom:0;left:0;right:0;padding:5px 7px;background:linear-gradient(transparent,rgba(0,0,0,0.6));font-size:9px;color:rgba(255,255,255,0.85);">{{ m.name }}</div></div>
+          </sc-for>
+        </div>
+      </div></sc-if>
+
+      <!-- Pages navigator mini -->
+      <div style="border-top:1px solid rgba(255,255,255,0.06);padding:10px 8px;flex-shrink:0;">
+        <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.25);font-weight:500;padding:0 8px 6px;font-family:'JetBrains Mono',monospace;">Páginas</div>
+        <sc-for list="{{ pageList }}" as="pg">
+          <div onClick="{{ pg.go }}" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;background:{{ pg.active ? 'rgba(155,63,255,0.12)' : 'transparent' }};margin-bottom:1px;" style-hover="background:rgba(255,255,255,0.05);">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="{{ pg.active ? '#9B3FFF' : 'rgba(240,240,250,0.3)' }}" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span style="font-size:12px;color:{{ pg.active ? '#F0F0FA' : 'rgba(240,240,250,0.45)' }};font-weight:{{ pg.active ? '500' : '400' }};">{{ pg.name }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ══ CANVAS ══ -->
+    <div style="flex:1;background:#0A0A16;overflow-y:auto;overflow-x:hidden;position:relative;display:flex;flex-direction:column;align-items:center;padding:28px 24px;min-height:0;">
+      <!-- Canvas dot pattern -->
+      <div style="position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;"></div>
+
+      <!-- Page preview container -->
+      <div style="width:100%;max-width:{{ canvasMax }};flex-shrink:0;align-self:center;position:relative;z-index:1;border-radius:4px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);transition:max-width 0.3s ease;">
+
+        <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+        <!-- 1. HEADER SECTION -->
+        <div onClick="{{ pickHeader }}" style="background:rgba(7,7,14,0.92);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 32px;height:44px;display:flex;align-items:center;justify-content:space-between;position:relative;cursor:pointer;outline:{{ outHeader }};outline-offset:-2px;" style-hover="outline:1.5px solid rgba(123,102,255,0.4);">
+          <div style="display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="#9B3FFF"/></svg><span style="font-family:'Syne',sans-serif;font-weight:800;font-size:11px;letter-spacing:0.04em;color:#F0F0FA;">NV</span></div>
+          <div style="display:flex;gap:2px;"><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Home</span><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Catálogo</span><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Bundles</span><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Wallet</span></div>
+          <div style="display:flex;gap:5px;"><button style="padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;font-size:9px;color:rgba(240,240,250,0.6);">Ingresar</button><button style="padding:4px 10px;background:#9B3FFF;border:none;border-radius:4px;font-size:9px;color:white;">Crear</button></div>
+        </div>
+
+        <!-- 2. HERO SECTION -->
+        <div onClick="{{ pickHero }}" style="background:{{ heroBg }};padding:40px 32px 36px;position:relative;overflow:hidden;cursor:pointer;outline:{{ outHero }};outline-offset:-2px;">
+          <!-- Selection handle bar -->
+          <sc-if value="{{ showHeroHandle }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;top:0;left:0;right:0;height:26px;background:rgba(123,102,255,0.95);display:flex;align-items:center;padding:0 10px;gap:6px;z-index:10;">
+            <div style="display:flex;gap:2px;"><div style="width:2px;height:10px;background:rgba(255,255,255,0.5);border-radius:1px;"></div><div style="width:2px;height:10px;background:rgba(255,255,255,0.5);border-radius:1px;"></div><div style="width:2px;height:10px;background:rgba(255,255,255,0.5);border-radius:1px;"></div></div>
+            <svg width="10" height="10" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="rgba(255,255,255,0.6)"/></svg>
+            <span style="font-size:10px;color:white;font-weight:600;letter-spacing:0.04em;flex:1;">Hero</span>
+            <div style="display:flex;gap:3px;margin-left:auto;">
+              <button style="padding:2px 7px;background:rgba(255,255,255,0.15);border:none;border-radius:3px;font-size:9px;color:white;cursor:pointer;" style-hover="background:rgba(255,255,255,0.25);">Mover ↕</button>
+              <button style="padding:2px 7px;background:rgba(255,255,255,0.15);border:none;border-radius:3px;font-size:9px;color:white;cursor:pointer;" style-hover="background:rgba(255,255,255,0.25);">Duplicar</button>
+              <button style="padding:2px 7px;background:rgba(255,68,102,0.3);border:none;border-radius:3px;font-size:9px;color:white;cursor:pointer;" style-hover="background:rgba(255,68,102,0.5);">Eliminar</button>
+            </div>
+          </div></sc-if>
+          <!-- Glow -->
+          <div style="position:absolute;top:-40px;left:-40px;width:300px;height:300px;background:radial-gradient(circle,rgba(123,102,255,0.12) 0%,transparent 70%);pointer-events:none;"></div>
+          <div style="margin-top:20px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;">
+            <div>
+              <sc-if value="{{ showEyebrow }}" hint-placeholder-val="{{ true }}"><div style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.22);border-radius:100px;margin-bottom:14px;"><div style="width:4px;height:4px;background:{{ accent }};border-radius:50%;"></div><span style="font-size:9px;color:#B47CFF;letter-spacing:0.06em;font-weight:500;text-transform:uppercase;">{{ heroEyebrow }}</span></div></sc-if>
+              <h2 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.03em;line-height:0.95;color:#F0F0FA;margin-bottom:10px;">{{ heroTitle }}</h2>
+              <p style="font-size:10.5px;color:rgba(240,240,250,0.52);line-height:1.65;font-weight:300;max-width:280px;margin-bottom:14px;">{{ heroSubtitle }}</p>
+              <div style="display:flex;gap:7px;"><button style="padding:7px 14px;background:{{ accent }};color:white;border:none;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;">Explorar Catálogo</button><button style="padding:7px 12px;background:transparent;color:rgba(240,240,250,0.6);border:1px solid rgba(255,255,255,0.12);border-radius:6px;font-size:10px;cursor:pointer;">Ver demo</button></div>
+            </div>
+            <div style="display:{{ floatDisplay }};grid-template-columns:1fr 1fr;gap:7px;opacity:0.8;">
+              <div style="width:90px;height:56px;background:linear-gradient(135deg,#1a0a2e,#6a1a8a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:white;border:1px solid rgba(255,255,255,0.08);">N</div>
+              <div style="width:90px;height:56px;background:linear-gradient(135deg,#0a1e0a,#1a7a1a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:white;border:1px solid rgba(255,255,255,0.08);">S</div>
+              <div style="width:90px;height:56px;background:linear-gradient(135deg,#0a1a1a,#0a5a4a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:500;color:white;border:1px solid rgba(255,255,255,0.08);">GPT</div>
+              <div style="width:90px;height:56px;background:linear-gradient(135deg,#2e0a0a,#8a1a1a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:white;border:1px solid rgba(255,255,255,0.08);">A</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. SERVICES RAIL -->
+        <div onClick="{{ pickServices }}" style="background:#04040C;border-top:1px solid rgba(255,255,255,0.05);padding:20px 32px;cursor:pointer;position:relative;outline:{{ outServices }};outline-offset:-2px;" style-hover="outline:1.5px solid rgba(123,102,255,0.4);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><span style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#F0F0FA;">{{ svcTitle }}</span><span style="font-size:9.5px;color:{{ accent }};">Ver todo →</span></div>
+          <div style="display:flex;gap:8px;overflow:hidden;">
+            <sc-for list="{{ miniCards }}" as="c">
+              <div style="flex-shrink:0;width:110px;background:#111120;border:1px solid rgba(255,255,255,0.07);border-radius:8px;overflow:hidden;">
+                <div style="height:52px;background:{{ c.gradient }};display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:white;">{{ c.name }}</div>
+                <div style="padding:7px 9px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#9B3FFF;font-weight:500;">{{ c.price }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- 4. FEATURE SECTION -->
+        <div onClick="{{ pickFeature }}" style="background:#0A0A1E;border-top:1px solid rgba(255,255,255,0.05);padding:24px 32px;cursor:pointer;position:relative;outline:{{ outFeature }};outline-offset:-2px;" style-hover="outline:1.5px solid rgba(123,102,255,0.4);">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center;">
+            <div>
+              <div style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:rgba(0,200,150,0.08);border:1px solid rgba(0,200,150,0.18);border-radius:100px;margin-bottom:10px;"><div style="width:4px;height:4px;background:#00C896;border-radius:50%;"></div><span style="font-size:8.5px;color:#00C896;letter-spacing:0.06em;font-weight:500;text-transform:uppercase;">Panel Central</span></div>
+              <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#F0F0FA;letter-spacing:-0.02em;line-height:1.1;margin-bottom:8px;">{{ featTitle }}</div>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:9.5px;color:rgba(240,240,250,0.6);"><div style="width:10px;height:10px;background:rgba(123,102,255,0.15);border:1px solid rgba(123,102,255,0.3);border-radius:3px;display:flex;align-items:center;justify-content:center;"><svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></div>Renovación automática</div>
+                <div style="display:flex;align-items:center;gap:6px;font-size:9.5px;color:rgba(240,240,250,0.6);"><div style="width:10px;height:10px;background:rgba(123,102,255,0.15);border:1px solid rgba(123,102,255,0.3);border-radius:3px;display:flex;align-items:center;justify-content:center;"><svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></div>Wallet integrado</div>
+                <div style="display:flex;align-items:center;gap:6px;font-size:9.5px;color:rgba(240,240,250,0.6);"><div style="width:10px;height:10px;background:rgba(123,102,255,0.15);border:1px solid rgba(123,102,255,0.3);border-radius:3px;display:flex;align-items:center;justify-content:center;"><svg width="6" height="6" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg></div>Credenciales siempre disponibles</div>
+              </div>
+            </div>
+            <div style="background:#111120;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px;">
+              <div style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#F0F0FA;margin-bottom:10px;">Mis Servicios</div>
+              <div style="display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(255,255,255,0.03);border-radius:6px;"><div style="width:20px;height:20px;background:linear-gradient(135deg,#1a0a2e,#6a1a8a);border-radius:5px;font-size:8px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;">N</div><span style="font-size:9.5px;color:#F0F0FA;flex:1;">Netflix Premium</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#9B3FFF;">$9.99</span></div>
+                <div style="display:flex;align-items:center;gap:7px;padding:7px 9px;background:rgba(255,255,255,0.03);border-radius:6px;"><div style="width:20px;height:20px;background:linear-gradient(135deg,#0a1e0a,#1a7a1a);border-radius:5px;font-size:8px;font-weight:800;color:white;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;">S</div><span style="font-size:9.5px;color:#F0F0FA;flex:1;">Spotify Premium</span><span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#9B3FFF;">$5.99</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. TRUST BAR -->
+        <div onClick="{{ pickTrust }}" style="background:#0A0A1E;border-top:1px solid rgba(255,255,255,0.05);padding:16px 32px;cursor:pointer;display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid rgba(255,255,255,0.06);position:relative;outline:{{ outTrust }};outline-offset:-2px;" style-hover="outline:1.5px solid rgba(123,102,255,0.4);">
+          <div style="text-align:center;border-right:1px solid rgba(255,255,255,0.06);padding:6px;"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#9B3FFF;letter-spacing:-0.02em;">50+</div><div style="font-size:9px;color:rgba(240,240,250,0.45);margin-top:2px;">Servicios</div></div>
+          <div style="text-align:center;border-right:1px solid rgba(255,255,255,0.06);padding:6px;"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#9B3FFF;letter-spacing:-0.02em;">12K+</div><div style="font-size:9px;color:rgba(240,240,250,0.45);margin-top:2px;">Usuarios</div></div>
+          <div style="text-align:center;border-right:1px solid rgba(255,255,255,0.06);padding:6px;"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#9B3FFF;letter-spacing:-0.02em;">99.9%</div><div style="font-size:9px;color:rgba(240,240,250,0.45);margin-top:2px;">Uptime</div></div>
+          <div style="text-align:center;padding:6px;"><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#C8900A;letter-spacing:-0.02em;">42%</div><div style="font-size:9px;color:rgba(240,240,250,0.45);margin-top:2px;">Ahorro</div></div>
+        </div>
+
+        <!-- 6. FOOTER PREVIEW -->
+        <div onClick="{{ pickFooter }}" style="background:#04040C;border-top:1px solid rgba(255,255,255,0.06);padding:16px 32px;cursor:pointer;position:relative;outline:{{ outFooter }};outline-offset:-2px;" style-hover="outline:1.5px solid rgba(123,102,255,0.4);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="#9B3FFF"/></svg><span style="font-family:'Syne',sans-serif;font-weight:800;font-size:11px;color:#F0F0FA;">NV STREAMING</span></div>
+            <span style="font-size:9px;color:rgba(240,240,250,0.3);font-family:'JetBrains Mono',monospace;">© 2025 NV Streaming</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:16px;">
+            <div><div style="font-size:9px;color:rgba(240,240,250,0.55);line-height:1.6;font-weight:300;">Ecosistema premium de servicios digitales.</div></div>
+            <div><div style="font-size:8.5px;font-weight:600;color:rgba(240,240,250,0.5);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Plataforma</div><div style="font-size:9px;color:rgba(240,240,250,0.35);line-height:2;">Catálogo<br>Bundles<br>Wallet</div></div>
+            <div><div style="font-size:8.5px;font-weight:600;color:rgba(240,240,250,0.5);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Empresa</div><div style="font-size:9px;color:rgba(240,240,250,0.35);line-height:2;">Nosotros<br>Blog<br>Contacto</div></div>
+            <div><div style="font-size:8.5px;font-weight:600;color:rgba(240,240,250,0.5);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;">Legal</div><div style="font-size:9px;color:rgba(240,240,250,0.35);line-height:2;">Privacidad<br>Términos<br>Cookies</div></div>
+          </div>
+        </div></sc-if>
+        <sc-if value="{{ notHome }}" hint-placeholder-val="{{ false }}">
+          <!-- Header chrome -->
+          <div style="background:rgba(7,7,14,0.92);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 32px;height:44px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="#9B3FFF"/></svg><span style="font-family:'Syne',sans-serif;font-weight:800;font-size:11px;letter-spacing:0.04em;color:#F0F0FA;">NV</span></div>
+            <div style="display:flex;gap:2px;"><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Home</span><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Catálogo</span><span style="padding:4px 9px;font-size:9px;color:rgba(240,240,250,0.55);">Wallet</span></div>
+            <div style="display:flex;gap:5px;"><button style="padding:4px 10px;background:#9B3FFF;border:none;border-radius:4px;font-size:9px;color:white;">Crear</button></div>
+          </div>
+          <!-- Page band -->
+          <div style="background:{{ heroBg }};padding:30px 32px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-40px;right:-30px;width:200px;height:200px;background:radial-gradient(circle,rgba(155,63,255,0.18),transparent 70%);pointer-events:none;"></div>
+            <div style="position:relative;display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:rgba(155,63,255,0.12);border:1px solid rgba(155,63,255,0.28);border-radius:100px;margin-bottom:12px;"><div style="width:4px;height:4px;background:{{ accent }};border-radius:50%;"></div><span style="font-size:9px;color:#B47CFF;letter-spacing:0.08em;font-weight:600;text-transform:uppercase;">{{ pageBadge }}</span></div>
+            <div style="position:relative;font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#F0F0FA;letter-spacing:-0.02em;line-height:1;margin-bottom:6px;">{{ page }}</div>
+            <div style="position:relative;font-size:11px;color:rgba(240,240,250,0.55);font-weight:300;">{{ pageDesc }}</div>
+          </div>
+          <!-- Section stack -->
+          <div style="background:#07070E;padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ sections }}" as="section" hint-placeholder-count="6">
+              <div onClick="{{ section.go }}" style="display:flex;align-items:center;gap:11px;padding:16px 16px;border-radius:10px;cursor:pointer;background:{{ section.active ? 'rgba(155,63,255,0.1)' : 'rgba(255,255,255,0.025)' }};border:1px solid {{ section.active ? 'rgba(155,63,255,0.35)' : 'rgba(255,255,255,0.06)' }};transition:all 0.14s;" style-hover="background:rgba(255,255,255,0.05);border-color:rgba(155,63,255,0.25);">
+                <div style="width:26px;height:26px;border-radius:7px;background:{{ section.color }};flex-shrink:0;opacity:0.85;"></div>
+                <div style="flex:1;"><div style="font-size:12.5px;color:#F0F0FA;font-weight:500;">{{ section.name }}</div><div style="font-size:9.5px;color:rgba(240,240,250,0.35);font-family:'JetBrains Mono',monospace;margin-top:1px;">bloque editable</div></div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.3)" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.2 4.2l4.3 4.3M15.5 15.5l4.3 4.3M1 12h6M17 12h6M4.2 19.8l4.3-4.3M15.5 8.5l4.3-4.3"/></svg>
+              </div>
+            </sc-for>
+            <button style="margin-top:4px;padding:11px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.14);border-radius:9px;color:rgba(240,240,250,0.45);font-family:'DM Sans',sans-serif;font-size:11.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;" style-hover="border-color:rgba(155,63,255,0.35);color:#B47CFF;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar bloque a {{ page }}</button>
+          </div>
+        </sc-if>
+      </div>
+      <!-- Canvas bottom padding -->
+      <div style="height:48px;"></div>
+    </div>
+
+    <!-- ══ RIGHT PANEL ══ -->
+    <div style="width:280px;background:#0A0A1E;border-left:1px solid rgba(255,255,255,0.07);display:{{ rightDisplay }};flex-direction:column;overflow:hidden;flex-shrink:0;">
+      <!-- Panel header -->
+      <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:2px;">
+          <svg width="9" height="9" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="#9B3FFF"/></svg>
+          <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#F0F0FA;">{{ selName }}</span>
+          <span style="margin-left:auto;padding:2px 7px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.22);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#B47CFF;">Sección</span>
+        </div>
+        <span style="font-size:11px;color:rgba(240,240,250,0.35);">index: {{ selIndex }} · {{ selVisible }}</span>
+      </div>
+      <!-- Property tabs -->
+      <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+        <button onClick="{{ goRC }}" style="flex:1;padding:8px;background:transparent;border:none;border-bottom:{{ rtConBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ rtConCol }};cursor:pointer;font-weight:500;">Contenido</button>
+        <button onClick="{{ goRE }}" style="flex:1;padding:8px;background:transparent;border:none;border-bottom:{{ rtEstBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ rtEstCol }};cursor:pointer;" style-hover="color:#F0F0FA;">Estilo</button>
+        <button onClick="{{ goRG }}" style="flex:1;padding:8px;background:transparent;border:none;border-bottom:{{ rtCfgBd }};margin-bottom:-1px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:{{ rtCfgCol }};cursor:pointer;" style-hover="color:#F0F0FA;">Config</button>
+      </div>
+      <!-- Properties -->
+      <div style="flex:1;overflow-y:auto;padding:12px;">
+
+<sc-if value="{{ isContenido }}" hint-placeholder-val="{{ true }}">
+        <!-- Group: Texto -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;margin-bottom:10px;padding:0 2px;font-family:'JetBrains Mono',monospace;">Texto</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label style="display:block;font-size:11px;color:rgba(240,240,250,0.5);margin-bottom:5px;">Titular principal</label>
+              <textarea value="{{ selTitle }}" onChange="{{ onTitle }}" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:7px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:#F0F0FA;resize:none;height:64px;line-height:1.5;" spellcheck="false"></textarea>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:rgba(240,240,250,0.5);margin-bottom:5px;">Subtítulo</label>
+              <textarea value="{{ selSubtitle }}" onChange="{{ onSub }}" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:7px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:rgba(240,240,250,0.7);resize:none;height:52px;line-height:1.5;" spellcheck="false"></textarea>
+            </div>
+            <div>
+              <label style="display:block;font-size:11px;color:rgba(240,240,250,0.5);margin-bottom:5px;">Eyebrow label</label>
+              <input type="text" value="{{ selEyebrow }}" onChange="{{ onEye }}" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:7px;padding:8px 11px;font-family:'DM Sans',sans-serif;font-size:12.5px;color:#F0F0FA;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:18px;"></div>
+
+        <!-- Group: Botones CTA -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;margin-bottom:10px;padding:0 2px;font-family:'JetBrains Mono',monospace;">Botones CTA</div>
+          <!-- CTA 1 -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:11px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;font-weight:500;color:rgba(240,240,250,0.6);">CTA Principal</span><div style="width:14px;height:14px;background:#9B3FFF;border-radius:3px;cursor:pointer;"></div></div>
+            <input type="text" value="Explorar Catálogo" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:7px 9px;font-family:'DM Sans',sans-serif;font-size:12px;color:#F0F0FA;margin-bottom:6px;" />
+            <div style="display:flex;gap:5px;margin-top:4px;">
+              <div style="width:18px;height:18px;background:#9B3FFF;border-radius:4px;cursor:pointer;border:2px solid rgba(255,255,255,0.3);"></div>
+              <div style="width:18px;height:18px;background:#5510BB;border-radius:4px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#C8900A;border-radius:4px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#00C896;border-radius:4px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:linear-gradient(135deg,#9B3FFF,#C8900A);border-radius:4px;cursor:pointer;"></div>
+            </div>
+          </div>
+          <!-- CTA 2 -->
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:11px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:11px;font-weight:500;color:rgba(240,240,250,0.6);">CTA Secundario</span><div style="width:14px;height:14px;border:1px solid rgba(255,255,255,0.2);border-radius:3px;cursor:pointer;"></div></div>
+            <input type="text" value="Ver demo" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:7px 9px;font-family:'DM Sans',sans-serif;font-size:12px;color:#F0F0FA;" />
+            <div style="margin-top:7px;display:flex;gap:4px;">
+              <button style="flex:1;padding:4px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.22);border-radius:5px;font-size:10px;color:#B47CFF;cursor:pointer;">Ghost</button>
+              <button style="flex:1;padding:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;font-size:10px;color:rgba(240,240,250,0.4);cursor:pointer;">Outline</button>
+              <button style="flex:1;padding:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;font-size:10px;color:rgba(240,240,250,0.4);cursor:pointer;">Sólido</button>
+            </div>
+          </div>
+        </div>
+
+        </sc-if>
+        <sc-if value="{{ isEstilo }}" hint-placeholder-val="{{ false }}">
+        <!-- Group: Fondo -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;margin-bottom:10px;padding:0 2px;font-family:'JetBrains Mono',monospace;">Fondo</div>
+          <div style="display:flex;gap:5px;margin-bottom:12px;">
+            <button style="flex:1;padding:6px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.3);border-radius:6px;font-size:11px;color:#B47CFF;cursor:pointer;font-weight:500;">Gradiente</button>
+            <button style="flex:1;padding:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;font-size:11px;color:rgba(240,240,250,0.4);cursor:pointer;" style-hover="background:rgba(255,255,255,0.07);">Imagen</button>
+            <button style="flex:1;padding:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;font-size:11px;color:rgba(240,240,250,0.4);cursor:pointer;" style-hover="background:rgba(255,255,255,0.07);">Color</button>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center;">
+            <div style="flex:1;">
+              <label style="display:block;font-size:10.5px;color:rgba(240,240,250,0.4);margin-bottom:5px;">Inicio</label>
+              <div style="display:flex;align-items:center;gap:6px;padding:7px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;cursor:pointer;">
+                <div style="width:16px;height:16px;background:#04040C;border-radius:3px;border:1px solid rgba(255,255,255,0.15);"></div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:rgba(240,240,250,0.6);">#07070E</span>
+              </div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.2)" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <div style="flex:1;">
+              <label style="display:block;font-size:10.5px;color:rgba(240,240,250,0.4);margin-bottom:5px;">Final</label>
+              <div style="display:flex;align-items:center;gap:6px;padding:7px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;cursor:pointer;">
+                <div style="width:16px;height:16px;background:#1A1240;border-radius:3px;border:1px solid rgba(255,255,255,0.15);"></div>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:rgba(240,240,250,0.6);">#1A1240</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </sc-if>
+        <sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}">
+        <!-- Group: Configuración -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;margin-bottom:10px;padding:0 2px;font-family:'JetBrains Mono',monospace;">Configuración</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <!-- Show stats toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:7px;">
+              <span style="font-size:12px;color:rgba(240,240,250,0.65);">Mostrar estadísticas</span>
+              <div onClick="{{ toggleStats }}" style="width:36px;height:20px;background:{{ statsBg }};border-radius:100px;position:relative;cursor:pointer;transition:background 0.15s;"><div style="position:absolute;{{ statsKnob }}top:3px;width:14px;height:14px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);transition:all 0.15s;"></div></div>
+            </div>
+            <!-- Mostrar cards flotantes -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:7px;">
+              <span style="font-size:12px;color:rgba(240,240,250,0.65);">Cards flotantes</span>
+              <div onClick="{{ toggleFloating }}" style="width:36px;height:20px;background:{{ floatBg }};border-radius:100px;position:relative;cursor:pointer;transition:background 0.15s;"><div style="position:absolute;{{ floatKnob }}top:3px;width:14px;height:14px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);transition:all 0.15s;"></div></div>
+            </div>
+            <!-- Eyebrow chip -->
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:7px;">
+              <span style="font-size:12px;color:rgba(240,240,250,0.65);">Eyebrow chip</span>
+              <div onClick="{{ toggleEyebrow }}" style="width:36px;height:20px;background:{{ eyeBg }};border-radius:100px;position:relative;cursor:pointer;transition:background 0.15s;"><div style="position:absolute;{{ eyeKnob }}top:3px;width:14px;height:14px;background:white;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);transition:all 0.15s;"></div></div>
+            </div>
+            <!-- Altura mínima -->
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:11px;color:rgba(240,240,250,0.5);">Altura mínima</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#9B3FFF;">100vh</span>
+              </div>
+              <input type="range" min="60" max="100" value="100" style="width:100%;" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Acento color -->
+        <div style="margin-bottom:18px;">
+          <div style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;margin-bottom:10px;padding:0 2px;font-family:'JetBrains Mono',monospace;">Color de acento</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <div onClick="{{ accViolet }}" style="width:28px;height:28px;background:#9B3FFF;border-radius:6px;cursor:pointer;border:{{ ringViolet }};box-shadow:{{ glowViolet }};"></div>
+            <div onClick="{{ accPurple }}" style="width:28px;height:28px;background:#5510BB;border-radius:6px;cursor:pointer;border:{{ ringPurple }};box-shadow:{{ glowPurple }};"></div>
+            <div onClick="{{ accGold }}" style="width:28px;height:28px;background:#C8900A;border-radius:6px;cursor:pointer;border:{{ ringGold }};box-shadow:{{ glowGold }};"></div>
+            <div onClick="{{ accGreen }}" style="width:28px;height:28px;background:#00C896;border-radius:6px;cursor:pointer;border:{{ ringGreen }};box-shadow:{{ glowGreen }};"></div>
+            <div onClick="{{ accRed }}" style="width:28px;height:28px;background:#FF4466;border-radius:6px;cursor:pointer;border:{{ ringRed }};box-shadow:{{ glowRed }};"></div>
+          </div>
+        </div></sc-if>
+      </div>
+
+      <!-- Panel footer -->
+      <div style="border-top:1px solid rgba(255,255,255,0.07);padding:10px 12px;flex-shrink:0;display:flex;gap:6px;">
+        <button style="flex:1;padding:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:7px;color:rgba(240,240,250,0.6);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.08);">Descartar</button>
+        <button style="flex:1;padding:8px;background:#9B3FFF;border:none;border-radius:7px;color:white;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;box-shadow:0 3px 10px rgba(123,102,255,0.25);" style-hover="background:#B47CFF;">Aplicar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = { sel: 1, device: 'desktop', content: {}, leftTab: 'secciones', rightTab: 'contenido', leftOpen: true, rightOpen: true, preview: false, page: 'Home', pageMenu: false, accent: '#9B3FFF', bgStart: '#07070E', bgEnd: '#1A1240', showStats: true, showFloating: true, showEyebrow: true };
+  setSel(i){ this.setState({ sel: i }); }
+  setDevice(d){ this.setState({ device: d }); }
+  setField(f, v){ this.setState(st => { const c = { ...st.content }; c[st.sel] = { ...(c[st.sel]||{}), [f]: v }; return { content: c }; }); }
+  set(k, v){ this.setState({ [k]: v }); }
+  toggle(k){ this.setState(st => ({ [k]: !st[k] })); }
+  renderVals() {
+    const sel = this.state.sel;
+    const device = this.state.device;
+    const C = this.state.content;
+    const st = this.state;
+    const accent = st.accent;
+    const tCol = on => on ? accent : 'rgba(240,240,250,0.4)';
+    const tBd = on => on ? '2px solid '+accent : '2px solid transparent';
+    const knobBg = on => on ? accent : 'rgba(255,255,255,0.12)';
+    const knobPos = on => on ? 'right:3px;' : 'left:3px;';
+    const accRing = c => st.accent===c ? '2px solid #fff' : '2px solid transparent';
+    const accGlow = c => st.accent===c ? '0 0 0 2px '+c : 'none';
+    const PAGES = {
+      'Home': [
+      { name:'Header', color:'#444', visible:true, title:'', subtitle:'', eyebrow:'' },
+      { name:'Hero', color:'#9B3FFF', visible:true, title:'Todos tus servicios digitales, en un solo lugar.', subtitle:'Accede a Netflix, Spotify, Adobe y más de 50 servicios.', eyebrow:'Ecosistema Digital Premium' },
+      { name:'Servicios Populares', color:'#5510BB', visible:true, title:'Más populares', subtitle:'Servicios más solicitados esta semana', eyebrow:'' },
+      { name:'Feature Split', color:'#2D1F80', visible:true, title:'Todo bajo control, siempre.', subtitle:'Panel central para gestionar tus servicios', eyebrow:'Panel Central' },
+      { name:'Bundles', color:'#C8900A', visible:true, title:'Combos que ahorran', subtitle:'Paquetes con descuento', eyebrow:'' },
+      { name:'Trust Bar', color:'#00C896', visible:true, title:'Métricas de confianza', subtitle:'', eyebrow:'' },
+      { name:'CTA Final', color:'#9B3FFF', visible:true, title:'¿Listo para comenzar?', subtitle:'Únete a miles de usuarios', eyebrow:'' },
+      { name:'Footer', color:'#333', visible:true, title:'', subtitle:'', eyebrow:'' },
+      ],
+      'Catálogo': [
+        { name:'Header', color:'#444', visible:true }, { name:'Barra de filtros', color:'#9B3FFF', visible:true }, { name:'Categorías', color:'#5510BB', visible:true }, { name:'Grid de servicios', color:'#2D1F80', visible:true }, { name:'Banner promocional', color:'#C8900A', visible:true }, { name:'Paginación', color:'#00C896', visible:true }, { name:'Footer', color:'#333', visible:true },
+      ],
+      'Detalle': [
+        { name:'Header', color:'#444', visible:true }, { name:'Galería / Portada', color:'#9B3FFF', visible:true }, { name:'Info del servicio', color:'#5510BB', visible:true }, { name:'Planes y precios', color:'#2D1F80', visible:true }, { name:'Reseñas', color:'#C8900A', visible:true }, { name:'Relacionados', color:'#00C896', visible:true }, { name:'Footer', color:'#333', visible:true },
+      ],
+      'Checkout': [
+        { name:'Header', color:'#444', visible:true }, { name:'Resumen del pedido', color:'#9B3FFF', visible:true }, { name:'Datos del cliente', color:'#5510BB', visible:true }, { name:'Método de pago', color:'#2D1F80', visible:true }, { name:'Cupón / descuento', color:'#C8900A', visible:true }, { name:'Confirmación', color:'#00C896', visible:true },
+      ],
+      'Mi Cuenta': [
+        { name:'Header', color:'#444', visible:true }, { name:'Perfil', color:'#9B3FFF', visible:true }, { name:'Mis servicios', color:'#5510BB', visible:true }, { name:'Wallet', color:'#2D1F80', visible:true }, { name:'Facturación', color:'#C8900A', visible:true }, { name:'Seguridad', color:'#00C896', visible:true }, { name:'Footer', color:'#333', visible:true },
+      ],
+      '404': [
+        { name:'Header', color:'#444', visible:true }, { name:'Ilustración', color:'#9B3FFF', visible:true }, { name:'Mensaje de error', color:'#5510BB', visible:true }, { name:'CTA de regreso', color:'#C8900A', visible:true }, { name:'Footer', color:'#333', visible:true },
+      ],
+    };
+    const pageMeta = {
+      'Home': { desc:'Portada principal del ecosistema', badge:'Landing' },
+      'Catálogo': { desc:'Explorador de servicios con filtros y grid', badge:'Explorador' },
+      'Detalle': { desc:'Ficha completa de un servicio', badge:'Producto' },
+      'Checkout': { desc:'Flujo de pago en pasos', badge:'Conversión' },
+      'Mi Cuenta': { desc:'Panel del cliente y suscripciones', badge:'Cuenta' },
+      '404': { desc:'Página de error no encontrada', badge:'Sistema' },
+    };
+    const S = PAGES[st.page] || PAGES['Home'];
+    const cur = { ...(S[sel] || S[0]), ...(C[sel]||{}) };
+    const cc = i => ({ ...(S[i]||{}), ...(C[i]||{}) });
+    const out = i => sel===i ? '2px solid '+accent : '1px solid transparent';
+    return {
+      accent, heroBg: 'linear-gradient(135deg,'+st.bgStart+','+st.bgEnd+')',
+      isHome: st.page==='Home', notHome: st.page!=='Home',
+      pageDesc: (pageMeta[st.page]||{}).desc || '', pageBadge: (pageMeta[st.page]||{}).badge || 'Página',
+      // left tabs
+      isSecciones: st.leftTab==='secciones', isComponentes: st.leftTab==='componentes', isMedios: st.leftTab==='medios',
+      ltSecCol: tCol(st.leftTab==='secciones'), ltSecBd: tBd(st.leftTab==='secciones'),
+      ltCompCol: tCol(st.leftTab==='componentes'), ltCompBd: tBd(st.leftTab==='componentes'),
+      ltMedCol: tCol(st.leftTab==='medios'), ltMedBd: tBd(st.leftTab==='medios'),
+      goLeftSec: () => this.set('leftTab','secciones'), goLeftComp: () => this.set('leftTab','componentes'), goLeftMed: () => this.set('leftTab','medios'),
+      // right tabs
+      isContenido: st.rightTab==='contenido', isEstilo: st.rightTab==='estilo', isConfig: st.rightTab==='config',
+      rtConCol: tCol(st.rightTab==='contenido'), rtConBd: tBd(st.rightTab==='contenido'),
+      rtEstCol: tCol(st.rightTab==='estilo'), rtEstBd: tBd(st.rightTab==='estilo'),
+      rtCfgCol: tCol(st.rightTab==='config'), rtCfgBd: tBd(st.rightTab==='config'),
+      goRC: () => this.set('rightTab','contenido'), goRE: () => this.set('rightTab','estilo'), goRG: () => this.set('rightTab','config'),
+      // panels + preview
+      leftDisplay: (st.leftOpen && !st.preview) ? 'flex' : 'none',
+      rightDisplay: (st.rightOpen && !st.preview) ? 'flex' : 'none',
+      leftReopen: (!st.leftOpen && !st.preview) ? 'flex' : 'none',
+      rightReopen: (!st.rightOpen && !st.preview) ? 'flex' : 'none',
+      previewExit: st.preview ? 'flex' : 'none',
+      previewBg: st.preview ? accent : 'transparent', previewFg: st.preview ? 'white' : 'rgba(240,240,250,0.6)',
+      toggleLeft: () => this.toggle('leftOpen'), toggleRight: () => this.toggle('rightOpen'), togglePreview: () => this.toggle('preview'),
+      // page selector
+      page: st.page, pageMenuDisplay: st.pageMenu ? 'block' : 'none',
+      togglePageMenu: () => this.toggle('pageMenu'),
+      pageList: ['Home','Catálogo','Detalle','Checkout','Mi Cuenta','404'].map(p => ({ name:p, active:p===st.page, sel: p===st.page?'#F0F0FA':'rgba(240,240,250,0.55)', go: () => this.setState({ page:p, pageMenu:false }) })),
+      // accent swatches
+      accViolet: () => this.set('accent','#9B3FFF'), accPurple: () => this.set('accent','#5510BB'), accGold: () => this.set('accent','#C8900A'), accGreen: () => this.set('accent','#00C896'), accRed: () => this.set('accent','#FF4466'),
+      ringViolet: accRing('#9B3FFF'), glowViolet: accGlow('#9B3FFF'),
+      ringPurple: accRing('#5510BB'), glowPurple: accGlow('#5510BB'),
+      ringGold: accRing('#C8900A'), glowGold: accGlow('#C8900A'),
+      ringGreen: accRing('#00C896'), glowGreen: accGlow('#00C896'),
+      ringRed: accRing('#FF4466'), glowRed: accGlow('#FF4466'),
+      // config toggles
+      showStats: st.showStats, showFloating: st.showFloating, showEyebrow: st.showEyebrow,
+      statsBg: knobBg(st.showStats), statsKnob: knobPos(st.showStats),
+      floatBg: knobBg(st.showFloating), floatKnob: knobPos(st.showFloating),
+      eyeBg: knobBg(st.showEyebrow), eyeKnob: knobPos(st.showEyebrow),
+      toggleStats: () => this.toggle('showStats'), toggleFloating: () => this.toggle('showFloating'), toggleEyebrow: () => this.toggle('showEyebrow'),
+      floatDisplay: st.showFloating ? 'grid' : 'none',
+      blocks: [
+        { name:'Hero', icon:'<rect x="3" y="3" width="18" height="8" rx="1"/><path d="M3 15h10M3 19h6"/>' },
+        { name:'Carril servicios', icon:'<rect x="2" y="6" width="6" height="12" rx="1"/><rect x="10" y="6" width="6" height="12" rx="1"/><path d="M20 6v12"/>' },
+        { name:'NV Card', icon:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5"/>' },
+        { name:'Combo Card', icon:'<rect x="3" y="4" width="14" height="14" rx="2"/><rect x="8" y="8" width="13" height="12" rx="2"/>' },
+        { name:'Beneficios', icon:'<path d="M20 6 9 17l-5-5"/>' },
+        { name:'FAQ', icon:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>' },
+        { name:'Banner', icon:'<rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 11h6"/>' },
+        { name:'CTA', icon:'<rect x="5" y="8" width="14" height="8" rx="4"/><path d="M9 12h6"/>' },
+        { name:'Métodos de pago', icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>' },
+        { name:'Footer', icon:'<rect x="3" y="13" width="18" height="8" rx="1"/><path d="M3 5h10M3 9h6"/>' },
+      ],
+      media: [
+        { name:'Netflix', bg:'linear-gradient(135deg,#1a0a2e,#6a1a8a)' },
+        { name:'Spotify', bg:'linear-gradient(135deg,#0a1e0a,#1a7a1a)' },
+        { name:'Adobe', bg:'linear-gradient(135deg,#2e0a0a,#8a1a1a)' },
+        { name:'ChatGPT', bg:'linear-gradient(135deg,#0a1a1a,#0a5a4a)' },
+        { name:'Hero bg', bg:'linear-gradient(135deg,#07070E,#1A1240)' },
+        { name:'Nebulosa', bg:'radial-gradient(circle at 30% 30%,#3a1a6a,#0a0a1e)' },
+      ],
+      sections: S.map((s,i) => ({ name:s.name, color:s.color, visible:s.visible, active: i===sel, go: () => this.setSel(i) })),
+      selName: cur.name, selIndex: sel, selVisible: cur.visible ? 'visible' : 'oculto',
+      selTitle: cur.title, selSubtitle: cur.subtitle, selEyebrow: cur.eyebrow, hasEyebrow: !!cur.eyebrow,
+      selKey: 'k'+sel,
+      pickHeader: () => this.setSel(0), pickHero: () => this.setSel(1), pickServices: () => this.setSel(2),
+      pickFeature: () => this.setSel(3), pickTrust: () => this.setSel(5), pickFooter: () => this.setSel(7),
+      outHeader: out(0), outHero: out(1), outServices: out(2), outFeature: out(3), outTrust: out(5), outFooter: out(7),
+      showHeroHandle: sel===1,
+      canvasMax: device==='mobile' ? '390px' : '960px',
+      deskBg: device==='desktop' ? '#9B3FFF' : 'transparent',
+      deskFg: device==='desktop' ? 'white' : 'rgba(240,240,250,0.45)',
+      mobBg: device==='mobile' ? '#9B3FFF' : 'transparent',
+      mobFg: device==='mobile' ? 'white' : 'rgba(240,240,250,0.45)',
+      setDesktop: () => this.setDevice('desktop'),
+      setMobile: () => this.setDevice('mobile'),
+      heroTitle: cc(1).title, heroSubtitle: cc(1).subtitle, heroEyebrow: cc(1).eyebrow,
+      svcTitle: cc(2).title, featTitle: cc(3).title,
+      onTitle: (e) => this.setField('title', e.target.value),
+      onSub: (e) => this.setField('subtitle', e.target.value),
+      onEye: (e) => this.setField('eyebrow', e.target.value),
+      pages: [
+        { name: 'Home',           active: true  },
+        { name: 'Catálogo',       active: false },
+        { name: 'Detalle',        active: false },
+        { name: 'Checkout',       active: false },
+        { name: 'Mi Cuenta',      active: false },
+        { name: '404',            active: false },
+      ],
+      miniCards: [
+        { name: 'NETFLIX', price: '$9.99',  gradient: 'linear-gradient(135deg,#1a0a2e,#6a1a8a)' },
+        { name: 'SPOTIFY', price: '$5.99',  gradient: 'linear-gradient(135deg,#0a1e0a,#1a7a1a)' },
+        { name: 'ADOBE',   price: '$18.99', gradient: 'linear-gradient(135deg,#2e0a0a,#8a1a1a)' },
+        { name: 'GPT',     price: '$19.99', gradient: 'linear-gradient(135deg,#0a1a1a,#0a5a4a)' },
+        { name: 'M365',    price: '$14.99', gradient: 'linear-gradient(135deg,#001a2e,#003a6e)' },
+        { name: 'VPN',     price: '$4.99',  gradient: 'linear-gradient(135deg,#001a10,#003a20)' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

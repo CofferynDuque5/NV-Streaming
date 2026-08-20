@@ -1,0 +1,29 @@
+rules_version = '2';
+// ============================================================================
+// NV Streaming — Reglas de Cloud Storage.
+//
+// NOTA: la app v1.0 sube imágenes a ImgBB (servicio externo), NO a Firebase
+// Storage. Por defecto el bucket queda CERRADO. Si en el futuro subes archivos
+// a Storage, abre solo la ruta necesaria.
+//
+// Storage NO puede leer el campo `usuarios.rol` de Firestore, así que el control
+// por rol requeriría custom claims (request.auth.token.admin). Mientras no uses
+// Storage, mantenlo denegado.
+// ============================================================================
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Todo denegado por defecto.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // EJEMPLO (desactivado) — descomenta y ajusta si empiezas a usar Storage:
+    // match /flyers/{uid}/{archivo} {
+    //   allow read: if true;                       // flyers públicos
+    //   allow write: if request.auth != null
+    //                && request.auth.uid == uid    // solo su dueño sube
+    //                && request.resource.size < 5 * 1024 * 1024
+    //                && request.resource.contentType.matches('image/.*');
+    // }
+  }
+}

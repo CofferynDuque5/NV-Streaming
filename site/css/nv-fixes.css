@@ -1,0 +1,200 @@
+/* nv-fixes.css — Correcciones de UX/UI (sticky, hover, sliders, responsive).
+   Se carga después del render; mantiene la estética neón/oscura de NV. */
+
+/* ── 3. Stack sticky COORDINADO (header + franja de categorías) ──
+   El diseño apila: topbar (relative, se va) → header (top:0) → categorías.
+   Al forzar el header a top:0, la franja de categorías (top:102px del diseño,
+   pensado para cuando el topbar seguía visible) quedaba huérfana y se "despegaba".
+   Se re-ancla la franja justo bajo el header (66px) y se ordena el z-index. */
+header {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+  backdrop-filter: blur(10px);
+}
+/* Franja de categorías del index (div sticky con top:102px en el diseño). */
+div[style*="top:102px"], div[style*="top: 102px"] {
+  top: 66px !important;            /* alto real del header */
+  z-index: 990 !important;
+  backdrop-filter: blur(8px);
+}
+/* Las tarjetas del catálogo nunca se montan sobre los menús. */
+.svc-card, .offer-card, .nv-rail > * { position: relative; z-index: 1; }
+
+/* ── Footer con animaciones (entrada + hover de enlaces/iconos) ── */
+footer { animation: nvFooterIn 0.6s cubic-bezier(0.25, 0.8, 0.25, 1) both; }
+@keyframes nvFooterIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+footer a, footer [class*="pay"] > * { transition: transform 0.25s cubic-bezier(0.25,0.8,0.25,1), color 0.25s ease, opacity 0.25s ease; will-change: transform; }
+footer a:hover { color: #00d2ff !important; transform: translateY(-2px); }
+footer [class*="pay"] > *:hover, footer svg:hover { transform: translateY(-3px) scale(1.06); opacity: 1 !important; }
+
+/* ── Circulitos orbitales de "mundos/categorías": estabilización ──
+   Los rotores usan animation:spinFlat/spinFlatRev con translate; sin aceleración
+   por hardware parpadean y "se rompen". Se fuerza GPU y se contiene el desborde. */
+[style*="spinFlat"] {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+[style*="spinFlat"] img { backface-visibility: hidden; }
+/* Contenedores de las ruedas orbitales: no deben desbordar ni romper el grid.
+   En escritorio la rueda (436px) desbordaba su columna (420px) y quedaba pegada
+   al texto; se centra, se le da aire y se reduce para caber holgada. */
+[style*="width:436px"], [style*="width: 436px"] {
+  max-width: min(100%, 400px); max-height: min(92vw, 400px);
+  margin: 0 auto; contain: layout paint;
+}
+/* Secciones "mundos" (grid rueda + texto): más separación entre columnas y filas. */
+[style*="grid-template-columns:420px 1fr"], [style*="grid-template-columns: 420px 1fr"],
+[style*="grid-template-columns:1fr 420px"], [style*="grid-template-columns: 1fr 420px"] {
+  gap: clamp(32px, 5vw, 72px) !important;
+  padding-top: 34px !important; padding-bottom: 34px !important;
+  align-items: center !important;
+}
+@media (max-width: 900px) {
+  [style*="grid-template-columns:420px 1fr"], [style*="grid-template-columns: 420px 1fr"],
+  [style*="grid-template-columns:1fr 420px"], [style*="grid-template-columns: 1fr 420px"] {
+    grid-template-columns: 1fr !important; justify-items: center;
+  }
+}
+@media (max-width: 720px) {
+  [style*="width:436px"], [style*="width: 436px"] { transform: scale(0.78); transform-origin: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="spinFlat"] { animation: none !important; }
+}
+
+/* ── Menú desplegable del conversor de monedas ── */
+.nv-moneda-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; min-width: 210px; z-index: 1200;
+  background: rgba(8, 10, 22, 0.98); border: 1px solid rgba(0, 207, 255, 0.28); border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 30, 0.6); padding: 6px; backdrop-filter: blur(14px);
+  animation: nvMenuIn 0.16s ease-out;
+}
+@keyframes nvMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.nv-moneda-op {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer; color: #dbe6ff; font-size: 13px;
+  transition: background 0.15s ease;
+}
+.nv-moneda-op:hover, .nv-moneda-op.activa { background: rgba(0, 207, 255, 0.12); }
+.nv-moneda-op b { color: #9fe9ff; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+
+/* ── 4 + estética. Levitación de tarjetas sin romper el grid/flujo ──
+   Los rails con overflow-x recortan verticalmente; damos aire arriba/abajo y
+   usamos will-change para que el hover no descuadre nada. */
+.nv-rail {
+  padding-top: 10px !important;
+  padding-bottom: 24px !important;
+  scroll-behavior: smooth;
+}
+.nv-rail > * {
+  will-change: transform;
+  backface-visibility: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease !important;
+}
+
+/* ── 5. Flechas flotantes para sliders horizontales ── */
+.nv-rail-host { position: relative; }
+.nv-arrow {
+  position: absolute; top: calc(50% - 20px); width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 12, 28, 0.86); border: 1px solid rgba(0, 207, 255, 0.32); color: #00CFFF;
+  font-size: 18px; line-height: 1; cursor: pointer; z-index: 25; backdrop-filter: blur(6px);
+  box-shadow: 0 6px 20px rgba(0, 0, 30, 0.55); transition: opacity 0.2s ease, transform 0.15s ease, background 0.15s ease;
+}
+.nv-arrow:hover { transform: scale(1.08); background: rgba(0, 207, 255, 0.16); }
+.nv-arrow.prev { left: -8px; }
+.nv-arrow.next { right: -8px; }
+.nv-arrow[disabled] { opacity: 0; pointer-events: none; }
+@media (max-width: 720px) { .nv-arrow { display: none; } }
+
+/* ── 3. Buscador: resultado del filtrado ── */
+.nv-hidden { display: none !important; }
+.nv-search-empty {
+  padding: 28px; text-align: center; color: rgba(200, 215, 255, 0.5); font-size: 14px; width: 100%;
+}
+
+/* ── 2. Estado "sin sesión" en saldo/billetera (sin datos falsos) ── */
+.nv-balance-guest { opacity: 0.65; font-style: italic; }
+
+/* ── Responsivo general: el header no se desborda en móvil ── */
+@media (max-width: 640px) {
+  header[style*="top:0"], header[style*="top: 0"] { flex-wrap: wrap; height: auto !important; padding: 8px 14px !important; gap: 10px !important; }
+}
+
+/* Respeta accesibilidad de movimiento reducido. */
+@media (prefers-reduced-motion: reduce) {
+  .nv-rail, .nv-rail > *, .nv-arrow { transition: none !important; scroll-behavior: auto; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Estados vacíos (NV Streaming v1.0)
+ * Se activan SOLO en los placeholders que bridge.js inyecta cuando la base de
+ * datos no tiene datos (atributo `data-empty`, presente únicamente en la
+ * tarjeta/fila de estado vacío). Cero impacto sobre las tarjetas con datos.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* Tarjetas y filas (todo lo que NO sea fila de tabla) */
+[data-empty]:not(tr) {
+  grid-column: 1 / -1 !important;            /* ocupa el ancho completo si está en un grid */
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  min-height: 120px;
+  padding: 26px 20px !important;
+  background: linear-gradient(135deg, #0a0e1a, #141a2e) !important;
+  border: 1px dashed rgba(140, 160, 210, 0.22) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: default !important;
+}
+[data-empty]:not(tr):hover {
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: rgba(140, 160, 210, 0.22) !important;
+}
+/* Colapsa los bloques cosméticos vacíos (banner de imagen con alto fijo, etc.) */
+[data-empty]:not(tr) > * {
+  height: auto !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Oculta la parte visual que quedaría vacía (imagen, botón, iconos, badges) */
+[data-empty] img,
+[data-empty] button,
+[data-empty] svg {
+  display: none !important;
+}
+
+/* Texto atenuado y homogéneo; sin degradados de marca en el placeholder */
+[data-empty],
+[data-empty] * {
+  color: rgba(205, 218, 255, 0.62) !important;
+  text-shadow: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Fila de tabla (revendedor): no se puede convertir en flex sin romper columnas */
+tr[data-empty] td {
+  color: rgba(205, 218, 255, 0.62) !important;
+  background: rgba(10, 14, 26, 0.4) !important;
+  border-color: rgba(140, 160, 210, 0.12) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Drawers (menú lateral y carrito) por encima del header sticky.
+ * El header tiene z-index:1000 (regla de arriba); los drawers venían con
+ * z-index 200/201 y quedaban TAPADOS: su cabecera ("Mi Carrito"/logo) se
+ * escondía bajo el header. Los subimos por encima de 1000.
+ * (En estas páginas, z-index:200/201 solo lo usan el backdrop y el panel.)
+ * ═══════════════════════════════════════════════════════════════════════ */
+/* El runtime normaliza el style con cssText → "z-index: 200" (con espacio). */
+[data-nv-root] [style*="z-index: 200"] { z-index: 3000 !important; }  /* backdrop */
+[data-nv-root] [style*="z-index: 201"] { z-index: 3001 !important; }  /* panel del drawer */

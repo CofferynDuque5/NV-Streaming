@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Detalle de servicio — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="detalles">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{background:#07070E;color:#F0F0FA;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes shimmer{0%{background-position:-400px 0;}100%{background-position:400px 0;}}
+  </style>
+</helmet>
+
+<!-- HEADER -->
+<header style="position:sticky;top:0;z-index:30;background:rgba(7,7,14,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,0.07);">
+  <div style="max-width:1280px;margin:0 auto;padding:0 48px;height:64px;display:flex;align-items:center;justify-content:space-between;">
+    <a style="display:flex;align-items:center;gap:11px;text-decoration:none;cursor:pointer;">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="3" y="16" width="18" height="18" rx="1" transform="rotate(-45 3 16)" fill="#7B66FF"/><rect x="7" y="16" width="10" height="10" rx="0.5" transform="rotate(-45 7 16)" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.75"/></svg>
+      <div><div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:0.04em;color:#F0F0FA;line-height:1;">NV</div><div style="font-size:9px;letter-spacing:0.18em;color:rgba(240,240,250,0.35);font-weight:500;margin-top:1px;">STREAMING</div></div>
+    </a>
+    <nav style="display:flex;align-items:center;gap:2px;">
+      <a style="padding:7px 14px;font-size:13.5px;color:rgba(240,240,250,0.55);border-radius:7px;text-decoration:none;cursor:pointer;" style-hover="color:#F0F0FA;background:rgba(255,255,255,0.04);">Home</a>
+      <a style="padding:7px 14px;font-size:13.5px;color:#F0F0FA;border-radius:7px;text-decoration:none;font-weight:500;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.2);">Catálogo</a>
+      <a style="padding:7px 14px;font-size:13.5px;color:rgba(240,240,250,0.55);border-radius:7px;text-decoration:none;cursor:pointer;" style-hover="color:#F0F0FA;background:rgba(255,255,255,0.04);">Bundles</a>
+      <a style="padding:7px 14px;font-size:13.5px;color:rgba(240,240,250,0.55);border-radius:7px;text-decoration:none;cursor:pointer;" style-hover="color:#F0F0FA;background:rgba(255,255,255,0.04);">Wallet</a>
+    </nav>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button style="padding:8px 18px;background:transparent;color:rgba(240,240,250,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13.5px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.05);">Iniciar Sesión</button>
+      <button style="padding:8px 18px;background:#7B66FF;color:white;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:500;cursor:pointer;box-shadow:0 4px 16px rgba(123,102,255,0.28);" style-hover="background:#9D8DFF;">Crear Cuenta</button>
+    </div>
+  </div>
+</header>
+
+<!-- HERO BANNER -->
+<section style="position:relative;overflow:hidden;background:linear-gradient(135deg,#1a0a2e 0%,#4a0a7a 40%,#1a0a2e 100%);min-height:280px;display:flex;align-items:flex-end;">
+  <!-- Background texture -->
+  <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:60px 60px;pointer-events:none;"></div>
+  <div style="position:absolute;top:-60px;right:-60px;width:300px;height:300px;background:rgba(123,102,255,0.2);border-radius:50%;filter:blur(80px);pointer-events:none;"></div>
+  <div style="position:absolute;bottom:-40px;left:200px;width:200px;height:200px;background:rgba(200,100,200,0.12);border-radius:50%;filter:blur(60px);pointer-events:none;"></div>
+  <div style="max-width:1280px;margin:0 auto;padding:0 48px;width:100%;position:relative;z-index:1;padding-bottom:40px;padding-top:40px;">
+    <!-- Breadcrumb -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:24px;">
+      <a style="font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;cursor:pointer;" style-hover="color:rgba(255,255,255,0.8);">Home</a>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg>
+      <a style="font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;cursor:pointer;" style-hover="color:rgba(255,255,255,0.8);">Catálogo</a>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg>
+      <a style="font-size:12px;color:rgba(255,255,255,0.4);text-decoration:none;cursor:pointer;" style-hover="color:rgba(255,255,255,0.8);">Streaming</a>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg>
+      <span style="font-size:12px;color:rgba(255,255,255,0.75);">Netflix Premium</span>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;">
+      <!-- Service icon -->
+      <div style="width:88px;height:88px;background:linear-gradient(135deg,#2a1050,#7a2aaa);border-radius:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.12);flex-shrink:0;">
+        <span style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:white;letter-spacing:0.04em;">N</span>
+      </div>
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <span style="padding:3px 8px;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.7);letter-spacing:0.04em;">STREAMING</span>
+          <span style="padding:3px 8px;background:rgba(0,200,150,0.2);border:1px solid rgba(0,200,150,0.3);border-radius:5px;font-size:10px;color:#00C896;font-weight:500;display:flex;align-items:center;gap:3px;"><span style="width:5px;height:5px;background:#00C896;border-radius:50%;"></span>Disponible ahora</span>
+        </div>
+        <h1 style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:white;letter-spacing:-0.025em;margin-bottom:6px;line-height:1.05;">Netflix Premium</h1>
+        <p style="font-size:15px;color:rgba(255,255,255,0.6);font-weight:300;max-width:520px;line-height:1.6;">El mejor entretenimiento en streaming. Calidad 4K Ultra HD, audio Dolby Atmos y acceso en hasta 4 pantallas simultáneas.</p>
+        <!-- Rating -->
+        <div style="display:flex;align-items:center;gap:12px;margin-top:14px;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <sc-for list="{{ stars }}" as="s">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFB000" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </sc-for>
+            <span style="font-size:13px;color:white;font-weight:500;margin-left:3px;">4.8</span>
+          </div>
+          <span style="font-size:12px;color:rgba(255,255,255,0.45);">2.4K reseñas</span>
+          <span style="font-size:12px;color:rgba(255,255,255,0.45);">·</span>
+          <span style="font-size:12px;color:rgba(255,255,255,0.45);">18.2K usuarios activos</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAIN CONTENT -->
+<div style="max-width:1280px;margin:0 auto;padding:40px 48px 80px;display:grid;grid-template-columns:1fr 340px;gap:36px;align-items:start;">
+
+  <!-- LEFT: CONTENT TABS -->
+  <div>
+    <!-- Tabs -->
+    <div style="display:flex;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:32px;">
+      <button style="padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:13.5px;color:#7B66FF;border:none;background:transparent;border-bottom:2px solid #7B66FF;margin-bottom:-1px;cursor:pointer;font-weight:500;">Descripción</button>
+      <button style="padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(240,240,250,0.5);border:none;background:transparent;cursor:pointer;" style-hover="color:#F0F0FA;">Características</button>
+      <button style="padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(240,240,250,0.5);border:none;background:transparent;cursor:pointer;" style-hover="color:#F0F0FA;">Reseñas <span style="margin-left:4px;padding:1px 6px;background:rgba(255,255,255,0.06);border-radius:100px;font-size:11px;">2.4K</span></button>
+      <button style="padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(240,240,250,0.5);border:none;background:transparent;cursor:pointer;" style-hover="color:#F0F0FA;">FAQ</button>
+    </div>
+
+    <!-- Description content -->
+    <div style="margin-bottom:40px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#F0F0FA;letter-spacing:-0.015em;margin-bottom:14px;">¿Qué es Netflix Premium?</h2>
+      <p style="font-size:15px;color:rgba(240,240,250,0.58);line-height:1.78;font-weight:300;margin-bottom:14px;">Netflix es el servicio de streaming líder mundial con más de 270 millones de suscriptores. Ofrece una amplia biblioteca de películas, series originales, documentales y contenido para toda la familia en más de 190 países.</p>
+      <p style="font-size:15px;color:rgba(240,240,250,0.58);line-height:1.78;font-weight:300;">Con el plan Premium obtienes la máxima calidad: resolución 4K Ultra HD, audio espacial Dolby Atmos y la posibilidad de ver en 4 dispositivos al mismo tiempo, más descargas ilimitadas en hasta 6 dispositivos móviles.</p>
+    </div>
+
+    <!-- Features grid -->
+    <div style="margin-bottom:40px;">
+      <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;margin-bottom:18px;">Lo que incluye</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <sc-for list="{{ features }}" as="feat">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:16px;background:#111120;border:1px solid rgba(255,255,255,0.06);border-radius:10px;" style-hover="border-color:rgba(255,255,255,0.1);">
+            <div style="width:34px;height:34px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7B66FF" stroke-width="1.5" stroke-linecap="round">{{ feat.icon }}</svg>
+            </div>
+            <div>
+              <div style="font-size:13.5px;font-weight:500;color:#F0F0FA;margin-bottom:2px;">{{ feat.title }}</div>
+              <div style="font-size:12px;color:rgba(240,240,250,0.42);line-height:1.45;font-weight:300;">{{ feat.desc }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Plans comparison -->
+    <div style="margin-bottom:40px;">
+      <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;margin-bottom:18px;">Comparar planes</h3>
+      <div style="background:#0D0D1B;border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="padding:14px 18px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;"></div>
+          <div style="padding:14px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px;font-weight:500;color:rgba(240,240,250,0.55);">Estándar</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(240,240,250,0.5);margin-top:3px;">$6.99</div>
+          </div>
+          <div style="padding:14px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.05);">
+            <div style="font-size:12px;font-weight:500;color:rgba(240,240,250,0.55);">HD</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(240,240,250,0.5);margin-top:3px;">$7.99</div>
+          </div>
+          <div style="padding:14px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.05);background:rgba(123,102,255,0.06);border-top:2px solid #7B66FF;">
+            <div style="font-size:12px;font-weight:600;color:#9D8DFF;">Premium</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#7B66FF;margin-top:3px;font-weight:500;">$9.99</div>
+          </div>
+        </div>
+        <sc-for list="{{ planRows }}" as="row">
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.04);" style-hover="background:rgba(255,255,255,0.015);">
+            <div style="padding:12px 18px;font-size:13px;color:rgba(240,240,250,0.58);">{{ row.label }}</div>
+            <div style="padding:12px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.04);font-size:13px;color:rgba(240,240,250,0.45);">{{ row.std }}</div>
+            <div style="padding:12px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.04);font-size:13px;color:rgba(240,240,250,0.45);">{{ row.hd }}</div>
+            <div style="padding:12px 18px;text-align:center;border-left:1px solid rgba(255,255,255,0.04);font-size:13px;color:#9D8DFF;font-weight:500;background:rgba(123,102,255,0.04);">{{ row.prem }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Reviews -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;">Reseñas recientes</h3>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFB000" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;">4.8</span>
+          <span style="font-size:13px;color:rgba(240,240,250,0.4);">de 2.4K reseñas</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <sc-for list="{{ reviews }}" as="rev">
+          <div style="background:#0D0D1B;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px 20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:{{ rev.avatarBg }};display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:white;">{{ rev.initial }}</div>
+                <div>
+                  <div style="font-size:13.5px;font-weight:500;color:#F0F0FA;">{{ rev.name }}</div>
+                  <div style="font-size:11px;color:rgba(240,240,250,0.38);margin-top:1px;">{{ rev.date }}</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:2px;">
+                <sc-for list="{{ stars }}" as="s"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFB000" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></sc-for>
+              </div>
+            </div>
+            <p style="font-size:13.5px;color:rgba(240,240,250,0.58);line-height:1.65;font-weight:300;">{{ rev.text }}</p>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: PURCHASE PANEL (sticky) -->
+  <div style="position:sticky;top:80px;">
+    <div style="background:#111120;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.4);">
+      <!-- Price header -->
+      <div style="padding:22px 22px 18px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:5px;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:500;color:#F0F0FA;letter-spacing:-0.02em;">$9.99</span>
+          <span style="font-size:13.5px;color:rgba(240,240,250,0.4);">/mes</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(240,240,250,0.35);text-decoration:line-through;margin-left:4px;">$15.49</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="padding:3px 8px;background:rgba(0,200,150,0.1);border:1px solid rgba(0,200,150,0.2);border-radius:5px;font-size:11.5px;color:#00C896;font-weight:500;">Ahorras $5.50/mes</span>
+          <span style="font-size:11.5px;color:rgba(240,240,250,0.35);">con NV</span>
+        </div>
+      </div>
+      <!-- Plan selector -->
+      <div style="padding:16px 22px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:rgba(240,240,250,0.35);font-weight:500;margin-bottom:10px;">Plan seleccionado</div>
+        <div style="background:rgba(123,102,255,0.07);border:1px solid rgba(123,102,255,0.25);border-radius:9px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#1a0a2e,#6a1a8a);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:800;color:white;">N</div>
+            <div>
+              <div style="font-size:13px;font-weight:500;color:#F0F0FA;">Netflix Premium</div>
+              <div style="font-size:11px;color:#9D8DFF;margin-top:1px;">4K · 4 pantallas</div>
+            </div>
+          </div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.4)" stroke-width="1.5"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+      <!-- Includes list -->
+      <div style="padding:16px 22px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:rgba(240,240,250,0.35);font-weight:500;margin-bottom:10px;">Incluye</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(240,240,250,0.65);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Resolución 4K Ultra HD</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(240,240,250,0.65);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>4 pantallas simultáneas</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(240,240,250,0.65);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Audio Dolby Atmos</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(240,240,250,0.65);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Descargas ilimitadas</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(240,240,250,0.65);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Acceso inmediato</div>
+        </div>
+      </div>
+      <!-- CTA -->
+      <div style="padding:18px 22px;">
+        <button style="width:100%;padding:14px;background:#7B66FF;color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(123,102,255,0.32);margin-bottom:10px;transition:all 0.2s;" style-hover="background:#9D8DFF;box-shadow:0 8px 28px rgba(123,102,255,0.42);">Acceder ahora — $9.99/mes</button>
+        <button style="width:100%;padding:11px;background:transparent;color:rgba(240,240,250,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13.5px;cursor:pointer;margin-bottom:18px;" style-hover="background:rgba(255,255,255,0.04);color:#F0F0FA;">Agregar al Wallet</button>
+        <!-- Trust signals -->
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(240,240,250,0.4);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.35)" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Pago 100% seguro y encriptado</div>
+          <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(240,240,250,0.4);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.35)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>Acceso en menos de 2 minutos</div>
+          <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:rgba(240,240,250,0.4);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.35)" stroke-width="1.5" stroke-linecap="round"><path d="M9 14 4 9l5-5M15 10l5 5-5 5"/></svg>Cancela cuando quieras</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add to bundle suggestion -->
+    <div style="margin-top:12px;background:linear-gradient(135deg,rgba(200,144,10,0.08),rgba(123,102,255,0.06));border:1px solid rgba(200,144,10,0.2);border-radius:12px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><rect x="1" y="6" width="7" height="7" rx="0.5" transform="rotate(-45 1 6)" fill="#C8900A"/></svg>
+        <span style="font-size:11px;color:#E6B83A;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;">Ahorra más</span>
+      </div>
+      <p style="font-size:12.5px;color:rgba(240,240,250,0.55);line-height:1.5;margin-bottom:10px;font-weight:300;">Añade Spotify + Disney+ y ahorra $9.98 adicionales con el Pack Entretenimiento.</p>
+      <button style="width:100%;padding:9px;background:rgba(200,144,10,0.1);border:1px solid rgba(200,144,10,0.22);border-radius:7px;color:#E6B83A;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:rgba(200,144,10,0.18);">Ver Pack Entretenimiento →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RELATED SERVICES -->
+<section style="border-top:1px solid rgba(255,255,255,0.06);padding:48px 48px 80px;background:#0D0D1B;">
+  <div style="max-width:1280px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;">También te puede interesar</h2>
+      <a style="font-size:13px;color:#7B66FF;text-decoration:none;cursor:pointer;" style-hover="color:#9D8DFF;">Ver todo →</a>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+      <sc-for list="{{ related }}" as="card">
+        <div style="background:#111120;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s;" style-hover="transform:translateY(-3px);border-color:rgba(255,255,255,0.12);">
+          <div style="height:100px;display:flex;align-items:center;justify-content:center;background:{{ card.gradient }};"><span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:white;letter-spacing:0.06em;">{{ card.short }}</span></div>
+          <div style="padding:12px 14px 14px;">
+            <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#F0F0FA;margin-bottom:8px;">{{ card.name }}</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#7B66FF;font-weight:500;">{{ card.price }}</span>
+              <button style="padding:5px 10px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.2);border-radius:6px;color:#9D8DFF;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="background:#7B66FF;color:white;">Ver</button>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      stars: [1,2,3,4,5],
+      features: [
+        { icon: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>', title: '4K Ultra HD', desc: 'Máxima calidad de imagen disponible' },
+        { icon: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>', title: 'Dolby Atmos', desc: 'Audio espacial envolvente' },
+        { icon: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>', title: '4 Pantallas', desc: 'Usa en múltiples dispositivos a la vez' },
+        { icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>', title: 'Descargas', desc: 'Sin límite en hasta 6 dispositivos móviles' },
+        { icon: '<circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/>', title: 'Acceso 24/7', desc: 'Disponible en cualquier momento' },
+        { icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', title: 'Garantía NV', desc: 'Soporte y reemplazo garantizado' },
+      ],
+      planRows: [
+        { label: 'Calidad de video', std: 'Full HD', hd: 'Full HD', prem: '4K Ultra HD' },
+        { label: 'Pantallas simultáneas', std: '1', hd: '2', prem: '4' },
+        { label: 'Descargas móvil', std: '—', hd: '2 dispositivos', prem: '6 dispositivos' },
+        { label: 'Audio Dolby Atmos', std: '—', hd: '—', prem: '✓' },
+        { label: 'Precio NV', std: '$6.99', hd: '$7.99', prem: '$9.99' },
+      ],
+      reviews: [
+        { initial: 'M', name: 'María González', date: 'hace 2 días', avatarBg: 'linear-gradient(135deg,#7B66FF,#5040CC)', text: 'Increíble servicio. Activé Netflix al instante y a un precio que no encuentras en ningún otro lado. El soporte de NV es excelente.' },
+        { initial: 'C', name: 'Carlos Rodríguez', date: 'hace 1 semana', avatarBg: 'linear-gradient(135deg,#00A87A,#006A4E)', text: 'Llevo 6 meses usando NV Streaming y nunca he tenido problemas. Las credenciales siempre funcionan y el precio es muy competitivo.' },
+        { initial: 'A', name: 'Andrea Torres', date: 'hace 2 semanas', avatarBg: 'linear-gradient(135deg,#C8900A,#8B5E00)', text: 'Excelente plataforma. Tengo Netflix, Spotify y Adobe en un solo lugar. El bundle me sale mucho más barato que pagar individual.' },
+      ],
+      related: [
+        { short: 'DISNEY+', name: 'Disney+',      price: '$8.99',  gradient: 'linear-gradient(135deg,#0a0a2e,#2a2a8a)' },
+        { short: 'HBO MAX', name: 'Max Premium',  price: '$10.99', gradient: 'linear-gradient(135deg,#1e0a2e,#5a0a7a)' },
+        { short: 'PRIME',   name: 'Prime Video', price: '$6.99',  gradient: 'linear-gradient(135deg,#001a2e,#003a6e)' },
+        { short: 'SPOTIFY', name: 'Spotify',     price: '$5.99',  gradient: 'linear-gradient(135deg,#0a1e0a,#1a7a1a)' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+/**
+ * bootstrap.js — Punto de arranque oficial (Documento 1 · Cap. 4).
+ *
+ * Orden: Core → Firebase → Commerce → Bridge → Carga de datos → Auth → Acciones.
+ * Módulo ECMAScript nativo (type="module"). Se incluye en todas las páginas.
+ * La UI ya pintó desde el seed estático; aquí conectamos PostgreSQL y, cuando
+ * llegan snapshots, el bridge repinta con datos reales.
+ */
+
+import NVCore from "./core.js";
+import { iniciarCargaDatos } from "./services/data.service.js";
+import Commerce from "./services/commerce.service.js";
+import { instalarBridge } from "./bridge.js";
+import { instalarSonido, reproducir } from "./modules/sound.js";
+import { instalarUI, NVUI } from "./modules/ui-feedback.js";
+import { instalarUX } from "./modules/ux-fixes.js";
+import { instalarSubidaImagenes } from "./modules/image-upload.js";
+import { instalarInspector } from "./modules/admin-inspector.js";
+import { instalarCrud } from "./modules/admin-crud.js";
+import { instalarTablas } from "./modules/admin-tables.js";
+import { instalarChat } from "./modules/assistant-chat.js";
+import { instalarEditorPersist } from "./modules/editor-persist.js";
+import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
+
+const { Auth, Store, Bus, Utils } = NVCore;
+const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
+
+/* WhatsApp del cliente para el checkout (entrega de acceso + OTP). Prefiere el
+ * de la sesión; si no, el último usado (localStorage). Devuelve solo dígitos. */
+function telefonoGuardado() {
+  const u = (Store.get("sesion") || {}).usuario || {};
+  let ls = ""; try { ls = localStorage.getItem("nv_wa") || ""; } catch (_) {}
+  return String(u.id_whatsapp || u.whatsapp || u.telefono || ls || "").replace(/\D/g, "");
+}
+/** Pide y valida el WhatsApp (código de país incluido). null si se cancela. */
+async function pedirWhatsApp() {
+  const NVUI = window.NVUI;
+  if (!NVUI || !NVUI.pedir) return telefonoGuardado() || null; // sin UI, no bloquea
+  const prefill = telefonoGuardado();
+  for (;;) {
+    const val = await NVUI.pedir(
+      "Tu WhatsApp",
+      "¿A qué número te enviamos el acceso y los códigos de verificación? Incluye el código de país.",
+      { placeholder: "Ej: 58 412 1234567", valor: prefill, type: "tel", inputmode: "tel" },
+      "Continuar",
+    );
+    if (val == null) return null; // canceló
+    const tel = String(val).replace(/\D/g, "");
+    if (tel.length >= 8 && tel.length <= 15) {
+      try { localStorage.setItem("nv_wa", tel); } catch (_) {}
+      return tel;
+    }
+    await NVUI.error("Número inválido", "Escribe un número válido con código de país (solo dígitos, entre 8 y 15).");
+  }
+}
+
+/* ─────────────────────────  ARRANQUE  ───────────────────────── */
+async function boot() {
+  Commerce.initCommerce();        // carrito + moneda desde localStorage
+  instalarBridge();               // window.NV + decorate + delegación de clics
+  instalarUI();                   // spinner + modales (window.NVUI)
+  instalarSonido();               // feedback auditivo (window.NVSound)
+  instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte
+  instalarSubidaImagenes();       // subida de imágenes a ImgBB (admin/editor)
+  instalarInspector();            // módulo "Auditoría de Base de Datos" (admin)
+  instalarCrud();                 // Gestor de Contenido CRUD (admin → PostgreSQL)
+  instalarTablas();               // Tablas estilo Excel con datos reales (admin)
+  instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
+  instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
+  wireAcciones();                 // captura de comprobante + checkout + recarga
+  wireSeeder();                   // botón "Completar base de datos" (admin)
+
+  // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
+  await NVCore.init();
+
+  iniciarCargaDatos();            // seed inmediato + snapshots PostgreSQL
+  Auth.iniciarObservadorSesion(); // sesión → Store (anónimo en modo offline)
+  cargarCatalogoReal();           // precios/stock reales desde el backend (sin datos falsos)
+  cargarConfigReal();             // parametros (tasa_bcv viva) + tema desde /api/config
+  aplicarGatekeeper();
+
+  Bus.emit("app:ready", { online: NVCore.online, page: page() });
+  if (window.NV && window.NV.rerender) window.NV.rerender();
+}
+
+/* ──────────────  GATEKEEPER (admin / revendedor)  ────────────── */
+// Verifica rol para paneles internos. Permisivo por defecto (modo demo) para no
+// bloquear la revisión sin cuentas Auth reales; pon window.NV_ENFORCE=true para
+// activar el rebote real al storefront cuando el rol no corresponda.
+function aplicarGatekeeper() {
+  const p = page();
+  const protegido = { admin: "admin", revendedor: "revendedor" }[p];
+  if (!protegido) return;
+  const overlay = document.querySelector(".gatekeeper-fullscreen-blur");
+  const liberar = () => overlay && (overlay.style.display = "none");
+  Store.subscribe("sesion", (s) => {
+    const u = s && s.usuario;
+    if (!window.NV_ENFORCE) { liberar(); return; } // demo: acceso abierto
+    if (!u) { location.href = "auth.html"; return; }
+    const ok = protegido === "admin" ? u.rol === "admin" : (u.rol === "revendedor" || u.rol === "admin");
+    if (ok) liberar(); else location.href = "index.html";
+  });
+  if (!NVCore.online || !window.NV_ENFORCE) liberar();
+}
+
+/* ─────────────────────────  ACCIONES  ───────────────────────── */
+function wireAcciones() {
+  // Captura de comprobante: cualquier <input type=file> → dataURL en memoria.
+  document.addEventListener("change", (ev) => {
+    const inp = ev.target;
+    if (!inp || inp.type !== "file" || !inp.files || !inp.files[0]) return;
+    const f = inp.files[0];
+    const r = new FileReader();
+    r.onload = () => { window.__NV_COMPROBANTE = r.result; NV.toast("Comprobante cargado ✓", "rgba(0,212,160,0.5)"); };
+    r.readAsDataURL(f);
+  }, true);
+
+  // Delegación de acciones de compra/recarga por texto de botón.
+  document.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button,a"); if (!btn) return;
+    const txt = (btn.textContent || "").trim().toLowerCase();
+    const inst = window.__NV_INSTANCE || {};
+    const st = inst.state || {};
+
+    // Checkout (pagos / carrito) — con modal de confirmación + spinner + éxito.
+    if (/^(confirmar pago|finalizar compra|pagar ahora|confirmar y pagar|realizar pago|finalizar pedido)/.test(txt)) {
+      ev.preventDefault();
+      const metodo = st.method || (Store.get("metodosPago") || [])[0]?.id_pago || "pago_movil_bdv";
+      const total = NV.moneda ? NV.moneda.formato(NV.cart.totalUSD()) : "";
+      // Pedimos el WhatsApp: es el canal por el que se entrega el acceso y los
+      // códigos (OTP). Sin él, el backend no puede alcanzar al cliente.
+      const telefono = await pedirWhatsApp();
+      if (telefono == null) { NV.toast("Compra cancelada: necesitamos tu WhatsApp para enviarte el acceso.", "rgba(255,176,32,0.55)"); return; }
+      const ok = await NVUI.confirmar("Confirmar pago", `Vas a registrar tu pago${total ? " por " + total : ""}. Enviaremos el acceso y la confirmación al WhatsApp +${telefono}.`, "Sí, pagar");
+      if (!ok) return;
+      NVUI.spinner(true, "Procesando tu pago…");
+      const t0 = performance.now();
+      try {
+        const ids = await Commerce.Checkout.crearPedido({ metodo_pago: metodo, comprobante: window.__NV_COMPROBANTE || "", telefono });
+        window.__NV_COMPROBANTE = "";
+        await new Promise((r) => setTimeout(r, Math.max(0, 550 - (performance.now() - t0)))); // mínimo perceptible
+        NVUI.spinner(false);
+        reproducir("success");
+        await NVUI.exito("¡Pago registrado!", `Creamos tu pedido (${ids.length} ítem${ids.length === 1 ? "" : "s"}). Validaremos tu pago y te avisaremos por WhatsApp.`);
+      } catch (e) {
+        NVUI.spinner(false);
+        reproducir("error");
+        NVUI.error("No se pudo procesar", e.message || "Inténtalo de nuevo o contáctanos por WhatsApp.");
+      }
+      return;
+    }
+
+    // Recarga de billetera. En la página de billetera el propio controlador de la
+    // vista maneja el envío (botón "Continuar con recarga"), así que aquí NO lo
+    // duplicamos: solo cubrimos recargas disparadas desde otras páginas.
+    if (page() !== "billetera" && /^(confirmar recarga|añadir saldo)/.test(txt)) {
+      ev.preventDefault();
+      const monto = Utils.num(st.customAmount || st.rechargeAmount || 50);
+      const metodo = st.activePayMethod || st.method || "binance";
+      try {
+        await Commerce.Wallet.solicitarRecarga({ monto, metodo_pago: metodo, comprobante: window.__NV_COMPROBANTE || "" });
+        NV.toast(`Recarga de ${Utils.formatear(monto, "USD")} solicitada`, "rgba(0,212,160,0.55)");
+      } catch (e) { NV.toast("No se pudo solicitar la recarga", "rgba(255,68,102,0.5)"); }
+      return;
+    }
+
+    // Aprobar / rechazar en el admin (fila con data-order-id).
+    if (page() === "admin") {
+      const row = btn.closest("[data-order-id]");
+      const id = row && row.getAttribute("data-order-id");
+      if (id && /aprobar/.test(txt)) {
+        ev.preventDefault();
+        const link = await NV.admin.Pedidos.aprobar(id);
+        NV.toast("Pedido aprobado ✓", "rgba(0,212,160,0.5)");
+        if (link) window.open(link, "_blank");
+        return;
+      }
+      if (id && /rechazar/.test(txt)) {
+        ev.preventDefault();
+        await NV.admin.Pedidos.rechazar(id);
+        NV.toast("Pedido rechazado", "rgba(255,176,32,0.5)");
+        return;
+      }
+    }
+  }, false);
+}
+
+/* ─────────────────────  SEEDER (Back Office)  ───────────────── */
+// Botón flotante en el admin para completar la base de datos en PostgreSQL.
+function wireSeeder() {
+  if (page() !== "admin") return;
+  // Precarga el seeder para exponer window.NVSeeder desde el arranque.
+  import("./seeder.js").catch(() => {});
+
+  // Launcher del módulo de Automatización de Credenciales (OTP).
+  const otp = document.createElement("a");
+  otp.href = "credenciales.html";
+  otp.textContent = "🔑 Credenciales OTP";
+  otp.title = "Módulo de automatización de códigos (Telegram/WhatsApp)";
+  otp.style.cssText = "position:fixed;left:16px;bottom:60px;z-index:99998;padding:10px 16px;border-radius:10px;font:600 12.5px/1 'DM Sans',sans-serif;color:#fff;text-decoration:none;background:linear-gradient(135deg,#5510BB,#9B3FFF);box-shadow:0 8px 26px rgba(155,63,255,0.35);";
+  document.body.appendChild(otp);
+
+  const btn = document.createElement("button");
+  btn.textContent = "⛁ Completar base de datos";
+  btn.title = "Escribe todas las colecciones del seed en PostgreSQL (idempotente)";
+  btn.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:99998;padding:10px 16px;border-radius:10px;font:600 12.5px/1 'DM Sans',sans-serif;color:#02040c;background:linear-gradient(135deg,#00d2ff,#00ffcc);border:none;cursor:pointer;box-shadow:0 8px 26px rgba(0,210,255,0.35);";
+  btn.addEventListener("click", async () => {
+    if (!NVCore.online) { NV.toast("Firebase no disponible (offline)", "rgba(255,176,32,0.5)"); return; }
+    btn.disabled = true; btn.textContent = "Sembrando…";
+    try {
+      const { sembrarTodo } = await import("./seeder.js");
+      const res = await sembrarTodo((coll, n, tot) => { btn.textContent = `Sembrando ${coll} (${n}/${tot})`; });
+      const total = Object.values(res).reduce((a, b) => a + b, 0);
+      NV.toast(`Base de datos completada: ${total} documentos`, "rgba(0,212,160,0.55)");
+    } catch (e) { NV.toast("Error al sembrar: " + (e.message || e), "rgba(255,68,102,0.5)"); }
+    btn.disabled = false; btn.textContent = "⛁ Completar base de datos";
+  });
+  document.body.appendChild(btn);
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+else boot();

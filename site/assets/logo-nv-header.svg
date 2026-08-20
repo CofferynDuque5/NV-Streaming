@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 46" width="190" height="46" role="img" aria-label="NV Streaming">
+  <defs>
+    <linearGradient id="hBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#16205e"/><stop offset="55%" stop-color="#0a0a22"/><stop offset="100%" stop-color="#241046"/>
+    </linearGradient>
+    <linearGradient id="hBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#9fe9ff"/><stop offset="100%" stop-color="#0a3aae"/></linearGradient>
+    <linearGradient id="hPurple" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7ad0ff"/><stop offset="100%" stop-color="#bc00dd"/></linearGradient>
+    <linearGradient id="hOrbit" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#00d2ff"/><stop offset="100%" stop-color="#ff30a0"/></linearGradient>
+    <linearGradient id="hWord" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#eaf3ff"/><stop offset="100%" stop-color="#b98cff"/></linearGradient>
+  </defs>
+  <!-- Emblema -->
+  <g transform="translate(2,3)">
+    <rect x="0" y="0" width="40" height="40" rx="11" fill="url(#hBg)" stroke="rgba(110,130,255,0.35)"/>
+    <ellipse cx="20" cy="22" rx="17" ry="7" fill="none" stroke="url(#hOrbit)" stroke-width="1.6" transform="rotate(-18 20 22)"/>
+    <path d="M8 31 L8 11 L13 11 L20 22 L20 11 L20 31 L15 31 L8 20 Z" fill="url(#hBlue)"/>
+    <path d="M21 11 L26 11 L30 24 L34 11 L36 11 L29 31 L26 31 Z" fill="url(#hPurple)"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="50" y="22" fill="url(#hWord)" font-family="'Orbitron','Syne',sans-serif" font-size="15" font-weight="800" letter-spacing="0.5">NV STREAMING</text>
+  <text x="50" y="35" fill="rgba(0,207,255,0.62)" font-family="'JetBrains Mono',monospace" font-size="7" font-weight="600" letter-spacing="2.4">NATHAN Y VALERYN</text>
+</svg>

@@ -1,0 +1,99 @@
+rules_version = '2';
+// ============================================================================
+// NV Streaming — Reglas de seguridad de Firestore (base `default`).
+// Endurecidas para producción v1.0 (release audit 2026-08).
+//
+// Cambios de seguridad respecto al borrador anterior:
+//  1. usuarios: el dueño ya NO puede modificar rol / saldoBilletera / permisos
+//     (cierra la escalada de privilegios a admin y la auto-recarga de saldo).
+//  2. chats_soporte: deja de ser público total; exige autenticación.
+//  3. flyers_revendedores: escritura solo admin (antes: cualquier autenticado).
+//  4. creación de pedidos/recargas/comentarios/tickets: exige autenticación
+//     (antes: `if true`, abierto a spam/forjado anónimo).
+//
+// El rol se determina por el campo `usuarios/{uid}.rol` == 'admin' | 'operador'.
+// El backend (Cloud Functions con Admin SDK) IGNORA estas reglas.
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function esAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+    function esOperador() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['admin', 'operador'];
+    }
+    function esDueno(uid) { return request.auth != null && request.auth.uid == uid; }
+    function autenticado() { return request.auth != null; }
+
+    // Campos que un cliente NUNCA puede tocar en su propio documento.
+    function noTocaCamposSensibles() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['rol', 'saldoBilletera', 'saldo', 'permisos', 'es_admin', 'isAdmin', 'esAdmin']);
+    }
+
+    // ── Catálogo y configuración pública: lectura libre, escritura solo admin ──
+    // (No guardes secretos en configuracion_sistema / metodos_pago_config: son de lectura pública.)
+    match /servicios_sistema/{doc}      { allow read: if true; allow write: if esAdmin(); }
+    match /ofertas/{doc}                { allow read: if true; allow write: if esAdmin(); }
+    match /combos_suscripciones/{doc}   { allow read: if true; allow write: if esAdmin(); }
+    match /carteleras_estrenos/{doc}    { allow read: if true; allow write: if esAdmin(); }
+    match /banners_posiciones/{doc}     { allow read: if true; allow write: if esAdmin(); }
+    match /tarjetas_header/{doc}        { allow read: if true; allow write: if esAdmin(); }
+    match /metodos_pago_config/{doc}    { allow read: if true; allow write: if esAdmin(); }
+    match /preguntas_frecuentes/{doc}   { allow read: if true; allow write: if esAdmin(); }
+    match /configuracion_sistema/{doc}  { allow read: if true; allow write: if esAdmin(); }
+    match /plataformas/{doc}            { allow read: if true; allow write: if esAdmin(); }
+    match /comentarios/{doc}            { allow read: if true; allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /respuestas_rapidas/{doc}     { allow read: if autenticado(); allow write: if esAdmin(); }
+
+    // ── Pedidos y recargas: el cliente autenticado crea; el admin gestiona ──
+    match /pedidos/{doc}                { allow read: if esAdmin() || esDueno(resource.data.uid_cliente); allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /recargas/{doc}               { allow read: if esAdmin(); allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /recargas_billetera/{doc}     { allow read: if esAdmin() || esDueno(resource.data.uid_usuario); allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /historial_movimientos/{doc}  { allow read: if esAdmin(); allow write: if esAdmin(); }
+
+    // ── Cuentas de usuario ──
+    // El dueño puede editar su perfil PERO no rol/saldo/permisos (anti-escalada).
+    // En creación, el rol solo puede ser 'cliente' (o ausente): nadie se auto-nombra admin.
+    match /usuarios/{uid} {
+      allow read:   if esAdmin() || esDueno(uid);
+      allow create: if esDueno(uid)
+                    && (!('rol' in request.resource.data) || request.resource.data.rol == 'cliente')
+                    && (!('saldoBilletera' in request.resource.data) || request.resource.data.saldoBilletera == 0);
+      allow update: if esAdmin() || (esDueno(uid) && noTocaCamposSensibles());
+      allow delete: if esAdmin();
+    }
+
+    // ── Suscripciones / inventario / renovaciones: gestión interna ──
+    match /suscripciones/{doc}          { allow read: if autenticado(); allow write: if esAdmin(); }
+    match /inventario/{doc}             { allow read: if esAdmin(); allow write: if esAdmin(); }
+    match /renovaciones_pendientes/{doc}{ allow read: if esAdmin(); allow write: if esAdmin(); }
+
+    // ── Soporte y notificaciones ──
+    // chats_soporte: los documentos NO llevan campo de dueño (mensajes[] con
+    // `remitente`), así que no se puede acotar por usuario en reglas puras.
+    // Mínimo seguro: exigir autenticación (cierra la fuga pública anónima).
+    // Endurecimiento adicional recomendado (v1.1): añadir `uid` al documento de
+    // chat y acotar read/update a esAdmin() || esDueno(resource.data.uid).
+    match /chats_soporte/{doc}          { allow read, create, update: if autenticado(); allow delete: if esAdmin(); }
+    match /tickets_soporte/{doc}        { allow read: if autenticado(); allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /notificaciones/{doc}         { allow read: if autenticado(); allow write: if esAdmin(); }
+    match /notificaciones_admin/{doc}   { allow read: if esAdmin(); allow create: if autenticado(); allow update, delete: if esAdmin(); }
+    match /flyers_revendedores/{doc}    { allow read: if autenticado(); allow write: if esAdmin(); }
+
+    // ── Módulo OTP / automatización de credenciales ──
+    match /plantillas_permisos/{doc}    { allow read: if esOperador(); allow write: if esAdmin(); }
+    // Los códigos OTP los escribe el backend (Cloud Function con Admin SDK).
+    // Desde el cliente: solo operadores/admin.
+    match /codigos_verificacion/{doc}   { allow read: if esOperador(); allow create, update: if esOperador(); allow delete: if esAdmin(); }
+
+    // ── Editor de layout (persistencia del Back Office) ──
+    match /paginas_layout/{doc}         { allow read: if true; allow write: if esAdmin(); }
+
+    // Todo lo no declarado: denegado.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

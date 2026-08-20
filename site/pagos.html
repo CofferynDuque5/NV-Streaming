@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Pagos — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="pagos">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#07070E;color:#F0F0FA;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:2px;}
+    input::placeholder{color:rgba(240,240,250,0.28);}
+    input:focus{outline:none;}
+  </style>
+</helmet>
+
+<!-- ══ HEADER · INDEX STYLE ══ -->
+<header style="position:relative;border-bottom:1px solid rgba(80,100,200,0.14);padding:0 48px;height:64px;display:flex;align-items:center;justify-content:space-between;background:rgba(4,4,12,0.96);">
+  <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.3),rgba(155,63,255,0.2),transparent);pointer-events:none;"></div>
+  <a href="index.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex-shrink:0;cursor:pointer;">
+    <div style="position:relative;width:38px;height:38px;flex-shrink:0;border-radius:11px;background:linear-gradient(150deg,#16205e,#0a0a22 55%,#241046);border:1px solid rgba(110,130,255,0.28);box-shadow:0 6px 16px rgba(0,40,150,0.35),inset 0 1px 0 rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;overflow:hidden;"><div style="position:absolute;top:-32%;right:-18%;width:72%;height:72%;background:radial-gradient(circle,rgba(0,175,255,0.42),transparent 70%);pointer-events:none;"></div><svg width="38" height="38" viewBox="0 0 38 38" style="position:absolute;inset:0;pointer-events:none;opacity:0.5;"><ellipse cx="19" cy="19" rx="16.0" ry="6.5" fill="none" stroke="rgba(0,207,255,0.5)" stroke-width="0.9" transform="rotate(-30 19 19)"/><circle cx="5.9" cy="12.5" r="1.5" fill="#00DFFF"/></svg><span style="position:relative;z-index:1;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:-0.02em;background:linear-gradient(135deg,#9fe9ff,#b98cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">NV</span></div>
+    <div style="line-height:1;">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:0.01em;color:#EEF2FF;">NV</div>
+      <div style="font-size:8.5px;letter-spacing:0.18em;color:rgba(0,207,255,0.5);font-weight:500;font-family:'JetBrains Mono',monospace;margin-top:1px;">STREAMING</div>
+    </div>
+  </a>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span style="font-size:12px;color:rgba(200,215,255,0.45);">Pago seguro · SSL encriptado</span>
+  </div>
+  <a href="catalogo.html" style="font-size:13px;color:rgba(200,215,255,0.4);text-decoration:none;display:flex;align-items:center;gap:5px;cursor:pointer;" style-hover="color:#EEF2FF;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>Volver al catálogo
+  </a>
+</header>
+
+<!-- ══ PROGRESS STEPPER ══ -->
+<div style="border-bottom:1px solid rgba(255,255,255,0.05);padding:0 48px;background:#0D0D1B;">
+  <div style="max-width:900px;margin:0 auto;padding:18px 0;display:flex;align-items:center;gap:0;">
+    <!-- Step 1: Carrito (done) -->
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:26px;height:26px;border-radius:50%;background:#7B66FF;display:flex;align-items:center;justify-content:center;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <span style="font-size:13px;color:rgba(240,240,250,0.55);font-weight:400;">Carrito</span>
+    </div>
+    <div style="flex:1;height:1px;background:linear-gradient(90deg,#7B66FF,rgba(123,102,255,0.3));margin:0 16px;"></div>
+    <!-- Step 2: Pago (active) -->
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:26px;height:26px;border-radius:50%;background:#7B66FF;border:2px solid rgba(123,102,255,0.4);box-shadow:0 0 0 4px rgba(123,102,255,0.12);display:flex;align-items:center;justify-content:center;">
+        <div style="width:8px;height:8px;background:white;border-radius:50%;"></div>
+      </div>
+      <span style="font-size:13px;color:#F0F0FA;font-weight:600;">Pago</span>
+    </div>
+    <div style="flex:1;height:1px;background:rgba(255,255,255,0.08);margin:0 16px;"></div>
+    <!-- Step 3: Confirmación (pending) -->
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:26px;height:26px;border-radius:50%;background:transparent;border:1px solid rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;"><span style="font-size:11px;color:rgba(240,240,250,0.3);font-family:'JetBrains Mono',monospace;">3</span></div>
+      <span style="font-size:13px;color:rgba(240,240,250,0.35);">Confirmación</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN CONTENT ══ -->
+<div style="max-width:900px;margin:0 auto;padding:40px 48px 80px;display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:start;">
+
+  <!-- LEFT: PAYMENT FORM -->
+  <div>
+    <!-- Section: Contact -->
+    <div style="margin-bottom:28px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;margin-bottom:16px;">Información de contacto</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div>
+          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Nombre</label>
+          <input type="text" value="Juan" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:#F0F0FA;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Apellido</label>
+          <input type="text" value="Pérez" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:#F0F0FA;" />
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Correo electrónico</label>
+        <input type="email" value="juan@ejemplo.com" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:#F0F0FA;" />
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:28px;"></div>
+
+    <!-- Section: Payment method -->
+    <div style="margin-bottom:24px;">
+      <h2 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#F0F0FA;letter-spacing:-0.01em;margin-bottom:16px;">Método de pago</h2>
+      <!-- Method selector grid -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:20px;">
+        <sc-for list="{{ methods }}" as="m" hint-placeholder-count="6">
+          <button onClick="{{ m.select }}" style="padding:13px 14px;background:{{ m.active ? 'rgba(0,207,255,0.06)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ m.active ? 'rgba(0,207,255,0.4)' : 'rgba(255,255,255,0.09)' }};border-radius:9px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.16s;position:relative;box-shadow:{{ m.active ? '0 0 0 3px rgba(0,207,255,0.1)' : 'none' }};text-align:left;" style-hover="border-color:rgba(0,207,255,0.28);background:rgba(255,255,255,0.055);">
+            <div style="width:38px;height:38px;border-radius:9px;background:{{ m.iconBg }};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">{{ m.emoji }}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;color:{{ m.active ? '#F0F0FA' : 'rgba(240,240,250,0.75)' }};font-weight:{{ m.active ? '600' : '500' }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.name }}</div>
+              <div style="font-size:11px;color:rgba(240,240,250,0.4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ m.desc }}</div>
+            </div>
+            <div style="width:18px;height:18px;border-radius:50%;border:1.5px solid {{ m.active ? '#00CFFF' : 'rgba(255,255,255,0.2)' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:{{ m.active ? '#00CFFF' : 'transparent' }};">
+              <sc-if value="{{ m.active }}" hint-placeholder-val="{{ false }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#04040C" stroke-width="3.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+            </div>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- CARD form -->
+      <sc-if value="{{ isCard }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Número de tarjeta</label>
+          <div style="position:relative;">
+            <input type="text" value="4242 4242 4242 4242" style="width:100%;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.35);border-radius:9px;padding:11px 46px 11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;box-shadow:0 0 0 3px rgba(0,207,255,0.1);letter-spacing:0.05em;" />
+            <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;gap:4px;">
+              <div style="width:24px;height:16px;background:linear-gradient(135deg,#eb001b,#f79e1b);border-radius:3px;opacity:0.7;"></div>
+              <div style="width:24px;height:16px;background:linear-gradient(135deg,#1434CB,#0a8fdc);border-radius:3px;opacity:0.7;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="grid-column:span 2;">
+            <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Fecha de vencimiento</label>
+            <input type="text" value="12 / 27" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">CVV</label>
+            <input type="password" value="123" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;" />
+          </div>
+        </div>
+        <div>
+          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Nombre en la tarjeta</label>
+          <input type="text" placeholder="JUAN PÉREZ" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;letter-spacing:0.04em;" />
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- MANUAL method: deposit details + comprobante upload -->
+      <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <!-- Deposit details -->
+        <div style="background:rgba(0,207,255,0.04);border:1px solid rgba(0,207,255,0.16);border-radius:11px;padding:15px 17px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
+            <span style="font-size:13px;font-weight:600;color:#EEF2FF;">Datos para {{ manualTitle }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <sc-for list="{{ manualLines }}" as="ln" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.14);border-radius:8px;">
+                <span style="font-size:11.5px;color:rgba(200,215,255,0.5);">{{ ln.label }}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ ln.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- Comprobante upload -->
+        <div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:rgba(240,240,250,0.6);margin-bottom:8px;font-weight:500;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFB020" stroke-width="1.6" stroke-linecap="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4m0 4h.01"/></svg>
+            Sube tu comprobante de pago <span style="color:#FF3E6C;">*</span>
+          </label>
+          <!-- No file yet -->
+          <sc-if value="{{ noFile }}" hint-placeholder-val="{{ true }}">
+            <label style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 20px;background:rgba(255,255,255,0.025);border:2px dashed rgba(0,207,255,0.28);border-radius:12px;cursor:pointer;text-align:center;transition:all 0.15s;" style-hover="border-color:rgba(0,207,255,0.5);background:rgba(0,207,255,0.04);">
+              <div style="width:48px;height:48px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.2);border-radius:13px;display:flex;align-items:center;justify-content:center;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13.5px;color:#EEF2FF;font-weight:500;margin-bottom:3px;">Arrastra o selecciona la captura</div>
+                <div style="font-size:12px;color:rgba(200,215,255,0.4);">JPG, PNG o PDF · máx 10MB</div>
+              </div>
+              <input type="file" accept="image/*,application/pdf" onChange="{{ onFile }}" style="display:none;" />
+            </label>
+          </sc-if>
+          <!-- File uploaded -->
+          <sc-if value="{{ hasFile }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(0,212,160,0.06);border:1px solid rgba(0,212,160,0.25);border-radius:11px;">
+              <div style="width:40px;height:40px;background:rgba(0,212,160,0.12);border:1px solid rgba(0,212,160,0.25);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.6" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;color:#EEF2FF;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ fileName }}</div>
+                <div style="font-size:11.5px;color:#00D4A0;margin-top:2px;">Comprobante cargado · listo para verificar</div>
+              </div>
+              <button onClick="{{ clearFile }}" style="background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);padding:4px;flex-shrink:0;" style-hover="color:#FF3E6C;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </sc-if>
+          <p style="font-size:11.5px;color:rgba(200,215,255,0.35);margin-top:9px;line-height:1.5;">Verificaremos tu comprobante y activaremos el servicio en pocos minutos. Recibirás confirmación por correo.</p>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:28px;"></div>
+
+    <!-- Wallet balance option -->
+    <div style="background:rgba(123,102,255,0.06);border:1px solid rgba(123,102,255,0.18);border-radius:12px;padding:16px 18px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;background:rgba(123,102,255,0.12);border:1px solid rgba(123,102,255,0.25);border-radius:9px;display:flex;align-items:center;justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7B66FF" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M12 12h.01M8 12h.01"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13.5px;font-weight:500;color:#F0F0FA;">Usar saldo del Wallet</div>
+          <div style="font-size:12px;color:#9D8DFF;margin-top:1px;">Saldo disponible: <span style="font-family:'JetBrains Mono',monospace;font-weight:500;">$25.00</span></div>
+        </div>
+      </div>
+      <!-- Toggle -->
+      <div style="width:44px;height:24px;background:#7B66FF;border-radius:100px;position:relative;cursor:pointer;box-shadow:0 2px 8px rgba(123,102,255,0.3);">
+        <div style="position:absolute;right:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+      </div>
+    </div>
+
+    <!-- Terms -->
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:24px;">
+      <div style="width:16px;height:16px;background:#7B66FF;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;cursor:pointer;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </div>
+      <p style="font-size:12.5px;color:rgba(240,240,250,0.45);line-height:1.55;font-weight:300;">Acepto los <a style="color:#7B66FF;text-decoration:none;cursor:pointer;" style-hover="color:#9D8DFF;">Términos de Servicio</a> y la <a style="color:#7B66FF;text-decoration:none;cursor:pointer;" style-hover="color:#9D8DFF;">Política de Privacidad</a> de NV Streaming. Entiendo que mi suscripción se renovará automáticamente.</p>
+    </div>
+
+    <!-- Submit button -->
+    <button style="width:100%;padding:15px;background:#7B66FF;color:white;border:none;border-radius:11px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 8px 28px rgba(123,102,255,0.38);letter-spacing:-0.01em;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s;" style-hover="background:#9D8DFF;box-shadow:0 12px 36px rgba(123,102,255,0.45);">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Confirmar pago — $7.99
+    </button>
+    <p style="text-align:center;font-size:12px;color:rgba(240,240,250,0.3);margin-top:12px;">Tu tarjeta no será cobrada hasta confirmar la orden</p>
+  </div>
+
+  <!-- RIGHT: ORDER SUMMARY -->
+  <div style="position:sticky;top:80px;">
+    <div style="background:#111120;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+      <!-- Header -->
+      <div style="padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <h3 style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#F0F0FA;">Resumen de orden</h3>
+      </div>
+      <!-- Item -->
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="width:44px;height:44px;background:linear-gradient(135deg,#1a0a2e,#6a1a8a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:white;flex-shrink:0;">N</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;color:#F0F0FA;">Netflix Premium</div>
+            <div style="font-size:12px;color:rgba(240,240,250,0.4);margin-top:2px;">Plan mensual · 4K · 4 pantallas</div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(240,240,250,0.7);font-weight:500;">$9.99</div>
+        </div>
+        <!-- Coupon code -->
+        <div style="display:flex;gap:8px;">
+          <input type="text" placeholder="Código de descuento" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:rgba(240,240,250,0.65);outline:none;caret-color:#7B66FF;" />
+          <button style="padding:9px 14px;background:rgba(123,102,255,0.1);border:1px solid rgba(123,102,255,0.22);border-radius:8px;color:#9D8DFF;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;" style-hover="background:#7B66FF;color:white;">Aplicar</button>
+        </div>
+      </div>
+      <!-- Price breakdown -->
+      <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="display:flex;flex-direction:column;gap:9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:rgba(240,240,250,0.5);">Subtotal</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(240,240,250,0.65);">$9.99</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:#00C896;">Descuento NV</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#00C896;">−$2.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:#9D8DFF;">Saldo Wallet</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#9D8DFF;">−$0.00</span>
+          </div>
+        </div>
+      </div>
+      <!-- Total -->
+      <div style="padding:16px 20px 20px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
+          <span style="font-size:14px;font-weight:600;color:#F0F0FA;">Total hoy</span>
+          <div style="text-align:right;">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;color:#7B66FF;letter-spacing:-0.01em;">$7.99</div>
+            <div style="font-size:11px;color:rgba(240,240,250,0.35);margin-top:1px;">luego $9.99/mes</div>
+          </div>
+        </div>
+        <!-- Trust badges -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:4px;padding:5px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00C896" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-size:11px;color:rgba(240,240,250,0.4);">SSL</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;padding:5px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#7B66FF" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+            <span style="font-size:11px;color:rgba(240,240,250,0.4);">Inmediato</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;padding:5px 9px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFB000" stroke-width="1.5" stroke-linecap="round"><path d="M9 14 4 9l5-5M15 10l5 5-5 5"/></svg>
+            <span style="font-size:11px;color:rgba(240,240,250,0.4);">Cancelable</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next renewal notice -->
+    <div style="margin-top:10px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:flex-start;gap:8px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.35)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
+      <p style="font-size:11.5px;color:rgba(240,240,250,0.4);line-height:1.55;font-weight:300;">Tu próxima factura será el <strong style="color:rgba(240,240,250,0.6);">15 Feb 2025</strong> por $9.99. Puedes cancelar en cualquier momento desde tu cuenta.</p>
+    </div>
+  </div>
+</div>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = { method: 'tarjeta', fileName: '' };
+
+  onFile(e) {
+    const f = e && e.target && e.target.files && e.target.files[0];
+    if (f) this.setState({ fileName: f.name });
+  }
+
+  renderVals() {
+    const cur = this.state.method;
+    const DETAILS = {
+      movil: { title:'Pago Móvil', lines:[
+        { label:'Banco', value:'Banesco · 0134' },
+        { label:'Teléfono', value:'0412-555-6677' },
+        { label:'Cédula/RIF', value:'V-12.345.678' },
+        { label:'Monto exacto', value:'$7.99' },
+      ]},
+      zelle: { title:'Zelle', lines:[
+        { label:'Correo Zelle', value:'pagos@nvplatform.io' },
+        { label:'Titular', value:'NV Streaming LLC' },
+        { label:'Monto exacto', value:'$7.99' },
+      ]},
+      binance: { title:'Binance Pay', lines:[
+        { label:'Pay ID', value:'384 552 019' },
+        { label:'Red', value:'USDT · BEP20' },
+        { label:'Monto exacto', value:'7.99 USDT' },
+      ]},
+      transferencia: { title:'Transferencia', lines:[
+        { label:'Banco', value:'Mercantil · 0105' },
+        { label:'Cuenta', value:'0105-1234-5678-9012' },
+        { label:'Titular', value:'NV Streaming LLC' },
+        { label:'Monto exacto', value:'$7.99' },
+      ]},
+      paypal: { title:'PayPal', lines:[
+        { label:'Correo PayPal', value:'pagos@nvplatform.io' },
+        { label:'Tipo', value:'Amigos y familia' },
+        { label:'Monto exacto', value:'$7.99' },
+      ]},
+    };
+    const mk = (id, name, emoji, iconBg, iconBorder, desc) => ({
+      id, name, emoji, iconBg, iconBorder, desc, active: cur === id,
+      select: () => this.setState({ method: id }),
+    });
+    const methods = [
+      mk('tarjeta','Tarjeta','💳','rgba(0,207,255,0.12)','rgba(0,207,255,0.28)','Visa · Mastercard'),
+      mk('movil','Pago Móvil','📱','rgba(0,180,255,0.14)','rgba(0,180,255,0.28)','Venezuela · instantáneo'),
+      mk('binance','Binance','🔶','rgba(240,185,11,0.14)','rgba(240,185,11,0.3)','USDT · cripto'),
+      mk('zelle','Zelle','💵','rgba(108,51,255,0.14)','rgba(108,51,255,0.3)','Transferencia USD'),
+      mk('transferencia','Transferencia','🏦','rgba(0,212,160,0.12)','rgba(0,212,160,0.28)','Banco nacional'),
+      mk('paypal','PayPal','🅿️','rgba(0,48,135,0.18)','rgba(0,80,200,0.32)','Internacional'),
+    ];
+    const det = DETAILS[cur] || DETAILS.movil;
+    const isManual = cur !== 'tarjeta';
+    return {
+      methods,
+      isCard: cur === 'tarjeta',
+      isManual,
+      manualTitle: det.title,
+      manualLines: det.lines,
+      fileName: this.state.fileName,
+      hasFile: !!this.state.fileName,
+      noFile: !this.state.fileName,
+      onFile: (e) => this.onFile(e),
+      clearFile: () => this.setState({ fileName: '' }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

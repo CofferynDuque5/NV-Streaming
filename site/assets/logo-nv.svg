@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640" role="img" aria-label="NV Streaming — Nathan y Valeryn Streaming">
+  <defs>
+    <radialGradient id="nvSpace" cx="50%" cy="38%" r="72%">
+      <stop offset="0%" stop-color="#0a0f2a"/>
+      <stop offset="55%" stop-color="#05060f"/>
+      <stop offset="100%" stop-color="#020208"/>
+    </radialGradient>
+    <radialGradient id="nvNebulaBlue" cx="18%" cy="52%" r="40%">
+      <stop offset="0%" stop-color="#0b64c8" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0b64c8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nvNebulaMag" cx="84%" cy="50%" r="42%">
+      <stop offset="0%" stop-color="#b0179f" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#b0179f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nvPlanet" cx="42%" cy="34%" r="70%">
+      <stop offset="0%" stop-color="#20304f"/>
+      <stop offset="70%" stop-color="#0a1020"/>
+      <stop offset="100%" stop-color="#05070f"/>
+    </radialGradient>
+    <linearGradient id="nvBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#9fe9ff"/>
+      <stop offset="42%" stop-color="#2aa8ff"/>
+      <stop offset="100%" stop-color="#0a3aae"/>
+    </linearGradient>
+    <linearGradient id="nvPurple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7ad0ff"/>
+      <stop offset="45%" stop-color="#7a3cff"/>
+      <stop offset="100%" stop-color="#bc00dd"/>
+    </linearGradient>
+    <linearGradient id="nvOrbit" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="100%" stop-color="#ff30a0"/>
+    </linearGradient>
+    <linearGradient id="nvSub" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="55%" stop-color="#6aa8ff"/>
+      <stop offset="100%" stop-color="#bc00dd"/>
+    </linearGradient>
+    <filter id="nvGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fondo espacial + nebulosas -->
+  <rect width="640" height="640" fill="url(#nvSpace)"/>
+  <rect width="640" height="640" fill="url(#nvNebulaBlue)"/>
+  <rect width="640" height="640" fill="url(#nvNebulaMag)"/>
+
+  <!-- Estrellas -->
+  <g fill="#eaf4ff">
+    <circle cx="120" cy="96" r="2.2" opacity="0.9"/>
+    <circle cx="516" cy="120" r="1.8" opacity="0.8"/>
+    <circle cx="196" cy="150" r="1.3" opacity="0.6"/>
+    <circle cx="470" cy="210" r="1.5" opacity="0.7"/>
+    <circle cx="92" cy="250" r="1.4" opacity="0.6"/>
+    <circle cx="560" cy="300" r="1.6" opacity="0.7"/>
+    <circle cx="150" cy="470" r="1.6" opacity="0.6"/>
+    <circle cx="520" cy="470" r="1.4" opacity="0.6"/>
+  </g>
+
+  <!-- Planeta -->
+  <circle cx="330" cy="250" r="150" fill="url(#nvPlanet)"/>
+  <path d="M195 190 A150 150 0 0 1 470 205" fill="none" stroke="#4bd0ff" stroke-width="2" opacity="0.55"/>
+
+  <!-- Órbita elíptica cian→magenta -->
+  <g filter="url(#nvGlow)">
+    <ellipse cx="322" cy="330" rx="248" ry="96" fill="none" stroke="url(#nvOrbit)" stroke-width="4.5"
+             transform="rotate(-16 322 330)" opacity="0.95"/>
+  </g>
+  <circle cx="94" cy="360" r="5" fill="#00d2ff"/>
+  <circle cx="556" cy="300" r="5" fill="#ff30a0"/>
+
+  <!-- Monograma NV -->
+  <g stroke-linejoin="round">
+    <!-- N (azul) -->
+    <path d="M150 452 L150 214 L214 214 L300 356 L300 214 L300 452 L236 452 L150 310 Z"
+          fill="url(#nvBlue)" stroke="#bfefff" stroke-width="3"/>
+    <!-- V (púrpura) -->
+    <path d="M312 214 L376 214 L430 372 L484 214 L500 214 L410 452 L372 452 Z"
+          fill="url(#nvPurple)" stroke="#e3b8ff" stroke-width="3"/>
+  </g>
+
+  <!-- Wordmark STREAMING -->
+  <text x="320" y="536" text-anchor="middle" fill="#eef2ff"
+        font-family="'Orbitron','Syne',sans-serif" font-size="52" font-weight="800"
+        letter-spacing="18">STREAMING</text>
+
+  <!-- Divisor + punto -->
+  <line x1="150" y1="566" x2="490" y2="566" stroke="#274b7a" stroke-width="1.5"/>
+  <circle cx="320" cy="566" r="3.5" fill="#00d2ff"/>
+
+  <!-- Subtítulo -->
+  <text x="320" y="600" text-anchor="middle" fill="url(#nvSub)"
+        font-family="'JetBrains Mono','Inter',monospace" font-size="21" font-weight="600"
+        letter-spacing="6">NATHAN Y VALERYN STREAMING</text>
+</svg>

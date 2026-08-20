@@ -1,0 +1,26 @@
+{
+  "configuracion_sistema": [
+    { "id": "parametros", "tasa_bcv": 36.5, "moneda_base": "USD", "garantia_dias": 7, "whatsapp": "584160000000", "empresa": "NV Streaming" },
+    { "id": "tema_interfaz", "primario": "#0A3AAE", "acento": "#00CFFF", "acento2": "#9B3FFF" },
+    { "id": "plantillas_mensajes", "notificacion_pedido_aprobado": "¡Hola {{nombre}}! Tu pedido {{id_pedido}} fue aprobado. Credenciales: {{credenciales}}. Garantía {{dias_garantia}} días.", "notificacion_pedido_rechazado": "Hola {{nombre}}, tu pedido {{id_pedido}} no pudo validarse. Escríbenos para ayudarte." }
+  ],
+  "plataformas": [
+    { "id": "netflix", "nombre": "Netflix", "categoria": "STREAMING", "orden": 1 },
+    { "id": "spotify", "nombre": "Spotify", "categoria": "MUSICA", "orden": 2 },
+    { "id": "disney", "nombre": "Disney+", "categoria": "STREAMING", "orden": 3 },
+    { "id": "chatgpt", "nombre": "ChatGPT", "categoria": "IA", "orden": 4 }
+  ],
+  "metodos_pago_config": [
+    { "id": "pago_movil_bdv", "tipo_banco": "Banco de Venezuela", "tipo": "pago_movil", "titular": "", "documento_identidad": "", "telefono_pago": "", "estado_activo": true, "orden": 1, "instrucciones": "Realiza el Pago Móvil y sube el comprobante." },
+    { "id": "binance_pay", "tipo_banco": "Binance Pay", "tipo": "crypto", "titular": "", "correo_binance": "", "estado_activo": true, "orden": 2, "instrucciones": "Paga en USDT y sube el comprobante." },
+    { "id": "zelle", "tipo_banco": "Zelle", "tipo": "zelle", "titular": "", "correo_zelle": "", "estado_activo": true, "orden": 3, "instrucciones": "Transfiere por Zelle al correo indicado." }
+  ],
+  "preguntas_frecuentes": [
+    { "id": "faq_1", "pregunta": "¿Cuánto tarda la activación?", "respuesta": "La activación es inmediata tras validar tu pago.", "orden": 1 },
+    { "id": "faq_2", "pregunta": "¿Tienen garantía?", "respuesta": "Sí, todos los servicios incluyen garantía. Escríbenos si tienes cualquier problema.", "orden": 2 }
+  ],
+  "servicios_sistema": [
+    { "id": "ejemplo-netflix", "id_servicio": "ejemplo-netflix", "nombre_display": "EJEMPLO — Netflix (reemplázalo)", "descripcion": "4K · 4 pantallas", "categoria": "STREAMING", "precio": 9.99, "activo": true, "destacado": true, "orden": 1, "en_stock": true, "stock": 10 },
+    { "id": "ejemplo-spotify", "id_servicio": "ejemplo-spotify", "nombre_display": "EJEMPLO — Spotify (reemplázalo)", "descripcion": "Premium individual", "categoria": "MUSICA", "precio": 5.99, "activo": true, "destacado": false, "orden": 2, "en_stock": true, "stock": 8 }
+  ]
+}

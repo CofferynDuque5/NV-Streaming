@@ -1,0 +1,1848 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Back Office — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="admin">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;overflow:hidden;}
+    body{background:#04040C;color:#EEF2FF;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+    ::-webkit-scrollbar{width:5px;height:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:rgba(0,207,255,0.15);border-radius:3px;}
+    ::selection{background:rgba(0,207,255,0.22);}
+    @keyframes orbSpin{from{transform:rotateX(72deg) rotate(0deg);}to{transform:rotateX(72deg) rotate(360deg);}}
+    @keyframes glowPulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes paletteIn{from{opacity:0;transform:translateY(-12px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes backdropIn{from{opacity:0;}to{opacity:1;}}
+    @keyframes railFeed{0%{background-position:-300px 0;}100%{background-position:300px 0;}}
+    input::placeholder{color:rgba(160,185,240,0.32);}
+    input:focus{outline:none;}
+    a{color:#00CFFF;}a:hover{color:#00DFFF;}
+    .mod-tile{transition:transform 0.18s cubic-bezier(0.32,0.72,0,1),border-color 0.18s,box-shadow 0.18s,background 0.18s;}
+    .mod-tile:hover{transform:translateY(-3px);}
+    .mod-tile:hover .mod-arrow{transform:translateX(3px);opacity:1;}
+    .dock-item{transition:all 0.15s;}
+    .dock-item:hover .dock-tip{opacity:1;transform:translateX(0);}
+  </style>
+</helmet>
+
+<div style="display:flex;height:100vh;overflow:hidden;">
+
+  <!-- ══════════════ LEFT DOCK ══════════════ -->
+  <aside style="width:78px;background:#02020A;border-right:1px solid rgba(80,100,200,0.14);display:flex;flex-direction:column;align-items:center;padding:14px 0;flex-shrink:0;position:relative;z-index:30;">
+    <div style="position:absolute;top:0;left:0;bottom:0;width:1px;background:linear-gradient(180deg,transparent,rgba(0,207,255,0.28),rgba(155,63,255,0.16),transparent);pointer-events:none;"></div>
+
+    <!-- NV Orb -->
+    <div style="position:relative;width:42px;height:42px;margin-bottom:18px;flex-shrink:0;">
+      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:18px;background:linear-gradient(135deg,#00CFFF 30%,#9B3FFF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;z-index:2;">NV</span>
+      <div style="perspective:200px;position:absolute;inset:-5px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:52px;height:52px;border:1px solid rgba(0,223,255,0.5);border-radius:50%;animation:orbSpin 4s linear infinite;box-shadow:0 0 10px rgba(0,223,255,0.3);"></div>
+      </div>
+    </div>
+
+    <!-- Dock modules -->
+    <div style="display:flex;flex-direction:column;gap:5px;flex:1;width:100%;align-items:center;">
+      <sc-for list="{{ dock }}" as="d">
+        <div onClick="{{ d.onClick }}" class="dock-item" style="position:relative;width:48px;height:48px;border-radius:13px;background:{{ d.active ? d.accentSoft : 'transparent' }};border:1px solid {{ d.active ? d.accentLine : 'transparent' }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ d.active ? d.accent : 'rgba(200,215,255,0.5)' }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ d.icon }}</svg>
+          <span style="font-size:8px;font-weight:500;letter-spacing:0.02em;color:{{ d.active ? d.accent : 'rgba(200,215,255,0.4)' }};font-family:'DM Sans',sans-serif;">{{ d.short }}</span>
+          <sc-if value="{{ d.active }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:-14px;top:50%;transform:translateY(-50%);width:3px;height:22px;background:{{ d.accent }};border-radius:0 3px 3px 0;box-shadow:0 0 8px {{ d.accent }};"></div>
+          </sc-if>
+          <!-- Tooltip -->
+          <div class="dock-tip" style="position:absolute;left:60px;top:50%;transform:translateX(-6px) translateY(-50%);opacity:0;pointer-events:none;background:#0C0C26;border:1px solid rgba(80,100,200,0.25);border-radius:7px;padding:5px 10px;white-space:nowrap;z-index:50;box-shadow:0 8px 24px rgba(0,0,20,0.6);transition:all 0.15s;">
+            <span style="font-size:11.5px;color:#EEF2FF;font-weight:500;">{{ d.label }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Bottom: settings + admin -->
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:center;width:100%;flex-shrink:0;">
+      <div style="width:36px;height:1px;background:rgba(80,100,200,0.16);"></div>
+      <div class="dock-item" style="position:relative;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.5)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </div>
+      <div style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,#FF3E6C,#CC2244);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:white;cursor:pointer;box-shadow:0 4px 12px rgba(255,62,108,0.25);">A</div>
+    </div>
+  </aside>
+
+  <!-- ══════════════ MAIN ══════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;">
+
+    <!-- TOP BAR -->
+    <header style="height:58px;background:rgba(4,4,12,0.98);border-bottom:1px solid rgba(80,100,200,0.14);display:flex;align-items:center;padding:0 22px;gap:16px;flex-shrink:0;position:relative;z-index:20;">
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.25),rgba(155,63,255,0.18),transparent);pointer-events:none;"></div>
+
+      <!-- Breadcrumb -->
+      <div style="display:flex;align-items:center;gap:9px;flex-shrink:0;">
+        <span style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">NV OS</span>
+        <span style="color:rgba(160,185,240,0.28);font-size:14px;">/</span>
+        <span style="font-size:13.5px;color:rgba(200,215,255,0.55);font-weight:500;">{{ crumbLabel }}</span>
+        <div style="padding:2px 8px;background:rgba(0,207,255,0.07);border:1px solid rgba(0,207,255,0.16);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#00CFFF;letter-spacing:0.02em;">{{ moduleTotal }} módulos</div>
+      </div>
+
+      <!-- Command palette trigger -->
+      <button onClick="{{ openPalette }}" style="flex:1;max-width:440px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(255,255,255,0.035);border:1px solid rgba(80,100,200,0.18);border-radius:10px;cursor:pointer;transition:all 0.15s;" style-hover="border-color:rgba(0,207,255,0.3);background:rgba(0,207,255,0.04);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.4)" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        <span style="flex:1;text-align:left;font-size:13px;color:rgba(200,215,255,0.4);">Buscar módulos, acciones, usuarios…</span>
+        <kbd style="display:flex;align-items:center;gap:2px;padding:2px 7px;background:rgba(255,255,255,0.05);border:1px solid rgba(80,100,200,0.2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:rgba(200,215,255,0.5);">⌘K</kbd>
+      </button>
+
+      <!-- Right actions -->
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;background:{{ envBg }};border:1px solid {{ envBorder }};border-radius:8px;">
+          <div style="width:6px;height:6px;background:{{ envColor }};border-radius:50%;animation:glowPulse 2s ease-in-out infinite;box-shadow:0 0 5px {{ envColor }};"></div>
+          <span style="font-size:11.5px;color:{{ envColor }};font-weight:500;font-family:'JetBrains Mono',monospace;">{{ envLabel }}</span>
+        </div>
+        <div style="position:relative;">
+          <button onClick="{{ toggleNotif }}" style="position:relative;width:36px;height:36px;background:{{ notifOpen ? 'rgba(0,207,255,0.08)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ notifOpen ? 'rgba(0,207,255,0.28)' : 'rgba(80,100,200,0.16)' }};border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.25);background:rgba(0,207,255,0.05);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.6)" stroke-width="1.6" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <sc-if value="{{ hasNotif }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;background:#FF3E6C;border-radius:100px;border:2px solid #04040C;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:white;font-family:'JetBrains Mono',monospace;box-shadow:0 0 8px rgba(255,62,108,0.6);">{{ notifCount }}</div>
+            </sc-if>
+          </button>
+          <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeNotif }}" style="position:fixed;inset:0;z-index:70;"></div>
+            <div style="position:absolute;top:46px;right:0;z-index:71;width:372px;max-width:90vw;background:#0A0A1E;border:1px solid rgba(80,100,200,0.28);border-radius:14px;box-shadow:0 28px 70px rgba(0,0,25,0.8);overflow:hidden;animation:paletteIn 0.18s cubic-bezier(0.32,0.72,0,1);">
+              <div style="padding:14px 16px;border-bottom:1px solid rgba(80,100,200,0.14);display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#EEF2FF;">Notificaciones</span><span style="padding:1px 7px;background:rgba(255,62,108,0.12);border:1px solid rgba(255,62,108,0.25);border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#FF6B8B;">{{ notifCount }}</span></div>
+                <button onClick="{{ markAllRead }}" style="background:transparent;border:none;color:#00CFFF;font-size:11.5px;cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="color:#5FE3FF;">Marcar leídas</button>
+              </div>
+              <div style="max-height:400px;overflow-y:auto;">
+                <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="4">
+                  <div onClick="{{ n.onClick }}" style="display:flex;gap:11px;padding:12px 16px;border-bottom:1px solid rgba(80,100,200,0.08);cursor:pointer;" style-hover="background:rgba(255,255,255,0.03);">
+                    <div style="width:34px;height:34px;border-radius:9px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ n.icon }}</svg></div>
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12.5px;color:#EEF2FF;font-weight:500;margin-bottom:2px;">{{ n.title }}</div>
+                      <div style="font-size:11px;color:rgba(200,215,255,0.5);margin-bottom:3px;">{{ n.meta }}</div>
+                      <div style="font-size:10px;color:rgba(160,185,240,0.4);font-family:'JetBrains Mono',monospace;">{{ n.time }}</div>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.35)" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:2px;"><path d="M9 18l6-6-6-6"/></svg>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="padding:11px 16px;border-top:1px solid rgba(80,100,200,0.14);text-align:center;cursor:pointer;" style-hover="background:rgba(255,255,255,0.02);"><span style="font-size:11.5px;color:rgba(160,185,240,0.55);">Ver todo el historial</span></div>
+            </div>
+          </sc-if>
+        </div>
+        <button onClick="{{ toggleRail }}" style="width:36px;height:36px;background:{{ railOpen ? 'rgba(0,207,255,0.08)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ railOpen ? 'rgba(0,207,255,0.25)' : 'rgba(80,100,200,0.16)' }};border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.25);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ railOpen ? '#00CFFF' : 'rgba(200,215,255,0.6)' }}" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- BODY: launcher + rail -->
+    <div style="flex:1;display:flex;overflow:hidden;min-width:0;">
+
+      <!-- LAUNCHER SCROLL -->
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:22px 24px 60px;min-width:0;">
+
+        <!-- Hero line -->
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap;">
+          <div>
+            <div style="display:inline-flex;align-items:center;gap:7px;margin-bottom:9px;padding:4px 11px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:100px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              <span style="font-size:10.5px;color:#9B3FFF;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Back Office Modular</span>
+            </div>
+            <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;line-height:1;">{{ heroTitle }}</h1>
+            <p style="font-size:13.5px;color:rgba(200,215,255,0.45);margin-top:6px;font-weight:300;">Cada módulo es independiente y extensible · permisos y auditoría compartidos</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0;">
+            <button onClick="{{ openPalette }}" style="display:flex;align-items:center;gap:7px;padding:9px 15px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.75);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.25);color:#EEF2FF;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+              Comandos
+            </button>
+            <button style="display:flex;align-items:center;gap:7px;padding:9px 16px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:9px;color:white;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(155,63,255,0.28);" style-hover="box-shadow:0 6px 22px rgba(155,63,255,0.42);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Instalar módulo
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI strip (business) -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:26px;">
+          <sc-for list="{{ kpis }}" as="kpi" hint-placeholder-count="4">
+            <div style="background:#07071A;border:1px solid rgba(80,100,200,0.16);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,{{ kpi.accent }},transparent);opacity:0.5;"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+                <span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:500;">{{ kpi.label }}</span>
+                <div style="width:24px;height:24px;background:{{ kpi.iconBg }};border-radius:7px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ kpi.accent }}" stroke-width="1.6" stroke-linecap="round">{{ kpi.icon }}</svg>
+                </div>
+              </div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;color:#EEF2FF;line-height:1;margin-bottom:5px;">{{ kpi.value }}</div>
+              <div style="font-size:11px;color:{{ kpi.positive ? '#00D4A0' : '#FF3E6C' }};font-weight:500;">{{ kpi.arrow }} {{ kpi.delta }} <span style="color:rgba(160,185,240,0.38);font-weight:300;">{{ kpi.sub }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- MODULE GROUPS -->
+        <sc-for list="{{ visibleGroups }}" as="group" hint-placeholder-count="2">
+          <div style="margin-bottom:30px;">
+            <!-- Group header -->
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px;">
+              <div style="width:30px;height:30px;border-radius:9px;background:{{ group.accentSoft }};border:1px solid {{ group.accentLine }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ group.accent }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ group.icon }}</svg>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:9px;">
+                <h2 style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;">{{ group.label }}</h2>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(160,185,240,0.35);">{{ group.countLabel }}</span>
+              </div>
+              <div style="flex:1;height:1px;background:linear-gradient(90deg,{{ group.accentLine }},transparent);"></div>
+            </div>
+            <!-- Module tiles -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <sc-for list="{{ group.modules }}" as="mod" hint-placeholder-count="6">
+                <div onClick="{{ mod.onClick }}" class="mod-tile" style="background:#07071A;border:1px solid rgba(80,100,200,0.16);border-radius:14px;padding:16px;cursor:pointer;position:relative;overflow:hidden;" style-hover="border-color:{{ mod.accentLine }};background:#0A0A22;box-shadow:0 16px 40px rgba(0,0,25,0.5);">
+                  <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,{{ mod.accentLine }},transparent);opacity:0.5;pointer-events:none;"></div>
+                  <!-- Flagship glow -->
+                  <sc-if value="{{ mod.flagship }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;background:radial-gradient(circle,{{ mod.accentSoft }} 0%,transparent 65%);pointer-events:none;"></div>
+                  </sc-if>
+
+                  <!-- Top: icon + status -->
+                  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:13px;">
+                    <div style="width:42px;height:42px;border-radius:11px;background:{{ mod.accentSoft }};border:1px solid {{ mod.accentLine }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ mod.accent }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">{{ mod.icon }}</svg>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+                      <div style="display:flex;align-items:center;gap:5px;padding:2px 8px;background:{{ mod.tagBg }};border:1px solid {{ mod.tagBorder }};border-radius:5px;">
+                        <div style="width:5px;height:5px;background:{{ mod.tagColor }};border-radius:50%;box-shadow:0 0 4px {{ mod.tagColor }};"></div>
+                        <span style="font-size:9.5px;font-weight:600;color:{{ mod.tagColor }};font-family:'JetBrains Mono',monospace;letter-spacing:0.02em;">{{ mod.tag }}</span>
+                      </div>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(160,185,240,0.35);">{{ mod.version }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Name + desc -->
+                  <div style="font-family:'Syne',sans-serif;font-size:14.5px;font-weight:700;color:#EEF2FF;margin-bottom:4px;letter-spacing:-0.005em;">{{ mod.name }}</div>
+                  <p style="font-size:12px;color:rgba(200,215,255,0.45);line-height:1.5;font-weight:300;margin-bottom:13px;min-height:34px;">{{ mod.desc }}</p>
+
+                  <!-- Meta footer -->
+                  <sc-if value="{{ showModuleMeta }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:center;gap:8px;padding-top:11px;border-top:1px solid rgba(80,100,200,0.1);">
+                      <div style="display:flex;align-items:center;gap:4px;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.4)" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        <span style="font-size:10.5px;color:rgba(160,185,240,0.42);font-family:'JetBrains Mono',monospace;">{{ mod.scope }}</span>
+                      </div>
+                      <div style="width:3px;height:3px;background:rgba(80,100,200,0.35);border-radius:50%;"></div>
+                      <span style="font-size:11px;color:{{ mod.countColor }};font-weight:500;">{{ mod.count }}</span>
+                      <svg class="mod-arrow" style="margin-left:auto;opacity:0.4;transition:all 0.18s;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ mod.accent }}" stroke-width="1.8" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+
+        <!-- Extensibility banner -->
+        <div style="background:linear-gradient(135deg,rgba(0,60,180,0.1),rgba(155,0,255,0.06));border:1px solid rgba(80,100,200,0.2);border-radius:16px;padding:22px 26px;display:flex;align-items:center;justify-content:space-between;gap:20px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.3),rgba(155,63,255,0.2),transparent);pointer-events:none;"></div>
+          <div style="position:absolute;top:-60px;right:80px;width:200px;height:200px;background:radial-gradient(circle,rgba(155,63,255,0.08) 0%,transparent 65%);filter:blur(30px);pointer-events:none;"></div>
+          <div style="display:flex;align-items:center;gap:18px;">
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(155,63,255,0.1);border:1px solid rgba(155,63,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11v11h-11z" opacity="0.4"/><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/></svg>
+            </div>
+            <div>
+              <h3 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#EEF2FF;margin-bottom:4px;">Arquitectura extensible</h3>
+              <p style="font-size:13px;color:rgba(200,215,255,0.5);line-height:1.55;font-weight:300;max-width:520px;">Cada módulo se instala, versiona y actualiza de forma aislada. Añade nuevas funciones sin reescribir el panel — comparten permisos, auditoría y tokens de diseño.</p>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
+            <div style="display:flex;gap:14px;">
+              <div style="text-align:right;"><div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;color:#00CFFF;line-height:1;">{{ moduleTotal }}</div><div style="font-size:10px;color:rgba(160,185,240,0.4);margin-top:3px;">instalados</div></div>
+              <div style="width:1px;height:34px;background:rgba(80,100,200,0.2);"></div>
+              <div style="text-align:right;"><div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:500;color:#9B3FFF;line-height:1;">5</div><div style="font-size:10px;color:rgba(160,185,240,0.4);margin-top:3px;">disponibles</div></div>
+            </div>
+            <button style="padding:8px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(0,207,255,0.22);border-radius:8px;color:#00CFFF;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;cursor:pointer;" style-hover="background:rgba(0,207,255,0.08);">Explorar catálogo de módulos</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ RIGHT RAIL: shared systems ══ -->
+      <sc-if value="{{ railOpen }}" hint-placeholder-val="{{ true }}">
+        <aside style="width:328px;background:#050512;border-left:1px solid rgba(80,100,200,0.14);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;animation:fadeIn 0.2s ease-out;">
+
+          <!-- Permisos summary -->
+          <div style="padding:18px 18px 16px;border-bottom:1px solid rgba(80,100,200,0.1);flex-shrink:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.6" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#EEF2FF;">Permisos & Roles</span>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(160,185,240,0.4);">RBAC</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:7px;">
+              <sc-for list="{{ roles }}" as="role" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:rgba(255,255,255,0.025);border:1px solid rgba(80,100,200,0.1);border-radius:8px;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.18);background:rgba(0,207,255,0.03);">
+                  <div style="width:8px;height:8px;border-radius:50%;background:{{ role.color }};box-shadow:0 0 5px {{ role.color }};flex-shrink:0;"></div>
+                  <span style="font-size:12.5px;color:#EEF2FF;font-weight:500;flex:1;">{{ role.name }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(160,185,240,0.42);">{{ role.count }}</span>
+                  <span style="font-size:10px;color:{{ role.scopeColor }};padding:1px 6px;background:{{ role.scopeBg }};border-radius:4px;font-family:'JetBrains Mono',monospace;">{{ role.scope }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <button style="width:100%;margin-top:10px;padding:8px;background:rgba(0,212,160,0.06);border:1px solid rgba(0,212,160,0.18);border-radius:8px;color:#00D4A0;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;" style-hover="background:rgba(0,212,160,0.1);">Gestionar permisos por módulo</button>
+          </div>
+
+          <!-- Audit feed -->
+          <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
+            <div style="padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.6" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <span style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#EEF2FF;">Auditoría</span>
+                <div style="display:flex;align-items:center;gap:4px;padding:1px 6px;background:rgba(0,212,160,0.08);border:1px solid rgba(0,212,160,0.18);border-radius:100px;">
+                  <div style="width:4px;height:4px;background:#00D4A0;border-radius:50%;animation:glowPulse 1.5s ease-in-out infinite;"></div>
+                  <span style="font-size:9px;color:#00D4A0;font-family:'JetBrains Mono',monospace;">LIVE</span>
+                </div>
+              </div>
+              <a style="font-size:11px;color:rgba(0,207,255,0.7);cursor:pointer;text-decoration:none;">Ver todo</a>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:0 18px 18px;min-height:0;">
+              <div style="position:relative;">
+                <div style="position:absolute;left:13px;top:4px;bottom:8px;width:1px;background:linear-gradient(to bottom,rgba(0,207,255,0.25),rgba(80,100,200,0.08),transparent);"></div>
+                <sc-for list="{{ auditLog }}" as="log" hint-placeholder-count="6">
+                  <div style="display:flex;gap:12px;padding-bottom:15px;position:relative;">
+                    <div style="width:27px;height:27px;border-radius:8px;background:{{ log.iconBg }};border:1.5px solid {{ log.iconBorder }};display:flex;align-items:center;justify-content:center;flex-shrink:0;z-index:1;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ log.iconColor }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ log.icon }}</svg>
+                    </div>
+                    <div style="flex:1;min-width:0;padding-top:1px;">
+                      <div style="font-size:12px;color:#EEF2FF;line-height:1.4;"><span style="font-weight:600;">{{ log.actor }}</span> <span style="color:rgba(200,215,255,0.55);font-weight:300;">{{ log.action }}</span></div>
+                      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                        <span style="padding:1px 6px;background:{{ log.moduleBg }};border-radius:4px;font-size:9.5px;color:{{ log.moduleColor }};font-family:'JetBrains Mono',monospace;">{{ log.module }}</span>
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(160,185,240,0.3);">{{ log.time }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </sc-if>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ FULL MODULE WORKSPACE (NVDataTable) ══════════════ -->
+<sc-if value="{{ grid }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:80;background:#04040C;display:flex;flex-direction:column;overflow:hidden;animation:fadeIn 0.2s ease-out;">
+    <div style="height:2px;background:linear-gradient(90deg,transparent,{{ grid.accent }},rgba(155,63,255,0.4),transparent);flex-shrink:0;"></div>
+
+    <!-- Header row -->
+    <div style="height:60px;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid rgba(80,100,200,0.14);flex-shrink:0;background:rgba(6,6,20,0.6);">
+      <button onClick="{{ closeFull }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.75);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Módulos
+      </button>
+      <div style="width:36px;height:36px;border-radius:10px;background:{{ grid.accentSoft }};border:1px solid rgba(0,207,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ grid.accent }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ grid.icon }}</svg>
+      </div>
+      <h2 style="font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;flex-shrink:0;">{{ grid.title }}</h2>
+      <div style="padding:3px 10px;background:rgba(0,207,255,0.07);border:1px solid rgba(0,207,255,0.18);border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#00CFFF;flex-shrink:0;">{{ grid.total }} registros</div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <button onClick="{{ gImportToast }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:8px;color:rgba(200,215,255,0.75);font-size:12.5px;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Importar</button>
+        <button onClick="{{ gExportToast }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:8px;color:rgba(200,215,255,0.75);font-size:12.5px;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar</button>
+        <button onClick="{{ gNewToast }}" style="display:flex;align-items:center;gap:6px;padding:8px 15px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:8px;color:white;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(155,63,255,0.28);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nuevo</button>
+      </div>
+    </div>
+
+    <!-- Controls row -->
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid rgba(80,100,200,0.1);flex-shrink:0;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:9px;padding:8px 13px;background:rgba(255,255,255,0.035);border:1px solid rgba(80,100,200,0.18);border-radius:9px;width:280px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.45)" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" value="{{ gSearchVal }}" onChange="{{ onGSearch }}" placeholder="Buscar en todo…" style="flex:1;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:13px;color:#EEF2FF;caret-color:#00CFFF;" />
+      </div>
+      <div style="display:flex;gap:5px;">
+        <sc-for list="{{ grid.views }}" as="v" hint-placeholder-count="3">
+          <button onClick="{{ v.onClick }}" style="padding:7px 13px;background:{{ v.active ? 'rgba(0,207,255,0.1)' : 'rgba(255,255,255,0.03)' }};border:1px solid {{ v.active ? 'rgba(0,207,255,0.28)' : 'rgba(80,100,200,0.14)' }};border-radius:8px;color:{{ v.active ? '#00CFFF' : 'rgba(200,215,255,0.6)' }};font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;">{{ v.label }}</button>
+        </sc-for>
+      </div>
+      <div style="flex:1;"></div>
+      <div style="position:relative;">
+        <button onClick="{{ gToggleFilter }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;background:{{ gFilterOpen ? 'rgba(0,207,255,0.08)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ gFilterOpen ? 'rgba(0,207,255,0.28)' : 'rgba(80,100,200,0.18)' }};border-radius:8px;color:rgba(200,215,255,0.75);font-size:12.5px;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>Filtros</button>
+        <sc-if value="{{ gFilterOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:42px;right:0;width:220px;background:#0A0A1E;border:1px solid rgba(80,100,200,0.28);border-radius:11px;box-shadow:0 20px 50px rgba(0,0,25,0.7);padding:10px;z-index:10;animation:paletteIn 0.16s;">
+            <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:600;padding:5px 8px;">Estado</div>
+            <sc-for list="{{ grid.statusFilterOpts }}" as="fo" hint-placeholder-count="3">
+              <div onClick="{{ fo.onClick }}" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;cursor:pointer;background:{{ fo.active ? 'rgba(0,207,255,0.08)' : 'transparent' }};" style-hover="background:rgba(255,255,255,0.04);">
+                <span style="font-size:12.5px;color:{{ fo.active ? '#00CFFF' : 'rgba(210,222,255,0.7)' }};">{{ fo.label }}</span>
+                <sc-if value="{{ fo.active }}" hint-placeholder-val="{{ false }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="position:relative;">
+        <button onClick="{{ gToggleCols }}" style="display:flex;align-items:center;gap:6px;padding:8px 13px;background:{{ gColsOpen ? 'rgba(0,207,255,0.08)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ gColsOpen ? 'rgba(0,207,255,0.28)' : 'rgba(80,100,200,0.18)' }};border-radius:8px;color:rgba(200,215,255,0.75);font-size:12.5px;cursor:pointer;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg>Columnas</button>
+        <sc-if value="{{ gColsOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:42px;right:0;width:210px;background:#0A0A1E;border:1px solid rgba(80,100,200,0.28);border-radius:11px;box-shadow:0 20px 50px rgba(0,0,25,0.7);padding:8px;z-index:10;max-height:320px;overflow-y:auto;animation:paletteIn 0.16s;">
+            <sc-for list="{{ grid.allColumns }}" as="ac" hint-placeholder-count="5">
+              <div onClick="{{ ac.onToggle }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);">
+                <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ ac.hidden ? 'rgba(120,140,200,0.4)' : '#00CFFF' }};background:{{ ac.hidden ? 'transparent' : '#00CFFF' }};display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#04040C" stroke-width="3" stroke-linecap="round" style="opacity:{{ ac.hidden ? 0 : 1 }};"><path d="M20 6 9 17l-5-5"/></svg></div>
+                <span style="font-size:12.5px;color:rgba(210,222,255,0.75);">{{ ac.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <button onClick="{{ gRefreshToast }}" style="width:36px;height:36px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.7)" stroke-width="1.7" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+    </div>
+
+    <!-- Bulk action bar -->
+    <sc-if value="{{ grid.selCount }}" hint-placeholder-val="{{ 0 }}">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:rgba(0,207,255,0.06);border-bottom:1px solid rgba(0,207,255,0.18);flex-shrink:0;animation:fadeIn 0.15s;">
+        <span style="font-size:12.5px;color:#00CFFF;font-weight:600;font-family:'JetBrains Mono',monospace;">{{ grid.selCount }} seleccionado(s)</span>
+        <div style="width:1px;height:18px;background:rgba(0,207,255,0.2);"></div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <sc-for list="{{ grid.bulk }}" as="b" hint-placeholder-count="4">
+            <button onClick="{{ b.onClick }}" style="padding:6px 13px;background:{{ b.bg }};border:1px solid {{ b.border }};border-radius:7px;color:{{ b.col }};font-size:12px;font-weight:{{ b.weight }};cursor:pointer;">{{ b.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- TABLE -->
+    <div style="flex:1;overflow:auto;min-height:0;">
+      <div style="display:grid;grid-template-columns:{{ grid.gridTemplate }};gap:0;position:sticky;top:0;z-index:5;background:#08081C;border-bottom:1px solid rgba(80,100,200,0.2);">
+        <div onClick="{{ grid.onSelPage }}" style="display:flex;align-items:center;justify-content:center;padding:12px 0;cursor:pointer;border-right:1px solid rgba(80,100,200,0.08);">
+          <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ grid.allPageSel ? '#00CFFF' : 'rgba(120,140,200,0.45)' }};background:{{ grid.allPageSel ? '#00CFFF' : 'transparent' }};display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#04040C" stroke-width="3" stroke-linecap="round" style="opacity:{{ grid.allPageSel ? 1 : 0 }};"><path d="M20 6 9 17l-5-5"/></svg></div>
+        </div>
+        <sc-for list="{{ grid.columns }}" as="col" hint-placeholder-count="6">
+          <div onClick="{{ col.onSort }}" style="display:flex;align-items:center;gap:6px;justify-content:{{ col.align }};padding:12px 14px;cursor:pointer;border-right:1px solid rgba(80,100,200,0.08);user-select:none;" style-hover="background:rgba(255,255,255,0.02);">
+            <span style="font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.5);font-weight:600;">{{ col.label }}</span>
+            <sc-if value="{{ col.sorted }}" hint-placeholder-val="{{ false }}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="2" stroke-linecap="round" style="transform:rotate({{ col.dir }});"><path d="M7 10l5 5 5-5"/></svg>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;justify-content:center;padding:12px 0;"><span style="font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.5);font-weight:600;">Acciones</span></div>
+      </div>
+      <sc-for list="{{ grid.rows }}" as="row" hint-placeholder-count="8">
+        <div onContextMenu="{{ row.onCtx }}" style="display:grid;grid-template-columns:{{ grid.gridTemplate }};gap:0;border-bottom:1px solid rgba(80,100,200,0.07);background:{{ row.selected ? 'rgba(0,207,255,0.04)' : 'transparent' }};" style-hover="background:rgba(0,207,255,0.03);">
+          <div onClick="{{ row.onSelect }}" style="display:flex;align-items:center;justify-content:center;cursor:pointer;border-right:1px solid rgba(80,100,200,0.05);">
+            <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ row.selected ? '#00CFFF' : 'rgba(120,140,200,0.35)' }};background:{{ row.selected ? '#00CFFF' : 'transparent' }};display:flex;align-items:center;justify-content:center;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#04040C" stroke-width="3" stroke-linecap="round" style="opacity:{{ row.selected ? 1 : 0 }};"><path d="M20 6 9 17l-5-5"/></svg></div>
+          </div>
+          <sc-for list="{{ row.cells }}" as="cell">
+            <div style="display:flex;align-items:center;padding:9px 14px;border-right:1px solid rgba(80,100,200,0.05);min-width:0;">
+              <span contentEditable="{{ cell.editable }}" suppressContentEditableWarning="{{ true }}" onBlur="{{ cell.onBlur }}" onClick="{{ cell.onClick }}" style="{{ cell.style }}outline:none;border-radius:4px;padding:1px 3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" style-focus="background:rgba(0,207,255,0.08);box-shadow:0 0 0 1px rgba(0,207,255,0.4);">{{ cell.display }}</span>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
+            <button onClick="{{ row.onOpen }}" title="Ver" style="width:26px;height:26px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.16);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.35);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(0,207,255,0.8)" stroke-width="1.7" stroke-linecap="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button onClick="{{ row.onCtx }}" title="Más" style="width:26px;height:26px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.16);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.35);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.7)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Footer / pagination -->
+    <div style="height:48px;display:flex;align-items:center;gap:16px;padding:0 22px;border-top:1px solid rgba(80,100,200,0.14);flex-shrink:0;background:rgba(6,6,20,0.6);">
+      <span style="font-size:12px;color:rgba(160,185,240,0.5);font-family:'JetBrains Mono',monospace;">{{ grid.rangeLabel }} de {{ grid.total }}</span>
+      <div style="flex:1;"></div>
+      <span style="font-size:11.5px;color:rgba(160,185,240,0.4);">Página {{ grid.page }} / {{ grid.pages }}</span>
+      <button onClick="{{ grid.onPrev }}" style="width:32px;height:32px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:{{ grid.hasPrev ? 1 : 0.35 }};" style-hover="border-color:rgba(0,207,255,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.75)" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button onClick="{{ grid.onNext }}" style="width:32px;height:32px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:{{ grid.hasNext ? 1 : 0.35 }};" style-hover="border-color:rgba(0,207,255,0.3);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.75)" stroke-width="1.8" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+
+    <!-- Row detail side panel -->
+    <sc-if value="{{ grid.detail }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ gCloseDetail }}" style="position:absolute;inset:0;z-index:12;background:rgba(0,0,15,0.5);backdrop-filter:blur(3px);display:flex;justify-content:flex-end;animation:backdropIn 0.16s;">
+        <div onClick="{{ stopProp }}" style="width:400px;max-width:92vw;height:100%;background:#08081C;border-left:1px solid {{ grid.accent }};box-shadow:-30px 0 70px rgba(0,0,25,0.6);display:flex;flex-direction:column;animation:paletteIn 0.22s cubic-bezier(0.32,0.72,0,1);">
+          <div style="padding:18px 20px;border-bottom:1px solid rgba(80,100,200,0.14);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ grid.accent }};margin-bottom:3px;">{{ grid.detail.id }}</div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#EEF2FF;">Detalle del registro</div></div>
+            <button onClick="{{ gCloseDetail }}" style="width:32px;height:32px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="border-color:rgba(255,62,108,0.4);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.6)" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          </div>
+          <div style="flex:1;overflow-y:auto;padding:18px 20px;min-height:0;">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <sc-for list="{{ grid.detail.fields }}" as="f" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(80,100,200,0.08);">
+                  <span style="font-size:12px;color:rgba(160,185,240,0.5);">{{ f.label }}</span>
+                  <span style="font-size:13px;color:#EEF2FF;font-weight:500;text-align:right;">{{ f.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ grid.detail.proof }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:18px;">
+                <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:600;margin-bottom:10px;font-family:'JetBrains Mono',monospace;">Comprobante de pago</div>
+                <div style="border:1px solid rgba(80,100,200,0.2);border-radius:12px;overflow:hidden;background:#0B0B20;">
+                  <div style="height:150px;background:linear-gradient(135deg,#0d2620,#0b1c2c);display:flex;align-items:center;justify-content:center;position:relative;">
+                    <div style="width:160px;background:#fff;border-radius:7px;padding:12px;transform:rotate(-3deg);box-shadow:0 12px 34px rgba(0,0,0,0.55);">
+                      <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;"><div style="width:14px;height:14px;border-radius:50%;background:#00A86B;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></div><span style="font-family:'JetBrains Mono',monospace;font-size:8.5px;color:#111;font-weight:700;">TRANSFERENCIA EXITOSA</span></div>
+                      <div style="height:1px;background:#e5e5e5;margin:6px 0;"></div>
+                      <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:#333;line-height:1.7;">Monto: $25.00<br/>Ref: 0102-8841<br/>Banesco · Pago Móvil<br/>06 Jun 2026 · 14:32</div>
+                      <div style="margin-top:7px;width:100%;height:22px;background:repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px);border-radius:2px;"></div>
+                    </div>
+                    <div style="position:absolute;top:10px;right:10px;padding:3px 9px;background:rgba(0,212,160,0.92);border-radius:100px;font-size:9px;font-weight:700;color:#04040C;font-family:'JetBrains Mono',monospace;">VERIFICADO</div>
+                  </div>
+                  <div style="padding:11px 12px;display:flex;gap:8px;border-top:1px solid rgba(80,100,200,0.12);">
+                    <button onClick="{{ grid.detail.onProofView }}" style="flex:1;padding:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:8px;color:rgba(210,222,255,0.8);font-size:11.5px;font-weight:500;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;">Ver original</button>
+                    <button onClick="{{ grid.detail.onApprove }}" style="flex:1;padding:8px;background:rgba(0,212,160,0.12);border:1px solid rgba(0,212,160,0.3);border-radius:8px;color:#00E5A8;font-size:11.5px;font-weight:600;cursor:pointer;">Aprobar</button>
+                    <button onClick="{{ grid.detail.onReject }}" style="flex:1;padding:8px;background:rgba(255,62,108,0.1);border:1px solid rgba(255,62,108,0.28);border-radius:8px;color:#FF6B8B;font-size:11.5px;font-weight:600;cursor:pointer;">Rechazar</button>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+            <div style="margin-top:20px;">
+              <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:600;margin-bottom:11px;font-family:'JetBrains Mono',monospace;">Historial</div>
+              <div style="display:flex;flex-direction:column;gap:11px;">
+                <div style="display:flex;gap:10px;"><div style="width:7px;height:7px;border-radius:50%;background:#00D4A0;margin-top:5px;flex-shrink:0;"></div><div><div style="font-size:12px;color:#EEF2FF;">Creado por <span style="font-weight:600;">Sistema</span></div><div style="font-size:10.5px;color:rgba(160,185,240,0.4);font-family:'JetBrains Mono',monospace;">hace 6 min</div></div></div>
+                <div style="display:flex;gap:10px;"><div style="width:7px;height:7px;border-radius:50%;background:#00CFFF;margin-top:5px;flex-shrink:0;"></div><div><div style="font-size:12px;color:#EEF2FF;">Estado actualizado por <span style="font-weight:600;">María G.</span></div><div style="font-size:10.5px;color:rgba(160,185,240,0.4);font-family:'JetBrains Mono',monospace;">hace 2 min</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:14px 20px;border-top:1px solid rgba(80,100,200,0.14);display:flex;gap:9px;flex-shrink:0;">
+            <button style="flex:1;padding:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:9px;color:rgba(210,222,255,0.8);font-size:13px;font-weight:500;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;">Editar</button>
+            <button style="flex:1;padding:10px;background:{{ grid.accent }};border:none;border-radius:9px;color:#04040C;font-size:13px;font-weight:700;cursor:pointer;">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- Context menu -->
+    <sc-if value="{{ grid.ctx }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ gCloseCtx }}" onContextMenu="{{ gCloseCtx }}" style="position:fixed;inset:0;z-index:60;">
+        <div onClick="{{ stopProp }}" style="position:fixed;left:{{ grid.ctx.x }};top:{{ grid.ctx.y }};width:210px;background:#0A0A1E;border:1px solid rgba(80,100,200,0.28);border-radius:11px;box-shadow:0 24px 60px rgba(0,0,25,0.75);padding:6px;animation:paletteIn 0.13s;">
+          <sc-for list="{{ grid.ctx.items }}" as="ci" hint-placeholder-count="5">
+            <div onClick="{{ ci.onClick }}" style="display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:7px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.05);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ ci.danger ? '#FF6B8B' : 'rgba(200,215,255,0.7)' }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ ci.icon }}</svg>
+              <span style="font-size:12.5px;color:{{ ci.danger ? '#FF6B8B' : 'rgba(210,222,255,0.85)' }};">{{ ci.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- Toast -->
+    <sc-if value="{{ gToastMsg }}" hint-placeholder-val="{{ '' }}">
+      <div style="position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:120;display:flex;align-items:center;gap:10px;padding:12px 20px;background:#0C0C26;border:1px solid rgba(0,207,255,0.3);border-radius:11px;box-shadow:0 16px 44px rgba(0,0,25,0.7);animation:fadeIn 0.18s;">
+        <div style="width:7px;height:7px;border-radius:50%;background:#00D4A0;box-shadow:0 0 6px #00D4A0;"></div>
+        <span style="font-size:13px;color:#EEF2FF;font-weight:500;">{{ gToastMsg }}</span>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<!-- ══════════════ MODULE DETAIL DRAWER ══════════════ -->
+<sc-if value="{{ modulePanel }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeModule }}" style="position:fixed;inset:0;z-index:95;background:rgba(0,0,15,0.72);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:backdropIn 0.18s ease-out;display:flex;justify-content:flex-end;">
+    <div onClick="{{ stopProp }}" style="width:760px;max-width:95vw;height:100%;background:#06061A;border-left:1px solid {{ modulePanel.accentLine }};box-shadow:-40px 0 100px rgba(0,0,25,0.7);display:flex;flex-direction:column;overflow:hidden;animation:paletteIn 0.24s cubic-bezier(0.32,0.72,0,1);">
+      <div style="height:2px;background:linear-gradient(90deg,transparent,{{ modulePanel.accent }},transparent);flex-shrink:0;"></div>
+      <!-- Header -->
+      <div style="padding:22px 26px 18px;border-bottom:1px solid rgba(80,100,200,0.12);flex-shrink:0;">
+        <div style="display:flex;align-items:flex-start;gap:16px;">
+          <div style="width:52px;height:52px;border-radius:14px;background:{{ modulePanel.accentSoft }};border:1px solid {{ modulePanel.accentLine }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="{{ modulePanel.accent }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">{{ modulePanel.icon }}</svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:5px;flex-wrap:wrap;">
+              <h2 style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">{{ modulePanel.name }}</h2>
+              <div style="display:flex;align-items:center;gap:4px;padding:2px 8px;background:{{ modulePanel.tagBg }};border:1px solid {{ modulePanel.tagBorder }};border-radius:5px;"><span style="font-size:9.5px;font-weight:600;color:{{ modulePanel.tagColor }};font-family:'JetBrains Mono',monospace;">{{ modulePanel.tag }}</span></div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(160,185,240,0.4);">{{ modulePanel.version }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(160,185,240,0.35);padding:1px 7px;background:rgba(255,255,255,0.04);border-radius:4px;">{{ modulePanel.scope }}</span>
+            </div>
+            <p style="font-size:13px;color:rgba(200,215,255,0.5);font-weight:300;line-height:1.5;">{{ modulePanel.desc }}</p>
+          </div>
+          <button onClick="{{ closeModule }}" style="width:34px;height:34px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(255,62,108,0.4);background:rgba(255,62,108,0.08);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.6)" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <sc-for list="{{ modulePanel.stats }}" as="stat" hint-placeholder-count="3">
+            <div style="flex:1;background:rgba(255,255,255,0.025);border:1px solid rgba(80,100,200,0.12);border-radius:10px;padding:10px 13px;">
+              <div style="font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:500;margin-bottom:5px;">{{ stat.label }}</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:17px;color:#EEF2FF;font-weight:500;">{{ stat.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <!-- Body -->
+      <div style="flex:1;overflow-y:auto;padding:20px 26px;min-height:0;">
+        <sc-if value="{{ modulePanel.isTable }}" hint-placeholder-val="{{ true }}">
+          <div style="border:1px solid rgba(80,100,200,0.14);border-radius:12px;overflow:hidden;">
+            <div style="display:grid;grid-template-columns:{{ modulePanel.gridCols }};gap:12px;padding:11px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(80,100,200,0.12);">
+              <sc-for list="{{ modulePanel.columns }}" as="col"><div style="{{ col.style }}">{{ col.t }}</div></sc-for>
+            </div>
+            <sc-for list="{{ modulePanel.rows }}" as="row" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:{{ modulePanel.gridCols }};gap:12px;padding:12px 16px;border-bottom:1px solid rgba(80,100,200,0.07);align-items:center;" style-hover="background:rgba(0,207,255,0.03);">
+                <sc-for list="{{ row.cells }}" as="cell"><div style="{{ cell.style }}">{{ cell.t }}</div></sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ modulePanel.isMetrics }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <sc-for list="{{ modulePanel.metrics }}" as="mt" hint-placeholder-count="6">
+              <div style="background:#0A0A22;border:1px solid rgba(80,100,200,0.14);border-radius:12px;padding:16px;">
+                <div style="font-size:10px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:500;margin-bottom:9px;">{{ mt.label }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:23px;color:#EEF2FF;font-weight:500;line-height:1;margin-bottom:6px;">{{ mt.value }}</div>
+                <div style="font-size:11.5px;color:{{ mt.color }};font-weight:500;">{{ mt.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ modulePanel.isGrid }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+            <sc-for list="{{ modulePanel.gridCards }}" as="gc" hint-placeholder-count="6">
+              <div style="background:#0A0A22;border:1px solid rgba(80,100,200,0.14);border-radius:12px;padding:16px;cursor:pointer;" style-hover="border-color:{{ modulePanel.accentLine }};background:#0C0C28;">
+                <div style="width:38px;height:38px;border-radius:10px;background:{{ modulePanel.accentSoft }};border:1px solid {{ modulePanel.accentLine }};display:flex;align-items:center;justify-content:center;margin-bottom:11px;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ modulePanel.accent }}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">{{ modulePanel.icon }}</svg>
+                </div>
+                <div style="font-size:13px;color:#EEF2FF;font-weight:600;margin-bottom:3px;">{{ gc.name }}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:rgba(160,185,240,0.4);">{{ gc.meta }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ modulePanel.isSettings }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <sc-for list="{{ modulePanel.settings }}" as="sg" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
+                <span style="font-size:13px;color:rgba(200,215,255,0.7);">{{ sg.label }}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ sg.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="margin-top:22px;">
+          <div style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(160,185,240,0.4);font-weight:600;margin-bottom:10px;font-family:'JetBrains Mono',monospace;">Roles con acceso</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <sc-for list="{{ modulePanel.perms }}" as="pr" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:6px;padding:6px 11px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.14);border-radius:8px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.8" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <span style="font-size:12px;color:rgba(200,215,255,0.75);">{{ pr }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <!-- Footer actions -->
+      <div style="padding:16px 26px;border-top:1px solid rgba(80,100,200,0.12);display:flex;align-items:center;gap:10px;flex-shrink:0;background:rgba(255,255,255,0.012);">
+        <sc-for list="{{ modulePanel.actions }}" as="act" hint-placeholder-count="2">
+          <button style="padding:10px 18px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.8);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;" style-hover="border-color:{{ modulePanel.accentLine }};color:#EEF2FF;">{{ act }}</button>
+        </sc-for>
+        <button onClick="{{ modulePanel.openFull }}" style="margin-left:auto;padding:10px 20px;background:{{ modulePanel.accent }};border:none;border-radius:9px;color:#04040C;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Abrir módulo completo</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ══════════════ RICH MODULE WORKSPACE (paycards / sections / settings / logs) ══════════════ -->
+<sc-if value="{{ richOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:82;background:#04040C;display:flex;flex-direction:column;overflow:hidden;animation:fadeIn 0.2s ease-out;">
+    <div style="height:2px;background:linear-gradient(90deg,transparent,{{ rich.accent }},#9B3FFF,transparent);flex-shrink:0;"></div>
+    <!-- header -->
+    <div style="min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 22px;border-bottom:1px solid rgba(80,100,200,0.14);flex-shrink:0;background:rgba(6,6,20,0.6);flex-wrap:wrap;">
+      <button onClick="{{ closeRich }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.75);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Módulos</button>
+      <div style="width:36px;height:36px;border-radius:10px;background:{{ rich.accent }}1F;border:1px solid {{ rich.accent }}44;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ rich.accent }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ rich.icon }}</svg></div>
+      <div style="flex-shrink:0;"><h2 style="font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;line-height:1;">{{ rich.title }}</h2><div style="font-size:11.5px;color:rgba(200,215,255,0.4);margin-top:3px;">{{ rich.subtitle }}</div></div>
+      <div style="flex:1;"></div>
+      <button onClick="{{ rich.onNew }}" style="display:flex;align-items:center;gap:6px;padding:8px 15px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:8px;color:white;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(155,63,255,0.28);flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>{{ rich.newLabel }}</button>
+    </div>
+    <!-- body -->
+    <div style="flex:1;overflow-y:auto;min-height:0;padding:22px;">
+      <div style="max-width:1180px;margin:0 auto;">
+
+        <!-- PAYCARDS -->
+        <sc-if value="{{ rich.isPaycards }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px;">
+            <sc-for list="{{ rich.cards }}" as="c" hint-placeholder-count="6">
+              <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:18px;display:flex;flex-direction:column;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:15px;">
+                  <div style="width:46px;height:46px;border-radius:12px;background:{{ c.color }};display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 14px {{ c.color }}55;"><span style="font-family:'Syne',sans-serif;font-weight:800;font-size:16px;color:#fff;">{{ c.initials }}</span></div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;">{{ c.name }}</div>
+                    <div style="font-size:11px;color:rgba(200,215,255,0.45);margin-top:1px;">{{ c.type }}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;background:{{ c.statusColor }}1F;flex-shrink:0;"><div style="width:6px;height:6px;border-radius:50%;background:{{ c.statusColor }};"></div><span style="font-size:10px;font-weight:600;color:{{ c.statusColor }};">{{ c.status }}</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(80,100,200,0.12);border-radius:11px;padding:12px 13px;display:flex;flex-direction:column;gap:9px;margin-bottom:13px;">
+                  <sc-for list="{{ c.fields }}" as="f" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                      <span style="font-size:11px;color:rgba(160,185,240,0.5);flex-shrink:0;">{{ f.k }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#EEF2FF;font-weight:500;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ f.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                  <div style="flex:1;"><div style="font-size:9.5px;color:rgba(160,185,240,0.4);text-transform:uppercase;letter-spacing:0.05em;">Comisión</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#EEF2FF;font-weight:500;margin-top:2px;">{{ c.commission }}</div></div>
+                  <div style="flex:1;"><div style="font-size:9.5px;color:rgba(160,185,240,0.4);text-transform:uppercase;letter-spacing:0.05em;">Volumen</div><div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#EEF2FF;font-weight:500;margin-top:2px;">{{ c.vol }}</div></div>
+                </div>
+                <div style="display:flex;gap:7px;margin-top:auto;">
+                  <button onClick="{{ c.onEdit }}" style="flex:1;padding:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:8px;color:rgba(210,222,255,0.8);font-size:11.5px;font-weight:500;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;">Editar</button>
+                  <button onClick="{{ c.onUpdate }}" style="flex:1;padding:8px;background:rgba(0,207,255,0.1);border:1px solid rgba(0,207,255,0.28);border-radius:8px;color:#00CFFF;font-size:11.5px;font-weight:600;cursor:pointer;">Actualizar</button>
+                  <button onClick="{{ c.onDelete }}" style="width:36px;padding:8px;background:rgba(255,62,108,0.08);border:1px solid rgba(255,62,108,0.25);border-radius:8px;color:#FF6B8B;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="background:rgba(255,62,108,0.16);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+                </div>
+              </div>
+            </sc-for>
+            <button onClick="{{ rich.onNew }}" style="min-height:220px;background:transparent;border:1.5px dashed rgba(80,100,200,0.3);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;color:rgba(160,185,240,0.5);" style-hover="border-color:rgba(0,207,255,0.4);color:#00CFFF;">
+              <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              <span style="font-size:12.5px;font-weight:500;">Agregar método de pago</span>
+            </button>
+          </div>
+        </sc-if>
+
+        <!-- SETTINGS -->
+        <sc-if value="{{ rich.isSettings }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <sc-for list="{{ rich.groups }}" as="g" hint-placeholder-count="3">
+              <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;overflow:hidden;">
+                <div style="padding:14px 18px;border-bottom:1px solid rgba(80,100,200,0.12);font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#EEF2FF;">{{ g.label }}</div>
+                <div style="padding:6px 18px;">
+                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid rgba(80,100,200,0.07);">
+                      <span style="font-size:13px;color:rgba(210,222,255,0.75);">{{ it.label }}</span>
+                      <sc-if value="{{ it.isText }}" hint-placeholder-val="{{ true }}">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ it.value }}</span>
+                      </sc-if>
+                      <sc-if value="{{ it.isToggle }}" hint-placeholder-val="{{ false }}">
+                        <div onClick="{{ it.onClick }}" style="width:42px;height:23px;border-radius:100px;background:{{ it.on ? '#00D4A0' : 'rgba(255,255,255,0.1)' }};position:relative;cursor:pointer;flex-shrink:0;transition:background 0.2s;"><div style="position:absolute;top:2.5px;left:{{ it.on ? '21px' : '2.5px' }};width:18px;height:18px;border-radius:50%;background:#fff;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div></div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- LOGS -->
+        <sc-if value="{{ rich.isLogs }}" hint-placeholder-val="{{ false }}">
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:8px 20px;">
+            <sc-for list="{{ rich.logs }}" as="l" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(80,100,200,0.08);">
+                <div style="width:9px;height:9px;border-radius:50%;background:{{ l.color }};box-shadow:0 0 7px {{ l.color }};flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;color:#EEF2FF;"><span style="font-weight:600;">{{ l.actor }}</span> <span style="color:rgba(200,215,255,0.6);">{{ l.action }}</span></div>
+                </div>
+                <span style="padding:2px 9px;border-radius:6px;background:{{ l.color }}1F;color:{{ l.color }};font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;flex-shrink:0;">{{ l.tag }}</span>
+                <span style="font-size:11px;color:rgba(160,185,240,0.4);font-family:'JetBrains Mono',monospace;flex-shrink:0;width:88px;text-align:right;">{{ l.time }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- SECTIONS -->
+        <sc-if value="{{ rich.isSections }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+            <sc-for list="{{ rich.sections }}" as="sec" hint-placeholder-count="5">
+              <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:18px;display:flex;flex-direction:column;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;">
+                  <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#EEF2FF;">{{ sec.name }}</span>
+                  <span style="padding:2px 9px;border-radius:100px;background:{{ sec.badgeColor }}1F;color:{{ sec.badgeColor }};font-size:10px;font-weight:600;">{{ sec.badge }}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:1px;margin-bottom:14px;">
+                  <sc-for list="{{ sec.items }}" as="i" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(80,100,200,0.07);">
+                      <span style="font-size:12.5px;color:rgba(210,222,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ i.label }}</span>
+                      <span style="font-size:11px;color:rgba(160,185,240,0.45);font-family:'JetBrains Mono',monospace;flex-shrink:0;">{{ i.meta }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;gap:7px;margin-top:auto;">
+                  <button onClick="{{ sec.onEdit }}" style="flex:1;padding:8px;background:rgba(0,207,255,0.1);border:1px solid rgba(0,207,255,0.28);border-radius:8px;color:#00CFFF;font-size:11.5px;font-weight:600;cursor:pointer;">Editar</button>
+                  <button onClick="{{ sec.onPreview }}" style="flex:1;padding:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:8px;color:rgba(210,222,255,0.8);font-size:11.5px;font-weight:500;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;">Previsualizar</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ══════════════ EXECUTIVE DASHBOARD WORKSPACE ══════════════ -->
+<sc-if value="{{ dashOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:82;background:#04040C;display:flex;flex-direction:column;overflow:hidden;animation:fadeIn 0.2s ease-out;">
+    <div style="height:2px;background:linear-gradient(90deg,transparent,#00D4A0,#00CFFF,#9B3FFF,transparent);flex-shrink:0;"></div>
+    <!-- header -->
+    <div style="min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 22px;border-bottom:1px solid rgba(80,100,200,0.14);flex-shrink:0;background:rgba(6,6,20,0.6);flex-wrap:wrap;">
+      <button onClick="{{ closeDash }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.75);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Módulos</button>
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+      <div style="flex-shrink:0;"><h2 style="font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;line-height:1;">Dashboard Ejecutivo</h2><div style="font-size:11.5px;color:rgba(200,215,255,0.4);margin-top:3px;">Centro de mando · datos en vivo del negocio</div></div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(0,212,160,0.08);border:1px solid rgba(0,212,160,0.2);border-radius:100px;flex-shrink:0;"><div style="width:6px;height:6px;border-radius:50%;background:#00D4A0;box-shadow:0 0 6px #00D4A0;animation:glowPulse 2s ease-in-out infinite;"></div><span style="font-size:11px;color:#00D4A0;font-weight:500;font-family:'JetBrains Mono',monospace;">EN VIVO</span></div>
+      <button onClick="{{ dash.openStats }}" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:8px;color:rgba(200,215,255,0.75);font-size:12.5px;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg>Ver estadísticas</button>
+    </div>
+    <!-- body -->
+    <div style="flex:1;overflow-y:auto;min-height:0;padding:22px;">
+      <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+        <!-- KPI strip -->
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;">
+          <sc-for list="{{ dash.kpis }}" as="k" hint-placeholder-count="6">
+            <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:14px;padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;">
+                <div style="display:flex;align-items:center;gap:9px;min-width:0;">
+                  <div style="width:32px;height:32px;border-radius:9px;background:{{ k.color }}1F;border:1px solid {{ k.color }}44;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ k.color }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ k.icon }}</svg></div>
+                  <span style="font-size:11.5px;color:rgba(200,215,255,0.5);font-weight:500;">{{ k.label }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:3px;padding:2px 7px;background:rgba(0,212,160,0.1);border-radius:100px;flex-shrink:0;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg><span style="font-size:10.5px;color:#00D4A0;font-weight:700;">{{ k.delta }}</span></div>
+              </div>
+              <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;line-height:1;letter-spacing:-0.01em;">{{ k.value }}</div>
+              <div style="font-size:11px;color:rgba(160,185,240,0.45);margin-top:7px;">{{ k.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- Revenue + Goal -->
+        <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;">
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;">Ingresos · últimos 14 días</div><div style="font-size:12px;color:rgba(200,215,255,0.45);margin-top:2px;">En miles de USD</div></div>
+              <div style="text-align:right;"><div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:#00D4A0;">$38.4K</div><div style="font-size:10.5px;color:rgba(160,185,240,0.45);">acumulado del mes</div></div>
+            </div>
+            <svg viewBox="0 0 520 150" style="width:100%;height:auto;display:block;overflow:visible;">
+              <path d="{{ dash.areaPath }}" fill="rgba(0,212,160,0.12)"/>
+              <polyline points="{{ dash.linePts }}" fill="none" stroke="#00D4A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="{{ dash.endDot.cx }}" cy="{{ dash.endDot.cy }}" r="4" fill="#04040C" stroke="#00D4A0" stroke-width="2.5"/>
+            </svg>
+          </div>
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;display:flex;flex-direction:column;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#EEF2FF;">{{ dash.goal.label }}</div>
+            <div style="display:flex;align-items:flex-end;gap:8px;margin-top:16px;"><span style="font-family:'Syne',sans-serif;font-size:34px;font-weight:800;color:#00D4A0;line-height:1;letter-spacing:-0.02em;">{{ dash.goal.current }}</span><span style="font-size:14px;color:rgba(200,215,255,0.4);margin-bottom:4px;">/ {{ dash.goal.target }}</span></div>
+            <div style="margin-top:16px;height:10px;background:rgba(255,255,255,0.05);border-radius:100px;overflow:hidden;"><div style="width:{{ dash.goal.pct }}%;height:100%;background:linear-gradient(90deg,#00D4A0,#00CFFF);border-radius:100px;box-shadow:0 0 12px rgba(0,212,160,0.5);"></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#00CFFF;font-weight:600;">{{ dash.goal.pct }}%</span><span style="font-size:11px;color:rgba(160,185,240,0.5);">{{ dash.goal.remain }}</span></div>
+          </div>
+        </div>
+        <!-- Orders + Alerts -->
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;">
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;">Órdenes recientes</div><span style="font-size:11.5px;color:#00CFFF;cursor:pointer;">Ver todas →</span></div>
+            <div style="display:flex;flex-direction:column;">
+              <sc-for list="{{ dash.orders }}" as="o" hint-placeholder-count="5">
+                <div onClick="{{ o.onClick }}" style="display:grid;grid-template-columns:80px 1fr 1fr 70px 96px;gap:10px;align-items:center;padding:11px 8px;border-bottom:1px solid rgba(80,100,200,0.08);cursor:pointer;" style-hover="background:rgba(255,255,255,0.02);">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(160,185,240,0.55);">{{ o.id }}</span>
+                  <span style="font-size:12.5px;color:#EEF2FF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.cliente }}</span>
+                  <span style="font-size:12px;color:rgba(200,215,255,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.servicio }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#EEF2FF;font-weight:500;">{{ o.total }}</span>
+                  <div style="display:flex;justify-content:flex-end;"><span style="padding:3px 9px;border-radius:100px;font-size:10.5px;font-weight:600;background:{{ o.sc.bg }};color:{{ o.sc.color }};">{{ o.estado }}</span></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;margin-bottom:14px;">Requiere tu atención</div>
+            <div style="display:flex;flex-direction:column;gap:9px;">
+              <sc-for list="{{ dash.alerts }}" as="a" hint-placeholder-count="4">
+                <div onClick="{{ a.onClick }}" style="display:flex;gap:11px;align-items:center;padding:11px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(80,100,200,0.12);border-radius:11px;cursor:pointer;" style-hover="border-color:{{ a.color }}66;background:rgba(255,255,255,0.035);">
+                  <div style="width:34px;height:34px;border-radius:9px;background:{{ a.bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ a.color }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ a.icon }}</svg></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ a.title }}</div><div style="font-size:11px;color:rgba(200,215,255,0.5);margin-top:2px;">{{ a.meta }}</div></div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.35)" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;"><path d="M9 18l6-6-6-6"/></svg>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <!-- Top services + Health -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;margin-bottom:14px;">Servicios más vendidos</div>
+            <div style="display:flex;flex-direction:column;gap:13px;">
+              <sc-for list="{{ dash.top }}" as="t" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ t.name }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(200,215,255,0.55);">{{ t.sales }} ventas</span></div>
+                  <div style="height:7px;background:rgba(255,255,255,0.05);border-radius:100px;overflow:hidden;"><div style="width:{{ t.pct }}%;height:100%;background:linear-gradient(90deg,#00CFFF,#9B3FFF);border-radius:100px;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;margin-bottom:14px;">Estado del sistema</div>
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <sc-for list="{{ dash.health }}" as="h" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(80,100,200,0.08);">
+                  <div style="display:flex;align-items:center;gap:9px;"><div style="width:8px;height:8px;border-radius:50%;background:{{ h.color }};box-shadow:0 0 6px {{ h.color }};"></div><span style="font-size:12.5px;color:rgba(200,215,255,0.7);">{{ h.label }}</span></div>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ h.color }};font-weight:500;">{{ h.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ══════════════ STATS / ANALYTICS WORKSPACE ══════════════ -->
+<sc-if value="{{ statsOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:82;background:#04040C;display:flex;flex-direction:column;overflow:hidden;animation:fadeIn 0.2s ease-out;">
+    <div style="height:2px;background:linear-gradient(90deg,transparent,#00CFFF,#9B3FFF,transparent);flex-shrink:0;"></div>
+    <!-- header -->
+    <div style="min-height:60px;display:flex;align-items:center;gap:12px;padding:10px 22px;border-bottom:1px solid rgba(80,100,200,0.14);flex-shrink:0;background:rgba(6,6,20,0.6);flex-wrap:wrap;">
+      <button onClick="{{ closeStats }}" style="display:flex;align-items:center;gap:7px;padding:8px 13px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;color:rgba(200,215,255,0.75);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0;" style-hover="border-color:rgba(0,207,255,0.3);color:#EEF2FF;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Módulos</button>
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,207,255,0.1);border:1px solid rgba(0,207,255,0.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg></div>
+      <div style="flex-shrink:0;"><h2 style="font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;line-height:1;">Estadísticas & Analítica</h2><div style="font-size:11.5px;color:rgba(200,215,255,0.4);margin-top:3px;">Evalúa ventas e ingresos por periodo</div></div>
+      <div style="flex:1;"></div>
+      <div style="display:flex;gap:3px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.16);border-radius:9px;padding:3px;flex-shrink:0;">
+        <sc-for list="{{ stats.periodBtns }}" as="p" hint-placeholder-count="3">
+          <button onClick="{{ p.onClick }}" style="padding:6px 13px;background:{{ p.active ? 'rgba(0,207,255,0.14)' : 'transparent' }};border:none;border-radius:7px;color:{{ p.active ? '#00CFFF' : 'rgba(200,215,255,0.55)' }};font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">{{ p.label }}</button>
+        </sc-for>
+      </div>
+      <button onClick="{{ gExportToast }}" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:8px;color:white;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(155,63,255,0.28);flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Exportar</button>
+    </div>
+    <!-- body -->
+    <div style="flex:1;overflow-y:auto;min-height:0;padding:22px;">
+      <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+        <!-- KPI row -->
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
+          <sc-for list="{{ stats.kpis }}" as="k" hint-placeholder-count="4">
+            <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:14px;padding:16px;">
+              <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;">
+                <div style="width:32px;height:32px;border-radius:9px;background:{{ k.color }}1F;border:1px solid {{ k.color }}44;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ k.color }}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ k.icon }}</svg></div>
+                <span style="font-size:11.5px;color:rgba(200,215,255,0.5);font-weight:500;">{{ k.label }}</span>
+              </div>
+              <div style="font-family:'Syne',sans-serif;font-size:25px;font-weight:800;color:#EEF2FF;line-height:1;letter-spacing:-0.01em;">{{ k.value }}</div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:9px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg><span style="font-size:12px;color:#00D4A0;font-weight:700;">{{ k.delta }}</span><span style="font-size:10.5px;color:rgba(160,185,240,0.4);">vs. anterior</span></div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- Main line chart -->
+        <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;">Evolución de ventas</div><div style="font-size:12px;color:rgba(200,215,255,0.45);margin-top:2px;">Unidades vendidas por periodo</div></div>
+            <div style="display:flex;align-items:center;gap:7px;"><div style="width:11px;height:11px;border-radius:3px;background:#00CFFF;box-shadow:0 0 8px rgba(0,207,255,0.6);"></div><span style="font-size:11.5px;color:rgba(200,215,255,0.55);">Ventas</span></div>
+          </div>
+          <svg viewBox="0 0 760 240" style="width:100%;height:auto;display:block;overflow:visible;">
+            <sc-for list="{{ stats.yTicks }}" as="t" hint-placeholder-count="3">
+              <line x1="{{ t.x1 }}" y1="{{ t.y }}" x2="{{ t.x2 }}" y2="{{ t.y }}" stroke="rgba(80,100,200,0.14)" stroke-width="1"/>
+              <text x="12" y="{{ t.y }}" fill="rgba(160,185,240,0.4)" font-size="11" dominant-baseline="middle">{{ t.label }}</text>
+            </sc-for>
+            <path d="{{ stats.areaPath }}" fill="rgba(0,207,255,0.13)"/>
+            <polyline points="{{ stats.linePts }}" fill="none" stroke="#00CFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <sc-for list="{{ stats.dots }}" as="d" hint-placeholder-count="7">
+              <circle cx="{{ d.cx }}" cy="{{ d.cy }}" r="3.5" fill="#04040C" stroke="#00CFFF" stroke-width="2"/>
+              <text x="{{ d.lx }}" y="{{ d.ly }}" fill="rgba(160,185,240,0.5)" font-size="11" text-anchor="middle">{{ d.label }}</text>
+            </sc-for>
+          </svg>
+        </div>
+        <!-- Bars + Top services -->
+        <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;">
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;margin-bottom:2px;">Ingresos por categoría</div>
+            <div style="font-size:12px;color:rgba(200,215,255,0.45);margin-bottom:8px;">Unidades vendidas en el periodo</div>
+            <div style="display:flex;align-items:stretch;gap:12px;height:200px;">
+              <sc-for list="{{ stats.bars }}" as="b" hint-placeholder-count="6">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;">
+                  <span style="font-size:11px;color:#EEF2FF;font-weight:600;font-family:'JetBrains Mono',monospace;">{{ b.val }}</span>
+                  <div style="flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;"><div style="width:100%;max-width:44px;border-radius:7px 7px 0 0;background:{{ b.color }};height:{{ b.hpct }}%;min-height:4px;box-shadow:0 0 16px {{ b.color }}55;"></div></div>
+                  <span style="font-size:10px;color:rgba(200,215,255,0.5);text-align:center;line-height:1.2;">{{ b.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:linear-gradient(155deg,#0A0A22,#0C0C28);border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:20px;min-width:0;">
+            <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#EEF2FF;margin-bottom:14px;">Servicios más vendidos</div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <sc-for list="{{ stats.top }}" as="t" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12.5px;color:#EEF2FF;font-weight:500;">{{ t.name }}</span><span style="font-size:11.5px;color:rgba(200,215,255,0.55);font-family:'JetBrains Mono',monospace;">{{ t.sales }}</span></div>
+                  <div style="height:7px;background:rgba(255,255,255,0.05);border-radius:100px;overflow:hidden;"><div style="width:{{ t.pct }}%;height:100%;background:linear-gradient(90deg,#00CFFF,#9B3FFF);border-radius:100px;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<!-- ══════════════ COMMAND PALETTE ══════════════ -->
+<sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePalette }}" style="position:fixed;inset:0;z-index:100;background:rgba(0,0,15,0.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:backdropIn 0.18s ease-out;display:flex;align-items:flex-start;justify-content:center;padding-top:14vh;">
+    <div onClick="{{ stopProp }}" style="width:560px;max-width:90vw;background:#0A0A1E;border:1px solid rgba(80,100,200,0.28);border-radius:16px;box-shadow:0 32px 80px rgba(0,0,25,0.8);overflow:hidden;animation:paletteIn 0.2s cubic-bezier(0.32,0.72,0,1);">
+      <div style="height:2px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.5),rgba(155,63,255,0.4),transparent);"></div>
+      <!-- Input -->
+      <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(80,100,200,0.14);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(0,207,255,0.6)" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" placeholder="Buscar módulos, acciones rápidas, usuarios…" style="flex:1;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:15px;color:#EEF2FF;caret-color:#00CFFF;" />
+        <kbd style="padding:3px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(80,100,200,0.2);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:rgba(200,215,255,0.4);">ESC</kbd>
+      </div>
+      <!-- Results -->
+      <div style="max-height:52vh;overflow-y:auto;padding:10px;">
+        <sc-for list="{{ paletteGroups }}" as="pg" hint-placeholder-count="2">
+          <div style="margin-bottom:6px;">
+            <div style="padding:6px 12px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(160,185,240,0.35);font-weight:500;font-family:'JetBrains Mono',monospace;">{{ pg.label }}</div>
+            <sc-for list="{{ pg.items }}" as="pi" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:9px;cursor:pointer;" style-hover="background:rgba(0,207,255,0.06);">
+                <div style="width:30px;height:30px;border-radius:8px;background:{{ pi.iconBg }};border:1px solid {{ pi.iconBorder }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ pi.iconColor }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ pi.icon }}</svg>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;color:#EEF2FF;font-weight:500;">{{ pi.name }}</div>
+                  <div style="font-size:11px;color:rgba(200,215,255,0.4);font-weight:300;">{{ pi.hint }}</div>
+                </div>
+                <sc-if value="{{ pi.shortcut }}" hint-placeholder-val="{{ '' }}">
+                  <kbd style="padding:2px 7px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.16);border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(200,215,255,0.42);">{{ pi.shortcut }}</kbd>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <!-- Footer -->
+      <div style="padding:9px 16px;border-top:1px solid rgba(80,100,200,0.12);display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.015);">
+        <div style="display:flex;align-items:center;gap:5px;"><kbd style="padding:1px 5px;background:rgba(255,255,255,0.05);border:1px solid rgba(80,100,200,0.18);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:rgba(200,215,255,0.45);">↑↓</kbd><span style="font-size:10.5px;color:rgba(160,185,240,0.4);">navegar</span></div>
+        <div style="display:flex;align-items:center;gap:5px;"><kbd style="padding:1px 5px;background:rgba(255,255,255,0.05);border:1px solid rgba(80,100,200,0.18);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:rgba(200,215,255,0.45);">↵</kbd><span style="font-size:10.5px;color:rgba(160,185,240,0.4);">abrir</span></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+          <div style="position:relative;width:16px;height:16px;">
+            <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:8px;background:linear-gradient(135deg,#00CFFF,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">NV</span>
+          </div>
+          <span style="font-size:10px;color:rgba(160,185,240,0.3);font-family:'JetBrains Mono',monospace;">NV OS Command</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:760},&quot;environment&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Producción&quot;,&quot;Staging&quot;,&quot;Desarrollo&quot;],&quot;default&quot;:&quot;Producción&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Entorno&quot;},&quot;showActivityRail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;showModuleMeta&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+
+class Component extends DCLogic {
+  state = { activeDomain: 'all', paletteOpen: false, railOpen: null, openModuleName: null,
+    fullModuleName: null, gSearch:'', gSort:null, gDir:1, gSel:{}, gPage:1, gPageSize:25, gView:'all',
+    gHidden:{}, gDetail:null, gColsOpen:false, gFilterOpen:false, gStatusFilter:'all', gCtx:null, gCellEdits:{}, gToastMsg:null, gRenewed:{},
+    notifOpen:false, notifRead:false, statsOpen:false, statsPeriod:'30D', dashOpen:false, richOpen:false, richName:null };
+
+  GRIDS = {
+    'Control de Ventas': {
+      title:'Control de Ventas', icon:'<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>', accent:'#00CFFF',
+      views:[['all','Todas'],['Aprobado','Aprobadas'],['Pendiente','Pendientes'],['Rechazado','Rechazadas'],['Entregado','Entregadas']],
+      columns:[['id','# Venta','text',96],['cliente','Cliente','text',150],['servicio','Servicio','text',150],['cat','Categoría','tag',110],['metodo','Método','text',120],['total','Total','money',96],['estado','Estado','status',120],['fecha','Fecha','date',108],['reseller','Revendedor','text',130]],
+      rows:[
+        ['#V-2841','María González','Netflix Premium','Streaming','Binance Pay',12.99,'Aprobado','06 Jun','—'],
+        ['#V-2840','Carlos Ruiz','Combo IA Total','Combos','PayPal',29.99,'Entregado','06 Jun','NV Partner MX'],
+        ['#V-2839','Ana Torres','Spotify Family','Música','Zelle',9.99,'Aprobado','06 Jun','—'],
+        ['#V-2838','Diego Morales','Disney+ Anual','Streaming','Pago Móvil',79.99,'Pendiente','05 Jun','StreamZone'],
+        ['#V-2837','Luisa Fernández','HBO Max','Streaming','Binance Pay',11.99,'Entregado','05 Jun','—'],
+        ['#V-2836','Pedro Sánchez','YouTube Premium','Streaming','Revolut',7.99,'Rechazado','05 Jun','—'],
+        ['#V-2835','Sofía Ramírez','ChatGPT Plus','IA','PayPal',19.99,'Aprobado','04 Jun','Tienda Digital SV'],
+        ['#V-2834','Andrés Castro','Adobe CC','Diseño','Bancolombia',29.99,'Entregado','04 Jun','—'],
+        ['#V-2833','Valentina Ríos','Office 365','Productividad','Zelle',6.99,'Aprobado','04 Jun','—'],
+        ['#V-2832','Javier Mora','Streaming Max','Combos','Binance Pay',24.99,'Pendiente','03 Jun','NV Partner MX'],
+        ['#V-2831','Camila Ortiz','Crunchyroll','Anime','Yape',5.99,'Entregado','03 Jun','—'],
+        ['#V-2830','Mateo Herrera','Apple TV+','Streaming','PayPal',6.99,'Aprobado','03 Jun','CloudKeys'],
+        ['#V-2829','Isabella Díaz','Paramount+','Streaming','Pago Móvil',4.99,'Rechazado','02 Jun','—'],
+        ['#V-2828','Sebastián Peña','Music Pro','Combos','Binance Pay',14.99,'Entregado','02 Jun','StreamZone'],
+        ['#V-2827','Lucía Vargas','ViX Premium','Streaming','Zelle',3.99,'Aprobado','02 Jun','—'],
+        ['#V-2826','Emilio Rojas','Combo Estudiante','Combos','PayPal',11.99,'Pendiente','01 Jun','—'],
+      ],
+      bulk:['Aprobar','Rechazar','Entregar','Exportar','Enviar mensaje','Eliminar'],
+    },
+    'Órdenes': { alias:'Control de Ventas' },
+    'Control de Vencimientos': {
+      title:'Control de Vencimientos', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', accent:'#FFB020',
+      views:[['all','Todos'],['svc:Netflix','Netflix'],['svc:Disney','Disney+'],['svc:HBO','HBO Max'],['svc:Spotify','Spotify'],['svc:ChatGPT','ChatGPT'],['svc:YouTube','YouTube'],['svc:Combo','Combos'],['svc:Office','Office'],['svc:Adobe','Adobe']],
+      columns:[['id','# Sub','text',92],['cliente','Cliente','text',150],['servicio','Servicio','text',150],['inicio','Inicio','date',100],['vence','Vence','date',100],['dias','Días','num',82],['renov','Auto-renov','tag',108],['estado','Estado','status',118]],
+      rows:[
+        ['#S-3120','María González','Disney+ Anual','07 Jun 25','14 Jul 26','0','No','Vence hoy'],
+        ['#S-3119','Carlos Ruiz','HBO Max','14 Jun 25','14 Jul 26','0','Sí','Vence hoy'],
+        ['#S-3118','Ana Torres','Spotify Family','14 Dic 25','14 Jul 26','0','No','Vence hoy'],
+        ['#S-3117','Diego Morales','Netflix Premium','16 Jun 26','16 Jul 26','2','Sí','Por vencer'],
+        ['#S-3116','Luisa Fernández','ChatGPT Plus','18 Jun 26','18 Jul 26','4','No','Por vencer'],
+        ['#S-3115','Pedro Sánchez','YouTube Premium','21 Jun 26','21 Jul 26','7','Sí','Por vencer'],
+        ['#S-3114','Sofía Ramírez','Office 365','25 Jun 26','25 Jul 26','11','No','Vigente'],
+        ['#S-3113','Andrés Castro','Adobe CC','28 Jun 26','28 Jul 26','14','Sí','Vigente'],
+        ['#S-3112','Valentina Ríos','Crunchyroll','01 Jul 26','01 Ago 26','18','No','Vigente'],
+        ['#S-3111','Javier Mora','Apple TV+','05 Jul 26','05 Ago 26','22','Sí','Vigente'],
+        ['#S-3110','Roberto Díaz','Paramount+','08 Jun 26','08 Jul 26','-6','No','Vencido'],
+        ['#S-3109','Camila Ortiz','Prime Video','05 Jun 26','05 Jul 26','-9','No','Vencido'],
+        ['#S-3108','Sebastián Peña','Combo IA Total','30 Jun 26','30 Jun 26','-14','Sí','Renovado'],
+        ['#S-3107','Lucía Vargas','ViX Premium','28 Jun 26','28 Jun 26','-16','Sí','Renovado'],
+      ],
+      bulk:['Enviar cobros','Renovar','Notificar cliente','Suspender','Exportar'],
+    },
+    'Catálogo de Servicios': {
+      title:'Gestión de Servicios', icon:'<path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/>', accent:'#00CFFF',
+      views:[['all','Todos'],['Activo','Activos'],['Bajo stock','Bajo stock'],['Agotado','Agotados']],
+      columns:[['id','ID','text',80],['servicio','Servicio','text',160],['cat','Categoría','tag',120],['precio','Precio','money',96],['costo','Costo','money',90],['stock','Stock','num',80],['ventas','Ventas','num',84],['estado','Estado','status',110]],
+      rows:[
+        ['SRV-01','Netflix Premium','Streaming',12.99,6.50,48,842,'Activo'],
+        ['SRV-02','Spotify Family','Música',9.99,4.00,120,613,'Activo'],
+        ['SRV-03','ChatGPT Plus','IA',19.99,9.00,12,428,'Activo'],
+        ['SRV-04','Disney+','Streaming',8.99,4.20,5,377,'Bajo stock'],
+        ['SRV-05','Adobe CC','Diseño',29.99,15.00,0,204,'Agotado'],
+        ['SRV-06','HBO Max','Streaming',11.99,5.80,64,512,'Activo'],
+        ['SRV-07','YouTube Premium','Streaming',7.99,3.50,90,289,'Activo'],
+        ['SRV-08','Office 365','Productividad',6.99,2.90,150,331,'Activo'],
+        ['SRV-09','Crunchyroll','Anime',5.99,2.40,33,142,'Activo'],
+        ['SRV-10','Apple TV+','Streaming',6.99,3.10,4,98,'Bajo stock'],
+        ['SRV-11','Paramount+','Streaming',4.99,2.00,72,120,'Activo'],
+        ['SRV-12','ViX Premium','Streaming',3.99,1.60,58,86,'Activo'],
+      ],
+      bulk:['Activar','Desactivar','Duplicar','Actualizar precios','Exportar','Eliminar'],
+    },
+    'Inventario': {
+      title:'Inventario de Servicios', icon:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>', accent:'#FFB020',
+      views:[['all','Todos'],['Disponible','Disponibles'],['Bajo stock','Bajo stock'],['Agotado','Agotados'],['Reservado','Reservados']],
+      columns:[['id','SKU','text',94],['servicio','Servicio','text',158],['cat','Categoría','tag',116],['stock','Stock','num',78],['reservado','Reservado','num',94],['disponible','Disponible','num',98],['costo','Costo','money',88],['precio','Precio','money',88],['margen','Margen','tag',84],['proveedor','Proveedor','text',138],['estado','Estado','status',116]],
+      rows:[
+        ['INV-01','Netflix Premium','Streaming',48,6,42,6.50,12.99,'50%','StreamHub','Disponible'],
+        ['INV-02','Disney+','Streaming',5,3,2,4.20,8.99,'53%','CineKeys','Bajo stock'],
+        ['INV-03','HBO Max','Streaming',64,8,56,5.80,11.99,'52%','StreamHub','Disponible'],
+        ['INV-04','Prime Video','Streaming',30,4,26,3.90,6.99,'44%','GlobalKeys','Disponible'],
+        ['INV-05','Paramount+','Streaming',72,2,70,2.00,4.99,'60%','CineKeys','Disponible'],
+        ['INV-06','Apple TV+','Streaming',4,3,1,3.10,6.99,'56%','CloudVault','Bajo stock'],
+        ['INV-07','ViX Premium','Streaming',58,5,53,1.60,3.99,'60%','LatinStream','Disponible'],
+        ['INV-08','Spotify Family','Música',120,12,108,4.00,9.99,'60%','SoundPro','Disponible'],
+        ['INV-09','YouTube Premium','Streaming',90,10,80,3.50,7.99,'56%','GlobalKeys','Disponible'],
+        ['INV-10','ChatGPT Plus','IA',12,9,3,9.00,19.99,'55%','AIVault','Bajo stock'],
+        ['INV-11','Adobe CC','Diseño',0,0,0,15.00,29.99,'50%','DesignHub','Agotado'],
+        ['INV-12','Office 365','Productividad',150,5,145,2.90,6.99,'58%','MSPartner','Disponible'],
+        ['INV-13','Crunchyroll','Anime',33,2,31,2.40,5.99,'60%','AnimeKeys','Disponible'],
+        ['INV-14','Combo IA Total','Combos',20,20,0,12.00,29.99,'60%','AIVault','Reservado'],
+        ['INV-15','Streaming Max','Combos',40,6,34,10.00,24.99,'60%','StreamHub','Disponible'],
+        ['INV-16','Canva Pro','Diseño',8,1,7,2.10,5.49,'62%','DesignHub','Bajo stock'],
+      ],
+      bulk:['Reponer stock','Ajustar','Transferir','Exportar','Eliminar'],
+    },
+    'Usuarios': {
+      title:'Gestión de Usuarios', icon:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', accent:'#9B3FFF',
+      views:[['all','Todos'],['Activo','Activos'],['Suspendido','Suspendidos']],
+      columns:[['id','ID','text',80],['nombre','Nombre','text',150],['email','Email','text',180],['rol','Rol','tag',110],['plan','Plan','tag',90],['compras','Compras','num',88],['saldo','Saldo','money',90],['acceso','Últ. acceso','date',110],['estado','Estado','status',110]],
+      rows:[
+        ['U-8841','María González','maria@mail.com','Cliente','VIP',42,48.20,'hace 2h','Activo'],
+        ['U-8840','Carlos Ruiz','carlos@mail.com','Revendedor','PRO',188,3.10,'hace 1h','Activo'],
+        ['U-8839','Ana Torres','ana@mail.com','Cliente','Gold',31,120.00,'hace 5h','Activo'],
+        ['U-8838','Diego Morales','diego@mail.com','Cliente','Free',3,0.00,'hace 3d','Suspendido'],
+        ['U-8837','Luisa Fernández','luisa@mail.com','Cliente','Silver',18,12.40,'ayer','Activo'],
+        ['U-8836','Pedro Sánchez','pedro@mail.com','Editor','PRO',0,0.00,'hace 6h','Activo'],
+        ['U-8835','Sofía Ramírez','sofia@mail.com','Revendedor','VIP',204,340.00,'hace 30m','Activo'],
+        ['U-8834','Andrés Castro','andres@mail.com','Cliente','Gold',27,8.90,'hace 4h','Activo'],
+        ['U-8833','Valentina Ríos','valen@mail.com','Cliente','Free',1,0.00,'hace 8d','Suspendido'],
+        ['U-8832','Javier Mora','javier@mail.com','Admin','ROOT',0,0.00,'hace 12m','Activo'],
+      ],
+      bulk:['Activar','Suspender','Cambiar rol','Enviar mensaje','Exportar','Eliminar'],
+    },
+    'Combos': {
+      title:'Gestión de Combos', icon:'<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/>', accent:'#00CFFF',
+      views:[['all','Todos'],['Activa','Activos'],['borrador','Borradores']],
+      columns:[['id','ID','text',80],['combo','Combo','text',160],['incluye','Incluye','text',200],['precio','Precio','money',96],['ahorro','Ahorro','tag',90],['ventas','Ventas','num',84],['estado','Estado','status',110]],
+      rows:[
+        ['C-01','Pack IA Total','ChatGPT + Claude + Gemini',29.99,'-35%',142,'Activa'],
+        ['C-02','Streaming Max','Netflix + Disney + HBO',24.99,'-28%',98,'Activa'],
+        ['C-03','Music Pro','Spotify + Apple Music',14.99,'-20%',56,'Activa'],
+        ['C-04','Combo Estudiante','Office + Canva + ChatGPT',11.99,'-40%',203,'Activa'],
+        ['C-05','Entretenimiento Full','Netflix + Spotify + YouTube',22.99,'-30%',67,'borrador'],
+      ],
+      bulk:['Activar','Desactivar','Duplicar','Exportar','Eliminar'],
+    },
+    'Revendedores': {
+      title:'Gestión de Revendedores', icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>', accent:'#9B3FFF',
+      views:[['all','Todos'],['Activo','Activos'],['Suspendido','Suspendidos']],
+      columns:[['id','ID','text',80],['nombre','Revendedor','text',160],['nivel','Nivel','tag',90],['clientes','Clientes','num',90],['ventas','Ventas','money',100],['saldo','Saldo','money',90],['margen','Margen','tag',84],['estado','Estado','status',110]],
+      rows:[
+        ['R-01','Tienda Digital SV','Gold',84,4820.00,210.00,'15%','Activo'],
+        ['R-02','NV Partner MX','Silver',52,3140.00,88.00,'12%','Activo'],
+        ['R-03','StreamZone','Platinum',119,2760.00,340.00,'18%','Activo'],
+        ['R-04','CloudKeys','Bronze',31,1920.00,0.00,'10%','Suspendido'],
+        ['R-05','DigitalHub CO','Gold',67,2450.00,120.00,'15%','Activo'],
+      ],
+      bulk:['Aprobar','Suspender','Cambiar nivel','Liquidar comisión','Exportar'],
+    },
+    'Recargas': {
+      title:'Pagos y Recargas', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', accent:'#00D4A0',
+      views:[['all','Todas'],['Pendiente','Pendientes'],['Aprobado','Aprobadas'],['Rechazado','Rechazadas']],
+      columns:[['id','# Solicitud','text',110],['usuario','Usuario','text',150],['monto','Monto','money',96],['metodo','Método','text',130],['ref','Referencia','text',120],['fecha','Fecha','date',108],['estado','Estado','status',120]],
+      rows:[
+        ['#R-991','Carlos Ruiz',25.00,'Pago Móvil','0102-8841','06 Jun','Pendiente'],
+        ['#R-990','Ana Torres',50.00,'Binance Pay','TXN-77213','06 Jun','Aprobado'],
+        ['#R-989','Diego Morales',10.00,'Zelle','ZL-4429','05 Jun','Pendiente'],
+        ['#R-988','Luisa Fernández',100.00,'PayPal','PP-99120','05 Jun','Aprobado'],
+        ['#R-987','Pedro Sánchez',15.00,'Bancolombia','BC-1120','04 Jun','Rechazado'],
+        ['#R-986','Sofía Ramírez',75.00,'Binance Pay','TXN-77190','04 Jun','Aprobado'],
+      ],
+      bulk:['Aprobar','Rechazar','Ver comprobante','Exportar'],
+    },
+  };
+
+  setDomain(id) { this.setState({ activeDomain: id }); }
+  openPalette() { this.setState({ paletteOpen: true }); }
+  closePalette() { this.setState({ paletteOpen: false }); }
+  stopProp(e) { if (e && e.stopPropagation) e.stopPropagation(); }
+  toggleRail() { this.setState(s => ({ railOpen: !(s.railOpen ?? (this.props.showActivityRail ?? true)) })); }
+  openModule(name) { this.setState({ openModuleName: name }); }
+  closeModule() { this.setState({ openModuleName: null }); }
+  openFull(name) { this.setState({ openModuleName: null, fullModuleName: name, gSearch:'', gSort:null, gDir:1, gSel:{}, gRenewed:{}, gPage:1, gView:'all', gHidden:{}, gDetail:null, gColsOpen:false, gFilterOpen:false, gStatusFilter:'all', gCtx:null, gCellEdits:{} }); }
+  closeFull() { this.setState({ fullModuleName: null, gDetail:null, gCtx:null, gColsOpen:false, gFilterOpen:false }); }
+  toggleNotif() { this.setState(s => ({ notifOpen: !s.notifOpen })); }
+  closeNotif() { this.setState({ notifOpen:false }); }
+  markAllRead() { this.setState({ notifRead:true }); this.gToast('Notificaciones marcadas como leídas'); }
+  notifGo(name) { this.setState({ notifOpen:false }); this.openFull(name); }
+  openStats() { this.setState({ statsOpen:true, openModuleName:null, fullModuleName:null }); }
+  closeStats() { this.setState({ statsOpen:false }); }
+  setStatsPeriod(p) { this.setState({ statsPeriod:p }); }
+  openDash() { this.setState({ dashOpen:true, openModuleName:null, fullModuleName:null, statsOpen:false }); }
+  closeDash() { this.setState({ dashOpen:false }); }
+  openRich(name) { this.setState({ richOpen:true, richName:name, openModuleName:null, fullModuleName:null }); }
+  closeRich() { this.setState({ richOpen:false }); }
+  gSendCobros() { const n = Object.keys(this.state.gSel).length; if (!n) { this.gToast('Seleccioná al menos un cliente'); return; } this.gToast('Cobros enviados a ' + n + ' cliente(s) · WhatsApp + Email'); }
+  gRenew() { const ids = Object.keys(this.state.gSel); if (!ids.length) { this.gToast('Seleccioná al menos una suscripción'); return; } const r = { ...this.state.gRenewed }; ids.forEach(id => r[id] = true); this.setState({ gRenewed: r, gSel: {} }); this.gToast(ids.length + ' suscripción(es) renovada(s) · +30 días'); }
+  gRenewOne(id) { const r = { ...this.state.gRenewed }; r[id] = true; const sel = { ...this.state.gSel }; delete sel[id]; this.setState({ gRenewed: r, gSel: sel, gCtx: null }); this.gToast('Suscripción renovada · sale de vencimientos · +30 días'); }
+  gSetSort(k) { this.setState(s => ({ gSort: k, gDir: s.gSort===k ? -s.gDir : 1, gCtx:null })); }
+  gSetSearch(v) { this.setState({ gSearch: v, gPage: 1 }); }
+  gToggleSel(id) { this.setState(s => { const n={...s.gSel}; if(n[id]) delete n[id]; else n[id]=true; return { gSel:n }; }); }
+  gSelPage(ids, all) { this.setState(s => { const n={...s.gSel}; if(all) ids.forEach(i=>delete n[i]); else ids.forEach(i=>n[i]=true); return { gSel:n }; }); }
+  gClearSel() { this.setState({ gSel:{} }); }
+  gSetPage(p) { this.setState({ gPage: p, gCtx:null }); }
+  gSetView(v) { this.setState({ gView: v, gPage:1, gStatusFilter: v==='all'?'all':this.state.gStatusFilter }); }
+  gToggleCol(k) { this.setState(s => { const n={...s.gHidden}; if(n[k]) delete n[k]; else n[k]=true; return { gHidden:n }; }); }
+  gOpenDetail(id) { this.setState({ gDetail: id, gCtx:null }); }
+  gCloseDetail() { this.setState({ gDetail: null }); }
+  gToggleCols() { this.setState(s => ({ gColsOpen: !s.gColsOpen, gFilterOpen:false })); }
+  gToggleFilter() { this.setState(s => ({ gFilterOpen: !s.gFilterOpen, gColsOpen:false })); }
+  gSetStatusFilter(v) { this.setState({ gStatusFilter: v, gPage:1, gFilterOpen:false }); }
+  gOpenCtx(id, x, y) { this.setState({ gCtx: { id, x, y } }); }
+  gCloseCtx() { this.setState({ gCtx: null }); }
+  gEditCell(id, key, val) { this.setState(s => ({ gCellEdits: { ...s.gCellEdits, [id+'::'+key]: val } })); }
+  gToast(msg) { this.setState({ gToastMsg: msg }); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({ gToastMsg:null }), 2200); }
+
+  DOMAINS = [
+    { id:'comercio',  label:'Comercio & Ventas',   short:'Venta', accent:'#00CFFF', accentSoft:'rgba(0,207,255,0.1)',  accentLine:'rgba(0,207,255,0.28)',  icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>' },
+    { id:'personas',  label:'Personas & Accesos',  short:'Gente', accent:'#9B3FFF', accentSoft:'rgba(155,63,255,0.1)', accentLine:'rgba(155,63,255,0.28)', icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>' },
+    { id:'finanzas',  label:'Finanzas',            short:'$$',    accent:'#00D4A0', accentSoft:'rgba(0,212,160,0.1)',  accentLine:'rgba(0,212,160,0.28)',  icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+    { id:'contenido', label:'Contenido & CMS Visual', short:'CMS', accent:'#FF30A0', accentSoft:'rgba(255,48,160,0.1)', accentLine:'rgba(255,48,160,0.28)', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>' },
+    { id:'sistema',   label:'Sistema & Plataforma', short:'Sys',  accent:'#FFB020', accentSoft:'rgba(255,176,32,0.1)', accentLine:'rgba(255,176,32,0.28)', icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' },
+  ];
+
+  MODULES = [
+    // Comercio
+    { domain:'comercio', name:'Dashboard Ejecutivo', desc:'KPIs, ingresos y actividad en vivo del negocio.', tag:'Core', version:'v2.6', scope:'RBAC', count:'18 KPIs', flagship:false, icon:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>' },
+    { domain:'comercio', name:'Órdenes', desc:'Pedidos, entregas, reembolsos y timeline.', tag:'Core', version:'v2.4', scope:'RBAC', count:'89 activas', countColor:'#00CFFF', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>' },
+    { domain:'comercio', name:'Control de Vencimientos', desc:'Suscripciones que vencen, renovaciones y avisos.', tag:'Core', version:'v1.6', scope:'RBAC', count:'3 vencen hoy', countColor:'#FF3E6C', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
+    { domain:'comercio', name:'Catálogo de Servicios', desc:'Servicios, precios, stock y SEO por ítem.', tag:'Core', version:'v3.1', scope:'RBAC', count:'54 servicios', icon:'<path d="m12 2 9 5-9 5-9-5 9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>' },
+    { domain:'comercio', name:'Combos', desc:'Packs y bundles con ahorro y versionado.', tag:'Core', version:'v1.8', scope:'RBAC', count:'12 combos', icon:'<path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5" rx="1"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>' },
+    { domain:'comercio', name:'Categorías', desc:'Taxonomía, subcategorías y orden visual.', tag:'Core', version:'v1.4', scope:'RBAC', count:'9 categorías', icon:'<path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.2"/>' },
+    { domain:'comercio', name:'Inventario', desc:'Stock, reservas, asignaciones y alertas.', tag:'Extensión', version:'v1.2', scope:'RBAC', count:'2 alertas', countColor:'#FFB020', icon:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
+    { domain:'comercio', name:'Promociones', desc:'Cupones, campañas, referidos y cashback.', tag:'Extensión', version:'v2.0', scope:'RBAC', count:'6 activas', countColor:'#00D4A0', icon:'<path d="M9 11 3 5V3h2l6 6M13 15l6 6h2v-2l-6-6"/><path d="M15 3h6v6M14 10l7-7M3 21l7-7"/>' },
+    // Personas
+    { domain:'personas', name:'Usuarios', desc:'Cuentas, sesiones, dispositivos e historial.', tag:'Core', version:'v2.9', scope:'RBAC', count:'12.4K', countColor:'#9B3FFF', icon:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+    { domain:'personas', name:'Roles & Permisos', desc:'RBAC por módulo, botón, acción y API.', tag:'Core', version:'v2.2', scope:'ROOT', count:'7 roles', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>' },
+    { domain:'personas', name:'Revendedores', desc:'Red de resellers, márgenes y saldos.', tag:'Extensión', version:'v1.6', scope:'RBAC', count:'34 activos', countColor:'#00D4A0', icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>' },
+    // Finanzas
+    { domain:'finanzas', name:'Métodos de Pago', desc:'Pasarelas, comisiones, webhooks y QR.', tag:'Core', version:'v2.3', scope:'RBAC', count:'8 métodos', icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>' },
+    { domain:'finanzas', name:'Recargas', desc:'Solicitudes, aprobación y comprobantes.', tag:'Core', version:'v1.9', scope:'RBAC', count:'4 pendientes', countColor:'#FFB020', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>' },
+    { domain:'finanzas', name:'Billetera', desc:'Saldos, movimientos, bonos y ajustes.', tag:'Core', version:'v2.1', scope:'RBAC', count:'$48.2K', countColor:'#00D4A0', icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M2 10h14a2 2 0 0 1 0 4H2"/>' },
+    { domain:'finanzas', name:'Estadísticas', desc:'Conversión, retención, LTV y tráfico.', tag:'Extensión', version:'v1.4', scope:'RBAC', count:'23 reportes', icon:'<path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/>' },
+    // Contenido / CMS
+    { domain:'contenido', name:'CMS Visual', desc:'Editor drag & drop de todo el frontend, sin código.', tag:'Core', version:'v3.0', scope:'RBAC', count:'14 secciones', countColor:'#FF30A0', flagship:true, icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/><path d="m14 14 2 2 3-3" opacity="0.6"/>' },
+    { domain:'contenido', name:'Gestión del Home', desc:'Hero, anillos, carruseles y secciones.', tag:'Core', version:'v2.5', scope:'RBAC', count:'9 bloques', icon:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>' },
+    { domain:'contenido', name:'Cartelera Digital', desc:'Estrenos, posters, trailers y promos.', tag:'Extensión', version:'v1.3', scope:'RBAC', count:'6 activas', countColor:'#FF30A0', icon:'<rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/>' },
+    { domain:'contenido', name:'Banners', desc:'Hero, slider, popup, campañas y schedule.', tag:'Extensión', version:'v1.5', scope:'RBAC', count:'11 banners', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20"/>' },
+    { domain:'contenido', name:'Blog / Noticias', desc:'Artículos, categorías, autores y SEO.', tag:'Extensión', version:'v1.0', scope:'RBAC', count:'28 posts', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>' },
+    { domain:'contenido', name:'Archivos', desc:'Media manager: imágenes, video, SVG, docs.', tag:'Core', version:'v1.7', scope:'RBAC', count:'2.4K', icon:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/>' },
+    { domain:'contenido', name:'Tema de la Plataforma', desc:'Tokens, colores, fuentes, glass y sombras.', tag:'Core', version:'v2.8', scope:'ROOT', count:'CSS vars', icon:'<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2v-1a2 2 0 0 1 2-2h1a4 4 0 0 0 4-4 10 10 0 0 0-9-9z"/>' },
+    // Sistema
+    { domain:'sistema', name:'Configuración General', desc:'Dominio, monedas, países, impuestos, APIs.', tag:'Core', version:'v2.4', scope:'ROOT', count:'—', icon:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>' },
+    { domain:'sistema', name:'Seguridad', desc:'2FA, sesiones, API keys, whitelist, backups.', tag:'Core', version:'v2.7', scope:'ROOT', count:'2 alertas', countColor:'#FF3E6C', icon:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+    { domain:'sistema', name:'Automatizaciones', desc:'Cron, webhooks, triggers, eventos y colas.', tag:'Extensión', version:'v1.2', scope:'ROOT', count:'14 tareas', countColor:'#00CFFF', icon:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>' },
+    { domain:'sistema', name:'Auditoría', desc:'Registro inmutable de toda acción del panel.', tag:'Core', version:'v2.0', scope:'ROOT', count:'live', countColor:'#00D4A0', icon:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>' },
+    { domain:'sistema', name:'Respaldos', desc:'Backup manual/auto, versionado y restore.', tag:'Core', version:'v1.5', scope:'ROOT', count:'diario', icon:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>' },
+    { domain:'sistema', name:'Notificaciones', desc:'Push, email, WhatsApp, Telegram, SMS.', tag:'Core', version:'v2.1', scope:'RBAC', count:'12 plantillas', icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' },
+  ];
+
+  PANELS = {
+    'Dashboard Ejecutivo': { kind:'metrics',
+      stats:[['Revenue mes','$48.2K'],['Órdenes mes','1,284'],['Conversión','4.8%']],
+      metrics:[['Revenue hoy','$2,841','+12.3%',1],['Ticket promedio','$31.90','+3.1%',1],['Usuarios activos','3,204','+5.4%',1],['MRR','$48.2K','+8.0%',1],['Reembolsos','1.2%','-0.3%',1],['Churn','2.1%','-0.4%',1]],
+      actions:['Exportar reporte','Configurar KPIs'] },
+    'Órdenes': { cols:['# Orden','Cliente','Servicio','Total','Estado'],
+      rows:[['#8841','María González','Netflix Premium','$12.99','Completada'],['#8840','Carlos Ruiz','Combo IA Total','$29.99','Procesando'],['#8839','Ana Torres','Spotify Family','$9.99','Completada'],['#8838','Diego M.','Disney+ Anual','$79.99','Reembolso'],['#8837','Luisa F.','HBO Max','$11.99','Completada'],['#8836','Pedro S.','YouTube Premium','$7.99','Pendiente']],
+      stats:[['Activas','89'],['Hoy','23'],['Reembolsos','2']], actions:['Nueva orden','Exportar CSV'] },
+    'Catálogo de Servicios': { cols:['Servicio','Categoría','Precio','Stock','Estado'],
+      rows:[['Netflix Premium','Streaming','$12.99','48','Activo'],['Spotify Family','Música','$9.99','120','Activo'],['ChatGPT Plus','IA','$19.99','12','Activo'],['Disney+','Streaming','$8.99','5','Bajo stock'],['Adobe CC','Diseño','$29.99','0','Agotado']],
+      stats:[['Servicios','54'],['Categorías','9'],['Agotados','1']], actions:['Nuevo servicio','Importar'] },
+    'Inventario': { cols:['Servicio','Stock','Disponible','Estado'],
+      rows:[['Netflix Premium','48','42','Disponible'],['Disney+','5','2','Bajo stock'],['ChatGPT Plus','12','3','Bajo stock'],['Adobe CC','0','0','Agotado'],['Combo IA Total','20','0','Reservado']],
+      stats:[['SKUs','54'],['Bajo stock','4'],['Agotados','1']], actions:['Reponer stock','Exportar'] },
+    'Combos': { cols:['Combo','Incluye','Precio','Ventas','Estado'],
+      rows:[['Pack IA Total','ChatGPT + Claude + Gemini','$29.99','142','Activa'],['Streaming Max','Netflix + Disney + HBO','$24.99','98','Activa'],['Music Pro','Spotify + Apple Music','$14.99','56','Activa'],['Combo Estudiante','Office + Canva','$11.99','203','Activa']],
+      stats:[['Combos','12'],['Ventas mes','499'],['Ingreso','$14.2K']], actions:['Nuevo combo','Ver métricas'] },
+    'Usuarios': { cols:['Usuario','Email','Plan','Estado'],
+      rows:[['María González','maria@mail.com','VIP','Activo'],['Carlos Ruiz','carlos@mail.com','PRO','Activo'],['Ana Torres','ana@mail.com','Gold','Activo'],['Diego M.','diego@mail.com','Free','Suspendido'],['Luisa F.','luisa@mail.com','Silver','Activo']],
+      stats:[['Total','12.4K'],['Activos','3,204'],['Suspendidos','18']], actions:['Invitar usuario','Exportar'] },
+    'Roles & Permisos': { cols:['Rol','Miembros','Alcance','Estado'],
+      rows:[['Super Admin','2','ROOT','Activo'],['Supervisor','5','R/W','Activo'],['Operador','14','R/W','Activo'],['Soporte','8','READ','Activo'],['Revendedor','34','SCOPE','Activo']],
+      stats:[['Roles','7'],['Con ROOT','2'],['Módulos','30']], actions:['Nuevo rol','Matriz de permisos'] },
+    'Revendedores': { cols:['Reseller','Ventas','Saldo','Margen','Estado'],
+      rows:[['Tienda Digital SV','$4,820','$210','15%','Activo'],['NV Partner MX','$3,140','$88','12%','Activo'],['StreamZone','$2,760','$340','18%','Activo'],['CloudKeys','$1,920','$0','10%','Suspendido']],
+      stats:[['Activos','34'],['Ventas mes','$28.4K'],['Comisión','$3.9K']], actions:['Nuevo reseller','Liquidar comisiones'] },
+    'Métodos de Pago': { cols:['Método','Comisión','Transacciones','Estado'],
+      rows:[['Binance Pay','1.0%','842','Activo'],['PayPal','3.5%','1,204','Activo'],['Zelle','0%','318','Activo'],['Pago Móvil','0%','2,910','Activo'],['Tarjeta','2.9%','1,882','Activo']],
+      stats:[['Métodos','8'],['Volumen','$81K'],['Éxito','98.4%']], actions:['Agregar pasarela','Ver webhooks'] },
+    'Recargas': { cols:['# Solicitud','Usuario','Monto','Método','Estado'],
+      rows:[['#R-991','Carlos R.','$25.00','Pago Móvil','Pendiente'],['#R-990','Ana T.','$50.00','Binance','Aprobado'],['#R-989','Diego M.','$10.00','Zelle','Pendiente'],['#R-988','Luisa F.','$100.00','PayPal','Aprobado']],
+      stats:[['Pendientes','4'],['Hoy','$1.2K'],['Aprobadas','128']], actions:['Aprobar seleccionadas','Exportar'] },
+    'Billetera': { cols:['Usuario','Saldo','Último mov.','Estado'],
+      rows:[['María González','$48.20','+$12.99','Activo'],['Carlos Ruiz','$3.10','-$29.99','Activo'],['Ana Torres','$120.00','+$50.00','Activo'],['Diego M.','$0.00','-$10.00','Activo']],
+      stats:[['Saldo total','$48.2K'],['Movimientos','2,910'],['Bonos','$1.4K']], actions:['Ajuste manual','Ver movimientos'] },
+    'CMS Visual': { kind:'grid',
+      grid:[['Home','9 bloques'],['Catálogo','6 bloques'],['Checkout','4 bloques'],['Mi Cuenta','5 bloques'],['404','3 bloques'],['Footer','link groups']],
+      stats:[['Páginas','6'],['Secciones','14'],['Publicado','hace 2h']], actions:['Abrir editor','Publicar cambios'] },
+    'Gestión del Home': { kind:'grid',
+      grid:[['Hero orbital','activo'],['Carril Combos','4 packs'],['Ruedas de categorías','5 ruedas'],['Estrenos','6 items'],['Métodos de pago','8 logos'],['Favoritos','5 tarjetas']],
+      stats:[['Bloques','9'],['Visibles','8'],['Programados','1']], actions:['Editar Home','Reordenar'] },
+    'Banners': { kind:'grid',
+      grid:[['Hero promo -30%','activo'],['Slider verano','programado'],['Popup bienvenida','activo'],['Barra superior','activo'],['Combo IA','borrador']],
+      stats:[['Banners','11'],['Activos','6'],['Programados','2']], actions:['Nuevo banner','Calendario'] },
+    'Archivos': { kind:'grid',
+      grid:[['card-netflix.png','420×630'],['hero-bg.webp','1920×1080'],['logo-nv.svg','vector'],['spot-ad.mp4','12 MB'],['adobe.png','500×500'],['promo.gif','2 MB']],
+      stats:[['Archivos','2.4K'],['Peso','8.2 GB'],['Este mes','+184']], actions:['Subir archivo','Nueva carpeta'] },
+    'Configuración General': { kind:'settings',
+      settings:[['Dominio','nv-platform.com'],['Moneda base','USD ($)'],['Países activos','12'],['Impuesto','IVA 16%'],['Zona horaria','GMT-6'],['Idioma','Español']],
+      stats:[['Monedas','5'],['Países','12'],['APIs','8']], actions:['Guardar cambios','Ver APIs'] },
+    'Seguridad': { kind:'settings',
+      settings:[['2FA obligatorio','Activado'],['Sesiones activas','42'],['API keys','6'],['Whitelist IP','3 rangos'],['Backups','Diario'],['Intentos fallidos','2 alertas']],
+      stats:[['Alertas','2'],['Sesiones','42'],['API keys','6']], actions:['Revisar alertas','Rotar llaves'] },
+    'Notificaciones': { kind:'settings',
+      settings:[['Push','Activado'],['Email','Activado'],['WhatsApp','Activado'],['Telegram','Activado'],['SMS','Desactivado'],['Plantillas','12']],
+      stats:[['Plantillas','12'],['Canales','5'],['Enviadas hoy','8.4K']], actions:['Nueva plantilla','Probar envío'] },
+  };
+
+  tagStyle(tag) {
+    if (tag === 'Core')      return { color:'#00CFFF', bg:'rgba(0,207,255,0.08)',  border:'rgba(0,207,255,0.2)' };
+    if (tag === 'Extensión') return { color:'#9B3FFF', bg:'rgba(155,63,255,0.08)', border:'rgba(155,63,255,0.2)' };
+    return { color:'#FFB020', bg:'rgba(255,176,32,0.08)', border:'rgba(255,176,32,0.2)' };
+  }
+
+  statusStyle(s) {
+    const map = { 'Completada':'#00D4A0','Activo':'#00D4A0','Activa':'#00D4A0','Aprobado':'#00D4A0','Publicado':'#00D4A0','Operativo':'#00D4A0','Activado':'#00D4A0','Vigente':'#00D4A0','Renovado':'#00D4A0','Entregado':'#00D4A0','Disponible':'#00D4A0',
+      'Procesando':'#FFB020','Pendiente':'#FFB020','En revisión':'#FFB020','programado':'#FFB020','Bajo stock':'#FFB020','Por vencer':'#FFB020',
+      'Reembolso':'#FF3E6C','Suspendido':'#FF3E6C','Agotado':'#FF3E6C','Bloqueado':'#FF3E6C','Rechazado':'#FF3E6C','Vencido':'#FF3E6C','Vence hoy':'#FF3E6C',
+      'borrador':'rgba(200,215,255,0.5)','Borrador':'rgba(200,215,255,0.5)','Desactivado':'rgba(200,215,255,0.5)' };
+    const c = map[s] || '#00CFFF';
+    const bg = { '#00D4A0':'rgba(0,212,160,0.12)','#FFB020':'rgba(255,176,32,0.12)','#FF3E6C':'rgba(255,62,108,0.12)','#00CFFF':'rgba(0,207,255,0.12)','rgba(200,215,255,0.5)':'rgba(200,215,255,0.08)' }[c] || 'rgba(0,207,255,0.12)';
+    return { color:c, bg };
+  }
+
+  fallbackPanel(m, dom) {
+    if (dom.id === 'contenido') return { kind:'grid', grid:[[m.name+' · A','activo'],[m.name+' · B','activo'],[m.name+' · C','borrador']], stats:[['Registros', m.count||'—'],['Versión', m.version],['Alcance', m.scope]], actions:['Abrir','Configurar'] };
+    if (dom.id === 'sistema') return { kind:'settings', settings:[['Estado','Operativo'],['Versión', m.version],['Alcance', m.scope],['Última actividad','hace 5 min']], stats:[['Estado','OK'],['Versión', m.version],['Alcance', m.scope]], actions:['Configurar','Ver logs'] };
+    const cols = dom.id === 'personas' ? ['Nombre','Referencia','Rol','Estado'] : dom.id === 'finanzas' ? ['Concepto','Monto','Método','Estado'] : ['Ítem','Detalle','Valor','Estado'];
+    const rows = [['Ejemplo 1','—','—','Activo'],['Ejemplo 2','—','—','Activo'],['Ejemplo 3','—','—','Pendiente'],['Ejemplo 4','—','—','Activo']];
+    return { cols, rows, stats:[['Registros', m.count||'—'],['Versión', m.version],['Alcance', m.scope]], actions:['Nuevo','Exportar'] };
+  }
+
+  panelFor(m, dom) {
+    const P = this.PANELS[m.name] || this.fallbackPanel(m, dom);
+    const kind = P.kind || 'table';
+    const ts = this.tagStyle(m.tag);
+    const cols = P.cols || [];
+    const pillCols = ['Estado','Prioridad','Visible','Alerta'];
+    const columns = cols.map((c,i) => ({ t:c, style:'font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(160,185,240,0.42);font-weight:600;'+(i===cols.length-1?'text-align:right;':'') }));
+    const rows = (P.rows || []).map(r => ({ cells: r.map((v,i) => {
+      if (pillCols.includes(cols[i])) { const st = this.statusStyle(v); return { t:v, style:'justify-self:end;padding:2px 10px;border-radius:100px;font-size:10.5px;font-weight:600;background:'+st.bg+';color:'+st.color+';' }; }
+      return { t:v, style:'font-size:12.5px;'+(i===0?"color:#EEF2FF;font-weight:600;":"color:rgba(200,215,255,0.62);")+(i===r.length-1?'text-align:right;':'') };
+    }) }));
+    return {
+      name:m.name, desc:m.desc, icon:m.icon, tag:m.tag, version:m.version, scope:m.scope,
+      accent:dom.accent, accentSoft:dom.accentSoft, accentLine:dom.accentLine,
+      tagColor:ts.color, tagBg:ts.bg, tagBorder:ts.border,
+      stats:(P.stats||[]).map(s => ({ label:s[0], value:s[1] })),
+      isTable: kind==='table', columns, rows, gridCols:'repeat('+(cols.length||3)+',1fr)',
+      isMetrics: kind==='metrics', metrics:(P.metrics||[]).map(x => ({ label:x[0], value:x[1], delta:x[2], color:x[3]?'#00D4A0':'#FF3E6C' })),
+      isGrid: kind==='grid', gridCards:(P.grid||[]).map(g => ({ name:g[0], meta:g[1] })),
+      isSettings: kind==='settings', settings:(P.settings||[]).map(s => ({ label:s[0], value:s[1] })),
+      actions: P.actions || ['Nuevo','Configurar'],
+      perms: m.scope==='ROOT' ? ['Super Admin'] : ['Super Admin','Supervisor','Operador'],
+    };
+  }
+
+  buildGrid() {
+    const name = this.state.fullModuleName;
+    if (!name) return null;
+    let def = this.GRIDS[name];
+    if (def && def.alias) def = this.GRIDS[def.alias];
+    if (!def) {
+      const openMod = this.MODULES.find(m => m.name === name);
+      const dom = openMod ? this.DOMAINS.find(d => d.id === openMod.domain) : null;
+      const P = this.PANELS[name];
+      const acc = dom ? dom.accent : '#00CFFF', ic = openMod ? openMod.icon : '';
+      if (P && P.cols && P.rows) {
+        def = { title:name, icon:ic, accent:acc, views:[['all','Todos']],
+          columns: P.cols.map((c, i) => ['c' + i, c, (['Estado','Prioridad','Visible','Alerta'].includes(c) ? 'status' : 'text'), i === 0 ? 150 : 120]),
+          rows: P.rows, bulk:['Exportar','Eliminar'] };
+      } else {
+        def = { title:name, icon:ic, accent:acc, views:[['all','Todos']],
+          columns:[['c0','Elemento','text',170],['c1','Detalle','text',190],['c2','Estado','status',120]],
+          rows:[['Ejemplo 1','—','Activo'],['Ejemplo 2','—','Activo'],['Ejemplo 3','—','Pendiente']], bulk:['Exportar'] };
+      }
+    }
+    const s = this.state;
+    const cols = def.columns.map(c => ({ key:c[0], label:c[1], type:c[2], w:c[3], hidden: !!s.gHidden[c[0]] }));
+    const visCols = cols.filter(c => !c.hidden);
+    const gridTemplate = '34px ' + visCols.map(c => 'minmax(' + c.w + 'px,' + (c.type==='text'?'1.4fr':'1fr') + ')').join(' ') + ' 96px';
+
+    // raw rows
+    let rows = def.rows.map((r, i) => {
+      const cells = {}; def.columns.forEach((c, j) => { cells[c[0]] = r[j]; });
+      const id = String(cells[def.columns[0][0]] || ('row-' + i));
+      return { id, cells, _i:i };
+    });
+    // status filter (view + explicit)
+    // renewed subscriptions leave the table
+    if (name === 'Control de Vencimientos' && s.gRenewed) rows = rows.filter(r => !s.gRenewed[r.id]);
+    // view / service / status filter
+    const statusKey = def.columns.find(c => c[2] === 'status');
+    if (s.gView && s.gView.indexOf('svc:') === 0) {
+      const svcCol = def.columns.find(c => c[0] === 'servicio') || def.columns.find(c => /servicio/i.test(c[1]));
+      const q2 = s.gView.slice(4).toLowerCase();
+      if (svcCol) rows = rows.filter(r => String(r.cells[svcCol[0]]).toLowerCase().includes(q2));
+    } else {
+      const sf = s.gView !== 'all' ? s.gView : s.gStatusFilter;
+      if (sf && sf !== 'all' && statusKey) rows = rows.filter(r => String(r.cells[statusKey[0]]) === sf);
+    }
+    // search
+    const q = (s.gSearch || '').trim().toLowerCase();
+    if (q) rows = rows.filter(r => Object.values(r.cells).some(v => String(v).toLowerCase().includes(q)));
+    // sort
+    if (s.gSort) {
+      const sc = def.columns.find(c => c[0] === s.gSort);
+      const numeric = sc && (sc[2] === 'money' || sc[2] === 'num');
+      rows = [...rows].sort((a, b) => {
+        let av = a.cells[s.gSort], bv = b.cells[s.gSort];
+        if (numeric) { av = Number(av) || 0; bv = Number(bv) || 0; return (av - bv) * s.gDir; }
+        return String(av).localeCompare(String(bv)) * s.gDir;
+      });
+    }
+    const total = rows.length;
+    const statuses = [...new Set(def.rows.map((r, i) => r[def.columns.findIndex(c => c[2] === 'status')]).filter(Boolean))];
+    // pagination
+    const ps = s.gPageSize, pages = Math.max(1, Math.ceil(total / ps)), page = Math.min(s.gPage, pages);
+    const pageRows = rows.slice((page - 1) * ps, page * ps);
+    const pageIds = pageRows.map(r => r.id);
+    const allPageSel = pageIds.length > 0 && pageIds.every(id => s.gSel[id]);
+    const selCount = Object.keys(s.gSel).length;
+
+    const chip = (v) => 'display:inline-flex;padding:2px 9px;border-radius:6px;font-size:10.5px;font-weight:600;font-family:\'JetBrains Mono\',monospace;background:rgba(0,207,255,0.09);color:#7FD8FF;border:1px solid rgba(0,207,255,0.18);';
+
+    const fmt = (v, t) => t === 'money' ? ('$' + (Number(v).toFixed(2))) : String(v);
+
+    const prepared = pageRows.map(r => {
+      const cells = visCols.map(c => {
+        const editKey = r.id + '::' + c.key;
+        const raw = (editKey in s.gCellEdits) ? s.gCellEdits[editKey] : r.cells[c.key];
+        const base = { key:c.key, type:c.type, editable: c.type !== 'status' };
+        if (c.type === 'status') {
+          const st = this.statusStyle(raw);
+          return { ...base, display: raw, isStatus:true, style:'justify-self:start;padding:3px 11px;border-radius:100px;font-size:10.5px;font-weight:600;background:' + st.bg + ';color:' + st.color + ';cursor:pointer;',
+            onClick: () => { const idx = statuses.indexOf(String(raw)); const nx = statuses[(idx + 1) % statuses.length]; this.gEditCell(r.id, c.key, nx); this.gToast('Estado → ' + nx); } };
+        }
+        if (c.type === 'tag') return { ...base, display: fmt(raw, c.type), isTag:true, style: chip(raw), onBlur: (e) => this.gEditCell(r.id, c.key, e.target.textContent.trim()) };
+        const align = (c.type === 'money' || c.type === 'num') ? 'text-align:right;font-family:\'JetBrains Mono\',monospace;' : '';
+        const strong = c.key === def.columns[0][0];
+        return { ...base, display: fmt(raw, c.type), style:'font-size:12.5px;' + align + (strong ? 'color:#EEF2FF;font-weight:600;' : 'color:rgba(210,222,255,0.72);'),
+          onBlur: (e) => this.gEditCell(r.id, c.key, e.target.textContent.trim()) };
+      });
+      return { id:r.id, cells, selected: !!s.gSel[r.id],
+        onSelect: () => this.gToggleSel(r.id),
+        onOpen: () => this.gOpenDetail(r.id),
+        onCtx: (e) => { if (e && e.preventDefault) e.preventDefault(); this.gOpenCtx(r.id, e.clientX, e.clientY); } };
+    });
+
+    const headers = visCols.map(c => ({ key:c.key, label:c.label, sorted: s.gSort === c.key, dir: s.gDir === 1 ? '0deg' : '180deg',
+      align: (c.type === 'money' || c.type === 'num') ? 'flex-end' : 'flex-start',
+      onSort: () => this.gSetSort(c.key) }));
+
+    // detail
+    let detail = null;
+    if (s.gDetail) {
+      const dr = def.rows.find((r, i) => String(r[0]) === s.gDetail);
+      if (dr) {
+        detail = { id: s.gDetail, proof: name === 'Recargas', fields: def.columns.map((c, j) => {
+          const ek = s.gDetail + '::' + c[0]; const raw = (ek in s.gCellEdits) ? s.gCellEdits[ek] : dr[j];
+          return { label:c[1], value: fmt(raw, c[2]) };
+        }), onProofView:()=>this.gToast('Abriendo comprobante original…'), onApprove:()=>this.gToast('Recarga aprobada'), onReject:()=>this.gToast('Recarga rechazada') };
+      }
+    }
+    // context menu
+    let ctx = null;
+    if (s.gCtx) {
+      const cid = s.gCtx.id;
+      const cx = Math.min(s.gCtx.x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 222);
+      const cy = Math.min(s.gCtx.y, (typeof window !== 'undefined' ? window.innerHeight : 800) - 300);
+      ctx = { x: Math.max(8, cx) + 'px', y: Math.max(8, cy) + 'px', items: [
+        ...(name === 'Control de Vencimientos' ? [{ label:'Renovar suscripción', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', onClick: () => this.gRenewOne(cid) }] : []),
+        { label:'Ver detalles', icon:'<circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>', onClick: () => this.gOpenDetail(cid) },
+        { label:'Editar', icon:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', onClick: () => { this.gOpenDetail(cid); } },
+        { label:'Duplicar', icon:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', onClick: () => this.gToast('Registro duplicado') },
+        { label:'Copiar ID', icon:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>', onClick: () => this.gToast('ID copiado: ' + cid) },
+        { label:'Cambiar estado', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/>', onClick: () => this.gToast('Estado actualizado') },
+        { label:'Ver historial', icon:'<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>', onClick: () => this.gToast('Abriendo historial…') },
+        { label:'Eliminar', danger:true, icon:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>', onClick: () => this.gToast('Registro eliminado') },
+      ] };
+    }
+
+    return {
+      title: def.title, icon: def.icon, accent: def.accent,
+      accentSoft: 'rgba(0,207,255,0.1)',
+      views: (def.views || [['all','Todos']]).map(v => ({ id:v[0], label:v[1], active: (s.gView === v[0]), onClick: () => this.gSetView(v[0]) })),
+      columns: headers, allColumns: cols.map(c => ({ key:c.key, label:c.label, hidden:c.hidden, onToggle: () => this.gToggleCol(c.key) })),
+      gridTemplate, rows: prepared, total, page, pages, pageSize: ps,
+      hasPrev: page > 1, hasNext: page < pages,
+      onPrev: () => this.gSetPage(page - 1), onNext: () => this.gSetPage(page + 1),
+      rangeLabel: total === 0 ? '0' : (((page - 1) * ps + 1) + '–' + Math.min(page * ps, total)),
+      allPageSel, selCount, statuses,
+      onSelPage: () => this.gSelPage(pageIds, allPageSel),
+      bulk: (def.bulk || []).map(b => {
+        const danger = /elimin/i.test(b), primary = /cobro/i.test(b), warn = /^Renovar$/i.test(b);
+        const col = danger ? '#FF6B8B' : primary ? '#04040C' : warn ? '#00E5A8' : 'rgba(210,222,255,0.8)';
+        const bg = danger ? 'rgba(255,62,108,0.1)' : primary ? '#00D4A0' : warn ? 'rgba(0,212,160,0.1)' : 'rgba(255,255,255,0.05)';
+        const border = danger ? 'rgba(255,62,108,0.28)' : primary ? '#00D4A0' : warn ? 'rgba(0,212,160,0.3)' : 'rgba(80,100,200,0.2)';
+        return { label:b, bg, border, col, weight: primary ? '700' : '500', onClick: () => (primary ? this.gSendCobros() : warn ? this.gRenew() : this.gToast(b + ' · ' + selCount + ' registro(s)')) };
+      }),
+      detail, ctx,
+      statusFilterOpts: [['all','Todos'], ...statuses.map(st => [st, st])].map(o => ({ id:o[0], label:o[1], active: s.gStatusFilter === o[0], onClick: () => this.gSetStatusFilter(o[0]) })),
+    };
+  }
+
+  richSpec(name) {
+    if (!name) return null;
+    const S = {
+      'Métodos de Pago': { layout:'paycards', accent:'#00D4A0', icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>', subtitle:'Pasarelas activas y datos para recibir pagos',
+        cards:[
+          { name:'Binance Pay', type:'Cripto · USDT', color:'#F0B90B', initials:'B', status:'Activo', commission:'1.0%', vol:'842 txns', fields:[['Pay ID','387 654 921'],['Red','BEP-20 / TRC-20'],['Titular','NV Streaming'],['Moneda','USDT']] },
+          { name:'PayPal', type:'Billetera', color:'#0070BA', initials:'PP', status:'Activo', commission:'3.5%', vol:'1,204 txns', fields:[['Correo','pagos@nv-platform.com'],['Cuenta','Business'],['Retiro','Diario'],['Cobertura','Global']] },
+          { name:'Zelle', type:'Transferencia', color:'#6D1ED4', initials:'Z', status:'Activo', commission:'0%', vol:'318 txns', fields:[['Correo / Tel','+1 305 555 0142'],['Banco','Bank of America'],['Titular','Nathan V.']] },
+          { name:'Pago Móvil', type:'Transferencia', color:'#E4002B', initials:'PM', status:'Activo', commission:'0%', vol:'2,910 txns', fields:[['Teléfono','0414 123 4567'],['Cédula','V-12.345.678'],['Banco','Banesco · 0134']] },
+          { name:'Tarjeta', type:'Débito / Crédito', color:'#1A1F71', initials:'CC', status:'Activo', commission:'2.9% + $0.30', vol:'1,882 txns', fields:[['Pasarela','Stripe'],['3D Secure','Activo'],['Divisas','Multi']] },
+          { name:'Yape', type:'Billetera', color:'#742284', initials:'Y', status:'Activo', commission:'0%', vol:'204 txns', fields:[['Número','987 654 321'],['Titular','NV Perú'],['País','Perú']] },
+          { name:'Bancolombia', type:'Transferencia', color:'#C99700', initials:'BC', status:'Activo', commission:'0%', vol:'640 txns', fields:[['Ahorros','123-456789-00'],['Titular','NV Colombia'],['NIT','900.123.456']] },
+          { name:'Revolut', type:'Billetera', color:'#0666EB', initials:'R', status:'Pausado', commission:'0.5%', vol:'96 txns', fields:[['Usuario','@nvplatform'],['IBAN','LT12 3250 04…'],['Moneda','EUR']] },
+        ] },
+      'Configuración General': { layout:'settings', accent:'#FFB020', icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/>', subtitle:'Parámetros globales de la plataforma',
+        groups:[
+          { label:'General', items:[['Dominio','nv-platform.com','text'],['Moneda base','USD ($)','text'],['Zona horaria','GMT-6','text'],['Idioma','Español','text']] },
+          { label:'Impuestos & Regiones', items:[['IVA','16%','text'],['Países activos','12','text'],['Facturación electrónica','Activada','on'],['Precios con impuesto','Desactivado','off']] },
+          { label:'Integraciones', items:[['API pública','Activada','on'],['Webhooks','8 configurados','text'],['Google Analytics','Conectado','on'],['Modo mantenimiento','Desactivado','off']] },
+        ] },
+      'Seguridad': { layout:'settings', accent:'#FF3E6C', icon:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', subtitle:'Accesos, llaves y protección de la cuenta',
+        groups:[
+          { label:'Autenticación', items:[['2FA obligatorio','Activado','on'],['Login por IP','Restringido','on'],['Expiración de sesión','24 h','text'],['Sesiones activas','42','text']] },
+          { label:'Llaves & API', items:[['API keys','6 activas','text'],['Rotación automática','90 días','text'],['Whitelist IP','3 rangos','text']] },
+          { label:'Alertas', items:[['Intentos fallidos','2 alertas','text'],['Backups cifrados','Activado','on'],['Registro de accesos','Activado','on']] },
+        ] },
+      'Notificaciones': { layout:'settings', accent:'#9B3FFF', icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', subtitle:'Canales y plantillas de envío',
+        groups:[
+          { label:'Canales', items:[['Push','Activado','on'],['Email','Activado','on'],['WhatsApp','Activado','on'],['Telegram','Activado','on'],['SMS','Desactivado','off']] },
+          { label:'Plantillas', items:[['Compra confirmada','Activa','on'],['Recarga aprobada','Activa','on'],['Suscripción por vencer','Activa','on'],['Carrito abandonado','Pausada','off']] },
+          { label:'Resumen', items:[['Plantillas','12','text'],['Enviadas hoy','8,412','text'],['Tasa de apertura','62%','text']] },
+        ] },
+      'Auditoría': { layout:'logs', accent:'#00D4A0', icon:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>', subtitle:'Registro inmutable de acciones del panel',
+        logs:[
+          ['hace 2 min','María G.','editó el precio de Netflix Premium','Catálogo','#00CFFF'],
+          ['hace 6 min','Sistema','aprobó recarga #R-990 por $50.00','Recargas','#00D4A0'],
+          ['hace 14 min','Carlos R.','renovó 12 suscripciones','Vencimientos','#FFB020'],
+          ['hace 28 min','Ana T.','creó el combo Pack IA Total','Combos','#00CFFF'],
+          ['hace 41 min','root','rotó las API keys','Seguridad','#FF3E6C'],
+          ['hace 1 h','Diego M.','publicó cambios del Home','CMS','#FF30A0'],
+          ['hace 2 h','Sistema','ejecutó respaldo automático','Respaldos','#00D4A0'],
+          ['hace 3 h','Sofía R.','suspendió al usuario diego@mail.com','Usuarios','#FF3E6C'],
+        ] },
+      'Respaldos': { layout:'logs', accent:'#00CFFF', icon:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>', subtitle:'Copias automáticas y manuales · versionado',
+        logs:[
+          ['hoy 03:00','Automático','backup completo · 2.4 GB · OK','Diario','#00D4A0'],
+          ['ayer 03:00','Automático','backup completo · 2.4 GB · OK','Diario','#00D4A0'],
+          ['hace 3 d','Nathan V.','backup manual antes de migración','Manual','#00CFFF'],
+          ['hace 4 d','Automático','backup completo · 2.3 GB · OK','Diario','#00D4A0'],
+          ['hace 7 d','Automático','backup + snapshot de DB','Semanal','#9B3FFF'],
+        ] },
+      'Automatizaciones': { layout:'logs', accent:'#00CFFF', icon:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>', subtitle:'Cron, webhooks y disparadores',
+        logs:[
+          ['cada 5 min','Cron','sincroniza stock con proveedores · OK','Activa','#00D4A0'],
+          ['al vender','Trigger','entrega automática de credenciales','Activa','#00D4A0'],
+          ['al vencer','Trigger','envía recordatorio de renovación','Activa','#00D4A0'],
+          ['cada hora','Webhook','reporta ventas a Google Sheets','Activa','#00D4A0'],
+          ['diario 08:00','Cron','resumen de KPIs por email','Pausada','#FFB020'],
+        ] },
+      'CMS Visual': { layout:'sections', accent:'#FF30A0', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', subtitle:'Contenido editable de cada página',
+        sections:[
+          { name:'Home', badge:'Publicado', badgeColor:'#00D4A0', items:[['Hero orbital','1 bloque · CTA activo'],['Carril Combos','4 packs'],['Ruedas de categorías','5 ruedas'],['Estrenos','6 items'],['Métodos de pago','8 logos']] },
+          { name:'Catálogo', badge:'Publicado', badgeColor:'#00D4A0', items:[['Filtros','9 categorías'],['Ofertas destacadas','6 servicios'],['Grid de servicios','54 items']] },
+          { name:'Checkout', badge:'Publicado', badgeColor:'#00D4A0', items:[['Completa tu combo','activo'],['Conversor multimoneda','activo'],['Métodos de pago','8']] },
+          { name:'Mi Cuenta', badge:'Publicado', badgeColor:'#00D4A0', items:[['Dashboard','5 widgets'],['Suscripciones','lista'],['Billetera','activo']] },
+          { name:'Footer', badge:'Global', badgeColor:'#00CFFF', items:[['Grupos de enlaces','4'],['Redes sociales','5 iconos'],['Legales','3 páginas']] },
+        ] },
+      'Gestión del Home': { layout:'sections', accent:'#FF30A0', icon:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>', subtitle:'Bloques y secciones de la portada',
+        sections:[
+          { name:'Hero orbital', badge:'Visible', badgeColor:'#00D4A0', items:[['Titular','"Todo lo que necesitas"'],['CTA','Explorar catálogo'],['Anillos','3 en órbita']] },
+          { name:'Carril Combos', badge:'Visible', badgeColor:'#00D4A0', items:[['Packs','4'],['Orden','Manual'],['Auto-scroll','Activo']] },
+          { name:'Ruedas de categorías', badge:'Visible', badgeColor:'#00D4A0', items:[['Ruedas','5'],['Logos por rueda','8–12']] },
+          { name:'Estrenos', badge:'Programado', badgeColor:'#FFB020', items:[['Items','6'],['Publica','en 2 días']] },
+        ] },
+      'Banners': { layout:'sections', accent:'#FF30A0', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20"/>', subtitle:'Campañas visuales y su programación',
+        sections:[
+          { name:'Hero promo -30%', badge:'Activo', badgeColor:'#00D4A0', items:[['Ubicación','Home top'],['Vigencia','hasta 30 Jun'],['Clics','2,410']] },
+          { name:'Slider verano', badge:'Programado', badgeColor:'#FFB020', items:[['Publica','01 Jul'],['Slides','4']] },
+          { name:'Popup bienvenida', badge:'Activo', badgeColor:'#00D4A0', items:[['Trigger','Primera visita'],['Conversión','8.2%']] },
+          { name:'Combo IA', badge:'Borrador', badgeColor:'rgba(200,215,255,0.5)', items:[['Estado','sin publicar']] },
+        ] },
+      'Cartelera Digital': { layout:'sections', accent:'#FF30A0', icon:'<rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20"/>', subtitle:'Estrenos, pósters y trailers',
+        sections:[
+          { name:'Estrenos de la semana', badge:'6 activos', badgeColor:'#00D4A0', items:[['The Last Signal','Netflix'],['Aurora','Disney+'],['Neon Nights','HBO Max']] },
+          { name:'Próximamente', badge:'Programado', badgeColor:'#FFB020', items:[['Cosmos','01 Jul'],['Deep Blue','05 Jul']] },
+        ] },
+      'Blog / Noticias': { layout:'sections', accent:'#FF30A0', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>', subtitle:'Artículos y categorías',
+        sections:[
+          { name:'Publicados', badge:'28 posts', badgeColor:'#00D4A0', items:[['Cómo elegir tu combo','1.2K vistas'],['Guía de streaming 2026','980 vistas'],['Trucos de ChatGPT','2.4K vistas']] },
+          { name:'Borradores', badge:'3', badgeColor:'rgba(200,215,255,0.5)', items:[['Novedades de julio','—'],['Comparativa IA','—']] },
+        ] },
+      'Archivos': { layout:'sections', accent:'#00CFFF', icon:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"/>', subtitle:'Media manager · 2.4K archivos · 8.2 GB',
+        sections:[
+          { name:'Tarjetas de servicio', badge:'54 img', badgeColor:'#00CFFF', items:[['card-netflix.png','420×630'],['card-disney.png','420×630'],['card-hbo.png','420×630']] },
+          { name:'Banners & Hero', badge:'32 img', badgeColor:'#00CFFF', items:[['hero-bg.webp','1920×1080'],['promo-30.png','1200×400']] },
+          { name:'Video', badge:'12 clips', badgeColor:'#9B3FFF', items:[['spot-ad.mp4','12 MB'],['intro.mp4','8 MB']] },
+          { name:'Logos & SVG', badge:'vector', badgeColor:'#00D4A0', items:[['logo-nv.svg','vector'],['iconset.svg','vector']] },
+        ] },
+    };
+    const base = S[name];
+    const layout = base ? base.layout : 'sections';
+    const t = (m) => this.gToast(m);
+    return {
+      name, title:name, accent: base ? base.accent : '#00CFFF', icon: base ? base.icon : '', subtitle: base ? base.subtitle : '',
+      isPaycards: layout==='paycards', isSettings: layout==='settings', isLogs: layout==='logs', isSections: layout==='sections',
+      cards: (base && base.cards ? base.cards : []).map(c => ({ ...c, statusColor: c.status==='Activo' ? '#00D4A0' : '#FFB020', fields: c.fields.map(f => ({ k:f[0], v:f[1] })), onEdit:()=>t('Editar '+c.name), onUpdate:()=>t(c.name+' actualizado'), onDelete:()=>t(c.name+' eliminado') })),
+      groups: (base && base.groups ? base.groups : []).map(g => ({ label:g.label, items:g.items.map(it => ({ label:it[0], value:it[1], isToggle: it[2]==='on'||it[2]==='off', isText: !(it[2]==='on'||it[2]==='off'), on: it[2]==='on', onClick:()=>t(it[0]+' actualizado') })) })),
+      logs: (base && base.logs ? base.logs : []).map(l => ({ time:l[0], actor:l[1], action:l[2], tag:l[3], color:l[4] })),
+      sections: (base && base.sections ? base.sections : []).map(sec => ({ name:sec.name, badge:sec.badge, badgeColor:sec.badgeColor, items:(sec.items||[]).map(i => ({ label:i[0], meta:i[1] })), onEdit:()=>t('Editar '+sec.name), onPreview:()=>t('Previsualizar '+sec.name) })),
+      newLabel: layout==='paycards' ? 'Agregar método' : layout==='sections' ? 'Nueva sección' : layout==='logs' ? 'Exportar registro' : 'Guardar cambios',
+      onNew:()=>t(layout==='logs' ? 'Registro exportado' : layout==='settings' ? 'Cambios guardados' : 'Creado'),
+    };
+  }
+
+  renderVals() {
+    const active = this.state.activeDomain;
+    const envMap = {
+      'Producción':   { color:'#00D4A0', bg:'rgba(0,212,160,0.08)', border:'rgba(0,212,160,0.2)' },
+      'Staging':      { color:'#FFB020', bg:'rgba(255,176,32,0.08)', border:'rgba(255,176,32,0.2)' },
+      'Desarrollo':   { color:'#00CFFF', bg:'rgba(0,207,255,0.08)', border:'rgba(0,207,255,0.2)' },
+    };
+    const env = this.props.environment || 'Producción';
+    const envS = envMap[env] || envMap['Producción'];
+    const railOpen = this.state.railOpen ?? (this.props.showActivityRail ?? true);
+
+    const dock = [
+      { id:'all', label:'Launcher', short:'Todo', accent:'#EEF2FF', accentSoft:'rgba(255,255,255,0.06)', accentLine:'rgba(255,255,255,0.14)', icon:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>' },
+      ...this.DOMAINS,
+    ].map(d => ({ ...d, active: active === d.id, onClick: () => this.setDomain(d.id) }));
+
+    const buildModule = (m, dom) => {
+      const ts = this.tagStyle(m.tag);
+      return {
+        ...m,
+        accent: dom.accent, accentSoft: dom.accentSoft, accentLine: dom.accentLine,
+        tagColor: ts.color, tagBg: ts.bg, tagBorder: ts.border,
+        countColor: m.countColor || 'rgba(200,215,255,0.6)',
+        flagship: m.flagship || false,
+        onClick: () => this.openModule(m.name),
+      };
+    };
+
+    const visibleGroups = this.DOMAINS
+      .filter(d => active === 'all' || d.id === active)
+      .map(d => {
+        const mods = this.MODULES.filter(m => m.domain === d.id).map(m => buildModule(m, d));
+        return { ...d, modules: mods, countLabel: mods.length + ' módulos' };
+      });
+
+    const crumbMap = { all:'Launcher', comercio:'Comercio & Ventas', personas:'Personas & Accesos', finanzas:'Finanzas', contenido:'Contenido & CMS Visual', sistema:'Sistema & Plataforma' };
+
+    const openMod = this.state.openModuleName ? this.MODULES.find(m => m.name === this.state.openModuleName) : null;
+    const openDom = openMod ? this.DOMAINS.find(d => d.id === openMod.domain) : null;
+    const modulePanel = openMod ? this.panelFor(openMod, openDom) : null;
+    const richNames = ['Métodos de Pago','Configuración General','Seguridad','Notificaciones','Auditoría','Respaldos','Automatizaciones','CMS Visual','Gestión del Home','Banners','Cartelera Digital','Blog / Noticias','Archivos'];
+    if (modulePanel) modulePanel.openFull = () => (openMod.name === 'Dashboard Ejecutivo' ? this.openDash() : openMod.name === 'Estadísticas' ? this.openStats() : richNames.includes(openMod.name) ? this.openRich(openMod.name) : this.openFull(openMod.name));
+    const grid = this.buildGrid();
+
+    // ── Notifications ──
+    const rawNotifs = [
+      { title:'Nueva venta · Netflix Premium', meta:'María González · $12.99', time:'hace 1 min', color:'#00CFFF', bg:'rgba(0,207,255,0.12)', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>', go:'Control de Ventas' },
+      { title:'Recarga pendiente de aprobación', meta:'Carlos Ruiz · $25.00 · Pago Móvil', time:'hace 4 min', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', go:'Recargas' },
+      { title:'3 suscripciones vencen hoy', meta:'Disney+, HBO Max, Spotify', time:'hace 12 min', color:'#FF3E6C', bg:'rgba(255,62,108,0.12)', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', go:'Control de Vencimientos' },
+      { title:'Bajo stock · Disney+', meta:'Quedan 5 accesos disponibles', time:'hace 22 min', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5"/>', go:'Catálogo de Servicios' },
+    ];
+    const notifs = rawNotifs.map(nn => ({ ...nn, onClick: () => this.notifGo(nn.go) }));
+    const notifCount = this.state.notifRead ? 0 : rawNotifs.length;
+
+    // ── Analytics ──
+    const period = this.state.statsPeriod;
+    const SETS = {
+      '7D':  { labels:['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'], sales:[42,55,48,63,71,92,79], f:1, kpi:['$5.9K','+14%','448','+9%','$13.10','+3%','4.8%','+0.4%'] },
+      '30D': { labels:['1','5','10','15','20','25','30'], sales:[120,180,150,210,240,310,285], f:4.4, kpi:['$26.4K','+11%','1,284','+7%','$12.90','+2%','4.6%','+0.3%'] },
+      '12M': { labels:['E','F','M','A','M','J','J','A','S','O','N','D'], sales:[820,910,1050,980,1180,1240,1310,1280,1420,1520,1680,1840], f:52, kpi:['$312K','+38%','15.4K','+41%','$12.70','+4%','4.9%','+1.1%'] },
+    };
+    const set = SETS[period] || SETS['30D'];
+    const W=760, H=240, padL=46, padR=18, padT=16, padB=30, pw=W-padL-padR, ph=H-padT-padB;
+    const svals=set.sales, sn=svals.length, smax=Math.max(...svals)*1.15;
+    const SX=i=> Math.round(padL + pw*(sn<=1?0:i/(sn-1)));
+    const SY=v=> Math.round(padT + ph*(1 - v/smax));
+    const spts=svals.map((v,i)=>[SX(i),SY(v)]);
+    const linePts=spts.map(p=>p.join(',')).join(' ');
+    const areaPath='M'+spts[0][0]+','+(padT+ph)+' '+spts.map(p=>'L'+p[0]+','+p[1]).join(' ')+' L'+spts[sn-1][0]+','+(padT+ph)+' Z';
+    const dots=spts.map((p,i)=>({cx:p[0],cy:p[1],lx:p[0],ly:padT+ph+18,label:set.labels[i]}));
+    const yTicks=[0,0.5,1].map(t=>({y:Math.round(padT+ph*(1-t)), x1:padL, x2:W-padR, label: Math.round(smax*t)}));
+    const kk=set.kpi;
+    const kpis=[
+      { label:'Ingresos', value:kk[0], delta:kk[1], color:'#00D4A0', icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+      { label:'Ventas', value:kk[2], delta:kk[3], color:'#00CFFF', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>' },
+      { label:'Ticket promedio', value:kk[4], delta:kk[5], color:'#9B3FFF', icon:'<path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>' },
+      { label:'Conversión', value:kk[6], delta:kk[7], color:'#FFB020', icon:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>' },
+    ];
+    const f=set.f;
+    const catBase=[['Streaming',86,'#00CFFF'],['Combos',64,'#FF30A0'],['IA',48,'#9B3FFF'],['Música',27,'#00D4A0'],['Diseño',17,'#FFB020'],['Otros',12,'#5B8CFF']];
+    const bmax=Math.max(...catBase.map(c=>c[1]));
+    const bars=catBase.map(c=>({label:c[0], color:c[2], val:Math.round(c[1]*f), hpct:Math.round(c[1]/bmax*100)}));
+    const topBase=[['Netflix Premium',86],['Combo IA Total',64],['Spotify Family',48],['ChatGPT Plus',37],['Disney+',29]];
+    const tmax=topBase[0][1];
+    const topServ=topBase.map(t=>({name:t[0], sales:Math.round(t[1]*f), pct:Math.round(t[1]/tmax*100)}));
+    const periodBtns=[['7D','7 días'],['30D','30 días'],['12M','12 meses']].map(p=>({key:p[0], label:p[1], active:period===p[0], onClick:()=>this.setStatsPeriod(p[0])}));
+    const stats={ period, baseY:padT+ph, linePts, areaPath, dots, yTicks, kpis, bars, top:topServ, periodBtns };
+
+    // ── Executive Dashboard ──
+    const rev=[1.8,2.1,1.9,2.4,2.2,2.8,3.1,2.6,2.9,3.3,3.0,3.5,3.2,3.8];
+    const DW=520,DH=150,dPadL=30,dPadR=12,dPadT=12,dPadB=22,dpw=DW-dPadL-dPadR,dph=DH-dPadT-dPadB;
+    const rmax=Math.max(...rev)*1.12, rn=rev.length;
+    const RX=i=>Math.round(dPadL+dpw*(i/(rn-1))), RY=v=>Math.round(dPadT+dph*(1-v/rmax));
+    const rpts=rev.map((v,i)=>[RX(i),RY(v)]);
+    const dashLine=rpts.map(p=>p.join(',')).join(' ');
+    const dashArea='M'+rpts[0][0]+','+(dPadT+dph)+' '+rpts.map(p=>'L'+p[0]+','+p[1]).join(' ')+' L'+rpts[rn-1][0]+','+(dPadT+dph)+' Z';
+    const dashEnd={cx:rpts[rn-1][0], cy:rpts[rn-1][1]};
+    const dash={
+      linePts:dashLine, areaPath:dashArea, endDot:dashEnd,
+      kpis:[
+        { label:'Ingresos hoy', value:'$3,842', delta:'+12.3%', up:true, sub:'128 órdenes', color:'#00D4A0', icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+        { label:'Órdenes hoy', value:'128', delta:'+9.1%', up:true, sub:'23 en proceso', color:'#00CFFF', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>' },
+        { label:'Ticket promedio', value:'$30.02', delta:'+3.1%', up:true, sub:'últimas 24h', color:'#9B3FFF', icon:'<path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5"/>' },
+        { label:'Usuarios activos', value:'3,204', delta:'+5.4%', up:true, sub:'ahora en línea', color:'#FF30A0', icon:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+        { label:'MRR', value:'$48.2K', delta:'+8.0%', up:true, sub:'recurrente', color:'#FFB020', icon:'<path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/>' },
+        { label:'Conversión', value:'4.8%', delta:'+0.4%', up:true, sub:'visita → compra', color:'#00CFFF', icon:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>' },
+      ],
+      goal:{ label:'Meta de ingresos · Junio', current:'$38.4K', target:'$50K', pct:77, remain:'$11.6K restantes' },
+      orders:[
+        { id:'#V-2841', cliente:'María González', servicio:'Netflix Premium', total:'$12.99', estado:'Aprobado' },
+        { id:'#V-2840', cliente:'Carlos Ruiz', servicio:'Combo IA Total', total:'$29.99', estado:'Entregado' },
+        { id:'#V-2839', cliente:'Ana Torres', servicio:'Spotify Family', total:'$9.99', estado:'Aprobado' },
+        { id:'#V-2838', cliente:'Diego Morales', servicio:'Disney+ Anual', total:'$79.99', estado:'Pendiente' },
+        { id:'#V-2837', cliente:'Luisa Fernández', servicio:'HBO Max', total:'$11.99', estado:'Entregado' },
+      ].map(o=>({ ...o, sc:this.statusStyle(o.estado), onClick:()=>this.notifGo('Control de Ventas') })),
+      alerts:[
+        { title:'3 suscripciones vencen hoy', meta:'Renová o notificá al cliente', color:'#FF3E6C', bg:'rgba(255,62,108,0.12)', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', go:'Control de Vencimientos' },
+        { title:'4 recargas pendientes', meta:'$185 por aprobar', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', go:'Recargas' },
+        { title:'Disney+ con bajo stock', meta:'Quedan 5 accesos', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5"/>', go:'Catálogo de Servicios' },
+      ].map(a=>({ ...a, onClick:()=>this.notifGo(a.go) })),
+      top:[['Netflix Premium',842,100],['Combo IA Total',613,73],['Spotify Family',512,61],['ChatGPT Plus',428,51],['Disney+',377,45]].map(t=>({name:t[0],sales:t[1],pct:t[2]})),
+      health:[
+        { label:'Pasarelas de pago', value:'8 / 8 activas', color:'#00D4A0' },
+        { label:'Uptime (30 días)', value:'99.98%', color:'#00D4A0' },
+        { label:'Cola de entregas', value:'2 en proceso', color:'#FFB020' },
+        { label:'Errores (24h)', value:'0 críticos', color:'#00D4A0' },
+      ],
+      openStats:()=>this.openStats(),
+    };
+
+    return {
+      dock,
+      railOpen,
+      modulePanel,
+      closeModule: () => this.closeModule(),
+      grid,
+      gToastMsg: this.state.gToastMsg,
+      notifOpen: this.state.notifOpen, notifs, notifCount, hasNotif: notifCount>0,
+      toggleNotif: ()=>this.toggleNotif(), closeNotif: ()=>this.closeNotif(), markAllRead: ()=>this.markAllRead(),
+      statsOpen: this.state.statsOpen, closeStats: ()=>this.closeStats(), stats,
+      dashOpen: this.state.dashOpen, closeDash: ()=>this.closeDash(), dash,
+      richOpen: this.state.richOpen, closeRich: ()=>this.closeRich(), rich: this.richSpec(this.state.richName),
+      closeFull: () => this.closeFull(),
+      gCloseDetail: () => this.gCloseDetail(),
+      gCloseCtx: () => this.gCloseCtx(),
+      gToggleCols: () => this.gToggleCols(),
+      gToggleFilter: () => this.gToggleFilter(),
+      gColsOpen: this.state.gColsOpen,
+      gFilterOpen: this.state.gFilterOpen,
+      gSearchVal: this.state.gSearch,
+      onGSearch: (e) => this.gSetSearch(e.target.value),
+      gNewToast: () => this.gToast('Nuevo registro — abriendo formulario'),
+      gImportToast: () => this.gToast('Asistente de importación (CSV / Excel)'),
+      gExportToast: () => this.gToast('Exportando (Excel / CSV / PDF / JSON)'),
+      gRefreshToast: () => this.gToast('Datos actualizados'),
+      stopProp: (e) => this.stopProp(e),
+      toggleRail: () => this.toggleRail(),
+      openPalette: () => this.openPalette(),
+      closePalette: () => this.closePalette(),
+      stopProp: (e) => this.stopProp(e),
+      paletteOpen: this.state.paletteOpen,
+      showModuleMeta: this.props.showModuleMeta ?? true,
+      moduleTotal: this.MODULES.length,
+      crumbLabel: crumbMap[active] || 'Launcher',
+      heroTitle: active === 'all' ? 'Centro de módulos' : (crumbMap[active] || 'Módulos'),
+      visibleGroups,
+      // Env
+      envLabel: env, envColor: envS.color, envBg: envS.bg, envBorder: envS.border,
+      // KPIs (business)
+      kpis: [
+        { label:'Revenue hoy',    value:'$2,841', arrow:'↑', delta:'12.3%', sub:'vs ayer', positive:true,  accent:'#00CFFF', iconBg:'rgba(0,207,255,0.1)',  icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+        { label:'MRR',            value:'$48.2K', arrow:'↑', delta:'8.0%',  sub:'este mes', positive:true,  accent:'#00D4A0', iconBg:'rgba(0,212,160,0.1)',  icon:'<path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/>' },
+        { label:'Usuarios activos', value:'3,204', arrow:'↑', delta:'5.4%', sub:'ahora',    positive:true,  accent:'#9B3FFF', iconBg:'rgba(155,63,255,0.1)', icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' },
+        { label:'Órdenes hoy',    value:'89',     arrow:'↑', delta:'8.1%',  sub:'vs ayer',  positive:true,  accent:'#FFB020', iconBg:'rgba(255,176,32,0.1)', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/>' },
+      ],
+      // Roles
+      roles: [
+        { name:'Super Admin',  count:'2',  color:'#FF3E6C', scope:'ROOT',  scopeColor:'#FF3E6C', scopeBg:'rgba(255,62,108,0.1)' },
+        { name:'Supervisor',   count:'5',  color:'#9B3FFF', scope:'R/W',   scopeColor:'#9B3FFF', scopeBg:'rgba(155,63,255,0.1)' },
+        { name:'Operador',     count:'14', color:'#00CFFF', scope:'R/W',   scopeColor:'#00CFFF', scopeBg:'rgba(0,207,255,0.1)' },
+        { name:'Soporte',      count:'8',  color:'#00D4A0', scope:'READ',  scopeColor:'#00D4A0', scopeBg:'rgba(0,212,160,0.1)' },
+        { name:'Revendedor',   count:'34', color:'#FFB020', scope:'SCOPE', scopeColor:'#FFB020', scopeBg:'rgba(255,176,32,0.1)' },
+      ],
+      // Audit
+      auditLog: [
+        { actor:'María G.',  action:'editó el precio de Netflix Premium', module:'Catálogo',  moduleColor:'#00CFFF', moduleBg:'rgba(0,207,255,0.1)',  time:'hace 2 min',  iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.3)',  iconColor:'#00CFFF', icon:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>' },
+        { actor:'Sistema',   action:'aprobó recarga de $25.00',           module:'Recargas',  moduleColor:'#00D4A0', moduleBg:'rgba(0,212,160,0.1)',  time:'hace 6 min',  iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.3)',  iconColor:'#00D4A0', icon:'<path d="M20 6 9 17l-5-5"/>' },
+        { actor:'Carlos R.', action:'suspendió al usuario #8841',         module:'Usuarios',  moduleColor:'#9B3FFF', moduleBg:'rgba(155,63,255,0.1)', time:'hace 14 min', iconBg:'rgba(155,63,255,0.1)', iconBorder:'rgba(155,63,255,0.3)', iconColor:'#9B3FFF', icon:'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>' },
+        { actor:'Ana T.',    action:'publicó un banner en el Home',       module:'CMS Visual', moduleColor:'#FF30A0', moduleBg:'rgba(255,48,160,0.1)', time:'hace 22 min', iconBg:'rgba(255,48,160,0.1)', iconBorder:'rgba(255,48,160,0.3)', iconColor:'#FF30A0', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>' },
+        { actor:'Admin NV',  action:'cambió permisos del rol Operador',   module:'Seguridad', moduleColor:'#FFB020', moduleBg:'rgba(255,176,32,0.1)', time:'hace 38 min', iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.3)', iconColor:'#FFB020', icon:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+        { actor:'Sistema',   action:'ejecutó backup automático diario',   module:'Respaldos', moduleColor:'#00CFFF', moduleBg:'rgba(0,207,255,0.1)',  time:'hace 1 h',    iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.3)',  iconColor:'#00CFFF', icon:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/>' },
+        { actor:'Diego M.',  action:'creó el combo Pack IA Completo',     module:'Combos',    moduleColor:'#00CFFF', moduleBg:'rgba(0,207,255,0.1)',  time:'hace 2 h',    iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.3)',  iconColor:'#00CFFF', icon:'<path d="M12 5v14M5 12h14"/>' },
+      ],
+      // Command palette
+      paletteGroups: [
+        { label:'Acciones rápidas', items: [
+          { name:'Crear servicio',      hint:'Catálogo · nuevo ítem',     shortcut:'C S', iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.25)',  iconColor:'#00CFFF', icon:'<path d="M12 5v14M5 12h14"/>' },
+          { name:'Nueva promoción',     hint:'Cupón o campaña',           shortcut:'C P', iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.25)',  iconColor:'#00D4A0', icon:'<path d="M9 11 3 5V3h2l6 6M15 3h6v6M3 21 21 3"/>' },
+          { name:'Aprobar recargas',    hint:'4 pendientes',              shortcut:'',    iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.25)', iconColor:'#FFB020', icon:'<path d="M20 6 9 17l-5-5"/>' },
+          { name:'Abrir CMS Visual',    hint:'Editar el frontend',        shortcut:'⌘E',  iconBg:'rgba(255,48,160,0.1)', iconBorder:'rgba(255,48,160,0.25)', iconColor:'#FF30A0', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>' },
+        ]},
+        { label:'Ir a módulo', items: [
+          { name:'Usuarios',        hint:'Personas & Accesos · 12.4K',  shortcut:'', iconBg:'rgba(155,63,255,0.1)', iconBorder:'rgba(155,63,255,0.25)', iconColor:'#9B3FFF', icon:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+          { name:'Órdenes',         hint:'Comercio · 89 activas',       shortcut:'', iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.25)',  iconColor:'#00CFFF', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/>' },
+          { name:'Seguridad',       hint:'Sistema · 2 alertas',         shortcut:'', iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.25)', iconColor:'#FFB020', icon:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>' },
+        ]},
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

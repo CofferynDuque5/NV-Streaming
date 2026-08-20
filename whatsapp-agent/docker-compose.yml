@@ -1,0 +1,39 @@
+# NV Stream — Agente de WhatsApp + PostgreSQL
+# Levanta todo con:  docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nv}
+      POSTGRES_DB: ${POSTGRES_DB:-nv_stream}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nv} -d ${POSTGRES_DB:-nv_stream}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No exponemos el puerto por defecto; descoméntalo si necesitas acceso externo.
+    # ports:
+    #   - "5432:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Dentro de la red de Compose la BD es el host `db`. Esto SOBREESCRIBE el
+      # DATABASE_URL del .env (que sirve para desarrollo local sin Docker).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nv}:${POSTGRES_PASSWORD:-nv}@db:5432/${POSTGRES_DB:-nv_stream}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+volumes:
+  pgdata:

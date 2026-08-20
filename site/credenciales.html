@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Automatización de Credenciales · OTP — NV Streaming</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/credenciales.css">
+</head>
+<body data-nv-page="credenciales">
+  <div class="otp-wrap">
+
+    <!-- Topbar -->
+    <div class="otp-top">
+      <div class="otp-brand">
+        <div class="otp-logo">NV</div>
+        <div class="otp-title">
+          <h1>Automatización de Credenciales</h1>
+          <p>Recepción y asignación de códigos OTP · Telegram / WhatsApp</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="otp-role" id="otp-role">ROL · DEMO</span>
+        <a class="otp-back" href="admin.html">← Back Office</a>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="otp-kpis">
+      <div class="kpi" style="--accent:var(--neon-cyan)"><div class="k-label">Pendientes</div><div class="k-val" id="k-pend">0</div><div class="k-sub">vigentes ahora</div></div>
+      <div class="kpi" style="--accent:var(--neon-green)"><div class="k-label">Usados</div><div class="k-val" id="k-usado">0</div><div class="k-sub">entregados</div></div>
+      <div class="kpi" style="--accent:var(--neon-orange)"><div class="k-label">Expirados</div><div class="k-val" id="k-exp">0</div><div class="k-sub">+ obsoletos</div></div>
+      <div class="kpi" style="--accent:var(--neon-purple)"><div class="k-label">Plataformas</div><div class="k-val" id="k-plat">0</div><div class="k-sub">activas</div></div>
+    </div>
+
+    <!-- Main grid -->
+    <div class="otp-grid">
+
+      <!-- Real-time codes table -->
+      <div class="panel">
+        <div class="panel-h">
+          <h2><span class="dot"></span> Códigos entrantes en vivo</h2>
+          <span class="via">onSnapshot · orden en cliente</span>
+        </div>
+        <div class="panel-b" style="overflow-x:auto">
+          <table class="otp-table">
+            <thead><tr>
+              <th>Código</th><th>Plataforma</th><th>Cuenta madre</th><th>Vía / Origen</th><th>Expira</th><th>Estado</th><th>Acciones</th>
+            </tr></thead>
+            <tbody id="otp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Right column: simulate + bulk -->
+      <div>
+        <div class="panel">
+          <div class="panel-h"><h2>⚡ Simular recepción</h2></div>
+          <div class="panel-b" style="padding:16px">
+            <div class="field">
+              <label>Mensaje entrante</label>
+              <textarea id="sim-text" placeholder="Ej: Tu código de acceso de Netflix es 123456"></textarea>
+              <div class="hint">El parser extrae el código (4–8 dígitos) y detecta la plataforma por palabras clave.</div>
+            </div>
+            <div class="field">
+              <label>Canal</label>
+              <select id="sim-via"><option>Telegram</option><option>WhatsApp</option></select>
+            </div>
+            <button class="btn" id="sim-btn">Procesar mensaje</button>
+            <div class="result" id="sim-result" style="display:none"></div>
+          </div>
+        </div>
+
+        <div class="panel section-gap">
+          <div class="panel-h"><h2>📥 Asignación masiva</h2></div>
+          <div class="panel-b" style="padding:16px">
+            <div class="field">
+              <label>Credenciales o códigos (uno por línea)</label>
+              <textarea id="bulk-text" placeholder="Netflix | correo@mail.com | clave123 | 1234 | Perfil 1&#10;Spotify | otro@mail.com | pass456&#10;Tu código de Disney+ es 5521"></textarea>
+              <div class="hint">Credencial: <code>plataforma | correo | clave | pin | perfil</code>. También acepta mensajes de OTP sueltos.</div>
+            </div>
+            <div class="field">
+              <label>…o sube un archivo .txt / .csv</label>
+              <input type="file" id="bulk-file" accept=".txt,.csv">
+            </div>
+            <button class="btn alt" id="bulk-btn">Distribuir</button>
+            <div class="result" id="bulk-result" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Permission gate (estricto solo con window.NV_ENFORCE) -->
+  <div class="gate" id="otp-gate">
+    <div class="card">
+      <h3>Acceso restringido</h3>
+      <p>Tu rol no tiene permiso para ver el historial global de códigos. Contacta a un administrador.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./js/modules/credentials.view.js"></script>
+</body>
+</html>

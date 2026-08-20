@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Ser Revendedor — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="ser-revendedor">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{background:#04040C;color:#EEF2FF;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+    ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:rgba(155,63,255,0.25);border-radius:3px;}
+    ::selection{background:rgba(155,63,255,0.25);}
+    a{color:#00CFFF;text-decoration:none;}a:hover{color:#00DFFF;}
+    @keyframes orbSpin{from{transform:rotateX(72deg) rotate(0deg);}to{transform:rotateX(72deg) rotate(360deg);}}
+    @keyframes nebula{0%,100%{transform:scale(1);opacity:0.55;}50%{transform:scale(1.08);opacity:0.8;}}
+    @keyframes glow{0%,100%{opacity:0.4;}50%{opacity:1;}}
+    .star-bg{background-image:radial-gradient(circle,rgba(255,255,255,0.5) 1px,transparent 1px);background-size:80px 80px;}
+  </style>
+</helmet>
+
+<!-- HEADER -->
+<header style="height:66px;background:rgba(4,4,12,0.94);backdrop-filter:blur(20px);border-bottom:1px solid rgba(80,100,200,0.14);display:flex;align-items:center;justify-content:space-between;padding:0 40px;position:sticky;top:0;z-index:30;">
+  <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(155,63,255,0.3),rgba(0,207,255,0.2),transparent);"></div>
+  <a href="index.html" style="display:flex;align-items:center;gap:12px;">
+    <div style="position:relative;width:36px;height:36px;">
+      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:18px;background:linear-gradient(135deg,#00CFFF,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;z-index:2;">NV</span>
+      <div style="perspective:200px;position:absolute;inset:-4px;display:flex;align-items:center;justify-content:center;"><div style="width:44px;height:44px;border:1px solid rgba(0,223,255,0.5);border-radius:50%;animation:orbSpin 4s linear infinite;"></div></div>
+    </div>
+    <div><div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;color:#EEF2FF;">NV STREAMING</div><div style="font-size:8.5px;letter-spacing:0.16em;color:rgba(155,63,255,0.6);font-family:'JetBrains Mono',monospace;">PROGRAMA REVENDEDORES</div></div>
+  </a>
+  <nav style="display:flex;align-items:center;gap:6px;">
+    <a href="index.html" style="padding:8px 14px;font-size:13px;color:rgba(200,215,255,0.6);border-radius:8px;">Inicio</a>
+    <a href="quienes-somos.html" style="padding:8px 14px;font-size:13px;color:rgba(200,215,255,0.6);border-radius:8px;">Nosotros</a>
+    <a href="#planes" style="padding:9px 18px;background:linear-gradient(135deg,#5510BB,#9B3FFF);color:white;border-radius:9px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(155,63,255,0.3);">Ver planes</a>
+  </nav>
+</header>
+
+<!-- HERO -->
+<section style="position:relative;padding:84px 40px 56px;overflow:hidden;text-align:center;">
+  <div class="star-bg" style="position:absolute;inset:0;opacity:0.14;pointer-events:none;"></div>
+  <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:520px;height:420px;background:radial-gradient(circle,rgba(140,0,255,0.14),transparent 62%);filter:blur(70px);animation:nebula 13s ease-in-out infinite;pointer-events:none;"></div>
+  <div style="max-width:760px;margin:0 auto;position:relative;">
+    <div style="display:inline-flex;align-items:center;gap:7px;padding:5px 13px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:100px;margin-bottom:24px;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.8" stroke-linecap="round"><path d="M20 7h-9M14 17H5M17 3l3 4-3 4M7 21l-3-4 3-4"/></svg>
+      <span style="font-size:11px;color:#9B3FFF;letter-spacing:0.08em;font-weight:500;text-transform:uppercase;">Conviértete en Revendedor</span>
+    </div>
+    <h1 style="font-family:'Syne',sans-serif;font-size:56px;font-weight:800;letter-spacing:-0.035em;line-height:0.98;margin-bottom:20px;">Construye tu negocio con <span style="background:linear-gradient(120deg,#9B3FFF,#00CFFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">NV Streaming</span></h1>
+    <p style="font-size:17px;color:rgba(200,215,255,0.55);line-height:1.7;font-weight:300;max-width:560px;margin:0 auto;">Accede a precios de revendedor, un panel de ventas profesional y comisiones por cada venta. Empieza a generar ingresos con más de 50 servicios digitales.</p>
+  </div>
+</section>
+
+<!-- REQUISITOS BANNER -->
+<section style="padding:0 40px 48px;">
+  <div style="max-width:920px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="background:linear-gradient(135deg,rgba(155,63,255,0.1),rgba(85,16,187,0.05));border:1px solid rgba(155,63,255,0.24);border-radius:16px;padding:22px;display:flex;align-items:flex-start;gap:16px;">
+      <div style="width:46px;height:46px;background:rgba(155,63,255,0.14);border:1px solid rgba(155,63,255,0.3);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      </div>
+      <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;margin-bottom:5px;">Requiere suscripción activa</div><p style="font-size:12.5px;color:rgba(200,215,255,0.5);line-height:1.55;font-weight:300;">El acceso al Panel de Revendedor se habilita con una <strong style="color:#C9A6FF;font-weight:600;">suscripción mensual o anual</strong>. Mientras esté activa, tendrás precios especiales, comisiones y todas las herramientas.</p></div>
+    </div>
+    <div style="background:linear-gradient(135deg,rgba(0,207,255,0.08),rgba(0,100,255,0.04));border:1px solid rgba(0,207,255,0.22);border-radius:16px;padding:22px;display:flex;align-items:flex-start;gap:16px;">
+      <div style="width:46px;height:46px;background:rgba(0,207,255,0.12);border:1px solid rgba(0,207,255,0.28);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.6" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+      <div><div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;margin-bottom:5px;">Aprobación del administrador</div><p style="font-size:12.5px;color:rgba(200,215,255,0.5);line-height:1.55;font-weight:300;">Para <strong style="color:#7FE0FF;font-weight:600;">vender en la plataforma necesitas permiso del administrador</strong>. Revisamos cada solicitud para garantizar la calidad y la confianza de toda la red NV.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PASOS -->
+<section style="padding:56px 40px;background:#07071A;border-top:1px solid rgba(80,100,200,0.1);border-bottom:1px solid rgba(80,100,200,0.1);">
+  <div style="max-width:1000px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:40px;"><div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:0.1em;color:rgba(155,63,255,0.6);text-transform:uppercase;margin-bottom:10px;">Cómo funciona</div><h2 style="font-family:'Syne',sans-serif;font-size:32px;font-weight:700;letter-spacing:-0.02em;">De cero a vendedor en 3 pasos</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+        <div style="background:#0C0C26;border:1px solid rgba(80,100,200,0.16);border-radius:16px;padding:26px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,{{ st.color }},transparent);opacity:0.5;"></div>
+          <div style="font-family:'Syne',sans-serif;font-size:44px;font-weight:800;color:{{ st.color }};opacity:0.25;line-height:1;margin-bottom:8px;">{{ st.num }}</div>
+          <div style="width:44px;height:44px;background:{{ st.bg }};border:1px solid {{ st.border }};border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{{ st.color }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ st.icon }}</svg>
+          </div>
+          <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#EEF2FF;margin-bottom:6px;">{{ st.title }}</div>
+          <p style="font-size:13px;color:rgba(200,215,255,0.48);line-height:1.6;font-weight:300;">{{ st.desc }}</p>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- PLANES -->
+<section id="planes" style="padding:64px 40px;">
+  <div style="max-width:1000px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:36px;"><h2 style="font-family:'Syne',sans-serif;font-size:32px;font-weight:700;letter-spacing:-0.02em;margin-bottom:8px;">Elige tu suscripción</h2><p style="font-size:14.5px;color:rgba(200,215,255,0.45);font-weight:300;">Cancela cuando quieras. El panel se activa al aprobar tu solicitud.</p></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch;">
+      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+        <div style="background:{{ p.featured ? 'linear-gradient(160deg,#0d0820,#0C0C26)' : '#07071A' }};border:1px solid {{ p.featured ? 'rgba(155,63,255,0.4)' : 'rgba(80,100,200,0.16)' }};border-radius:18px;padding:26px;position:relative;overflow:hidden;{{ p.featured ? 'box-shadow:0 20px 50px rgba(85,16,187,0.2);' : '' }}">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:{{ p.featured ? 'linear-gradient(90deg,transparent,#9B3FFF,transparent)' : 'linear-gradient(90deg,transparent,rgba(0,207,255,0.3),transparent)' }};"></div>
+          <sc-if value="{{ p.featured }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:16px;right:16px;padding:3px 9px;background:rgba(155,63,255,0.16);border:1px solid rgba(155,63,255,0.35);border-radius:100px;font-size:9.5px;font-weight:700;color:#C9A6FF;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;">POPULAR</div></sc-if>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;color:{{ p.accent }};text-transform:uppercase;margin-bottom:12px;">{{ p.name }}</div>
+          <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:6px;"><span style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:#EEF2FF;">{{ p.price }}</span><span style="font-size:13px;color:rgba(200,215,255,0.4);">{{ p.period }}</span></div>
+          <p style="font-size:12.5px;color:rgba(200,215,255,0.45);line-height:1.5;font-weight:300;margin-bottom:18px;">{{ p.tagline }}</p>
+          <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:22px;">
+            <sc-for list="{{ p.features }}" as="feat" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:9px;font-size:13px;color:rgba(200,215,255,0.62);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ p.accent }}" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>{{ feat }}</div>
+            </sc-for>
+          </div>
+          <button style="width:100%;padding:12px;background:{{ p.featured ? 'linear-gradient(135deg,#5510BB,#9B3FFF)' : 'rgba(255,255,255,0.05)' }};border:1px solid {{ p.featured ? 'transparent' : 'rgba(80,100,200,0.22)' }};border-radius:10px;color:{{ p.featured ? 'white' : '#EEF2FF' }};font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;{{ p.featured ? 'box-shadow:0 4px 18px rgba(155,63,255,0.35);' : '' }}">Solicitar acceso</button>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFICIOS -->
+<section style="padding:0 40px 64px;">
+  <div style="max-width:1000px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:32px;"><h2 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;letter-spacing:-0.02em;">Todo lo que incluye tu panel</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <sc-for list="{{ perks }}" as="pk" hint-placeholder-count="8">
+        <div style="background:#07071A;border:1px solid rgba(80,100,200,0.14);border-radius:12px;padding:18px;">
+          <div style="width:36px;height:36px;background:{{ pk.bg }};border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ pk.color }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{{ pk.icon }}</svg></div>
+          <div style="font-size:13.5px;font-weight:600;color:#EEF2FF;margin-bottom:3px;">{{ pk.title }}</div>
+          <div style="font-size:11.5px;color:rgba(200,215,255,0.42);line-height:1.5;font-weight:300;">{{ pk.desc }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section style="padding:0 40px 72px;">
+  <div style="max-width:1000px;margin:0 auto;background:linear-gradient(135deg,rgba(85,16,187,0.16),rgba(0,60,180,0.08));border:1px solid rgba(155,63,255,0.24);border-radius:20px;padding:44px;text-align:center;position:relative;overflow:hidden;">
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(155,63,255,0.4),transparent);"></div>
+    <h2 style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;letter-spacing:-0.02em;margin-bottom:10px;">Solicita tu acceso hoy</h2>
+    <p style="font-size:15px;color:rgba(200,215,255,0.5);font-weight:300;margin-bottom:8px;max-width:520px;margin-left:auto;margin-right:auto;">Envía tu solicitud, activa tu suscripción y espera la aprobación del administrador. Normalmente respondemos en menos de 24 horas.</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px;">
+      <a href="#planes" style="padding:13px 28px;background:linear-gradient(135deg,#5510BB,#9B3FFF);color:white;border-radius:10px;font-size:14.5px;font-weight:600;box-shadow:0 4px 20px rgba(155,63,255,0.35);">Elegir plan y solicitar</a>
+      <a href="quienes-somos.html" style="padding:13px 26px;background:rgba(255,255,255,0.05);color:#EEF2FF;border:1px solid rgba(80,100,200,0.22);border-radius:10px;font-size:14.5px;font-weight:500;">Conocer NV</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer style="border-top:1px solid rgba(80,100,200,0.12);background:#02020A;padding:28px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <span style="font-size:12px;color:rgba(200,215,255,0.25);">© 2026 NV Streaming · Nathan y Valeryn</span>
+  <div style="display:flex;gap:16px;"><a href="politicas.html" style="font-size:12px;color:rgba(200,215,255,0.4);">Políticas</a><a href="quienes-somos.html" style="font-size:12px;color:rgba(200,215,255,0.4);">Nosotros</a><a href="index.html" style="font-size:12px;color:rgba(200,215,255,0.4);">Inicio</a></div>
+</footer>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      steps: [
+        { num:'01', title:'Suscríbete', desc:'Elige un plan de revendedor y activa tu suscripción. Es lo que habilita tu panel de ventas.', color:'#9B3FFF', bg:'rgba(155,63,255,0.1)', border:'rgba(155,63,255,0.24)', icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>' },
+        { num:'02', title:'Aprobación del admin', desc:'El administrador revisa tu solicitud y te otorga permiso para vender en la plataforma.', color:'#00CFFF', bg:'rgba(0,207,255,0.1)', border:'rgba(0,207,255,0.24)', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>' },
+        { num:'03', title:'Vende y gana', desc:'Accede a precios de revendedor, arma pedidos, gestiona clientes y cobra tus comisiones.', color:'#00D4A0', bg:'rgba(0,212,160,0.1)', border:'rgba(0,212,160,0.24)', icon:'<path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/>' },
+      ],
+      plans: [
+        { name:'Starter', price:'$9.99', period:'/mes', accent:'#00CFFF', featured:false, tagline:'Ideal para empezar a revender.', features:['Precios de revendedor','Panel de ventas','Hasta 30 clientes','Soporte por chat'] },
+        { name:'Pro', price:'$24.99', period:'/mes', accent:'#9B3FFF', featured:true, tagline:'El favorito de los revendedores activos.', features:['Todo lo de Starter','Clientes ilimitados','Comisiones potenciadas','CRM + cotizaciones','Material de marketing'] },
+        { name:'Anual', price:'$199', period:'/año', accent:'#00D4A0', featured:false, tagline:'2 meses gratis pagando al año.', features:['Todo lo de Pro','2 meses gratis','Prioridad de soporte','Insignia verificada'] },
+      ],
+      perks: [
+        { title:'Precios especiales', desc:'Margen en cada servicio.', color:'#00CFFF', bg:'rgba(0,207,255,0.1)', icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' },
+        { title:'Panel de ventas', desc:'Dashboard profesional.', color:'#9B3FFF', bg:'rgba(155,63,255,0.1)', icon:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>' },
+        { title:'CRM de clientes', desc:'Pipeline y seguimientos.', color:'#00D4A0', bg:'rgba(0,212,160,0.1)', icon:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' },
+        { title:'Comisiones', desc:'Gana por cada venta.', color:'#FFB020', bg:'rgba(255,176,32,0.1)', icon:'<circle cx="8" cy="8" r="5"/><path d="m20 4-9 9"/>' },
+        { title:'Cotizaciones PDF', desc:'Envía por WhatsApp.', color:'#00CFFF', bg:'rgba(0,207,255,0.1)', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>' },
+        { title:'Material listo', desc:'Banners y flyers.', color:'#FF30A0', bg:'rgba(255,48,160,0.1)', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20"/>' },
+        { title:'Gamificación', desc:'Niveles y retos.', color:'#9B3FFF', bg:'rgba(155,63,255,0.1)', icon:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M18 2H6v7a6 6 0 0 0 12 0V2Z"/>' },
+        { title:'Soporte 24/7', desc:'Siempre acompañado.', color:'#00D4A0', bg:'rgba(0,212,160,0.1)', icon:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
+        { title:'Academia', desc:'Cursos y guías.', color:'#FFB020', bg:'rgba(255,176,32,0.1)', icon:'<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5a6 3 0 0 0 12 0v-5"/>' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

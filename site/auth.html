@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Acceder — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="auth">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;background:#04040C;color:#EEF2FF;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+    @keyframes orbSpin{from{transform:rotateX(72deg) rotate(0deg);}to{transform:rotateX(72deg) rotate(360deg);}}
+    @keyframes orbRev{from{transform:rotateX(72deg) rotateZ(30deg) rotate(0deg);}to{transform:rotateX(72deg) rotateZ(30deg) rotate(-360deg);}}
+    @keyframes nebula{0%,100%{transform:scale(1) translate(0,0);opacity:0.45;}50%{transform:scale(1.08) translate(12px,-8px);opacity:0.7;}}
+    @keyframes nebula2{0%,100%{transform:scale(1);opacity:0.4;}50%{transform:scale(1.06) translate(-10px,10px);opacity:0.6;}}
+    @keyframes glow{0%,100%{opacity:0.4;}50%{opacity:1;}}
+    @keyframes formSlide{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes starTwinkle{0%,100%{opacity:0.12;}50%{opacity:0.55;}}
+    .star-bg{background-image:radial-gradient(circle,rgba(255,255,255,0.5) 1px,transparent 1px),radial-gradient(circle,rgba(255,255,255,0.25) 1px,transparent 1px);background-size:80px 80px,130px 130px;background-position:0 0,40px 40px;}
+    input::placeholder{color:rgba(160,185,240,0.3);}
+    input:focus{outline:none;}
+    .nv-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:9px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:#EEF2FF;transition:all 0.15s;caret-color:#00CFFF;}
+    .nv-input:focus{border-color:rgba(0,207,255,0.45);box-shadow:0 0 0 3px rgba(0,207,255,0.1),0 0 12px rgba(0,207,255,0.06);}
+    .nv-btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(0,100,255,0.35);transition:all 0.2s;}
+    .nv-btn-primary:hover{box-shadow:0 6px 28px rgba(0,100,255,0.5);transform:translateY(-1px);}
+    .otp-input{width:52px;height:56px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:10px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;color:#00CFFF;caret-color:#00CFFF;transition:all 0.15s;}
+    .otp-input:focus{border-color:rgba(0,207,255,0.5);box-shadow:0 0 0 3px rgba(0,207,255,0.12);background:rgba(0,207,255,0.04);}
+    input[type=checkbox]{accent-color:#00CFFF;}
+  </style>
+</helmet>
+
+<div style="display:flex;min-height:100vh;">
+
+  <!-- ══ LEFT PANEL — NV BRANDING ══ -->
+  <div style="width:42%;background:#04040C;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 56px;" class="star-bg">
+    <!-- Nebula blobs -->
+    <div style="position:absolute;top:-80px;left:-80px;width:420px;height:420px;background:radial-gradient(circle,rgba(0,80,255,0.15) 0%,transparent 65%);filter:blur(70px);animation:nebula 10s ease-in-out infinite;pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-60px;right:-60px;width:340px;height:340px;background:radial-gradient(circle,rgba(155,0,255,0.12) 0%,transparent 65%);filter:blur(60px);animation:nebula2 12s ease-in-out infinite;pointer-events:none;"></div>
+    <!-- Top-center volumetric light -->
+    <div style="position:absolute;top:-40px;left:50%;transform:translateX(-50%);width:300px;height:200px;background:radial-gradient(circle,rgba(0,207,255,0.08) 0%,transparent 70%);filter:blur(40px);pointer-events:none;"></div>
+
+    <div style="position:relative;z-index:1;width:100%;max-width:380px;">
+      <!-- NV Logo orbital -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:40px;">
+        <div style="position:relative;width:64px;height:64px;flex-shrink:0;">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;">
+            <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:30px;background:linear-gradient(135deg,#00CFFF 20%,#9B3FFF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;">NV</span>
+          </div>
+          <!-- Orbital ring 1 -->
+          <div style="perspective:280px;position:absolute;inset:-10px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+            <div style="width:84px;height:84px;border:2px solid rgba(0,223,255,0.6);border-radius:50%;animation:orbSpin 5s linear infinite;box-shadow:0 0 16px rgba(0,223,255,0.4),inset 0 0 12px rgba(0,223,255,0.08);"></div>
+          </div>
+          <!-- Orbital ring 2 -->
+          <div style="perspective:280px;position:absolute;inset:-5px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+            <div style="width:74px;height:74px;border:1px solid rgba(255,48,160,0.45);border-radius:50%;animation:orbRev 7s linear infinite;box-shadow:0 0 10px rgba(255,48,160,0.3);"></div>
+          </div>
+          <!-- Flare -->
+          <div style="position:absolute;top:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;background:white;border-radius:50%;box-shadow:0 0 8px 2px rgba(0,223,255,0.9);animation:glow 3s ease-in-out infinite;z-index:3;pointer-events:none;"></div>
+        </div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:#EEF2FF;letter-spacing:0.04em;line-height:1;">STREAMING</div>
+          <div style="font-size:10px;letter-spacing:0.2em;color:rgba(0,207,255,0.5);font-family:'JetBrains Mono',monospace;margin-top:3px;">NATHAN Y VALERYN</div>
+        </div>
+      </div>
+
+      <!-- Headline -->
+      <h2 style="font-family:'Syne',sans-serif;font-size:42px;font-weight:800;letter-spacing:-0.03em;line-height:0.95;margin-bottom:16px;text-wrap:pretty;">
+        <span style="background:linear-gradient(120deg,#00CFFF,#EEF2FF 50%,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">El ecosistema<br>digital<br>premium.</span>
+      </h2>
+      <p style="font-size:14.5px;color:rgba(200,215,255,0.52);line-height:1.7;font-weight:300;margin-bottom:40px;">Accede a más de 50 servicios de streaming, IA, productividad y más — todo en un solo lugar.</p>
+
+      <!-- Trust items -->
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:44px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.12);border-radius:10px;">
+          <div style="width:28px;height:28px;background:rgba(0,207,255,0.1);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#EEF2FF;">Activación Inmediata</div>
+            <div style="font-size:11.5px;color:rgba(200,215,255,0.42);font-weight:300;">En menos de 2 minutos</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(155,63,255,0.05);border:1px solid rgba(155,63,255,0.12);border-radius:10px;">
+          <div style="width:28px;height:28px;background:rgba(155,63,255,0.1);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#EEF2FF;">Garantía 30 días</div>
+            <div style="font-size:11.5px;color:rgba(200,215,255,0.42);font-weight:300;">Reembolso garantizado</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,212,160,0.05);border:1px solid rgba(0,212,160,0.12);border-radius:10px;">
+          <div style="width:28px;height:28px;background:rgba(0,212,160,0.1);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#EEF2FF;">2.400+ Usuarios activos</div>
+            <div style="font-size:11.5px;color:rgba(200,215,255,0.42);font-weight:300;">Soporte 24/7 siempre disponible</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div style="display:flex;gap:0;border:1px solid rgba(80,100,200,0.15);border-radius:10px;overflow:hidden;">
+        <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(80,100,200,0.12);text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#00CFFF;text-shadow:0 0 12px rgba(0,207,255,0.3);">50+</div>
+          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Servicios</div>
+        </div>
+        <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(80,100,200,0.12);text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#9B3FFF;text-shadow:0 0 12px rgba(155,63,255,0.3);">99%</div>
+          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Satisfacción</div>
+        </div>
+        <div style="flex:1;padding:12px 16px;text-align:center;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#00D4A0;text-shadow:0 0 12px rgba(0,212,160,0.3);">24/7</div>
+          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Soporte</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT PANEL — AUTH FORM ══ -->
+  <div style="flex:1;background:#07071A;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;position:relative;overflow:hidden;">
+    <!-- Subtle top border glow -->
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.2),rgba(155,63,255,0.15),transparent);pointer-events:none;"></div>
+    <!-- Ambient top glow -->
+    <div style="position:absolute;top:-60px;right:-60px;width:280px;height:280px;background:radial-gradient(circle,rgba(155,0,255,0.07) 0%,transparent 65%);filter:blur(50px);pointer-events:none;"></div>
+
+    <div style="width:100%;max-width:420px;">
+
+      <!-- Mode: LOGIN -->
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:formSlide 0.25s ease-out;">
+          <div style="margin-bottom:32px;">
+            <h1 style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:6px;">Bienvenido de nuevo</h1>
+            <p style="font-size:14.5px;color:rgba(200,215,255,0.5);font-weight:300;">Ingresa a tu cuenta de NV Streaming</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
+            <div>
+              <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;font-weight:400;">Correo electrónico</label>
+              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" />
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <label style="font-size:12.5px;color:rgba(200,215,255,0.6);font-weight:400;">Contraseña</label>
+                <a onClick="{{ goForgot }}" style="font-size:12px;color:#00CFFF;cursor:pointer;text-decoration:none;" style-hover="color:#00DFFF;">¿Olvidaste tu contraseña?</a>
+              </div>
+              <div style="position:relative;">
+                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" />
+                <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;" style-hover="color:rgba(200,215,255,0.8);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="remember" style="width:14px;height:14px;" />
+              <label for="remember" style="font-size:13px;color:rgba(200,215,255,0.55);cursor:pointer;">Recordar sesión</label>
+            </div>
+          </div>
+          <button class="nv-btn-primary" style="margin-bottom:14px;">Iniciar Sesión</button>
+          <button onClick="{{ go2FA }}" style="width:100%;padding:11px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:10px;color:#9B3FFF;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.15s;margin-bottom:24px;" style-hover="background:rgba(155,63,255,0.14);">
+            Usar autenticación de dos factores
+          </button>
+          <!-- Divider -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="flex:1;height:1px;background:rgba(80,100,200,0.18);"></div>
+            <span style="font-size:12px;color:rgba(160,185,240,0.35);">o continúa con</span>
+            <div style="flex:1;height:1px;background:rgba(80,100,200,0.18);"></div>
+          </div>
+          <!-- Social auth -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;">
+            <button style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
+              <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+              Google
+            </button>
+            <button style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(200,215,255,0.8)"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+              WhatsApp
+            </button>
+          </div>
+          <!-- Switch to register -->
+          <p style="text-align:center;font-size:13.5px;color:rgba(200,215,255,0.5);">¿No tienes cuenta? <a onClick="{{ goRegister }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;" style-hover="color:#00DFFF;">Crear cuenta gratis</a></p>
+        </div>
+      </sc-if>
+
+      <!-- Mode: REGISTER -->
+      <sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:formSlide 0.25s ease-out;">
+          <div style="margin-bottom:28px;">
+            <h1 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:6px;">Crear tu cuenta</h1>
+            <p style="font-size:14px;color:rgba(200,215,255,0.5);font-weight:300;">Únete a la plataforma de servicios digitales</p>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-bottom:18px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div>
+                <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Nombre</label>
+                <input type="text" placeholder="Juan" class="nv-input" />
+              </div>
+              <div>
+                <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Apellido</label>
+                <input type="text" placeholder="Pérez" class="nv-input" />
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Correo electrónico</label>
+              <input type="email" placeholder="juan@ejemplo.com" class="nv-input" />
+            </div>
+            <div>
+              <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Contraseña</label>
+              <div style="position:relative;">
+                <input type="password" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" />
+                <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);" style-hover="color:rgba(200,215,255,0.8);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <!-- Password strength -->
+              <div style="display:flex;gap:4px;margin-top:6px;">
+                <div style="flex:1;height:3px;background:#00D4A0;border-radius:2px;box-shadow:0 0 5px rgba(0,212,160,0.4);"></div>
+                <div style="flex:1;height:3px;background:#00D4A0;border-radius:2px;box-shadow:0 0 5px rgba(0,212,160,0.4);"></div>
+                <div style="flex:1;height:3px;background:rgba(80,100,200,0.2);border-radius:2px;"></div>
+                <div style="flex:1;height:3px;background:rgba(80,100,200,0.2);border-radius:2px;"></div>
+              </div>
+              <div style="font-size:11px;color:#00D4A0;margin-top:4px;">Contraseña media — agrega números para fortalecer</div>
+            </div>
+            <div>
+              <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Confirmar contraseña</label>
+              <input type="password" placeholder="Repite la contraseña" class="nv-input" />
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <input type="checkbox" id="terms" style="width:14px;height:14px;margin-top:2px;flex-shrink:0;" />
+              <label for="terms" style="font-size:12.5px;color:rgba(200,215,255,0.5);cursor:pointer;line-height:1.5;">Acepto los <a style="color:#00CFFF;text-decoration:none;">Términos de Servicio</a> y la <a style="color:#00CFFF;text-decoration:none;">Política de Privacidad</a> de NV Streaming</label>
+            </div>
+          </div>
+          <button onClick="{{ goOtp }}" class="nv-btn-primary" style="margin-bottom:20px;">Crear Cuenta</button>
+          <p style="text-align:center;font-size:13.5px;color:rgba(200,215,255,0.5);">¿Ya tienes cuenta? <a onClick="{{ goLogin }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;" style-hover="color:#00DFFF;">Iniciar sesión</a></p>
+        </div>
+      </sc-if>
+
+      <!-- Mode: OTP -->
+      <sc-if value="{{ isOtp }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:formSlide 0.25s ease-out;text-align:center;">
+          <!-- Icon -->
+          <div style="position:relative;width:72px;height:72px;margin:0 auto 24px;">
+            <div style="width:72px;height:72px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.22);border-radius:20px;display:flex;align-items:center;justify-content:center;position:relative;z-index:2;">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div style="perspective:220px;position:absolute;inset:-10px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+              <div style="width:92px;height:92px;border:1px solid rgba(0,223,255,0.35);border-radius:50%;animation:orbSpin 4s linear infinite;"></div>
+            </div>
+          </div>
+          <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:8px;">Verifica tu email</h1>
+          <p style="font-size:14px;color:rgba(200,215,255,0.52);font-weight:300;margin-bottom:6px;">Enviamos un código de 6 dígitos a</p>
+          <p style="font-size:14px;color:#00CFFF;font-weight:500;margin-bottom:32px;">juan@ejemplo.com</p>
+          <!-- 6-digit input -->
+          <div style="display:flex;gap:10px;justify-content:center;margin-bottom:24px;">
+            <sc-for list="{{ otpBoxes }}" as="box">
+              <input type="text" maxlength="1" class="otp-input" inputmode="numeric" />
+            </sc-for>
+          </div>
+          <!-- Timer -->
+          <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.4)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(200,215,255,0.5);">{{ otpTimer }}</span>
+            </div>
+            <p style="font-size:13px;color:rgba(200,215,255,0.45);">¿No recibiste el código? <a onClick="{{ resendOtp }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;">Reenviar</a></p>
+          </div>
+          <button class="nv-btn-primary" style="margin-bottom:14px;">Verificar código</button>
+          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.6);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Volver al inicio</button>
+        </div>
+      </sc-if>
+
+      <!-- Mode: 2FA -->
+      <sc-if value="{{ is2FA }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:formSlide 0.25s ease-out;text-align:center;">
+          <div style="position:relative;width:72px;height:72px;margin:0 auto 24px;">
+            <div style="width:72px;height:72px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.22);border-radius:20px;display:flex;align-items:center;justify-content:center;position:relative;z-index:2;">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div style="perspective:220px;position:absolute;inset:-10px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+              <div style="width:92px;height:92px;border:1px solid rgba(155,63,255,0.35);border-radius:50%;animation:orbSpin 4s linear infinite;box-shadow:0 0 10px rgba(155,63,255,0.2);"></div>
+            </div>
+          </div>
+          <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:8px;">Doble autenticación</h1>
+          <p style="font-size:14px;color:rgba(200,215,255,0.52);font-weight:300;max-width:320px;margin:0 auto 28px;line-height:1.6;">Selecciona tu método de verificación adicional</p>
+          <!-- Method cards -->
+          <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;text-align:left;">
+            <div style="padding:14px 16px;background:rgba(0,207,255,0.06);border:1px solid rgba(0,207,255,0.25);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;">
+              <div style="width:36px;height:36px;background:rgba(0,207,255,0.1);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13.5px;font-weight:500;color:#EEF2FF;margin-bottom:1px;">Código SMS</div>
+                <div style="font-size:11.5px;color:rgba(200,215,255,0.45);">Enviar al +58 **** 1234</div>
+              </div>
+              <div style="width:16px;height:16px;border-radius:50%;background:#00CFFF;border:3px solid #07071A;box-shadow:0 0 0 2px #00CFFF;flex-shrink:0;"></div>
+            </div>
+            <div style="padding:14px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.16);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;" style-hover="border-color:rgba(155,63,255,0.25);">
+              <div style="width:36px;height:36px;background:rgba(155,63,255,0.1);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9B3FFF" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:13.5px;font-weight:500;color:#EEF2FF;margin-bottom:1px;">Authenticator App</div>
+                <div style="font-size:11.5px;color:rgba(200,215,255,0.45);">Google Auth / Authy</div>
+              </div>
+              <div style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(80,100,200,0.3);flex-shrink:0;"></div>
+            </div>
+          </div>
+          <button class="nv-btn-primary" style="margin-bottom:14px;">Continuar</button>
+          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Cancelar</button>
+        </div>
+      </sc-if>
+
+      <!-- Mode: FORGOT -->
+      <sc-if value="{{ isForgot }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:formSlide 0.25s ease-out;text-align:center;">
+          <div style="width:72px;height:72px;background:rgba(255,176,32,0.08);border:1px solid rgba(255,176,32,0.2);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#FFB020" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h1 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;margin-bottom:8px;">Recuperar contraseña</h1>
+          <p style="font-size:14px;color:rgba(200,215,255,0.52);font-weight:300;max-width:320px;margin:0 auto 28px;line-height:1.6;text-align:left;">Ingresa tu correo y te enviaremos instrucciones para restablecer tu contraseña.</p>
+          <div style="text-align:left;margin-bottom:18px;">
+            <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;">Correo electrónico</label>
+            <input type="email" placeholder="juan@ejemplo.com" class="nv-input" />
+          </div>
+          <button class="nv-btn-primary" style="margin-bottom:14px;">Enviar instrucciones</button>
+          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:middle;margin-right:5px;"><path d="m15 18-6-6 6-6"/></svg>
+            Volver al inicio de sesión
+          </button>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = { mode: 'login', otpSeconds: 119 };
+
+  goLogin()    { this.setState({ mode: 'login'    }); }
+  goRegister() { this.setState({ mode: 'register' }); }
+  goOtp()      { this.setState({ mode: 'otp'      }); }
+  go2FA()      { this.setState({ mode: '2fa'      }); }
+  goForgot()   { this.setState({ mode: 'forgot'   }); }
+  resendOtp()  { this.setState({ otpSeconds: 119  }); }
+
+  renderVals() {
+    const { mode, otpSeconds } = this.state;
+    const mins = Math.floor(otpSeconds / 60);
+    const secs = otpSeconds % 60;
+    return {
+      isLogin:    mode === 'login',
+      isRegister: mode === 'register',
+      isOtp:      mode === 'otp',
+      is2FA:      mode === '2fa',
+      isForgot:   mode === 'forgot',
+      otpTimer: `Reenviar en ${mins}:${String(secs).padStart(2,'0')}`,
+      otpBoxes: [1,2,3,4,5,6],
+      goLogin:    () => this.goLogin(),
+      goRegister: () => this.goRegister(),
+      goOtp:      () => this.goOtp(),
+      go2FA:      () => this.go2FA(),
+      goForgot:   () => this.goForgot(),
+      resendOtp:  () => this.resendOtp(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

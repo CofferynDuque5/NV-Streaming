@@ -1,0 +1,22 @@
+# Dependencias y build
+node_modules/
+dist/
+build/
+
+# Secretos y entorno (NUNCA subir)
+.env
+.env.local
+.env.*.local
+whatsapp-agent/.env
+# (se conservan los .env.example)
+!.env.example
+!**/.env.example
+
+# Datos locales / runtime
+pgdata/
+*.log
+*.pid
+
+# Sistema
+.DS_Store
+Thumbs.db

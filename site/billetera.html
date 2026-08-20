@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./js/config.js"></script>
+<script src="./nv-runtime.js"></script>
+<script type="module" src="./js/bootstrap.js"></script>
+<title>Billetera — NV Streaming</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-fixes.css">
+<link rel="stylesheet" href="./css/inspector.css">
+<style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
+</head>
+<body data-nv-page="billetera">
+<template data-nv-template><x-dc>
+
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100%;background:#04040C;color:#EEF2FF;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-thumb{background:rgba(0,207,255,0.15);border-radius:2px;}
+    @keyframes orbSpin{from{transform:rotateX(72deg) rotate(0deg);}to{transform:rotateX(72deg) rotate(360deg);}}
+    @keyframes orbRev{from{transform:rotateX(72deg) rotateZ(25deg) rotate(0deg);}to{transform:rotateX(72deg) rotateZ(25deg) rotate(-360deg);}}
+    @keyframes glow{0%,100%{opacity:0.4;}50%{opacity:1;}}
+    @keyframes holographicShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+    @keyframes cardFloat{0%,100%{transform:translateY(0) rotateX(2deg);}50%{transform:translateY(-8px) rotateX(2deg);}}
+    @keyframes nebula{0%,100%{opacity:0.5;transform:scale(1);}50%{opacity:0.75;transform:scale(1.06) translate(8px,-6px);}}
+    @keyframes shimmer{0%{background-position:-400px 0;}100%{background-position:400px 0;}}
+    @keyframes slideUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .nv-card{background:#07071A;border:1px solid rgba(80,100,200,0.18);border-radius:14px;position:relative;}
+    .nv-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.22),rgba(155,63,255,0.16),transparent);pointer-events:none;}
+    input::placeholder{color:rgba(160,185,240,0.3);}
+    input:focus{outline:none;}
+  </style>
+</helmet>
+
+<!-- ══ HEADER ══ -->
+<header style="position:sticky;top:0;z-index:30;background:rgba(4,4,12,0.95);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid rgba(80,100,200,0.14);">
+  <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.3),rgba(155,63,255,0.2),transparent);pointer-events:none;"></div>
+  <div style="max-width:1280px;margin:0 auto;padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <!-- Logo -->
+      <div style="position:relative;width:38px;height:38px;">
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:18px;background:linear-gradient(135deg,#00CFFF,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;z-index:2;">NV</span>
+        <div style="perspective:180px;position:absolute;inset:-4px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          <div style="width:46px;height:46px;border:1px solid rgba(0,223,255,0.5);border-radius:50%;animation:orbSpin 4s linear infinite;box-shadow:0 0 8px rgba(0,223,255,0.3);"></div>
+        </div>
+      </div>
+      <div style="width:1px;height:20px;background:rgba(80,100,200,0.2);"></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;background:rgba(0,207,255,0.07);border:1px solid rgba(0,207,255,0.18);border-radius:100px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M12 12h.01M8 12h.01"/></svg>
+        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:#00CFFF;letter-spacing:0.02em;">NV Wallet</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(0,212,160,0.07);border:1px solid rgba(0,212,160,0.18);border-radius:100px;">
+        <div style="width:5px;height:5px;background:#00D4A0;border-radius:50%;animation:glow 2s ease-in-out infinite;box-shadow:0 0 4px rgba(0,212,160,0.6);"></div>
+        <span style="font-size:11.5px;color:#00D4A0;font-weight:500;font-family:'JetBrains Mono',monospace;">Sistema activo</span>
+      </div>
+      <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:white;cursor:pointer;">J</div>
+    </div>
+  </div>
+</header>
+
+<!-- ══ MAIN CONTENT ══ -->
+<div style="max-width:1280px;margin:0 auto;padding:36px 40px 80px;">
+
+  <!-- Page header -->
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:36px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <a style="font-size:12.5px;color:rgba(200,215,255,0.38);text-decoration:none;cursor:pointer;" style-hover="color:#00CFFF;">Mi Cuenta</a>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(200,215,255,0.25)" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg>
+        <span style="font-size:12.5px;color:rgba(200,215,255,0.65);">Billetera</span>
+      </div>
+      <h1 style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;letter-spacing:-0.03em;background:linear-gradient(120deg,#00CFFF,#EEF2FF 60%,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.05;margin-bottom:6px;">Mi Billetera</h1>
+      <p style="font-size:14.5px;color:rgba(200,215,255,0.48);font-weight:300;">Gestiona tu saldo, recarga y consulta tu historial de movimientos.</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onClick="{{ openRecharge }}" style="display:flex;align-items:center;gap:7px;padding:11px 22px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 18px rgba(0,100,255,0.32);transition:all 0.2s;" style-hover="box-shadow:0 6px 24px rgba(0,100,255,0.45);transform:translateY(-1px);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Recargar saldo
+      </button>
+      <button style="display:flex;align-items:center;gap:7px;padding:11px 20px;background:rgba(255,255,255,0.05);color:rgba(200,215,255,0.75);border:1px solid rgba(80,100,200,0.2);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.2s;" style-hover="background:rgba(255,255,255,0.08);color:#EEF2FF;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 14 4 9l5-5M15 10l5 5-5 5"/></svg>
+        Transferir
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ MAIN GRID ══ -->
+  <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+
+      <!-- ── HOLOGRAPHIC WALLET CARD ── -->
+      <div style="animation:slideUp 0.5s ease-out both;">
+        <!-- Card container with 3D perspective -->
+        <div style="perspective:1000px;cursor:pointer;" style-hover="perspective:800px;">
+          <div style="position:relative;width:100%;max-width:480px;height:280px;border-radius:22px;overflow:hidden;animation:cardFloat 6s ease-in-out infinite;box-shadow:0 24px 60px rgba(0,0,0,0.6),0 0 50px rgba(0,100,255,0.12),0 0 0 1px rgba(0,207,255,0.15);">
+            <!-- Holographic gradient background -->
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#05102A 0%,#0A1F5A 25%,#1A0A40 50%,#0A1A5A 75%,#050E28 100%);background-size:400% 400%;animation:holographicShift 8s ease-in-out infinite;"></div>
+            <!-- Aurora overlay 1 -->
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,207,255,0.18) 0%,transparent 40%,rgba(155,63,255,0.15) 100%);pointer-events:none;"></div>
+            <!-- Aurora overlay 2 — moving shimmer -->
+            <div style="position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,rgba(0,223,255,0.08) 50%,transparent 70%);animation:holographicShift 4s ease-in-out infinite reverse;pointer-events:none;"></div>
+            <!-- Grid texture -->
+            <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(0,207,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,207,255,0.04) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;"></div>
+            <!-- Top left: NV Logo -->
+            <div style="position:absolute;top:24px;left:28px;z-index:2;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="position:relative;width:32px;height:32px;">
+                  <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:16px;background:linear-gradient(135deg,#00CFFF,#9B3FFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;z-index:2;">NV</span>
+                  <div style="perspective:160px;position:absolute;inset:-4px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                    <div style="width:40px;height:40px;border:1px solid rgba(0,223,255,0.5);border-radius:50%;animation:orbSpin 3.5s linear infinite;box-shadow:0 0 8px rgba(0,223,255,0.4);"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:rgba(255,255,255,0.9);letter-spacing:0.06em;line-height:1;">STREAMING</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(0,207,255,0.6);letter-spacing:0.12em;margin-top:1px;">DIGITAL WALLET</div>
+                </div>
+              </div>
+            </div>
+            <!-- Top right: contactless icon -->
+            <div style="position:absolute;top:24px;right:28px;z-index:2;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(0,207,255,0.6)" stroke-width="1.5" stroke-linecap="round"><path d="M5.121 17.804A13.937 13.937 0 0 1 12 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+            </div>
+            <!-- Center: Balance -->
+            <div style="position:absolute;top:50%;left:28px;transform:translateY(-60%);z-index:2;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(0,207,255,0.55);letter-spacing:0.1em;margin-bottom:6px;text-transform:uppercase;">Saldo disponible</div>
+              <div data-nv-saldo="1" style="font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:500;color:white;letter-spacing:-0.02em;line-height:1;text-shadow:0 0 30px rgba(0,207,255,0.4);">$25.00</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.45);margin-top:5px;">USD · Saldo activo</div>
+            </div>
+            <!-- Bottom: card number + user + expiry -->
+            <div style="position:absolute;bottom:24px;left:28px;right:28px;z-index:2;">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(255,255,255,0.7);letter-spacing:0.18em;margin-bottom:6px;">**** **** **** 4242</div>
+                  <div data-nv-nombre="1" style="font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;color:rgba(255,255,255,0.85);letter-spacing:0.04em;">JUAN PÉREZ</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(0,207,255,0.5);letter-spacing:0.08em;margin-bottom:3px;">VÁLIDO HASTA</div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:rgba(255,255,255,0.8);">12/27</div>
+                </div>
+              </div>
+            </div>
+            <!-- Decorative orbital beneath card number -->
+            <div style="position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);width:300px;height:120px;overflow:hidden;pointer-events:none;z-index:1;">
+              <div style="perspective:200px;width:300px;height:300px;margin-top:-150px;display:flex;align-items:center;justify-content:center;">
+                <div style="width:280px;height:280px;border:1px solid rgba(0,223,255,0.2);border-radius:50%;animation:orbSpin 8s linear infinite;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── QUICK ACTIONS ── -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;animation:slideUp 0.5s 0.1s ease-out both;">
+        <sc-for list="{{ quickActions }}" as="action">
+          <button onClick="{{ action.onClick }}" style="padding:16px 12px;background:#07071A;border:1px solid rgba(80,100,200,0.18);border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;" style-hover="border-color:rgba(0,207,255,0.3);background:rgba(0,207,255,0.04);transform:translateY(-2px);">
+            <div style="width:38px;height:38px;background:{{ action.iconBg }};border:1px solid {{ action.iconBorder }};border-radius:10px;display:flex;align-items:center;justify-content:center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ action.iconColor }}" stroke-width="1.5" stroke-linecap="round">{{ action.icon }}</svg>
+            </div>
+            <span style="font-size:12px;color:rgba(200,215,255,0.7);font-weight:500;text-align:center;line-height:1.3;">{{ action.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- ── TRANSACTION HISTORY ── -->
+      <div class="nv-card" style="overflow:hidden;animation:slideUp 0.5s 0.2s ease-out both;">
+        <!-- Header + tabs -->
+        <div style="padding:16px 20px;border-bottom:1px solid rgba(80,100,200,0.12);display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;">Movimientos</span>
+          <div style="display:flex;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.14);border-radius:8px;padding:3px;gap:2px;">
+            <button style="padding:5px 12px;background:rgba(0,207,255,0.1);border:1px solid rgba(0,207,255,0.25);border-radius:6px;font-size:12px;color:#00CFFF;cursor:pointer;font-weight:500;font-family:'DM Sans',sans-serif;">Todo</button>
+            <button style="padding:5px 12px;background:transparent;border:1px solid transparent;border-radius:6px;font-size:12px;color:rgba(200,215,255,0.45);cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="color:#EEF2FF;">Recargas</button>
+            <button style="padding:5px 12px;background:transparent;border:1px solid transparent;border-radius:6px;font-size:12px;color:rgba(200,215,255,0.45);cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="color:#EEF2FF;">Pagos</button>
+          </div>
+        </div>
+        <!-- Transactions -->
+        <div>
+          <sc-for list="{{ transactions }}" as="tx">
+            <div data-empty="{{ tx._empty }}" style="padding:14px 20px;border-bottom:1px solid rgba(80,100,200,0.08);display:flex;align-items:center;gap:14px;cursor:pointer;transition:background 0.12s;" style-hover="background:rgba(0,207,255,0.025);">
+              <!-- Icon -->
+              <div style="width:40px;height:40px;background:{{ tx.iconBg }};border:1px solid {{ tx.iconBorder }};border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ tx.iconColor }}" stroke-width="1.5" stroke-linecap="round">{{ tx.icon }}</svg>
+              </div>
+              <!-- Info -->
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                  <span style="font-size:14px;font-weight:500;color:#EEF2FF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;">{{ tx.label }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;color:{{ tx.isCredit ? '#00D4A0' : 'rgba(200,215,255,0.65)' }};flex-shrink:0;margin-left:8px;">{{ tx.amount }}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:12px;color:rgba(200,215,255,0.42);font-weight:300;">{{ tx.sub }}</span>
+                  <div style="width:3px;height:3px;background:rgba(80,100,200,0.4);border-radius:50%;"></div>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(160,185,240,0.38);">{{ tx.date }}</span>
+                </div>
+              </div>
+              <!-- Status -->
+              <span style="padding:3px 9px;background:{{ tx.statusBg }};border:1px solid {{ tx.statusBorder }};border-radius:100px;font-size:11px;color:{{ tx.statusColor }};font-weight:500;flex-shrink:0;">{{ tx.status }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <!-- Footer -->
+        <div style="padding:12px 20px;display:flex;align-items:center;justify-content:space-between;">
+          <span data-nv-movcount="1" style="font-size:12px;color:rgba(160,185,240,0.38);font-family:'JetBrains Mono',monospace;">0 movimientos</span>
+          <a style="font-size:13px;color:#00CFFF;cursor:pointer;text-decoration:none;" style-hover="color:#00DFFF;">Ver historial completo →</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex;flex-direction:column;gap:16px;animation:slideUp 0.5s 0.15s ease-out both;position:sticky;top:80px;">
+
+      <!-- Balance breakdown -->
+      <div class="nv-card" style="padding:20px;">
+        <div style="font-family:'Syne',sans-serif;font-size:13.5px;font-weight:700;color:#EEF2FF;margin-bottom:14px;">Resumen de saldo</div>
+        <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 13px;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.14);border-radius:9px;">
+            <span style="font-size:13px;color:rgba(200,215,255,0.65);">Saldo disponible</span>
+            <span data-nv-saldo="1" style="font-family:'JetBrains Mono',monospace;font-size:15px;color:#00CFFF;font-weight:500;text-shadow:0 0 10px rgba(0,207,255,0.3);">$25.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:9px;">
+            <span style="font-size:13px;color:rgba(200,215,255,0.55);">Reservado (pendiente)</span>
+            <span data-nv-reservado="1" style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(200,215,255,0.5);">$0.00</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:9px;">
+            <span style="font-size:13px;color:rgba(200,215,255,0.55);">Total del mes gastado</span>
+            <span data-nv-gastado="1" style="font-family:'JetBrains Mono',monospace;font-size:14px;color:rgba(200,215,255,0.5);">$0.00</span>
+          </div>
+        </div>
+        <!-- Usage bar -->
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:11.5px;color:rgba(200,215,255,0.45);">Uso del saldo</span>
+            <span data-nv-uso="1" style="font-size:11.5px;color:#00CFFF;font-weight:500;font-family:'JetBrains Mono',monospace;">0%</span>
+          </div>
+          <div style="height:6px;background:rgba(80,100,200,0.18);border-radius:3px;overflow:hidden;">
+            <div data-nv-uso-bar="1" style="height:100%;width:0%;background:linear-gradient(90deg,#00CFFF,#9B3FFF);border-radius:3px;box-shadow:0 0 8px rgba(0,207,255,0.4);"></div>
+          </div>
+        </div>
+        <button onClick="{{ openRecharge }}" style="width:100%;padding:11px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,100,255,0.3);transition:all 0.2s;" style-hover="box-shadow:0 6px 22px rgba(0,100,255,0.45);transform:translateY(-1px);">+ Recargar ahora</button>
+      </div>
+
+      <!-- Recharge modal / inline panel -->
+      <sc-if value="{{ showRecharge }}" hint-placeholder-val="{{ false }}">
+        <div class="nv-card" style="padding:20px;border-color:rgba(0,207,255,0.22);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#EEF2FF;">Recargar saldo</span>
+            <button onClick="{{ closeRecharge }}" style="background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;padding:2px;" style-hover="color:#EEF2FF;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <!-- Quick amounts -->
+          <div style="font-size:11.5px;color:rgba(200,215,255,0.45);margin-bottom:8px;">Monto rápido</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
+            <sc-for list="{{ quickAmounts }}" as="amt">
+              <button onClick="{{ amt.onClick }}" style="padding:9px;background:{{ amt.active ? 'rgba(0,207,255,0.1)' : 'rgba(255,255,255,0.04)' }};border:1px solid {{ amt.active ? 'rgba(0,207,255,0.35)' : 'rgba(80,100,200,0.16)' }};border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13.5px;color:{{ amt.active ? '#00CFFF' : 'rgba(200,215,255,0.65)' }};cursor:pointer;font-weight:{{ amt.active ? '500' : '400' }};transition:all 0.12s;">{{ amt.label }}</button>
+            </sc-for>
+          </div>
+          <!-- Custom amount -->
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:11.5px;color:rgba(200,215,255,0.5);margin-bottom:5px;">O ingresa un monto</label>
+            <div style="display:flex;background:rgba(255,255,255,0.04);border:1px solid rgba(0,207,255,0.3);border-radius:9px;overflow:hidden;box-shadow:0 0 0 3px rgba(0,207,255,0.08);">
+              <div style="padding:10px 13px;background:rgba(0,207,255,0.06);border-right:1px solid rgba(0,207,255,0.2);font-family:'JetBrains Mono',monospace;font-size:14px;color:#00CFFF;display:flex;align-items:center;">$</div>
+              <input type="number" data-nv-monto-input="1" placeholder="0.00" value="{{ customAmount }}" style="flex:1;background:transparent;border:none;padding:10px 13px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#EEF2FF;caret-color:#00CFFF;" />
+              <div style="padding:10px 13px;font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(160,185,240,0.45);display:flex;align-items:center;border-left:1px solid rgba(80,100,200,0.18);">USD</div>
+            </div>
+          </div>
+          <!-- Payment method -->
+          <div style="font-size:11.5px;color:rgba(200,215,255,0.45);margin-bottom:8px;">Método de pago</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
+            <sc-for list="{{ payMethods }}" as="pm">
+              <div onClick="{{ pm.onClick }}" style="padding:10px 13px;background:{{ pm.active ? 'rgba(0,207,255,0.06)' : 'rgba(255,255,255,0.03)' }};border:1px solid {{ pm.active ? 'rgba(0,207,255,0.25)' : 'rgba(80,100,200,0.14)' }};border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:all 0.12s;" style-hover="border-color:rgba(0,207,255,0.2);">
+                <span style="font-size:14px;">{{ pm.emoji }}</span>
+                <span style="font-size:13px;color:{{ pm.active ? '#EEF2FF' : 'rgba(200,215,255,0.65)' }};flex:1;font-weight:{{ pm.active ? '500' : '400' }};">{{ pm.label }}</span>
+                <div style="width:14px;height:14px;border-radius:50%;background:{{ pm.active ? '#00CFFF' : 'transparent' }};border:{{ pm.active ? 'none' : '2px solid rgba(80,100,200,0.3)' }};flex-shrink:0;"></div>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ confirmRecharge }}" style="width:100%;padding:12px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,100,255,0.3);margin-bottom:8px;" style-hover="box-shadow:0 6px 22px rgba(0,100,255,0.45);">Continuar con recarga</button>
+          <p style="text-align:center;font-size:11.5px;color:rgba(200,215,255,0.35);line-height:1.5;">Tu saldo se acredita en menos de 15 minutos. <br>Acreditación garantizada o devolución.</p>
+        </div>
+      </sc-if>
+
+      <!-- Currency info -->
+      <div class="nv-card" style="padding:18px;">
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#EEF2FF;margin-bottom:12px;">Monedas aceptadas</div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          <sc-for list="{{ currencies }}" as="cur">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 11px;background:rgba(255,255,255,0.03);border-radius:7px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:15px;">{{ cur.flag }}</span>
+                <span style="font-size:12.5px;color:rgba(200,215,255,0.7);">{{ cur.name }}</span>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(0,207,255,0.65);">{{ cur.rate }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- Security info -->
+      <div style="padding:16px 18px;background:rgba(0,212,160,0.04);border:1px solid rgba(0,212,160,0.14);border-radius:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span style="font-size:12.5px;font-weight:600;color:#00D4A0;">Saldo protegido</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(200,215,255,0.5);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Encriptación SSL end-to-end</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(200,215,255,0.5);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Autenticación de dos factores</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(200,215,255,0.5);"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>Garantía de devolución 30 días</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc></template>
+<script type="text/x-dc" data-dc-script>
+
+class Component extends DCLogic {
+  state = {
+    showRecharge: false,
+    selectedAmount: '$10',
+    activePayMethod: 'binance',
+  };
+
+  openRecharge()  { this.setState({ showRecharge: true  }); }
+  closeRecharge() { this.setState({ showRecharge: false }); }
+  selectAmount(a) { this.setState({ selectedAmount: a   }); }
+  selectPay(m)    { this.setState({ activePayMethod: m  }); }
+
+  // Envío REAL de la recarga (antes el botón no hacía nada). Toma el monto del
+  // input personalizado si tiene valor, o del monto rápido elegido, y el método
+  // seleccionado. El backend valida/normaliza el método y la deja pendiente.
+  async confirmRecharge() {
+    const NV = window.NVCore, NVUI = window.NVUI;
+    const ses = NV && NV.Store.get('sesion');
+    if (!ses || ses.estado !== 'autenticado') {
+      if (NVUI) NVUI.error('Inicia sesión', 'Debes acceder para recargar tu saldo.');
+      return;
+    }
+    const inp = document.querySelector('[data-nv-monto-input]');
+    const custom = inp ? parseFloat(String(inp.value).replace(',', '.')) : NaN;
+    const monto = (isFinite(custom) && custom > 0)
+      ? custom
+      : parseFloat(String(this.state.selectedAmount).replace(/[^0-9.]/g, ''));
+    if (!monto || monto <= 0) {
+      if (NVUI) NVUI.error('Monto inválido', 'Elige o escribe un monto mayor a 0.');
+      return;
+    }
+    const metodo = this.state.activePayMethod || 'binance';
+    try {
+      await NV.DB.add('recargas_billetera', { monto, metodo_pago: metodo, comprobante: '' });
+      if (window.NVSound) try { window.NVSound.reproducir('success'); } catch (_) {}
+      if (NVUI) await NVUI.exito('Recarga solicitada', 'Registramos tu recarga de $' + monto.toFixed(2) + '. La verás acreditada cuando el admin la apruebe.');
+      this.closeRecharge();
+    } catch (e) {
+      if (NVUI) NVUI.error('No se pudo recargar', (e && e.message) || 'Inténtalo de nuevo.');
+    }
+  }
+
+  renderVals() {
+    const { showRecharge, selectedAmount, activePayMethod } = this.state;
+    return {
+      showRecharge,
+      customAmount: selectedAmount.replace('$',''),
+      openRecharge:  () => this.openRecharge(),
+      closeRecharge: () => this.closeRecharge(),
+      confirmRecharge: () => this.confirmRecharge(),
+
+      quickActions: [
+        { label:'Recargar',    iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.22)',  iconColor:'#00CFFF', icon:'<path d="M12 5v14M5 12h14"/>',                                        onClick:()=>this.openRecharge() },
+        { label:'Historial',   iconBg:'rgba(155,63,255,0.1)', iconBorder:'rgba(155,63,255,0.2)',  iconColor:'#9B3FFF', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', onClick:()=>{} },
+        { label:'Transferir',  iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', icon:'<path d="M9 14 4 9l5-5M15 10l5 5-5 5"/>',                              onClick:()=>{} },
+        { label:'Seguridad',   iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.2)',  iconColor:'#FFB020', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',             onClick:()=>{} },
+      ],
+
+      transactions: [
+        { label:'Recarga de saldo',          sub:'Binance Pay · TXN#8841',  date:'15 Ene 2025', amount:'+$50.00', isCredit:true,  icon:'<path d="M12 5v14M5 12l7-7 7 7"/>',                 iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'Netflix Premium',           sub:'Servicio activado',        date:'15 Ene 2025', amount:'-$9.99',  isCredit:false, icon:'<rect x="2" y="3" width="20" height="14" rx="2"/>',  iconBg:'rgba(106,26,138,0.15)', iconBorder:'rgba(106,26,138,0.25)', iconColor:'rgba(200,150,255,0.7)', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'Spotify Premium',           sub:'Servicio activado',        date:'14 Ene 2025', amount:'-$5.99',  isCredit:false, icon:'<path d="M9 18V5l12-2v13"/>',                       iconBg:'rgba(26,122,26,0.15)',  iconBorder:'rgba(26,122,26,0.25)',  iconColor:'rgba(100,220,100,0.7)', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'Adobe Creative Cloud',      sub:'Servicio activado',        date:'14 Ene 2025', amount:'-$18.99', isCredit:false, icon:'<path d="M12 2 2 19h20L12 2z"/>',                    iconBg:'rgba(138,26,26,0.15)',  iconBorder:'rgba(138,26,26,0.25)',  iconColor:'rgba(220,100,100,0.7)', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'Recarga de saldo',          sub:'PayPal · TXN#8739',        date:'12 Ene 2025', amount:'+$25.00', isCredit:true,  icon:'<path d="M12 5v14M5 12l7-7 7 7"/>',                 iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'ChatGPT Pro',               sub:'Servicio activado',        date:'11 Ene 2025', amount:'-$19.99', isCredit:false, icon:'<circle cx="12" cy="12" r="9"/>',                   iconBg:'rgba(0,90,74,0.15)',    iconBorder:'rgba(0,90,74,0.25)',    iconColor:'rgba(0,200,160,0.7)',   status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+        { label:'Intento de pago fallido',   sub:'Tarjeta rechazada',        date:'10 Ene 2025', amount:'-$0.00',  isCredit:false, icon:'<circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/>', iconBg:'rgba(255,62,108,0.1)', iconBorder:'rgba(255,62,108,0.2)', iconColor:'#FF3E6C', status:'Fallido',    statusBg:'rgba(255,62,108,0.08)', statusBorder:'rgba(255,62,108,0.2)', statusColor:'#FF3E6C' },
+        { label:'Recarga de saldo',          sub:'Zelle · TXN#8201',         date:'08 Ene 2025', amount:'+$10.00', isCredit:true,  icon:'<path d="M12 5v14M5 12l7-7 7 7"/>',                 iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', status:'Completado', statusBg:'rgba(0,212,160,0.08)',  statusBorder:'rgba(0,212,160,0.2)',  statusColor:'#00D4A0' },
+      ],
+
+      quickAmounts: [
+        { label:'$5',  active:selectedAmount==='$5',  onClick:()=>this.selectAmount('$5')  },
+        { label:'$10', active:selectedAmount==='$10', onClick:()=>this.selectAmount('$10') },
+        { label:'$20', active:selectedAmount==='$20', onClick:()=>this.selectAmount('$20') },
+        { label:'$25', active:selectedAmount==='$25', onClick:()=>this.selectAmount('$25') },
+        { label:'$50', active:selectedAmount==='$50', onClick:()=>this.selectAmount('$50') },
+        { label:'$100',active:selectedAmount==='$100',onClick:()=>this.selectAmount('$100')},
+      ],
+
+      payMethods: [
+        { emoji:'🔶', label:'Binance Pay',     active:activePayMethod==='binance',  onClick:()=>this.selectPay('binance')  },
+        { emoji:'💳', label:'Zelle',           active:activePayMethod==='zelle',    onClick:()=>this.selectPay('zelle')    },
+        { emoji:'🏦', label:'Transferencia',   active:activePayMethod==='transfer', onClick:()=>this.selectPay('transfer') },
+        { emoji:'💰', label:'PayPal',          active:activePayMethod==='paypal',   onClick:()=>this.selectPay('paypal')   },
+        { emoji:'📱', label:'Pago Móvil',      active:activePayMethod==='pagomovil',onClick:()=>this.selectPay('pagomovil')},
+      ],
+
+      currencies: [
+        { flag:'🇺🇸', name:'Dólar (USD)',       rate:'Base' },
+        { flag:'🇻🇪', name:'Bolívar (VES)',      rate:'1 USD = Tasa BCV' },
+        { flag:'🇨🇴', name:'Peso colombiano',    rate:'1 USD = $4,050 COP' },
+        { flag:'₿',   name:'USDT / Crypto',      rate:'Tasa 1:1 USD' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>
