@@ -150,7 +150,7 @@
           <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;font-weight:400;">Correo electrónico</label>
-              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" />
+              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" data-login-email="1" onKeydown="{{ onKeyLogin }}" />
             </div>
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -158,7 +158,7 @@
                 <a onClick="{{ goForgot }}" style="font-size:12px;color:#00CFFF;cursor:pointer;text-decoration:none;" style-hover="color:#00DFFF;">¿Olvidaste tu contraseña?</a>
               </div>
               <div style="position:relative;">
-                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" />
+                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" data-login-pass="1" onKeydown="{{ onKeyLogin }}" />
                 <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -169,7 +169,7 @@
               <label for="remember" style="font-size:13px;color:rgba(200,215,255,0.55);cursor:pointer;">Recordar sesión</label>
             </div>
           </div>
-          <button class="nv-btn-primary" style="margin-bottom:14px;">Iniciar Sesión</button>
+          <button onClick="{{ submitLogin }}" class="nv-btn-primary" style="margin-bottom:14px;">Iniciar Sesión</button>
           <button onClick="{{ go2FA }}" style="width:100%;padding:11px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:10px;color:#9B3FFF;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.15s;margin-bottom:24px;" style-hover="background:rgba(155,63,255,0.14);">
             Usar autenticación de dos factores
           </button>
@@ -206,21 +206,21 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div>
                 <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Nombre</label>
-                <input type="text" placeholder="Juan" class="nv-input" />
+                <input type="text" placeholder="Juan" class="nv-input" data-reg-nombre="1" />
               </div>
               <div>
                 <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Apellido</label>
-                <input type="text" placeholder="Pérez" class="nv-input" />
+                <input type="text" placeholder="Pérez" class="nv-input" data-reg-apellido="1" />
               </div>
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Correo electrónico</label>
-              <input type="email" placeholder="juan@ejemplo.com" class="nv-input" />
+              <input type="email" placeholder="juan@ejemplo.com" class="nv-input" data-reg-email="1" />
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Contraseña</label>
               <div style="position:relative;">
-                <input type="password" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" />
+                <input type="password" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" data-reg-pass="1" />
                 <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -236,14 +236,14 @@
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Confirmar contraseña</label>
-              <input type="password" placeholder="Repite la contraseña" class="nv-input" />
+              <input type="password" placeholder="Repite la contraseña" class="nv-input" data-reg-pass2="1" onKeydown="{{ onKeyRegister }}" />
             </div>
             <div style="display:flex;align-items:flex-start;gap:8px;">
               <input type="checkbox" id="terms" style="width:14px;height:14px;margin-top:2px;flex-shrink:0;" />
               <label for="terms" style="font-size:12.5px;color:rgba(200,215,255,0.5);cursor:pointer;line-height:1.5;">Acepto los <a style="color:#00CFFF;text-decoration:none;">Términos de Servicio</a> y la <a style="color:#00CFFF;text-decoration:none;">Política de Privacidad</a> de NV Streaming</label>
             </div>
           </div>
-          <button onClick="{{ goOtp }}" class="nv-btn-primary" style="margin-bottom:20px;">Crear Cuenta</button>
+          <button onClick="{{ submitRegister }}" class="nv-btn-primary" style="margin-bottom:20px;">Crear Cuenta</button>
           <p style="text-align:center;font-size:13.5px;color:rgba(200,215,255,0.5);">¿Ya tienes cuenta? <a onClick="{{ goLogin }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;" style-hover="color:#00DFFF;">Iniciar sesión</a></p>
         </div>
       </sc-if>
@@ -351,7 +351,7 @@
 <script type="text/x-dc" data-dc-script>
 
 class Component extends DCLogic {
-  state = { mode: 'login', otpSeconds: 119 };
+  state = { mode: 'login', otpSeconds: 119, busy: false };
 
   goLogin()    { this.setState({ mode: 'login'    }); }
   goRegister() { this.setState({ mode: 'register' }); }
@@ -359,6 +359,58 @@ class Component extends DCLogic {
   go2FA()      { this.setState({ mode: '2fa'      }); }
   goForgot()   { this.setState({ mode: 'forgot'   }); }
   resendOtp()  { this.setState({ otpSeconds: 119  }); }
+
+  /* ── Autenticación real (contra NVCore.Auth → backend) ── */
+  _val(sel) { const el = document.querySelector('[' + sel + ']'); return el ? String(el.value || '').trim() : ''; }
+  _ui() { return (typeof window !== 'undefined' && window.NVUI) || null; }
+  _core() { return (typeof window !== 'undefined' && window.NVCore) || null; }
+  _emailOk(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+  _err(msg) { const u = this._ui(); if (u && u.error) u.error('No se pudo continuar', msg); else alert(msg); }
+
+  // A dónde va el usuario según su rol.
+  _destino(usuario) { return (usuario && usuario.rol === 'admin') ? 'admin.html' : 'mi-cuenta.html'; }
+
+  async _autenticar(accion) {
+    const core = this._core(), ui = this._ui();
+    if (!core || !core.Auth) { this._err('La app aún está cargando. Espera un segundo e inténtalo de nuevo.'); return; }
+    if (this.state.busy) return;
+    this.setState({ busy: true });
+    if (ui && ui.spinner) ui.spinner(true, 'Verificando…');
+    try {
+      const usuario = await accion(core);           // devuelve el usuario mapeado (con .rol)
+      if (ui && ui.spinner) ui.spinner(false);
+      location.href = this._destino(usuario);        // redirige por rol
+    } catch (e) {
+      if (ui && ui.spinner) ui.spinner(false);
+      this.setState({ busy: false });
+      const m = (e && e.message) || '';
+      // Errores de red (backend caído) vs errores de credenciales del backend.
+      this._err(/failed to fetch|networkerror|load failed/i.test(m)
+        ? 'No pudimos conectar con el servidor. Verifica que el backend esté activo e inténtalo de nuevo.'
+        : (m || 'Ocurrió un error. Inténtalo de nuevo.'));
+    }
+  }
+
+  submitLogin() {
+    const email = this._val('data-login-email'), pass = this._val('data-login-pass');
+    if (!email || !pass) { this._err('Ingresa tu correo y tu contraseña.'); return; }
+    if (!this._emailOk(email)) { this._err('El correo no tiene un formato válido.'); return; }
+    this._autenticar((core) => core.Auth.login(email, pass));
+  }
+
+  submitRegister() {
+    const nombre = this._val('data-reg-nombre'), apellido = this._val('data-reg-apellido');
+    const email = this._val('data-reg-email'), pass = this._val('data-reg-pass'), pass2 = this._val('data-reg-pass2');
+    if (!nombre || !email || !pass) { this._err('Completa nombre, correo y contraseña.'); return; }
+    if (!this._emailOk(email)) { this._err('El correo no tiene un formato válido.'); return; }
+    if (pass.length < 8) { this._err('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (pass2 && pass !== pass2) { this._err('Las contraseñas no coinciden.'); return; }
+    const nombreCompleto = (nombre + ' ' + apellido).trim();
+    this._autenticar((core) => core.Auth.register(email, pass, { nombre: nombreCompleto }));
+  }
+
+  onKeyLogin(ev)    { if (ev && ev.key === 'Enter') { ev.preventDefault(); this.submitLogin(); } }
+  onKeyRegister(ev) { if (ev && ev.key === 'Enter') { ev.preventDefault(); this.submitRegister(); } }
 
   renderVals() {
     const { mode, otpSeconds } = this.state;
@@ -378,6 +430,10 @@ class Component extends DCLogic {
       go2FA:      () => this.go2FA(),
       goForgot:   () => this.goForgot(),
       resendOtp:  () => this.resendOtp(),
+      submitLogin:    () => this.submitLogin(),
+      submitRegister: () => this.submitRegister(),
+      onKeyLogin:     (ev) => this.onKeyLogin(ev),
+      onKeyRegister:  (ev) => this.onKeyRegister(ev),
     };
   }
 }

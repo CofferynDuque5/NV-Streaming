@@ -452,6 +452,54 @@ function pintarStatsBilletera() {
 }
 
 /* ───────────────────── re-aplicar tras cada render ───────────────────── */
+// Header sesión-consciente: el botón "Iniciar Sesión"/"Acceder" del encabezado
+// lleva a auth.html si NO hay sesión; si HAY sesión, muestra el nombre y cierra
+// sesión al pulsarlo. Antes esos botones no hacían nada (maquetas estáticas).
+function esBotonAuthHeader(el) {
+  const t = (el.textContent || "").trim();
+  if (t === "Iniciar Sesión") return true;                 // inequívoco (solo en headers)
+  // "Acceder" está sobrecargado (CTA de productos): solo lo tratamos como login
+  // si está en un header/nav y no lleva precio.
+  if (t === "Acceder" && el.closest("header,nav,[data-nv-header]") && !/\$|\d/.test(t)) return true;
+  return false;
+}
+function gestionarSesionHeader() {
+  const { auth, u } = sesion();
+  const nombre = auth && u ? String(u.nombre || (u.email || "").split("@")[0] || "Cliente").split(" ")[0] : "";
+  document.querySelectorAll("button,a").forEach((el) => {
+    if (!el.__nvAuthBtn && !esBotonAuthHeader(el)) return;
+    el.__nvAuthBtn = true;                                  // recordamos que es el control de sesión
+    // El handler se (re)cablea solo cuando cambia el estado de sesión.
+    if (el.__nvAuthState !== auth) {
+      el.__nvAuthState = auth;
+      if (el.__nvAuthH) el.removeEventListener("click", el.__nvAuthH, true);
+      const handler = async (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        if (!auth) { location.href = "auth.html"; return; }
+        const NVUI = window.NVUI;
+        const ok = NVUI ? await NVUI.confirmar("Cerrar sesión", "¿Quieres cerrar tu sesión?", "Cerrar sesión") : true;
+        if (ok) { try { await NVCore.Auth.logout(); } catch (_) {} location.href = "index.html"; }
+      };
+      el.__nvAuthH = handler;
+      el.addEventListener("click", handler, true);
+    }
+    // El nombre se re-aplica SIEMPRE: el runtime reutiliza el nodo y reescribe el
+    // texto en cada render, así que hay que volver a pintarlo tras cada re-render.
+    if (auth && nombre && el.textContent.trim() !== nombre) el.textContent = nombre;
+  });
+
+  // "Crear Cuenta" del header: lleva a registro si NO hay sesión; se oculta si la hay.
+  document.querySelectorAll("button,a").forEach((el) => {
+    if ((el.textContent || "").trim() !== "Crear Cuenta") return;
+    if (!el.closest("header,nav,[data-nv-header]")) return;   // solo el del encabezado
+    if (!el.__nvRegWired) {
+      el.__nvRegWired = true;
+      el.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); location.href = "auth.html"; }, true);
+    }
+    el.style.display = auth ? "none" : "";
+  });
+}
+
 function redecorar() {
   decorarCarriles();
   wireBuscador();
@@ -460,6 +508,7 @@ function redecorar() {
   limpiarDatosFalsos();
   pintarSaldo();
   pintarStatsBilletera();
+  gestionarSesionHeader();
   sincronizarSelectorMoneda();
   aplicarMoneda();
 }
@@ -479,7 +528,7 @@ export function instalarUX() {
   redecorar();
   Bus.on && Bus.on("app:ready", redecorar);
   Bus.on && Bus.on("catalogo:real", redecorar);
-  Store.subscribe && Store.subscribe("sesion", () => limpiarDatosFalsos());
+  Store.subscribe && Store.subscribe("sesion", () => { limpiarDatosFalsos(); pintarSaldo(); gestionarSesionHeader(); });
   Store.subscribe && Store.subscribe("billeteraStats", () => { pintarStatsBilletera(); aplicarMoneda(); });
   Store.subscribe && Store.subscribe("tema", () => arreglarLogo()); // logo dinámico desde la BD
 
