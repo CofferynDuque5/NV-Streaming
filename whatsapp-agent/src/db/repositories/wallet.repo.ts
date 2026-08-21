@@ -11,6 +11,9 @@ export class WalletError extends Error {
   constructor(code: string, message: string) { super(message); this.code = code; }
 }
 
+/** Redondea dinero a 2 decimales (evita ruido de coma flotante en las respuestas). */
+const money2 = (n: number): number => Math.round(n * 100) / 100;
+
 export type Movimiento = {
   id: string; tipo: 'ingreso' | 'egreso'; monto: number;
   descripcion: string | null; referencia: string | null; saldo_posterior: number; creado_en: Date;
@@ -103,7 +106,7 @@ export const WalletRepository = {
       const u = (await q<{ saldo_billetera: string }>(
         `SELECT saldo_billetera FROM usuarios WHERE id = $1 FOR UPDATE`, [uid]))[0];
       if (!u) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
-      const nuevoSaldo = Number(u.saldo_billetera) + monto;
+      const nuevoSaldo = money2(Number(u.saldo_billetera) + monto);
       await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoSaldo, uid]);
       await q(`UPDATE recargas_billetera SET estado = 'aprobado', aprobado_por = $1 WHERE id = $2`, [adminId, recargaId]);
       const mov = (await q<Record<string, unknown>>(
@@ -130,7 +133,7 @@ export const WalletRepository = {
       if (!u) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
       const saldo = Number(u.saldo_billetera);
       if (saldo < monto) throw new WalletError('saldo_insuficiente', 'Saldo insuficiente.');
-      const nuevoSaldo = saldo - monto;
+      const nuevoSaldo = money2(saldo - monto);
       await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoSaldo, uid]);
       await q(`INSERT INTO movimientos_billetera (uid_usuario, tipo, monto, descripcion, referencia, saldo_posterior)
                VALUES ($1, 'egreso', $2, $3, $4, $5)`, [uid, monto, descripcion, referencia ?? null, nuevoSaldo]);
@@ -145,7 +148,7 @@ export const WalletRepository = {
       const u = (await q<{ saldo_billetera: string }>(
         `SELECT saldo_billetera FROM usuarios WHERE id = $1 FOR UPDATE`, [uid]))[0];
       if (!u) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
-      const nuevoSaldo = Number(u.saldo_billetera) + monto;
+      const nuevoSaldo = money2(Number(u.saldo_billetera) + monto);
       await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoSaldo, uid]);
       await q(`INSERT INTO movimientos_billetera (uid_usuario, tipo, monto, descripcion, referencia, saldo_posterior)
                VALUES ($1, 'ingreso', $2, $3, $4, $5)`, [uid, monto, descripcion, referencia ?? null, nuevoSaldo]);
@@ -173,8 +176,8 @@ export const WalletRepository = {
       if (!oRow || !dRow) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
       const saldoOrigen = Number(oRow.saldo_billetera);
       if (saldoOrigen < monto) throw new WalletError('saldo_insuficiente', 'Saldo insuficiente para la transferencia.');
-      const nuevoOrigen = saldoOrigen - monto;
-      const nuevoDestino = Number(dRow.saldo_billetera) + monto;
+      const nuevoOrigen = money2(saldoOrigen - monto);
+      const nuevoDestino = money2(Number(dRow.saldo_billetera) + monto);
       const desc = descripcion || 'Transferencia';
       await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoOrigen, uidOrigen]);
       await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoDestino, dest.id]);
