@@ -18,6 +18,7 @@ export const CMS_PUBLICAS = new Set<string>([
 export const CMS_GESTIONABLES = new Set<string>([
   ...CMS_PUBLICAS,
   'respuestas_rapidas', 'flyers_revendedores', 'plantillas_permisos', 'notificaciones_admin',
+  'paginas_layout', // borrador del editor visual (solo admin)
 ]);
 
 function validarColeccion(c: string, res: Response): boolean {

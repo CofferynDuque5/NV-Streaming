@@ -43,16 +43,22 @@ async function guardar(publicar) {
   const NVUI = window.NVUI;
   if (NVUI) NVUI.spinner(true, publicar ? "Publicando en la base de datos…" : "Guardando en la base de datos…");
   try {
-    const layout = construirLayout(st);
-    if (publicar) { layout.publicado = true; layout.publicadoEn = new Date().toISOString(); }
-    const r = await editorService.guardarLayout(st.page || "Home", layout);
-    // El acento y el fondo del editor se reflejan en el tema del storefront.
-    await editorService.guardarTema({ neon_purple: st.accent, bg_space_dark: st.bgStart, bg_space_core: st.bgEnd });
+    // 1) TEMA + LOGO primero: es lo que realmente se publica y se ve en el
+    //    storefront (acento re-skinnea el chrome vía Theme.aplicar; fondo y logo).
+    //    `neon_cyan` = acento primario de marca; `neon_purple` = secundario.
+    const persistido = await editorService.guardarTema({ neon_cyan: st.accent, neon_purple: st.accent, bg_space_dark: st.bgStart, bg_space_core: st.bgEnd });
+    // 2) Borrador del layout (secciones/textos): best-effort, NUNCA bloquea el
+    //    tema. El storefront es estático, así que esto es un borrador editable.
+    try {
+      const layout = construirLayout(st);
+      if (publicar) { layout.publicado = true; layout.publicadoEn = new Date().toISOString(); }
+      await editorService.guardarLayout(st.page || "Home", layout);
+    } catch (eLay) { /* no crítico: el tema ya se publicó */ }
     if (NVUI) NVUI.spinner(false);
     reproducir("success");
     marcar(publicar ? "Publicado ✓" : "Guardado ✓");
-    if (window.NV && window.NV.toast) window.NV.toast(publicar ? "Publicado en la base de datos" : "Guardado en la base de datos", "rgba(0,212,160,0.55)");
-    if (!r.persistido && NVUI) await NVUI.modal({ tipo: "ok", titulo: publicar ? "Publicado (local)" : "Guardado (local)", mensaje: "Sin conexión al backend se guardó en memoria. Conéctate para persistir en PostgreSQL." });
+    if (window.NV && window.NV.toast) window.NV.toast(publicar ? "Tema y logo publicados" : "Borrador guardado", "rgba(0,212,160,0.55)");
+    if (!persistido && NVUI) await NVUI.modal({ tipo: "ok", titulo: publicar ? "Publicado (local)" : "Guardado (local)", mensaje: "Sin conexión al backend se aplicó en memoria. Conéctate para persistir en PostgreSQL." });
   } catch (e) {
     if (NVUI) NVUI.spinner(false);
     reproducir("error");

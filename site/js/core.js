@@ -232,6 +232,24 @@ const Theme = {
     const root = document.documentElement;
     for (const [campo, cssVar] of Object.entries(this.MAPA)) if (tema[campo] != null && tema[campo] !== "") root.style.setProperty(cssVar, tema[campo]);
     for (const [campo, cssVar] of Object.entries(this.FUENTES)) { const fam = tema[campo]; if (fam) { root.style.setProperty(cssVar, `'${fam}', sans-serif`); this._cargarFuente(fam); } }
+    this._acento(tema);
+  },
+  // El color de acento del tema re-skinnea el "chrome" compartido (scrollbar,
+  // selección de texto y la variable --nv-accent) de forma global, para que el
+  // editor de tema tenga efecto visible en todo el sitio (no solo en los pocos
+  // elementos que ya usaban var(--neon-*)).
+  _acento(tema) {
+    const acento = tema.neon_cyan || tema.neon_purple || tema.acento;
+    if (!acento || typeof document === "undefined") return;
+    const root = document.documentElement;
+    root.style.setProperty("--nv-accent", acento);
+    let s = document.getElementById("nv-tema-override");
+    if (!s) { s = document.createElement("style"); s.id = "nv-tema-override"; document.head.appendChild(s); }
+    s.textContent =
+      `::-webkit-scrollbar-thumb{background:${acento} !important;}` +
+      `::selection{background:${acento};color:#04040C;}` +
+      `[data-nv-accent]{color:${acento} !important;}` +
+      `[data-nv-accent-bg]{background:${acento} !important;}`;
   },
   _cargarFuente(familia) {
     const key = String(familia).trim(); if (!key || this._fonts.has(key) || typeof document === "undefined") return;
