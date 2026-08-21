@@ -80,6 +80,13 @@ export const Billetera = {
     Bus.emit("wallet:updated", { uid, monto });
     return true;
   },
+  async rechazarRecarga(idRecarga, coleccion = "recargas_billetera") {
+    const key = coleccion === "recargas" ? "recargas" : "recargasBilletera";
+    try { await NVApi.rechazarRecarga(idRecarga); }
+    catch (e) { patchLocal(key, idRecarga, { estado: "rechazado" }); throw e; }
+    patchLocal(key, idRecarga, { estado: "rechazado" });
+    return true;
+  },
   _sumarLocal(uid, monto) {
     const s = Store.get("sesion");
     if (s && s.usuario && s.usuario.uid === uid) Store.set("sesion", Object.assign({}, s, { usuario: Object.assign({}, s.usuario, { saldoBilletera: Utils.num(s.usuario.saldoBilletera) + monto }) }));

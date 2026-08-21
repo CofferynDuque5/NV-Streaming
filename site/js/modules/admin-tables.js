@@ -30,6 +30,7 @@ const TABLAS = {
       { h: "Método", g: (d) => d.metodo_pago || "—" },
       { h: "Fecha", g: (d) => fecha(d.creadoEn) },
     ],
+    acciones: true,
   },
   usuarios: {
     titulo: "Usuarios", storeKey: "usuarios",
@@ -75,8 +76,46 @@ const TABLAS = {
       { h: "Aprobado por", g: (d) => d.aprobadoPor || "—" },
       { h: "Fecha", g: (d) => fecha(d.creadoEn) },
     ],
+    acciones: true,
   },
 };
+
+// Botones aprobar/rechazar (solo para filas 'pendiente'). Estilos inline para no
+// depender de CSS externo.
+function botonesAccion(tabla, d) {
+  if (String(d.estado || "").toLowerCase() !== "pendiente") return "—";
+  const b = (act, txt, color) =>
+    `<button class="nv-tbl-accion" data-tabla="${tabla}" data-act="${act}" data-id="${esc(d.id)}" ` +
+    `style="padding:4px 9px;margin-right:5px;border:1px solid ${color}55;background:${color}1e;color:${color};` +
+    `border-radius:6px;font-size:11.5px;cursor:pointer;font-family:inherit;white-space:nowrap;">${txt}</button>`;
+  return b("aprobar", "✓ Aprobar", "#00D4A0") + b("rechazar", "✕ Rechazar", "#FF3E6C");
+}
+function patchStore(key, id, patch) {
+  Store.set(key, (Store.get(key) || []).map((x) => (x.id === id ? Object.assign({}, x, patch) : x)));
+}
+async function onAccion(ev) {
+  const btn = ev.target.closest(".nv-tbl-accion"); if (!btn) return;
+  ev.preventDefault();
+  const tabla = btn.getAttribute("data-tabla"), act = btn.getAttribute("data-act"), id = btn.getAttribute("data-id");
+  const NV = window.NV, admin = NV && NV.admin; if (!admin) return;
+  btn.disabled = true; btn.style.opacity = "0.5";
+  const okColor = act === "aprobar" ? "rgba(0,212,160,0.5)" : "rgba(255,176,32,0.5)";
+  try {
+    if (tabla === "pedidos") {
+      const link = act === "aprobar" ? await admin.Pedidos.aprobar(id) : await admin.Pedidos.rechazar(id);
+      patchStore("pedidos", id, { estado: act === "aprobar" ? "aprobado" : "rechazado" });
+      if (NV.toast) NV.toast(act === "aprobar" ? "Pedido aprobado ✓" : "Pedido rechazado", okColor);
+      if (link && act === "aprobar") window.open(link, "_blank");
+    } else if (tabla === "recargasBilletera") {
+      if (act === "aprobar") await admin.Billetera.aprobarRecarga(id); else await admin.Billetera.rechazarRecarga(id);
+      patchStore("recargasBilletera", id, { estado: act === "aprobar" ? "aprobado" : "rechazado" });
+      if (NV.toast) NV.toast(act === "aprobar" ? "Recarga aprobada ✓" : "Recarga rechazada", okColor);
+    }
+  } catch (e) {
+    if (NV.toast) NV.toast("No se pudo: " + ((e && e.message) || "error"), "rgba(255,68,102,0.5)");
+    btn.disabled = false; btn.style.opacity = "1";
+  }
+}
 const ORDEN = ["pedidos", "usuarios", "suscripciones", "inventario", "recargasBilletera"];
 const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
 function el(t, c, h) { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; }
@@ -92,12 +131,13 @@ function render(panel) {
     host.innerHTML = `<div class="nv-tbl-vacio">No hay registros en <b>${esc(def.storeKey)}</b>. Cuando existan en PostgreSQL, aparecerán aquí automáticamente.</div>`;
     return;
   }
-  const thead = `<tr>${def.cols.map((c) => `<th class="${c.num ? "num" : ""}">${esc(c.h)}</th>`).join("")}</tr>`;
+  const thAcc = def.acciones ? `<th>Acciones</th>` : "";
+  const thead = `<tr>${def.cols.map((c) => `<th class="${c.num ? "num" : ""}">${esc(c.h)}</th>`).join("")}${thAcc}</tr>`;
   const tbody = rows.map((d, i) => `<tr class="${i % 2 ? "impar" : ""}">${def.cols.map((c) => {
     const v = c.g(d);
     if (c.badge) return `<td><span class="nv-tbl-badge e-${esc(String(v).toLowerCase())}">${esc(v)}</span></td>`;
     return `<td class="${c.num ? "num" : ""}">${esc(v)}</td>`;
-  }).join("")}</tr>`).join("");
+  }).join("")}${def.acciones ? `<td>${botonesAccion(estado.tabla, d)}</td>` : ""}</tr>`).join("");
   host.innerHTML = `<div class="nv-tbl-scroll"><table class="nv-tbl"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
 }
 
@@ -113,6 +153,7 @@ function construir() {
     <div class="nv-tbl-cab"></div>
     <div class="nv-tbl-host"></div>`;
   panel.querySelectorAll(".nv-tbl-tab").forEach((b) => b.addEventListener("click", () => { estado.tabla = b.getAttribute("data-t"); render(panel); }));
+  panel.addEventListener("click", onAccion);   // aprobar/rechazar (delegado; sobrevive re-render)
   render(panel);
   return panel;
 }
