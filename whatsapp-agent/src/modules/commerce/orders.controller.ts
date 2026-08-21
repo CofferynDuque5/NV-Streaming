@@ -47,7 +47,15 @@ export const OrdersController = {
         const saldo = await WalletRepository.debitar(user.sub, precio, `Compra ${idServicio}`, pedido.id);
         const aprobado = await OrdersRepository.cambiarEstado(pedido.id, 'aprobado');
         // Pedido aprobado → aprovisiona (asigna cuenta + crea suscripción activa).
-        const provision = aprobado ? await provisionarPedido(aprobado, { telefono: body.telefono ?? null }) : null;
+        // Pago con billetera = reembolsable: si no hay stock, se devuelve el saldo.
+        const provision = aprobado ? await provisionarPedido(aprobado, { telefono: body.telefono ?? null, reembolsable: true }) : null;
+        if (provision && provision.estado === 'sin_stock') {
+          // Sin stock: no se entregó nada → reembolsamos el saldo y cancelamos.
+          const saldoReembolsado = await WalletRepository.acreditar(user.sub, precio, `Reembolso (sin stock): ${idServicio}`, pedido.id);
+          const rechazado = await OrdersRepository.cambiarEstado(pedido.id, 'rechazado');
+          res.status(200).json({ pedido: rechazado, saldo: saldoReembolsado, provision, reembolsado: true });
+          return;
+        }
         res.status(201).json({ pedido: aprobado, saldo, provision });
         return;
       } catch (e) {

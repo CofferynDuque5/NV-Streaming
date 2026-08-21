@@ -34,6 +34,7 @@ commerceRouter.post('/pedidos/:id/estado', ...admin, wrap(OrdersController.cambi
 commerceRouter.get('/wallet', requireAuth, wrap(WalletController.resumen));
 commerceRouter.post('/wallet/recargas', requireAuth, wrap(WalletController.solicitarRecarga));
 commerceRouter.get('/wallet/recargas/mias', requireAuth, wrap(WalletController.misRecargas));
+commerceRouter.post('/wallet/transferir', requireAuth, wrap(WalletController.transferir));
 commerceRouter.get('/wallet/recargas', ...admin, wrap(WalletController.pendientes));
 commerceRouter.post('/wallet/recargas/:id/aprobar', ...admin, wrap(WalletController.aprobar));
 commerceRouter.post('/wallet/recargas/:id/rechazar', ...admin, wrap(WalletController.rechazar));

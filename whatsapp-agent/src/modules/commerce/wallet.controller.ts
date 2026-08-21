@@ -44,6 +44,22 @@ export const WalletController = {
     res.json({ recargas: await WalletRepository.recargasDeUsuario(uid) });
   },
 
+  // Cliente: transfiere saldo a otro usuario (por correo). Atómico.
+  async transferir(req: Request, res: Response): Promise<void> {
+    const uid = (req as AuthedRequest).user!.sub;
+    const emailDestino = String(req.body?.email ?? req.body?.email_destino ?? '').trim();
+    const monto = Number(req.body?.monto);
+    if (!emailDestino) { res.status(400).json({ error: 'email_requerido' }); return; }
+    if (!Number.isFinite(monto) || monto <= 0) { res.status(400).json({ error: 'monto_invalido' }); return; }
+    try {
+      const r = await WalletRepository.transferir(uid, emailDestino, monto, 'Transferencia');
+      res.json({ ok: true, saldo: r.saldoOrigen, destino: { email: r.destino.email, nombre: r.destino.nombre } });
+    } catch (e) {
+      if (e instanceof WalletError) { res.status(400).json({ error: e.code, mensaje: e.message }); return; }
+      throw e;
+    }
+  },
+
   // Admin
   async pendientes(_req: Request, res: Response): Promise<void> {
     res.json({ recargas: await WalletRepository.recargasPendientes() });

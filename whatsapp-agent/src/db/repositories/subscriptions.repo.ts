@@ -132,8 +132,9 @@ export const SubscriptionsRepository = {
    * misma cuenta dos veces.
    */
   async provisionarCompra(input: {
-    usuarioId: string; plataformaId: string; planId: string; duracionDias: number; pedidoId: string;
+    usuarioId: string; plataformaId: string; planId: string; duracionDias: number; pedidoId: string; encolar?: boolean;
   }): Promise<ProvisionResultado> {
+    const encolar = input.encolar !== false; // por defecto sí encola
     const dur = String(input.duracionDias > 0 ? input.duracionDias : 30);
     return withTransaction(async (q) => {
       const libre = await q<{ id: string; perfil: string }>(
@@ -158,11 +159,14 @@ export const SubscriptionsRepository = {
         return { asignado: true, sin_stock: false, suscripcion_id: ins[0]!.id, perfil: cuenta.perfil, fecha_vencimiento: ins[0]!.fecha_vencimiento };
       }
 
-      // Sin stock: cola de espera (pago_id NULL: el pago fue por billetera) + alerta.
-      await q(`INSERT INTO cola_espera (usuario_id, plataforma_id, plan_id) VALUES ($1, $2, $3)`,
-        [input.usuarioId, input.plataformaId, input.planId]);
-      await q(`INSERT INTO alertas_admin (tipo, mensaje) VALUES ('sin_stock', $1)`,
-        [`Sin stock de ${input.plataformaId}: cliente ${input.usuarioId} en cola de espera (pedido ${input.pedidoId}).`]);
+      // Sin stock. Si es reembolsable (pago con billetera) NO encolamos: el
+      // controlador reembolsará el saldo y cancelará el pedido.
+      if (encolar) {
+        await q(`INSERT INTO cola_espera (usuario_id, plataforma_id, plan_id) VALUES ($1, $2, $3)`,
+          [input.usuarioId, input.plataformaId, input.planId]);
+        await q(`INSERT INTO alertas_admin (tipo, mensaje) VALUES ('sin_stock', $1)`,
+          [`Sin stock de ${input.plataformaId}: cliente ${input.usuarioId} en cola de espera (pedido ${input.pedidoId}).`]);
+      }
       return { asignado: false, sin_stock: true, suscripcion_id: null, perfil: null, fecha_vencimiento: null };
     });
   },

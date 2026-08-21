@@ -87,7 +87,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         Recargar saldo
       </button>
-      <button style="display:flex;align-items:center;gap:7px;padding:11px 20px;background:rgba(255,255,255,0.05);color:rgba(200,215,255,0.75);border:1px solid rgba(80,100,200,0.2);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.2s;" style-hover="background:rgba(255,255,255,0.08);color:#EEF2FF;">
+      <button onClick="{{ transferir }}" style="display:flex;align-items:center;gap:7px;padding:11px 20px;background:rgba(255,255,255,0.05);color:rgba(200,215,255,0.75);border:1px solid rgba(80,100,200,0.2);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.2s;" style-hover="background:rgba(255,255,255,0.08);color:#EEF2FF;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 14 4 9l5-5M15 10l5 5-5 5"/></svg>
         Transferir
       </button>
@@ -368,6 +368,44 @@ class Component extends DCLogic {
     }
   }
 
+  // Historial: desplaza a la tarjeta de Movimientos (antes no hacía nada).
+  verHistorial() {
+    const el = document.querySelector('[data-nv-movcount]') || [...document.querySelectorAll('span')].find(s => (s.textContent||'').trim() === 'Movimientos');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Seguridad: desplaza a la tarjeta "Saldo protegido".
+  verSeguridad() {
+    const el = [...document.querySelectorAll('span,div')].find(s => (s.textContent||'').trim() === 'Saldo protegido');
+    if (el && el.closest) (el.closest('div') || el).scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Transferir saldo a otro usuario por correo (endpoint atómico del backend).
+  async transferir() {
+    const NV = window.NVCore, NVUI = window.NVUI;
+    const ses = NV && NV.Store.get('sesion');
+    if (!ses || ses.estado !== 'autenticado') { if (NVUI) NVUI.error('Inicia sesión', 'Debes acceder para transferir saldo.'); return; }
+    if (!NVUI) return;
+    const email = await NVUI.pedir('Transferir saldo', 'Correo del destinatario:', { placeholder: 'correo@ejemplo.com', type: 'email', inputmode: 'email' }, 'Siguiente');
+    if (!email) return;
+    const montoStr = await NVUI.pedir('Transferir saldo', '¿Cuánto quieres enviar (USD) a ' + email + '?', { placeholder: '0.00', type: 'number', inputmode: 'decimal' }, 'Transferir');
+    if (montoStr == null) return;
+    const monto = parseFloat(String(montoStr).replace(',', '.'));
+    if (!monto || monto <= 0) { NVUI.error('Monto inválido', 'Escribe un monto mayor a 0.'); return; }
+    try {
+      const NVApi = (await import('./js/services/nv-api.js')).NVApi;
+      const r = await NVApi.transferir({ email, monto });
+      if (window.NVSound) try { window.NVSound.reproducir('success'); } catch (_) {}
+      // Refleja el nuevo saldo en la sesión (repinta la tarjeta).
+      const s = NV.Store.get('sesion');
+      if (s && s.usuario) NV.Store.set('sesion', Object.assign({}, s, { usuario: Object.assign({}, s.usuario, { saldoBilletera: Number(r.saldo) }) }));
+      await NVUI.exito('Transferencia enviada', 'Enviaste $' + monto.toFixed(2) + ' a ' + email + '. Tu nuevo saldo es $' + Number(r.saldo).toFixed(2) + '.');
+    } catch (e) {
+      const msg = (e && (e.data && (e.data.mensaje || e.data.error))) || (e && e.message) || 'Inténtalo de nuevo.';
+      NVUI.error('No se pudo transferir', msg);
+    }
+  }
+
   renderVals() {
     const { showRecharge, selectedAmount, activePayMethod } = this.state;
     return {
@@ -376,12 +414,13 @@ class Component extends DCLogic {
       openRecharge:  () => this.openRecharge(),
       closeRecharge: () => this.closeRecharge(),
       confirmRecharge: () => this.confirmRecharge(),
+      transferir: () => this.transferir(),
 
       quickActions: [
         { label:'Recargar',    iconBg:'rgba(0,207,255,0.1)',  iconBorder:'rgba(0,207,255,0.22)',  iconColor:'#00CFFF', icon:'<path d="M12 5v14M5 12h14"/>',                                        onClick:()=>this.openRecharge() },
-        { label:'Historial',   iconBg:'rgba(155,63,255,0.1)', iconBorder:'rgba(155,63,255,0.2)',  iconColor:'#9B3FFF', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', onClick:()=>{} },
-        { label:'Transferir',  iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', icon:'<path d="M9 14 4 9l5-5M15 10l5 5-5 5"/>',                              onClick:()=>{} },
-        { label:'Seguridad',   iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.2)',  iconColor:'#FFB020', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',             onClick:()=>{} },
+        { label:'Historial',   iconBg:'rgba(155,63,255,0.1)', iconBorder:'rgba(155,63,255,0.2)',  iconColor:'#9B3FFF', icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>', onClick:()=>this.verHistorial() },
+        { label:'Transferir',  iconBg:'rgba(0,212,160,0.1)',  iconBorder:'rgba(0,212,160,0.2)',   iconColor:'#00D4A0', icon:'<path d="M9 14 4 9l5-5M15 10l5 5-5 5"/>',                              onClick:()=>this.transferir() },
+        { label:'Seguridad',   iconBg:'rgba(255,176,32,0.1)', iconBorder:'rgba(255,176,32,0.2)',  iconColor:'#FFB020', icon:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',             onClick:()=>this.verSeguridad() },
       ],
 
       transactions: [

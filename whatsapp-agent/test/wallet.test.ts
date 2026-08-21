@@ -84,6 +84,27 @@ async function main() {
   const movs = await all(`SELECT * FROM movimientos_billetera WHERE uid_usuario=$1 ORDER BY creado_en`, [uid]);
   ok(movs.length === 2, 'libro mayor con 2 asientos (1 ingreso + 1 egreso), sin fantasmas');
 
+  // 4b) TRANSFERENCIA entre usuarios (mismo SQL que WalletRepository.transferir).
+  //     Usuarios propios (A=40, B=0) para no alterar las stats de `uid`.
+  const uidA = (await one(`INSERT INTO usuarios (email, saldo_billetera) VALUES ($1,40) RETURNING id`, ['tra@ej.com'])).id;
+  const uidB = (await one(`INSERT INTO usuarios (email, saldo_billetera) VALUES ($1,0) RETURNING id`, ['trb@ej.com'])).id;
+  async function transferir(origen: string, emailDest: string, monto: number): Promise<string | true> {
+    const dest = await one(`SELECT id, saldo_billetera FROM usuarios WHERE lower(email)=lower($1) LIMIT 1`, [emailDest]);
+    if (!dest) return 'destino_no_encontrado';
+    if (dest.id === origen) return 'destino_invalido';
+    const o = await one(`SELECT saldo_billetera FROM usuarios WHERE id=$1 FOR UPDATE`, [origen]);
+    if (Number(o.saldo_billetera) < monto) return 'saldo_insuficiente';
+    await pool.query(`UPDATE usuarios SET saldo_billetera=saldo_billetera-$2 WHERE id=$1`, [origen, monto]);
+    await pool.query(`UPDATE usuarios SET saldo_billetera=saldo_billetera+$2 WHERE id=$1`, [dest.id, monto]);
+    return true;
+  }
+  const saldoDe = async (id: string) => Number((await one(`SELECT saldo_billetera FROM usuarios WHERE id=$1`, [id])).saldo_billetera);
+  ok((await transferir(uidA, 'trb@ej.com', 15)) === true, 'transferencia de 15 A→B OK');
+  ok(await saldoDe(uidA) === 25 && await saldoDe(uidB) === 15, 'saldos tras transferir: A 40→25, B 0→15');
+  ok((await transferir(uidA, 'trb@ej.com', 999)) === 'saldo_insuficiente', 'transferencia sin fondos se rechaza');
+  ok((await transferir(uidA, 'tra@ej.com', 1)) === 'destino_invalido', 'transferencia a sí mismo se rechaza');
+  ok(await saldoDe(uidA) === 25 && await saldoDe(uidB) === 15, 'saldos intactos tras transferencias rechazadas');
+
   // 5) STATS SECUNDARIAS (mismo SQL que WalletRepository.estadisticas)
   //    Dejamos una recarga PENDIENTE de 15 → debe contar como "reservado".
   await one(`INSERT INTO recargas_billetera (uid_usuario, monto, metodo_pago) VALUES ($1,$2,$3) RETURNING id`, [uid, 15, 'pagomovil']);

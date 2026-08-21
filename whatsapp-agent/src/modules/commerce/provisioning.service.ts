@@ -39,7 +39,7 @@ function normalizarTel(v: unknown): string | null {
 }
 
 /** Aprovisiona un pedido aprobado. Nunca lanza: los fallos se registran y devuelven estado. */
-export async function provisionarPedido(pedido: Pedido, opts: { telefono?: string | null } = {}): Promise<ProvisionInfo> {
+export async function provisionarPedido(pedido: Pedido, opts: { telefono?: string | null; reembolsable?: boolean } = {}): Promise<ProvisionInfo> {
   try {
     // Idempotencia: ya enlazado a una suscripción → no repetir.
     if (pedido.suscripcion_id) {
@@ -70,10 +70,13 @@ export async function provisionarPedido(pedido: Pedido, opts: { telefono?: strin
 
     const r = await SubscriptionsRepository.provisionarCompra({
       usuarioId: pedido.uid_cliente, plataformaId, planId, duracionDias: duracion, pedidoId: pedido.id,
+      encolar: !opts.reembolsable, // si es reembolsable no encola: el controlador reembolsa
     });
-    const estado = r.sin_stock ? 'cola_espera' : 'asignado';
+    // Sin stock: 'cola_espera' (queda en cola) o 'sin_stock' (reembolsable → el
+    // controlador devuelve el saldo y cancela). Con stock: 'asignado'.
+    const estado = r.sin_stock ? (opts.reembolsable ? 'sin_stock' : 'cola_espera') : 'asignado';
     await OrdersRepository.marcarAprovisionado(pedido.id, r.suscripcion_id, estado);
-    await notificar(pedido, plataformaId, r, tel);
+    if (estado !== 'sin_stock') await notificar(pedido, plataformaId, r, tel); // el reembolso lo notifica el controlador
     logger.info({ pedidoId: pedido.id, plataformaId, estado, suscripcionId: r.suscripcion_id }, 'Pedido aprovisionado');
     return { provisionado: r.asignado, estado, suscripcionId: r.suscripcion_id, perfil: r.perfil };
   } catch (e) {

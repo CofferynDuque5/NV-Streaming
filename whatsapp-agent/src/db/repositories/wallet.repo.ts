@@ -137,4 +137,52 @@ export const WalletRepository = {
       return nuevoSaldo;
     });
   },
+
+  /** ATÓMICO: acredita saldo (p.ej. reembolso por falta de stock). */
+  async acreditar(uid: string, monto: number, descripcion: string, referencia?: string): Promise<number> {
+    if (!(monto > 0)) throw new WalletError('monto_invalido', 'El monto debe ser mayor que 0.');
+    return withTransaction(async (q) => {
+      const u = (await q<{ saldo_billetera: string }>(
+        `SELECT saldo_billetera FROM usuarios WHERE id = $1 FOR UPDATE`, [uid]))[0];
+      if (!u) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
+      const nuevoSaldo = Number(u.saldo_billetera) + monto;
+      await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoSaldo, uid]);
+      await q(`INSERT INTO movimientos_billetera (uid_usuario, tipo, monto, descripcion, referencia, saldo_posterior)
+               VALUES ($1, 'ingreso', $2, $3, $4, $5)`, [uid, monto, descripcion, referencia ?? null, nuevoSaldo]);
+      return nuevoSaldo;
+    });
+  },
+
+  /**
+   * ATÓMICO: transfiere saldo de un usuario a otro (por correo). Bloquea ambas
+   * filas en orden determinista (por id) para evitar interbloqueos, valida saldo
+   * y escribe los dos asientos (egreso del origen, ingreso del destino).
+   */
+  async transferir(uidOrigen: string, emailDestino: string, monto: number, descripcion?: string): Promise<{ saldoOrigen: number; destino: { id: string; email: string | null; nombre: string | null } }> {
+    if (!(monto > 0)) throw new WalletError('monto_invalido', 'El monto debe ser mayor que 0.');
+    return withTransaction(async (q) => {
+      const dest = (await q<{ id: string; email: string | null; nombre: string | null }>(
+        `SELECT id, email, nombre FROM usuarios WHERE lower(email) = lower($1) LIMIT 1`, [emailDestino]))[0];
+      if (!dest) throw new WalletError('destino_no_encontrado', 'No existe un usuario con ese correo.');
+      if (dest.id === uidOrigen) throw new WalletError('destino_invalido', 'No puedes transferirte a ti mismo.');
+      // Bloquea ambas filas a la vez, en orden de id (evita deadlocks).
+      const filas = await q<{ id: string; saldo_billetera: string }>(
+        `SELECT id, saldo_billetera FROM usuarios WHERE id IN ($1, $2) ORDER BY id FOR UPDATE`, [uidOrigen, dest.id]);
+      const oRow = filas.find((f) => f.id === uidOrigen);
+      const dRow = filas.find((f) => f.id === dest.id);
+      if (!oRow || !dRow) throw new WalletError('usuario_no_encontrado', 'Usuario no encontrado.');
+      const saldoOrigen = Number(oRow.saldo_billetera);
+      if (saldoOrigen < monto) throw new WalletError('saldo_insuficiente', 'Saldo insuficiente para la transferencia.');
+      const nuevoOrigen = saldoOrigen - monto;
+      const nuevoDestino = Number(dRow.saldo_billetera) + monto;
+      const desc = descripcion || 'Transferencia';
+      await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoOrigen, uidOrigen]);
+      await q(`UPDATE usuarios SET saldo_billetera = $1 WHERE id = $2`, [nuevoDestino, dest.id]);
+      await q(`INSERT INTO movimientos_billetera (uid_usuario, tipo, monto, descripcion, referencia, saldo_posterior)
+               VALUES ($1, 'egreso', $2, $3, $4, $5)`, [uidOrigen, monto, `${desc} → ${dest.email ?? dest.id}`, dest.id, nuevoOrigen]);
+      await q(`INSERT INTO movimientos_billetera (uid_usuario, tipo, monto, descripcion, referencia, saldo_posterior)
+               VALUES ($1, 'ingreso', $2, $3, $4, $5)`, [dest.id, monto, `${desc} recibida`, uidOrigen, nuevoDestino]);
+      return { saldoOrigen: nuevoOrigen, destino: { id: dest.id, email: dest.email, nombre: dest.nombre } };
+    });
+  },
 };

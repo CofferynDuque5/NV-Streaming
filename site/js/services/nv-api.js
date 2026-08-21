@@ -63,6 +63,7 @@ export const NVApi = {
   async cambiarEstadoPedido(id, estado) { return req("POST", "/pedidos/" + encodeURIComponent(id) + "/estado", { estado }); },
   async wallet() { return req("GET", "/wallet"); },
   async solicitarRecarga(body) { return req("POST", "/wallet/recargas", body); },
+  async transferir(body) { return req("POST", "/wallet/transferir", body); },
   async misRecargas() { const r = await req("GET", "/wallet/recargas/mias"); return (r && r.recargas) || []; },
   async recargasPendientes() { const r = await req("GET", "/wallet/recargas"); return (r && r.recargas) || []; },
   async aprobarRecarga(id) { return req("POST", "/wallet/recargas/" + encodeURIComponent(id) + "/aprobar"); },
