@@ -67,6 +67,18 @@ export const NVApi = {
   async recargasPendientes() { const r = await req("GET", "/wallet/recargas"); return (r && r.recargas) || []; },
   async aprobarRecarga(id) { return req("POST", "/wallet/recargas/" + encodeURIComponent(id) + "/aprobar"); },
   async rechazarRecarga(id) { return req("POST", "/wallet/recargas/" + encodeURIComponent(id) + "/rechazar"); },
+
+  // ── Inventario de streaming (admin) ──
+  async cuentas(plataforma) { const r = await req("GET", "/admin/cuentas" + (plataforma ? "?plataforma=" + encodeURIComponent(plataforma) : "")); return (r && r.cuentas) || []; },
+  async stockResumen() { const r = await req("GET", "/admin/cuentas/resumen"); return (r && r.resumen) || []; },
+  async crearCuenta(body) { const r = await req("POST", "/admin/cuentas", body); return r && r.cuenta; },
+  async actualizarCuenta(id, body) { const r = await req("PUT", "/admin/cuentas/" + encodeURIComponent(id), body); return r && r.cuenta; },
+  async borrarCuenta(id) { return req("DELETE", "/admin/cuentas/" + encodeURIComponent(id)); },
+  async planes() { const r = await req("GET", "/admin/planes"); return (r && r.planes) || []; },
+  async crearPlan(body) { const r = await req("POST", "/admin/planes", body); return r && r.plan; },
+  async actualizarPlan(id, body) { const r = await req("PUT", "/admin/planes/" + encodeURIComponent(id), body); return r && r.plan; },
+  async borrarPlan(id) { return req("DELETE", "/admin/planes/" + encodeURIComponent(id)); },
+  async colaEspera() { const r = await req("GET", "/admin/cola-espera"); return (r && r.cola) || []; },
 };
 
 export default NVApi;

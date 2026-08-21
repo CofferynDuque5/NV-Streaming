@@ -18,6 +18,7 @@ import { instalarSubidaImagenes } from "./modules/image-upload.js";
 import { instalarInspector } from "./modules/admin-inspector.js";
 import { instalarCrud } from "./modules/admin-crud.js";
 import { instalarTablas } from "./modules/admin-tables.js";
+import { instalarInventario } from "./modules/admin-inventory.js";
 import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
@@ -65,6 +66,7 @@ async function boot() {
   instalarInspector();            // módulo "Auditoría de Base de Datos" (admin)
   instalarCrud();                 // Gestor de Contenido CRUD (admin → PostgreSQL)
   instalarTablas();               // Tablas estilo Excel con datos reales (admin)
+  instalarInventario();           // Gestión de inventario de streaming (cuentas/planes)
   instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
