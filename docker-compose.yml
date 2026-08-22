@@ -1,0 +1,59 @@
+# NV Streaming — stack completo sin instalar nada en tu máquina.
+#
+#   docker compose up --build        # levanta BD + backend + frontend
+#   → Frontend: http://localhost:8080
+#   → Backend : http://localhost:3000/health
+#   → Admin   : admin@nv.com / Admin12345
+#
+#   docker compose down              # detiene todo (conserva los datos)
+#   docker compose down -v           # detiene y BORRA la base de datos
+#
+services:
+  # ── PostgreSQL (no necesitas instalarlo) ──
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nv
+      POSTGRES_PASSWORD: nvpass
+      POSTGRES_DB: nv_streaming
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nv -d nv_streaming"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # ── Backend Node/Express (migra el esquema y crea el admin al arrancar) ──
+  backend:
+    build: ./whatsapp-agent
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgres://nv:nvpass@db:5432/nv_streaming
+      # ⚠️ En producción cambia este secreto por uno fuerte.
+      JWT_SECRET: cambia-esto-por-un-secreto-fuerte-en-produccion
+      WHATSAPP_VERIFY_TOKEN: dev
+      WHATSAPP_APP_SECRET: dev
+      CRON_ENABLED: "off"
+      CORS_ORIGIN: "*"
+      ADMIN_EMAIL: admin@nv.com
+      ADMIN_PASS: Admin12345
+    ports:
+      - "3000:3000"
+
+  # ── Frontend estático (nginx sirviendo site/) ──
+  frontend:
+    image: nginx:alpine
+    depends_on:
+      - backend
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
