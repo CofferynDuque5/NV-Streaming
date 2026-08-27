@@ -27,11 +27,32 @@ function generarCodigo(): string {
   return s;
 }
 
+export type PuntoSerie = { label: string; ventas: number; comision: number };
+export type TopServicio = { servicio: string; ventas: number; comision: number };
+export type NivelReseller = { nombre: string; siguiente: string | null; pct: number; faltante: number; base: number; hasta: number | null };
 export type ResumenReseller = {
   codigo: string; ventas: number; ingresos: number; comisionTotal: number;
   pendiente: number; disponible: number; pagada: number; pagadaMes: number;
   clientes: number; saldo: number; comisionPct: number;
+  serie: PuntoSerie[]; topServicios: TopServicio[]; nivel: NivelReseller;
 };
+
+// Niveles por comisión ACUMULADA real (USD). Umbrales fijos y transparentes.
+const NIVELES = [
+  { nombre: 'Bronce',   base: 0,    hasta: 50 as number | null,   siguiente: 'Plata' as string | null },
+  { nombre: 'Plata',    base: 50,   hasta: 150 as number | null,  siguiente: 'Oro' as string | null },
+  { nombre: 'Oro',      base: 150,  hasta: 400 as number | null,  siguiente: 'Platino' as string | null },
+  { nombre: 'Platino',  base: 400,  hasta: 1000 as number | null, siguiente: 'Diamante' as string | null },
+  { nombre: 'Diamante', base: 1000, hasta: null,                  siguiente: null },
+];
+const MESES_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+function calcularNivel(comisionTotal: number): NivelReseller {
+  let cur = NIVELES[0]!;
+  for (const n of NIVELES) { if (comisionTotal >= n.base) cur = n; }
+  const pct = cur.hasta == null ? 100 : Math.max(0, Math.min(100, Math.round(((comisionTotal - cur.base) / (cur.hasta - cur.base)) * 100)));
+  const faltante = cur.hasta == null ? 0 : Math.max(0, Math.round((cur.hasta - comisionTotal) * 100) / 100);
+  return { nombre: cur.nombre, siguiente: cur.siguiente, pct, faltante, base: cur.base, hasta: cur.hasta };
+}
 
 export type ClienteReferido = {
   id: string; nombre: string | null; email: string | null; whatsapp: string | null;
@@ -127,11 +148,39 @@ export const ResellerRepository = {
          COALESCE((SELECT saldo_billetera   FROM usuarios   WHERE id = $1), 0) AS saldo,
          COALESCE((SELECT comision_pct      FROM usuarios   WHERE id = $1), 0.25) AS comision_pct`,
       [uid]))[0]!;
+
+    // Serie temporal: últimos 6 meses (ventas = monto de venta; comisión = ganancia).
+    const serieRows = await query<Record<string, unknown>>(
+      `SELECT to_char(g.mes, 'MM') AS mm,
+              COALESCE(SUM(c.monto_venta), 0) AS ventas,
+              COALESCE(SUM(c.monto), 0)       AS comision
+         FROM generate_series(date_trunc('month', now()) - interval '5 months',
+                              date_trunc('month', now()), interval '1 month') AS g(mes)
+         LEFT JOIN comisiones c ON c.revendedor_id = $1 AND date_trunc('month', c.creado_en) = g.mes
+        GROUP BY g.mes ORDER BY g.mes`, [uid]);
+    const serie: PuntoSerie[] = serieRows.map((s) => ({
+      label: MESES_ES[(Number(s.mm) || 1) - 1] || String(s.mm),
+      ventas: money2(num(s.ventas)),
+      comision: money2(num(s.comision)),
+    }));
+
+    // Top servicios por comisión generada.
+    const topRows = await query<Record<string, unknown>>(
+      `SELECT id_servicio AS servicio, COUNT(*) AS ventas, COALESCE(SUM(monto), 0) AS comision
+         FROM comisiones WHERE revendedor_id = $1 AND id_servicio IS NOT NULL
+        GROUP BY id_servicio ORDER BY comision DESC LIMIT 5`, [uid]);
+    const topServicios: TopServicio[] = topRows.map((t) => ({
+      servicio: t.servicio as string,
+      ventas: num(t.ventas),
+      comision: money2(num(t.comision)),
+    }));
+
+    const comisionTotal = money2(num(r.comision_total));
     return {
       codigo,
       ventas: num(r.ventas),
       ingresos: money2(num(r.ingresos)),
-      comisionTotal: money2(num(r.comision_total)),
+      comisionTotal,
       pendiente: money2(num(r.pendiente)),
       disponible: money2(num(r.disponible)),
       pagada: money2(num(r.pagada)),
@@ -139,6 +188,8 @@ export const ResellerRepository = {
       clientes: num(r.clientes),
       saldo: money2(num(r.saldo)),
       comisionPct: num(r.comision_pct),
+      serie, topServicios,
+      nivel: calcularNivel(comisionTotal),
     };
   },
 

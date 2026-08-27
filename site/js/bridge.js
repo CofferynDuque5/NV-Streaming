@@ -500,9 +500,86 @@ function decorateRevendedor(vals) {
     fecha: c.creadoEn ? Utils.fecha(c.creadoEn) : "—",
   }));
 
-  // Titular del gráfico = comisión real acumulada (en vez de una cifra de maqueta).
+  // ── Gráfico "Ventas & Ganancias" desde la serie real (últimos 6 meses) ──
+  const serie = (ov && Array.isArray(ov.serie) && ov.serie.length) ? ov.serie : null;
   vals.chartValue = fmtUSD(comisionTotal);
   vals.chartDelta = "";
+  if (serie && serie.length >= 2) {
+    const n = serie.length;
+    const maxV = Math.max(1, ...serie.map((s) => Math.max(Number(s.ventas) || 0, Number(s.comision) || 0)));
+    const xAt = (i) => Math.round(20 + i * (520 / (n - 1)));
+    const yAt = (v) => Math.round(130 - ((Number(v) || 0) / maxV) * 92);  // 38..130 (y invertida)
+    const ventasPts = serie.map((s, i) => [xAt(i), yAt(s.ventas)]);
+    const comisPts = serie.map((s, i) => [xAt(i), yAt(s.comision)]);
+    const last = ventasPts[n - 1];
+    vals.chartSales = ventasPts.map((p) => p.join(",")).join(" ");
+    vals.chartProfit = comisPts.map((p) => p.join(",")).join(" ");
+    vals.chartArea = `M${ventasPts[0][0]},${ventasPts[0][1]} ` + ventasPts.slice(1).map((p) => `L${p[0]},${p[1]}`).join(" ") + ` L${last[0]},150 L${ventasPts[0][0]},150 Z`;
+    vals.chartDotX = last[0];
+    vals.chartDotY = last[1];
+    vals.chartLabels = serie.map((s, i) => ({ label: s.label, x: ventasPts[i][0] }));
+  }
+
+  // ── Nivel con umbrales REALES (por comisión acumulada) ──
+  const NIVEL_UI = {
+    Bronce: { c: "#CD7F32", c2: "#8B5A2B", e: "🥉" },
+    Plata: { c: "#C0C8D4", c2: "#8A94A6", e: "🥈" },
+    Oro: { c: "#E6B83A", c2: "#B8860B", e: "🥇" },
+    Platino: { c: "#7FD4FF", c2: "#3A9AD9", e: "🏆" },
+    Diamante: { c: "#9B7BFF", c2: "#6A3FD9", e: "💎" },
+  };
+  const niv = (ov && ov.nivel) || { nombre: "Bronce", siguiente: "Plata", pct: 0, faltante: 0 };
+  const nui = NIVEL_UI[niv.nombre] || NIVEL_UI.Bronce;
+  vals.levelName = niv.nombre;
+  vals.levelColor = nui.c;
+  vals.levelColor2 = nui.c2;
+  vals.levelGlow = nui.c + "55";
+  vals.levelEmoji = nui.e;
+  vals.levelPct = niv.pct;
+  vals.levelNext = niv.siguiente || "MÁX";
+  vals.levelRemaining = niv.siguiente ? fmtUSD(niv.faltante) : "—";
+  const avgCom = ventas > 0 ? comisionTotal / ventas : 2.5;
+  vals.levelSalesToGo = niv.siguiente && niv.faltante > 0 ? String(Math.max(1, Math.ceil(niv.faltante / avgCom))) : "0";
+
+  // ── "Más vendidos" desde el top real de servicios (por comisión) ──
+  const top = (ov && Array.isArray(ov.topServicios)) ? ov.topServicios : [];
+  const rankCol = ["#E6B83A", "#C0C8D4", "#CD7F32", "rgba(160,185,240,0.5)", "rgba(160,185,240,0.5)"];
+  if (Array.isArray(vals.bestSellers)) {
+    if (top.length) {
+      vals.bestSellers = top.map((t, i) => {
+        const s = Catalogo.porId(t.servicio) || {};
+        const nombre = s.nombre_display || t.servicio;
+        return onSample(vals.bestSellers, i, {
+          rank: "0" + (i + 1), rankColor: rankCol[i] || rankCol[4],
+          icon: short(nombre).slice(0, 1), bg: grad(t.servicio),
+          name: nombre, units: String(t.ventas), earnings: fmtUSD(t.comision),
+        });
+      });
+    } else {
+      vals.bestSellers = [filaVacia({ rank: "—", name: "Sin ventas todavía", units: "0", earnings: fmtUSD(0) })];
+    }
+  }
+
+  // ── "Actividad reciente" desde el libro de comisiones real ──
+  if (Array.isArray(vals.activity)) {
+    if (comisionesReales.length) {
+      vals.activity = comisionesReales.slice(0, 6).map((c, i) => {
+        const s = Catalogo.porId(c.servicio) || {};
+        const nombre = s.nombre_display || c.servicio || "servicio";
+        const cli = c.clienteNombre || (c.clienteEmail || "cliente").split("@")[0];
+        return onSample(vals.activity, i, {
+          text: `Comisión por ${nombre} · ${cli}`,
+          amount: "+" + fmtUSD(c.monto), amountColor: "#00D4A0",
+          time: c.creadoEn ? Utils.fecha(c.creadoEn) : "",
+          icon: '<path d="M20 6 9 17l-5-5"/>',
+          iconColor: "#00D4A0", iconBg: "rgba(0,212,160,0.1)", iconBorder: "rgba(0,212,160,0.24)",
+        });
+      });
+    } else {
+      vals.activity = [filaVacia({ text: "Aún no hay actividad. Tu primera comisión aparecerá aquí.", amount: "", time: "" })];
+    }
+  }
+
   // El "pipeline CRM" era una maqueta sin respaldo → se oculta; el CRM real vive
   // en la vista "Mis Clientes" (clientes referidos con actividad real).
   vals.showPipeline = false;
