@@ -406,7 +406,10 @@ class Component extends DCLogic {
     if (pass.length < 8) { this._err('La contraseña debe tener al menos 8 caracteres.'); return; }
     if (pass2 && pass !== pass2) { this._err('Las contraseñas no coinciden.'); return; }
     const nombreCompleto = (nombre + ' ' + apellido).trim();
-    this._autenticar((core) => core.Auth.register(email, pass, { nombre: nombreCompleto }));
+    // Código de referido: ?ref=CODE en la URL o guardado (nv_ref) desde la visita.
+    let ref = '';
+    try { ref = new URLSearchParams(location.search).get('ref') || localStorage.getItem('nv_ref') || ''; } catch (_) {}
+    this._autenticar((core) => core.Auth.register(email, pass, { nombre: nombreCompleto, ref: ref || null }));
   }
 
   onKeyLogin(ev)    { if (ev && ev.key === 'Enter') { ev.preventDefault(); this.submitLogin(); } }

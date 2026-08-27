@@ -182,7 +182,7 @@ class Auth {
     return this._aplicarSesion(r && r.usuario);
   }
   async register(email, password, extra = {}) {
-    const r = await NVApi.register(email, password, extra.nombre || "");
+    const r = await NVApi.register(email, password, extra.nombre || "", extra.ref || null);
     return this._aplicarSesion(r && r.usuario);
   }
   async logout() {

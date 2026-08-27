@@ -20,6 +20,7 @@ import { instalarCrud } from "./modules/admin-crud.js";
 import { instalarTablas } from "./modules/admin-tables.js";
 import { instalarInventario } from "./modules/admin-inventory.js";
 import { instalarChat } from "./modules/assistant-chat.js";
+import { instalarReseller } from "./modules/reseller-api.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
 
@@ -68,6 +69,7 @@ async function boot() {
   instalarTablas();               // Tablas estilo Excel con datos reales (admin)
   instalarInventario();           // Gestión de inventario de streaming (cuentas/planes)
   instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
+  instalarReseller();             // panel revendedor: referidos + comisiones reales
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
   wireSeeder();                   // botón "Completar base de datos" (admin)

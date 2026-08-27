@@ -620,9 +620,19 @@ function redecorar() {
   aplicarMoneda();
 }
 
+// Captura el código de referido de la URL (?ref=CODE) en cualquier página y lo
+// guarda para usarlo al registrarse, aunque el visitante navegue antes.
+function capturarRef() {
+  try {
+    const ref = new URLSearchParams(location.search).get("ref");
+    if (ref && /^[A-Za-z0-9_-]{3,16}$/.test(ref)) localStorage.setItem("nv_ref", ref);
+  } catch (_) {}
+}
+
 export function instalarUX() {
   if (state.wired) return;
   state.wired = true;
+  capturarRef();
 
   // Handlers globales (una sola vez).
   wireSoporteHumano();

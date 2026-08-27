@@ -43,10 +43,16 @@ export const NVApi = {
   async borrarDoc(coll, id) { return req("DELETE", "/cms/" + encodeURIComponent(coll) + "/" + encodeURIComponent(id)); },
 
   // ── Auth ──
-  async register(email, password, nombre) { const r = await req("POST", "/auth/register", { email, password, nombre }); if (r && r.token) setToken(r.token); return r; },
+  async register(email, password, nombre, ref) { const r = await req("POST", "/auth/register", { email, password, nombre, ref: ref || null }); if (r && r.token) setToken(r.token); return r; },
   async login(email, password) { const r = await req("POST", "/auth/login", { email, password }); if (r && r.token) setToken(r.token); return r; },
   async me() { return req("GET", "/auth/me"); },
   logout() { setToken(""); },
+
+  // ── Revendedor (referidos + comisiones reales) ──
+  async resellerOverview() { const r = await req("GET", "/reseller/overview"); return (r && r.resumen) || null; },
+  async resellerClients() { const r = await req("GET", "/reseller/clients"); return (r && r.clientes) || []; },
+  async resellerCommissions() { const r = await req("GET", "/reseller/commissions"); return (r && r.comisiones) || []; },
+  async resellerWithdraw(metodo) { return req("POST", "/reseller/withdraw", { metodo: metodo || "billetera" }); },
 
   // ── Documentos por usuario (suscripciones, soporte, notificaciones) ──
   async misDocs(coll) { const r = await req("GET", "/mis/" + encodeURIComponent(coll)); return (r && r.documentos) || []; },

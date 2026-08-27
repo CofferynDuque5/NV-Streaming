@@ -160,7 +160,7 @@
                 <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">{{ resellerName }}</span>
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.24);border-radius:100px;font-size:10.5px;color:#00D4A0;font-weight:500;"><span style="width:5px;height:5px;border-radius:50%;background:#00D4A0;box-shadow:0 0 5px #00D4A0;"></span>Cuenta activa</span>
               </div>
-              <div style="font-size:12.5px;color:rgba(200,215,255,0.55);">Revendedor <span style="color:{{ levelColor }};font-weight:600;">{{ levelName }}</span> · Miembro desde Ene 2025</div>
+              <div style="font-size:12.5px;color:rgba(200,215,255,0.55);">Revendedor <span style="color:{{ levelColor }};font-weight:600;">{{ levelName }}</span> · {{ memberSince }}</div>
             </div>
           </div>
           <!-- Code + personal link -->
@@ -169,7 +169,7 @@
               <div style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(160,185,240,0.42);font-weight:600;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">Código de revendedor</div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                 <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:#00CFFF;letter-spacing:0.04em;">{{ resellerCode }}</span>
-                <button onClick="{{ copyCode }}" style="width:26px;height:26px;border-radius:6px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" style-hover="background:rgba(0,207,255,0.16);">
+                <button data-nv-copyref onClick="{{ copyCode }}" style="width:26px;height:26px;border-radius:6px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" style-hover="background:rgba(0,207,255,0.16);">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
               </div>
@@ -179,7 +179,7 @@
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;">
                 <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:rgba(200,215,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">nvstreaming.com/?ref=<span style="color:#9B3FFF;">{{ refUser }}</span></span>
                 <div style="display:flex;gap:5px;flex-shrink:0;">
-                  <button onClick="{{ copyLink }}" style="width:26px;height:26px;border-radius:6px;background:rgba(155,63,255,0.1);border:1px solid rgba(155,63,255,0.24);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:rgba(155,63,255,0.2);" title="Copiar">
+                  <button data-nv-copyref onClick="{{ copyLink }}" style="width:26px;height:26px;border-radius:6px;background:rgba(155,63,255,0.1);border:1px solid rgba(155,63,255,0.24);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:rgba(155,63,255,0.2);" title="Copiar">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B47CFF" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
                   <button style="width:26px;height:26px;border-radius:6px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:rgba(0,207,255,0.16);" title="QR">
@@ -198,7 +198,7 @@
           <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,160,0.3),transparent);pointer-events:none;"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#EEF2FF;">Mis comisiones</span>
-            <a href="#" style="font-size:11px;color:rgba(0,207,255,0.7);cursor:pointer;">Centro financiero →</a>
+            <button data-nv-withdraw style="font-size:11px;color:#04120E;background:linear-gradient(135deg,#00A882,#00D4A0);border:none;border-radius:7px;padding:5px 11px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;">Retirar {{ disponibleRetiro }}</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
             <sc-for list="{{ commissions }}" as="cm" hint-placeholder-count="4">
@@ -424,7 +424,7 @@
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
           <div>
             <h2 style="font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">Clientes</h2>
-            <div style="font-size:11.5px;color:rgba(160,185,240,0.42);margin-top:2px;">128 clientes · 8 mostrados</div>
+            <div data-nv-clientes-count style="font-size:11.5px;color:rgba(160,185,240,0.42);margin-top:2px;">Tus clientes referidos</div>
           </div>
           <div style="flex:1;"></div>
           <div style="position:relative;display:flex;align-items:center;">
@@ -459,36 +459,15 @@
                   </sc-for>
                 </tr>
               </thead>
-              <tbody>
-                <sc-for list="{{ clientes }}" as="c" hint-placeholder-count="8">
-                  <tr class="best-row" data-empty="{{ c._empty }}" style="transition:background 0.1s;" style-hover="background:rgba(0,207,255,0.03);">
-                    <td style="padding:10px;text-align:center;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);"><div style="width:15px;height:15px;border-radius:4px;border:1.5px solid rgba(160,185,240,0.25);margin:0 auto;"></div></td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);">
-                      <div style="display:flex;align-items:center;gap:9px;">
-                        <div style="width:28px;height:28px;border-radius:8px;background:{{ c.avatarBg }};display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:white;flex-shrink:0;">{{ c.initials }}</div>
-                        <div style="min-width:0;">
-                          <div style="font-size:12.5px;color:#EEF2FF;font-weight:500;white-space:nowrap;">{{ c.name }}</div>
-                          <div style="font-size:10.5px;color:rgba(160,185,240,0.42);white-space:nowrap;">{{ c.email }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);font-family:'JetBrains Mono',monospace;font-size:11.5px;color:rgba(200,215,255,0.62);white-space:nowrap;">
-                      <span style="display:inline-flex;align-items:center;gap:5px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="#00D46A"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2z"/></svg>{{ c.wa }}</span>
-                    </td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);font-size:12px;color:rgba(200,215,255,0.68);white-space:nowrap;">{{ c.products }}</td>
-                    <td style="padding:9px 13px;text-align:right;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#00D4A0;font-weight:500;white-space:nowrap;">{{ c.amount }}</td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);"><span style="display:inline-flex;padding:2px 9px;background:{{ c.statusBg }};border:1px solid {{ c.statusColor }}44;border-radius:100px;font-size:10.5px;color:{{ c.statusColor }};font-weight:500;white-space:nowrap;">{{ c.statusLabel }}</span></td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);font-size:11.5px;color:rgba(200,215,255,0.55);white-space:nowrap;">{{ c.last }}</td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);white-space:nowrap;"><span style="font-size:11.5px;color:{{ c.renewSoon ? '#FFB020' : 'rgba(200,215,255,0.55)' }};font-weight:{{ c.renewSoon ? '500' : '400' }};">{{ c.renew }}</span></td>
-                    <td style="padding:9px 13px;border-bottom:1px solid rgba(80,100,200,0.08);font-size:11.5px;color:rgba(160,185,240,0.5);white-space:nowrap;">{{ c.notes }}</td>
-                  </tr>
-                </sc-for>
-              </tbody>
+              <!-- Cuerpo pintado por reseller-api.js (el <sc-for> dentro de <tbody>
+                   lo reubica el parser HTML; por eso lo gestionamos desde JS con
+                   los clientes referidos REALES del backend). -->
+              <tbody data-nv-clientes-body></tbody>
             </table>
           </div>
           <!-- table footer -->
           <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-top:1px solid rgba(80,100,200,0.14);">
-            <span style="font-size:11.5px;color:rgba(160,185,240,0.42);">Mostrando 1–8 de 128 clientes</span>
+            <span data-nv-clientes-foot style="font-size:11.5px;color:rgba(160,185,240,0.42);">—</span>
             <div style="display:flex;align-items:center;gap:6px;">
               <button style="padding:5px 11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.16);border-radius:7px;color:rgba(200,215,255,0.5);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Anterior</button>
               <button style="padding:5px 11px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:7px;color:white;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Siguiente</button>

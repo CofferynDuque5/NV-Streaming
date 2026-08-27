@@ -8,8 +8,16 @@ import { OrdersRepository } from '../../db/repositories/orders.repo.js';
 import { CmsRepository } from '../../db/repositories/cms.repo.js';
 import { WalletRepository, WalletError } from '../../db/repositories/wallet.repo.js';
 import { UsersRepository } from '../../db/repositories/users.repo.js';
+import { ResellerRepository } from '../../db/repositories/reseller.repo.js';
 import { provisionarPedido } from './provisioning.service.js';
 import type { AuthedRequest } from '../auth/auth.middleware.js';
+
+/** Acredita la comisión del revendedor si el comprador fue referido (idempotente,
+ *  nunca rompe el flujo del pedido). */
+async function acreditarComision(pedidoId: string): Promise<void> {
+  try { await ResellerRepository.acreditarPorPedido(pedidoId); }
+  catch { /* la comisión es best-effort: jamás bloquea la compra */ }
+}
 
 async function precioDeServicio(idServicio: string): Promise<number | null> {
   const doc = await CmsRepository.obtener('servicios_sistema', idServicio);
@@ -56,6 +64,7 @@ export const OrdersController = {
           res.status(200).json({ pedido: rechazado, saldo: saldoReembolsado, provision, reembolsado: true });
           return;
         }
+        await acreditarComision(pedido.id);   // referido → comisión al revendedor
         res.status(201).json({ pedido: aprobado, saldo, provision });
         return;
       } catch (e) {
@@ -87,6 +96,7 @@ export const OrdersController = {
     if (!pedido) { res.status(400).json({ error: 'estado_o_pedido_invalido' }); return; }
     // Al aprobar desde el back office también se aprovisiona (idempotente).
     const provision = estado === 'aprobado' ? await provisionarPedido(pedido) : null;
+    if (estado === 'aprobado' || estado === 'entregado') await acreditarComision(pedido.id);
     res.json({ pedido, provision });
   },
 };

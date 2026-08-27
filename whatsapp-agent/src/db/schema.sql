@@ -290,3 +290,52 @@ CREATE TABLE IF NOT EXISTS codigos_verificacion (
 );
 CREATE INDEX IF NOT EXISTS ix_codigos_plataforma ON codigos_verificacion (plataforma_id, obsoleto, fecha_recepcion DESC);
 CREATE INDEX IF NOT EXISTS ix_codigos_cuenta ON codigos_verificacion (cuenta_madre_id, obsoleto);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- Revendedores (Fase 3): programa de referidos + comisiones reales.
+--   · Cada usuario puede tener un codigo_ref (enlace nvstreaming.com/?ref=CODE).
+--   · referido_por apunta al revendedor que trajo al cliente (se fija UNA vez,
+--     al registrarse con ?ref=CODE). No editable por el cliente.
+--   · comision_pct: porcentaje que gana el revendedor por venta de un referido.
+--   · Cada pedido APROBADO de un cliente referido genera UNA comisión (idempotente
+--     por pedido_id). Un retiro mueve las comisiones disponibles → 'pagada' y
+--     acredita el saldo del revendedor, todo en la misma transacción.
+-- ═══════════════════════════════════════════════════════════════════════
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_ref   VARCHAR(16);
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS referido_por UUID REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS comision_pct NUMERIC(5,4) NOT NULL DEFAULT 0.25
+  CHECK (comision_pct >= 0 AND comision_pct <= 1);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_codigo_ref ON usuarios (upper(codigo_ref)) WHERE codigo_ref IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_usuarios_referido_por ON usuarios (referido_por) WHERE referido_por IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS comisiones (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  revendedor_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  cliente_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+  pedido_id      UUID NOT NULL REFERENCES pedidos(id) ON DELETE CASCADE,
+  id_servicio    VARCHAR(80),
+  monto_venta    NUMERIC(12,2) NOT NULL CHECK (monto_venta >= 0),
+  pct            NUMERIC(5,4)  NOT NULL,
+  monto          NUMERIC(12,2) NOT NULL CHECK (monto >= 0),
+  estado         VARCHAR(12)   NOT NULL DEFAULT 'pendiente'
+                 CHECK (estado IN ('pendiente','pagada','anulada')),
+  disponible_en  TIMESTAMPTZ   NOT NULL DEFAULT now(),  -- madura de inmediato (hold=0)
+  creado_en      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  pagada_en      TIMESTAMPTZ
+);
+-- Idempotencia: como máximo UNA comisión por pedido.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_comisiones_pedido    ON comisiones (pedido_id);
+CREATE INDEX        IF NOT EXISTS ix_comisiones_revendedor ON comisiones (revendedor_id, creado_en DESC);
+CREATE INDEX        IF NOT EXISTS ix_comisiones_estado     ON comisiones (revendedor_id, estado);
+
+-- Retiros de comisiones (payout del saldo disponible del revendedor).
+CREATE TABLE IF NOT EXISTS retiros_comision (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  revendedor_id  UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  monto          NUMERIC(12,2) NOT NULL CHECK (monto > 0),
+  metodo         VARCHAR(40),
+  estado         VARCHAR(12) NOT NULL DEFAULT 'pagado'
+                 CHECK (estado IN ('pendiente','pagado','rechazado')),
+  creado_en      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_retiros_revendedor ON retiros_comision (revendedor_id, creado_en DESC);

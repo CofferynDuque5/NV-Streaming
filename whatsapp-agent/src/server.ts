@@ -13,6 +13,7 @@ import { cmsRouter } from './modules/cms/cms.routes.js';
 import { commerceRouter } from './modules/commerce/commerce.routes.js';
 import { userdocsRouter } from './modules/userdocs/userdocs.routes.js';
 import { inventoryRouter } from './modules/inventory/inventory.routes.js';
+import { resellerRouter } from './modules/reseller/reseller.routes.js';
 import { otpRouter } from './modules/otp/otp.routes.js';
 import type { RawBodyRequest } from './modules/webhook/webhook.controller.js';
 
@@ -67,6 +68,7 @@ export function createApp() {
   // Documentos por usuario: suscripciones, soporte, notificaciones (Fase 2c).
   app.use('/api', userdocsRouter);
   app.use('/api', inventoryRouter);
+  app.use('/api', resellerRouter);
 
   // OTP: webhooks de Telegram/WhatsApp + lectura (portado de Cloud Functions).
   app.use('/', otpRouter);

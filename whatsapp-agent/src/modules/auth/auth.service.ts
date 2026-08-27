@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { env, isProd } from '../../config/env.js';
 import { UsersRepository, type UsuarioAuth } from '../../db/repositories/users.repo.js';
+import { ResellerRepository } from '../../db/repositories/reseller.repo.js';
 
 if (isProd && !env.JWT_SECRET) {
   throw new Error('JWT_SECRET es obligatorio en producción (define un secreto fuerte).');
@@ -40,7 +41,7 @@ export function verifyToken(token: string): TokenPayload {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-export async function register(input: { email?: string; password?: string; nombre?: string | null }) {
+export async function register(input: { email?: string; password?: string; nombre?: string | null; ref?: string | null }) {
   const email = (input.email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) throw new AuthError('email_invalido', 'Correo electrónico no válido.');
   if (!input.password || input.password.length < 8) {
@@ -51,6 +52,10 @@ export async function register(input: { email?: string; password?: string; nombr
   }
   const passwordHash = await hashPassword(input.password);
   const u = await UsersRepository.createWebUser({ email, nombre: (input.nombre || '').trim() || null, passwordHash });
+  // Referido: si llegó con un ?ref=CODE válido, lo vinculamos al revendedor (una
+  // sola vez). Best-effort: nunca hace fallar el registro.
+  const ref = (input.ref || '').trim();
+  if (ref) { try { await ResellerRepository.marcarReferido(u.id, ref); } catch { /* ignora ref inválido */ } }
   return { usuario: publico(u), token: signToken(u) };
 }
 
