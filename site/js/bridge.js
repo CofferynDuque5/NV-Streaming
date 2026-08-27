@@ -173,19 +173,42 @@ function decorateIndex(vals, svc) {
 }
 
 function decorateCatalogo(vals, svc) {
+  // ¿Hay una búsqueda activa? Si la hay, ocultamos la promo de "Ofertas Flash"
+  // (no es un resultado de búsqueda) y las secciones de categoría vacías.
+  const buscando = !!String(Store.get("busquedaFiltro") || "").trim();
+  vals.buscando = buscando;
+  vals.sinBusqueda = !buscando;
+
   if (!svc.length) {
-    // BD vacía → sin tarjetas falsas; estado vacío en la sección principal.
-    vals.streamingCards = [tarjetaVacia("Catálogo en preparación", "Pronto publicaremos nuestros servicios.")];
+    // BD vacía o búsqueda sin resultados → sin tarjetas falsas; estado vacío.
+    vals.streamingCards = [tarjetaVacia(
+      buscando ? "Sin resultados" : "Catálogo en preparación",
+      buscando ? "No encontramos servicios para tu búsqueda." : "Pronto publicaremos nuestros servicios.")];
     vals.aiCards = [];
     vals.prodCards = [];
     vals.offers = [];
     vals.serviceCount = 0;
+    vals.streamingCount = 0; vals.aiCount = 0; vals.prodCount = 0;
+    vals.hayStreaming = true; vals.hayAI = false; vals.hayProd = false;
     return;
   }
   vals.streamingCards = svc.filter((s) => ["STREAMING"].includes(s.categoria)).map(toMkCard);
   vals.aiCards = svc.filter((s) => s.categoria === "IA").map(toMkCard);
   vals.prodCards = svc.filter((s) => ["SOFTWARE", "CLOUD"].includes(s.categoria)).map(toMkCard);
-  const of = Catalogo.ofertas();
+  // Conteos reales por sección + visibilidad (se ocultan las secciones vacías,
+  // sobre todo al buscar, para que no queden encabezados con "0 servicios").
+  vals.streamingCount = vals.streamingCards.length;
+  vals.aiCount = vals.aiCards.length;
+  vals.prodCount = vals.prodCards.length;
+  vals.hayStreaming = vals.streamingCards.length > 0;
+  vals.hayAI = vals.aiCards.length > 0;
+  vals.hayProd = vals.prodCards.length > 0;
+  // Etiquetas de conteo ("N servicios") ya formateadas para la plantilla.
+  vals.streamingLabel = vals.streamingCount + (vals.streamingCount === 1 ? " servicio" : " servicios");
+  vals.aiLabel = vals.aiCount + (vals.aiCount === 1 ? " servicio" : " servicios");
+  vals.prodLabel = vals.prodCount + (vals.prodCount === 1 ? " servicio" : " servicios");
+
+  const of = buscando ? [] : Catalogo.ofertas();   // sin promo durante la búsqueda
   if (of.length) {
     const samples = Array.isArray(vals.offers) ? vals.offers : [];
     vals.offers = of.map((o, i) => {
@@ -273,22 +296,84 @@ function decorateBilletera(vals) {
 
 function decorateCuenta(vals) {
   const subs = Store.get("suscripciones") || [];
+
+  // ── Perfil + estadísticas REALES (sin datos inventados) ──
+  const ses = Store.get("sesion") || {};
+  const auth = ses.estado === "autenticado";
+  const u = ses.usuario || {};
+  const nombre = auth ? String(u.nombre || (u.email || "").split("@")[0] || "Cliente") : "Invitado";
+  vals.userName = nombre;
+  vals.userEmail = auth ? (u.email || "—") : "Inicia sesión";
+  vals.userInitial = (nombre.trim()[0] || "?").toUpperCase();
+
+  const activas = subs.filter((s) => s.estado === "activo" || s.estado === "activa");
+  const hoy = Date.now();
+  const diasDe = (v) => (v ? Math.ceil((new Date(v).getTime() - hoy) / 864e5) : null);
+  const porVencer = activas
+    .map((s) => ({ s, d: diasDe(s.vence) }))
+    .filter((x) => x.d != null && x.d >= 0 && x.d <= 7)
+    .sort((a, b) => a.d - b.d);
+
+  vals.statActivos = auth ? String(activas.length) : "—";
+  vals.statActivosSub = auth ? (activas.length ? "En tu cuenta" : "Sin servicios activos") : "Inicia sesión";
+  vals.statPorVencer = auth ? String(porVencer.length) : "—";
+  if (auth && porVencer.length) {
+    const p0 = porVencer[0];
+    const nom = (Catalogo.porId(p0.s.servicio) || {}).nombre_display || p0.s.servicio;
+    vals.statPorVencerSub = `${nom} · ${p0.d} día${p0.d === 1 ? "" : "s"}`;
+  } else {
+    vals.statPorVencerSub = auth ? "Nada próximo a vencer" : "—";
+  }
+
+  const bs = Store.get("billeteraStats");
+  const gasto = bs && isFinite(Number(bs.gastadoMes))
+    ? Number(bs.gastadoMes)
+    : activas.reduce((a, s) => a + (Number(s.precioVenta) || 0), 0);
+  vals.statGasto = auth ? fmtUSD(gasto) : "—";
+  vals.statGastoSub = auth ? "Este mes" : "Inicia sesión";
+
+  const saldo = Number(u.saldoBilletera);
+  vals.statSaldo = auth && isFinite(saldo) ? fmtUSD(saldo) : "—";
+  vals.statSaldoSub = auth ? "Disponible" : "Inicia sesión";
+
+  // Aviso "por vencer": solo si hay sesión y algo realmente próximo a vencer.
+  vals.hayPorVencer = auth && porVencer.length > 0;
+  if (vals.hayPorVencer) {
+    const p0 = porVencer[0];
+    const nom = (Catalogo.porId(p0.s.servicio) || {}).nombre_display || p0.s.servicio;
+    vals.avisoVence = `Tu suscripción de ${nom} vence en ${p0.d} día${p0.d === 1 ? "" : "s"}.`;
+  }
+  // El aviso solo aparece en la pestaña de servicios y con algo real por vencer.
+  vals.avisoVenceVisible = !!(vals.isServicios && vals.hayPorVencer);
+
+  // Sin sesión → NO mostramos suscripciones/movimientos de demo: estado vacío
+  // con invitación a iniciar sesión (nunca datos de otro usuario ni inventados).
+  const subsReales = auth ? subs : [];
+  const mov = auth ? (Store.get("movimientos") || []) : [];
   if (Array.isArray(vals.subscriptions)) {
-    if (subs.length) {
-      vals.subscriptions = subs.slice(0, 8).map((s, i) => {
+    if (subsReales.length) {
+      vals.subscriptions = subsReales.slice(0, 8).map((s, i) => {
         const serv = Catalogo.porId(s.servicio) || {};
         return onSample(vals.subscriptions, i, { icon: short(serv.nombre_display || s.servicio).slice(0, 1), gradient: grad(s.servicio), name: serv.nombre_display || s.servicio, plan: s.perfil || s.tipo, expires: Utils.fecha(s.vence), status: s.estado === "activo" ? "Activo" : s.estado, price: fmtUSD(s.precioVenta) });
       });
     } else {
-      vals.subscriptions = [filaVacia({ name: "Sin suscripciones activas", plan: "Explora el catálogo para contratar un servicio." })];
+      vals.subscriptions = [filaVacia({ name: auth ? "Sin suscripciones activas" : "Inicia sesión para ver tus servicios", plan: auth ? "Explora el catálogo para contratar un servicio." : "Aquí aparecerán tus suscripciones." })];
     }
   }
-  const mov = Store.get("movimientos") || [];
   if (Array.isArray(vals.transactions)) {
     if (mov.length) {
       vals.transactions = mov.slice(0, 8).map((m, i) => onSample(vals.transactions, i, { label: m.descripcion, date: Utils.fecha(m.fecha), amount: (m.tipo === "ingreso" ? "+" : "−") + fmtUSD(m.monto), amountColor: m.tipo === "ingreso" ? "#00C896" : "#FF4466" }));
     } else {
-      vals.transactions = [filaVacia({ label: "Sin movimientos todavía" })];
+      vals.transactions = [filaVacia({ label: auth ? "Sin movimientos todavía" : "Inicia sesión para ver tus movimientos" })];
+    }
+  }
+  // Historial de facturación = egresos/pagos reales (no facturas inventadas).
+  if (Array.isArray(vals.billing)) {
+    const pagos = mov.filter((m) => m.tipo !== "ingreso");
+    if (pagos.length) {
+      vals.billing = pagos.slice(0, 8).map((m, i) => onSample(vals.billing, i, { date: Utils.fecha(m.fecha), service: m.descripcion || "Compra", status: "Completado", statusColor: "#00C896", statusBg: "rgba(0,200,150,0.08)", statusBorder: "rgba(0,200,150,0.18)", amount: fmtUSD(m.monto) }));
+    } else {
+      vals.billing = [filaVacia({ date: "—", service: "Sin pagos registrados", status: "—", amount: "—", statusColor: "rgba(240,240,250,0.4)", statusBg: "rgba(255,255,255,0.03)", statusBorder: "rgba(255,255,255,0.08)" })];
     }
   }
 }
@@ -325,6 +410,33 @@ function decorateAdmin(vals) {
 
 function decorateRevendedor(vals) {
   const k = Admin.Revendedor.kpis();
+
+  // ── Identidad REAL del revendedor (usuario en sesión) ──
+  const ses = Store.get("sesion") || {};
+  const auth = ses.estado === "autenticado";
+  const u = ses.usuario || {};
+  const nom = auth ? String(u.nombre || (u.email || "").split("@")[0] || "Revendedor") : "Revendedor";
+  const codigo = "NV-" + String(u.uid || u.email || "INVITADO").replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase();
+  vals.resellerName = nom;
+  vals.resellerFirst = nom.split(" ")[0];
+  vals.resellerInitials = (nom.split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "NV").toUpperCase();
+  vals.resellerCode = codigo;
+  vals.refUser = codigo;
+  vals.resellerSaldo = auth && isFinite(Number(u.saldoBilletera)) ? fmtUSD(Number(u.saldoBilletera)) : "$0.00";
+
+  // ── Comisiones: el backend aún no lleva un libro de comisiones, así que en vez
+  //    de cifras inventadas mostramos ceros honestos + el total en ventas real. ──
+  const ingresos = Number(k.ingresos) || 0;
+  if (Array.isArray(vals.commissions)) {
+    vals.commissions = [
+      { label: "Pendiente", value: fmtUSD(0), color: "#FFB020" },
+      { label: "Disponible", value: fmtUSD(0), color: "#00D4A0" },
+      { label: "Pagada (mes)", value: fmtUSD(0), color: "#00CFFF" },
+      { label: "Total en ventas", value: fmtUSD(ingresos), color: "#9B3FFF" },
+    ];
+  }
+  // XP de nivel = ventas reales (no un valor de maqueta).
+  vals.levelXP = fmtUSD(ingresos);
   if (Array.isArray(vals.kpis) && vals.kpis.length >= 3) {
     vals.kpis = [
       onSample(vals.kpis, 0, { label: "Ventas del día", value: fmtUSD(k.ingresos / 30), sub: k.ventasHoy + " ventas" }),

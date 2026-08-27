@@ -89,11 +89,11 @@
     <!-- Reseller mini-profile -->
     <div style="padding:10px 12px;border-top:1px solid rgba(80,100,200,0.12);flex-shrink:0;display:flex;align-items:center;gap:9px;">
       <div style="position:relative;flex-shrink:0;">
-        <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#9B3FFF,#5510BB);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:white;">CM</div>
+        <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#9B3FFF,#5510BB);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;color:white;">{{ resellerInitials }}</div>
         <div style="position:absolute;-bottom:3px;bottom:-3px;right:-3px;width:15px;height:15px;border-radius:50%;background:{{ levelColor }};border:2px solid #02020A;display:flex;align-items:center;justify-content:center;font-size:7px;">{{ levelEmoji }}</div>
       </div>
       <div style="min-width:0;flex:1;">
-        <div style="font-size:12px;color:#EEF2FF;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Carlos Mendoza</div>
+        <div style="font-size:12px;color:#EEF2FF;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ resellerName }}</div>
         <div style="font-size:10px;color:{{ levelColor }};font-weight:500;">Revendedor {{ levelName }}</div>
       </div>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(160,185,240,0.4)" stroke-width="1.5" stroke-linecap="round"><path d="M18 15l-6-6-6 6"/></svg>
@@ -108,7 +108,7 @@
       <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(155,63,255,0.25),rgba(0,207,255,0.18),transparent);pointer-events:none;"></div>
       <div style="flex-shrink:0;">
         <h1 style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;line-height:1;">Panel de Ventas</h1>
-        <div style="font-size:11px;color:rgba(160,185,240,0.4);margin-top:2px;">Buenos días, Carlos · {{ todayLabel }}</div>
+        <div style="font-size:11px;color:rgba(160,185,240,0.4);margin-top:2px;">Buenos días, {{ resellerFirst }} · {{ todayLabel }}</div>
       </div>
 
       <!-- Search -->
@@ -124,7 +124,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M2 10h14a2 2 0 0 1 0 4H2"/></svg>
           <div>
             <div style="font-size:9px;color:rgba(0,212,160,0.7);line-height:1;">Saldo</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#00D4A0;font-weight:500;line-height:1.2;">$1,120.40</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#00D4A0;font-weight:500;line-height:1.2;">{{ resellerSaldo }}</div>
           </div>
           <button style="padding:4px 9px;background:rgba(0,212,160,0.12);border:1px solid rgba(0,212,160,0.25);border-radius:6px;color:#00D4A0;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;">Recargar</button>
         </div>
@@ -152,12 +152,12 @@
           <div style="position:absolute;top:-60px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(155,63,255,0.09),transparent 65%);pointer-events:none;"></div>
           <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;position:relative;">
             <div style="position:relative;flex-shrink:0;">
-              <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#9B3FFF,#5510BB);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:white;box-shadow:0 6px 20px rgba(155,63,255,0.35);">CM</div>
+              <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#9B3FFF,#5510BB);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:white;box-shadow:0 6px 20px rgba(155,63,255,0.35);">{{ resellerInitials }}</div>
               <div style="position:absolute;bottom:-4px;right:-4px;width:22px;height:22px;border-radius:50%;background:{{ levelColor }};border:2.5px solid #0A0A22;display:flex;align-items:center;justify-content:center;font-size:11px;">{{ levelEmoji }}</div>
             </div>
             <div style="min-width:0;flex:1;">
               <div style="display:flex;align-items:center;gap:9px;margin-bottom:3px;flex-wrap:wrap;">
-                <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">Carlos Mendoza</span>
+                <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#EEF2FF;letter-spacing:-0.01em;">{{ resellerName }}</span>
                 <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.24);border-radius:100px;font-size:10.5px;color:#00D4A0;font-weight:500;"><span style="width:5px;height:5px;border-radius:50%;background:#00D4A0;box-shadow:0 0 5px #00D4A0;"></span>Cuenta activa</span>
               </div>
               <div style="font-size:12.5px;color:rgba(200,215,255,0.55);">Revendedor <span style="color:{{ levelColor }};font-weight:600;">{{ levelName }}</span> · Miembro desde Ene 2025</div>
@@ -168,7 +168,7 @@
             <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.16);border-radius:10px;padding:11px 13px;min-width:0;">
               <div style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(160,185,240,0.42);font-weight:600;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">Código de revendedor</div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:#00CFFF;letter-spacing:0.04em;">CM-JUAN123</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:#00CFFF;letter-spacing:0.04em;">{{ resellerCode }}</span>
                 <button onClick="{{ copyCode }}" style="width:26px;height:26px;border-radius:6px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;" style-hover="background:rgba(0,207,255,0.16);">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
@@ -177,7 +177,7 @@
             <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(155,63,255,0.2);border-radius:10px;padding:11px 13px;min-width:0;">
               <div style="font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(160,185,240,0.42);font-weight:600;font-family:'JetBrains Mono',monospace;margin-bottom:6px;">Enlace personal</div>
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:rgba(200,215,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">nvstreaming.com/?ref=<span style="color:#9B3FFF;">JUAN123</span></span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:rgba(200,215,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">nvstreaming.com/?ref=<span style="color:#9B3FFF;">{{ refUser }}</span></span>
                 <div style="display:flex;gap:5px;flex-shrink:0;">
                   <button onClick="{{ copyLink }}" style="width:26px;height:26px;border-radius:6px;background:rgba(155,63,255,0.1);border:1px solid rgba(155,63,255,0.24);display:flex;align-items:center;justify-content:center;cursor:pointer;" style-hover="background:rgba(155,63,255,0.2);" title="Copiar">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B47CFF" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>

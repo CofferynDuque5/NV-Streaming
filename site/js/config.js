@@ -81,8 +81,26 @@
     whatsapp: {
       numero: "584164600411",          // solo dígitos, formato internacional sin '+'
       mensaje: "Hola, necesito asistencia con mi cuenta de NV Streaming",
-      habilitado: false,               // FAB verde desactivado (redundante)
+      habilitado: true,                // canal de WhatsApp activo (botones enlazados)
     },
+
+    /* ── Redes / canales oficiales (EDITA aquí tus enlaces reales) ── */
+    // Deja en "" cualquiera que no uses y el botón correspondiente se ocultará.
+    redes: {
+      telegram: "",                    // p.ej. "https://t.me/tucanal" o "nvstreaming"
+      instagram: "",                   // p.ej. "https://instagram.com/nvstreaming"
+      x: "",                           // p.ej. "https://x.com/nvstreaming"
+    },
+
+    /* ── Métodos de pago aceptados (se muestran en el modal "Métodos de pago") ── */
+    // Datos NO sensibles para orientar al cliente; los detalles reales de la
+    // transferencia se confirman por WhatsApp. Edita libremente.
+    pagos: [
+      { nombre: "Pago Móvil",        detalle: "Bancos de Venezuela · confirmación por WhatsApp", icono: "movil"  },
+      { nombre: "Transferencia",     detalle: "Cuenta en bolívares · envía el comprobante",       icono: "banco"  },
+      { nombre: "Binance / USDT",    detalle: "Cripto (red BEP20/TRC20) · tasa del día",          icono: "cripto" },
+      { nombre: "Zelle",             detalle: "Pagos en USD · consulta disponibilidad",            icono: "dolar"  },
+    ],
 
     /* ── Sonidos (rutas dentro de web/assets/sounds/) ── */
     sonido: {

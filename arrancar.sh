@@ -93,6 +93,8 @@ npm run migrate
 
 say "Asegurando usuario admin ($ADMIN_EMAIL)…"
 npx tsx src/scripts/crear-admin.ts "$ADMIN_EMAIL" "$ADMIN_PASS" || true
+say "Sembrando catálogo de ejemplo (idempotente)…"
+npx tsx src/scripts/seed-cms.ts seed-cms.example.json || true
 
 say "Arrancando backend en :$BACKEND_PORT…"
 nohup node dist/index.js > "$RUN/backend.log" 2>&1 &

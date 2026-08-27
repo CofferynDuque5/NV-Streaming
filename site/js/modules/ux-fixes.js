@@ -37,8 +37,86 @@ function abrirWhatsApp() {
   const w = cfg().whatsapp || {};
   const num = (w.numero || "").replace(/\D/g, "");
   const msg = encodeURIComponent(w.mensaje || "Hola, necesito asistencia con NV Stream");
-  if (!num) return;
+  if (!num) {
+    if (window.NVUI) window.NVUI.info("WhatsApp no configurado", "Configura el número en js/config.js (whatsapp.numero).");
+    return;
+  }
   window.open(`https://wa.me/${num}?text=${msg}`, "_blank", "noopener");
+}
+// Normaliza un enlace de red social: acepta URL completa o solo el usuario/canal.
+function urlRed(valor, base) {
+  const v = String(valor || "").trim();
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  return base + v.replace(/^@/, "");
+}
+function abrirTelegram() {
+  const url = urlRed((cfg().redes || {}).telegram, "https://t.me/");
+  if (!url) { if (window.NVUI) window.NVUI.info("Telegram no configurado", "Añade tu canal en js/config.js (redes.telegram)."); return; }
+  window.open(url, "_blank", "noopener");
+}
+function abrirInstagram() {
+  const url = urlRed((cfg().redes || {}).instagram, "https://instagram.com/");
+  if (!url) { if (window.NVUI) window.NVUI.info("Instagram no configurado", "Añade tu perfil en js/config.js (redes.instagram)."); return; }
+  window.open(url, "_blank", "noopener");
+}
+function abrirX() {
+  const url = urlRed((cfg().redes || {}).x, "https://x.com/");
+  if (!url) { if (window.NVUI) window.NVUI.info("X no configurado", "Añade tu perfil en js/config.js (redes.x)."); return; }
+  window.open(url, "_blank", "noopener");
+}
+// Modal de métodos de pago (datos NO sensibles desde config.pagos).
+async function abrirPagos() {
+  const pagos = (cfg().pagos && cfg().pagos.length) ? cfg().pagos : [
+    { nombre: "Pago Móvil", detalle: "Confirmación por WhatsApp" },
+    { nombre: "Transferencia", detalle: "Envía el comprobante" },
+  ];
+  const NVUI = window.NVUI;
+  const filas = pagos.map((p) =>
+    `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(0,207,255,0.16);border-radius:12px;margin-bottom:9px;background:rgba(0,207,255,0.04);">
+       <div style="width:34px;height:34px;border-radius:9px;background:rgba(0,207,255,0.12);display:flex;align-items:center;justify-content:center;color:#00CFFF;flex-shrink:0;">
+         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+       </div>
+       <div style="text-align:left;">
+         <div style="font-weight:600;color:#EEF2FF;font-size:14px;">${p.nombre}</div>
+         <div style="font-size:12px;color:rgba(200,215,255,0.55);">${p.detalle || ""}</div>
+       </div>
+     </div>`).join("");
+  const html =
+    `<div style="max-height:52vh;overflow:auto;margin:4px 0 2px;">${filas}</div>
+     <div style="font-size:12px;color:rgba(200,215,255,0.5);margin-top:6px;">Los datos exactos de pago se confirman por WhatsApp al hacer tu pedido.</div>`;
+  if (NVUI && NVUI.modal) {
+    await NVUI.modal({
+      tipo: "ask",
+      icono: "💳",
+      titulo: "Métodos de pago",
+      html,
+      acciones: [
+        { label: "Escribir por WhatsApp", val: "wa" },
+        { label: "Cerrar", ghost: true, val: 0 },
+      ],
+    }).then((v) => { if (v === "wa") abrirWhatsApp(); });
+  } else {
+    alert("Métodos de pago:\n" + pagos.map((p) => "• " + p.nombre).join("\n"));
+  }
+}
+// Enlaza los botones marcados con data-nv-link (métodos de pago, WhatsApp,
+// Telegram, Instagram, X) tanto en el header como en el pie.
+function wireEnlaces() {
+  if (wireEnlaces._done) return;
+  wireEnlaces._done = true;
+  document.addEventListener("click", (ev) => {
+    const el = ev.target.closest("[data-nv-link]");
+    if (!el) return;
+    const tipo = el.getAttribute("data-nv-link");
+    ev.preventDefault(); ev.stopPropagation();
+    reproducir("click");
+    if (tipo === "pagos") abrirPagos();
+    else if (tipo === "whatsapp") abrirWhatsApp();
+    else if (tipo === "telegram") abrirTelegram();
+    else if (tipo === "instagram") abrirInstagram();
+    else if (tipo === "x") abrirX();
+  }, true);
 }
 
 /* ── recorrido de nodos de texto (para moneda y limpieza de datos) ── */
@@ -64,7 +142,7 @@ function walkTexto(fn) {
 function wireSoporteHumano() {
   document.addEventListener("click", (ev) => {
     const b = ev.target.closest("button,a");
-    if (!b) return;
+    if (!b || b.closest("[data-nv-link]")) return;   // los data-nv-link los maneja wireEnlaces
     const t = (b.textContent || "").trim().toLowerCase();
     if (/soporte humano|hablar con asesor|contactar (asesor|soporte)|whatsapp/.test(t)) {
       ev.preventDefault();
@@ -93,8 +171,10 @@ function limpiarDatosFalsos() {
     v = v.replace(/usuario@nvplatform\.io/gi, correoTxt);
     // Saludo con nombre inventado ("Hola Juan").
     v = v.replace(/Hola Juan\b/gi, nombre ? "Hola " + nombre : "Hola");
-    // "3 servicios activos" fijos → neutral si es invitado.
-    if (!auth) v = v.replace(/\d+\s+servicios activos/gi, "tus servicios");
+    // "3 servicios activos" del panel de usuario → neutral si es invitado.
+    // (No tocar la marquesina de marca "+50 Servicios activos": va precedida de
+    //  "+" o "más de", así que la excluimos con un lookbehind.)
+    if (!auth) v = v.replace(/(?<![+]|más de )\b\d{1,2}\s+servicios activos/gi, "tus servicios");
     if (v !== node.nodeValue) node.nodeValue = v;
   });
 
@@ -451,6 +531,32 @@ function pintarStatsBilletera() {
   setTxt("[data-nv-movcount]", cuenta);
 }
 
+/* ───── Estado activo de la barra de categorías (caret + resaltado) ─────
+   El runtime no re-aplica la clase `active` de estas pestañas tras el primer
+   render (la clase se queda congelada), así que sincronizamos aquí el estado
+   `active` leyendo el menú abierto de la instancia. Esto arregla a la vez:
+   (a) la flechita que debe apuntar hacia arriba al desplegar, y
+   (b) el resaltado de la categoría activa, que nunca llegaba a aplicarse. */
+function claveNavCat(el) {
+  const t = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (/^categor/.test(t)) return "categorias";
+  if (/^ofertas/.test(t)) return "ofertas";
+  if (/^streaming/.test(t)) return "streaming";
+  if (/^m[úu]sica/.test(t)) return "musica";
+  if (/^ia\b/.test(t)) return "ia";
+  if (/^juegos/.test(t)) return "juegos";
+  if (/^software/.test(t)) return "software";
+  return null;
+}
+function sincronizarNavActivo() {
+  const inst = window.__NV_INSTANCE;
+  const abierto = inst && inst.state ? inst.state.openMenu : null;
+  document.querySelectorAll(".nav-cat").forEach((el) => {
+    const activo = claveNavCat(el) === abierto && abierto != null;
+    if (el.classList.contains("active") !== activo) el.classList.toggle("active", activo);
+  });
+}
+
 /* ───────────────────── re-aplicar tras cada render ───────────────────── */
 // Header sesión-consciente: el botón "Iniciar Sesión"/"Acceder" del encabezado
 // lleva a auth.html si NO hay sesión; si HAY sesión, muestra el nombre y cierra
@@ -509,6 +615,7 @@ function redecorar() {
   pintarSaldo();
   pintarStatsBilletera();
   gestionarSesionHeader();
+  sincronizarNavActivo();
   sincronizarSelectorMoneda();
   aplicarMoneda();
 }
@@ -519,6 +626,7 @@ export function instalarUX() {
 
   // Handlers globales (una sola vez).
   wireSoporteHumano();
+  wireEnlaces();
   wireSonidos();
   wireBilletera();
   wireMoneda();

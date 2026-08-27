@@ -1,7 +1,7 @@
 # NV Streaming — stack completo sin instalar nada en tu máquina.
 #
 #   docker compose up --build        # levanta BD + backend + frontend
-#   → Frontend: http://localhost:8080
+#   → Frontend: http://localhost:8090
 #   → Backend : http://localhost:3000/health
 #   → Admin   : admin@nv.com / Admin12345
 #
@@ -53,7 +53,8 @@ services:
     volumes:
       - ./site:/usr/share/nginx/html:ro
     ports:
-      - "8080:80"
+      # 8090 en el host (8080 suele estar ocupado, p. ej. por EnterpriseDB).
+      - "8090:80"
 
 volumes:
   pgdata:

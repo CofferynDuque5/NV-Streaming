@@ -31,6 +31,8 @@ function ensureStyle() {
     .nv-ic.ask{background:rgba(0,207,255,.1);border:1px solid rgba(0,207,255,.36);color:#00CFFF;}
     .nv-modal h3{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:6px;}
     .nv-modal p{font-size:13.5px;color:rgba(200,215,255,.7);line-height:1.5;margin-bottom:18px;}
+    .nv-modal .nv-html{margin-bottom:16px;}
+    .nv-modal.wide{max-width:440px;}
     .nv-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
     .nv-btn{padding:10px 18px;border-radius:10px;font:600 13.5px 'DM Sans',sans-serif;cursor:pointer;border:1px solid transparent;transition:transform .15s,box-shadow .15s;}
     .nv-btn:hover{transform:translateY(-1px);}
@@ -90,10 +92,13 @@ export function modal(opts) {
                   border:1px solid rgba(0,207,255,.3);border-radius:9px;color:#EEF2FF;font-size:14px;font-family:'DM Sans',sans-serif;
                   caret-color:#00CFFF;outline:none;" />`
       : '';
+    // Cuerpo: `html` se inserta tal cual (contenido confiable de la propia app);
+    // `mensaje` se escapa. Si hay `html` no se pinta el <p> del mensaje.
+    const cuerpo = o.html ? `<div class="nv-html">${o.html}</div>` : `<p>${esc(o.mensaje || '')}</p>`;
     ov.innerHTML = `<div class="nv-modal" role="dialog" aria-modal="true">
-      <div class="nv-ic ${tipo}">${o.icono || iconos[tipo]}</div>
+      <div class="nv-ic ${tipo}">${o.icono || iconos[tipo] || 'i'}</div>
       <h3>${esc(o.titulo || '')}</h3>
-      <p>${esc(o.mensaje || '')}</p>
+      ${cuerpo}
       ${inp}
       <div class="nv-acts">${acciones.map((a, i) => `<button class="nv-btn ${a.ghost ? 'ghost' : 'primary'}" data-i="${i}">${esc(a.label)}</button>`).join('')}</div>
     </div>`;
@@ -116,6 +121,7 @@ export const NVUI = {
   modal,
   confirmar: (titulo, mensaje, confirmLabel) => modal({ tipo: 'ask', titulo, mensaje, confirmLabel }),
   exito: (titulo, mensaje) => modal({ tipo: 'ok', titulo, mensaje }),
+  info: (titulo, mensaje) => modal({ tipo: 'ask', titulo, mensaje, icono: 'i' }),
   error: (titulo, mensaje) => modal({ tipo: 'err', titulo, mensaje }),
   /** Pide un dato de texto. Devuelve el string (trim) o null si se cancela. */
   pedir: (titulo, mensaje, input, confirmLabel) => modal({ tipo: 'ask', titulo, mensaje, input: input || {}, confirmLabel: confirmLabel || 'Continuar' }),
