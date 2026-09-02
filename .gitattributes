@@ -1,0 +1,33 @@
+# Normalización de saltos de línea.
+#
+# Los scripts de shell y ficheros de arranque DEBEN usar LF siempre. En Windows,
+# Git por defecto convierte a CRLF al descargar y bash falla con errores como
+# "invalid option name: pipefail" (por el \r al final de `set -euo pipefail`).
+# Forzar `eol=lf` evita ese problema en cualquier sistema.
+
+# Por defecto: Git detecta texto/binario y normaliza a LF en el repo.
+* text=auto
+
+# Scripts y ficheros que SIEMPRE deben quedar en LF (se ejecutan en Linux/bash).
+*.sh        text eol=lf
+setup.sh    text eol=lf
+arrancar.sh text eol=lf
+Dockerfile  text eol=lf
+Procfile    text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Scripts propios de Windows en CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binarios: sin conversión.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.zip binary
+*.pdf binary
