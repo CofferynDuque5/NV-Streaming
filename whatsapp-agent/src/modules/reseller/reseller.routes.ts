@@ -5,16 +5,15 @@
  *   GET  /api/reseller/commissions    libro de comisiones
  *   POST /api/reseller/withdraw       retira comisiones disponibles → billetera
  */
-import { Router, type Request, type Response, type NextFunction } from 'express';
-import { ResellerController } from './reseller.controller.js';
+import { Router } from 'express';
+import { ResellerController, esquemaRetiro } from './reseller.controller.js';
 import { requireAuth } from '../auth/auth.middleware.js';
-
-const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
-  (req: Request, res: Response, next: NextFunction) => { fn(req, res).catch(next); };
+import { asyncHandler } from '../../core/async-handler.js';
+import { validate } from '../../core/validate.js';
 
 export const resellerRouter = Router();
 
-resellerRouter.get('/reseller/overview', requireAuth, wrap(ResellerController.overview));
-resellerRouter.get('/reseller/clients', requireAuth, wrap(ResellerController.clients));
-resellerRouter.get('/reseller/commissions', requireAuth, wrap(ResellerController.commissions));
-resellerRouter.post('/reseller/withdraw', requireAuth, wrap(ResellerController.withdraw));
+resellerRouter.get('/reseller/overview', requireAuth, asyncHandler(ResellerController.overview));
+resellerRouter.get('/reseller/clients', requireAuth, asyncHandler(ResellerController.clients));
+resellerRouter.get('/reseller/commissions', requireAuth, asyncHandler(ResellerController.commissions));
+resellerRouter.post('/reseller/withdraw', requireAuth, validate(esquemaRetiro), asyncHandler(ResellerController.withdraw));

@@ -2,29 +2,44 @@
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { createApp } from './server.js';
-import { closePool } from './db/pool.js';
+import { closePool, esperarConexion } from './db/pool.js';
 import { startCron, stopCron } from './cron/scheduler.js';
 
-const app = createApp();
-const server = app.listen(env.PORT, () => {
-  logger.info(`🚀 NV Stream · agente WhatsApp escuchando en http://localhost:${env.PORT}`);
-  logger.info(`   Webhook: POST/GET /webhook/whatsapp  ·  Health: GET /health`);
-});
+async function main(): Promise<void> {
+  // No aceptamos tráfico hasta confirmar que Postgres responde (reintentos con
+  // backoff). Evita servir 500 durante el arranque si la BD tarda en levantar.
+  await esperarConexion();
 
-// Tareas programadas (node-cron): aviso de vencimiento diario + renovaciones.
-// Desactivable con CRON_ENABLED=off; alternativamente usar los CLI job:*.
-startCron();
-
-async function shutdown(signal: string): Promise<void> {
-  logger.info({ signal }, 'Apagando…');
-  stopCron();
-  server.close(async () => {
-    await closePool();
-    process.exit(0);
+  const app = createApp();
+  const server = app.listen(env.PORT, () => {
+    logger.info(`🚀 NV Stream · agente WhatsApp escuchando en http://localhost:${env.PORT}`);
+    logger.info(`   Webhook: POST/GET /webhook/whatsapp  ·  Health: GET /health`);
   });
-  // Salvavidas si algo se cuelga.
-  setTimeout(() => process.exit(1), 10_000).unref();
+
+  // Tareas programadas (node-cron): aviso de vencimiento diario + renovaciones.
+  // Desactivable con CRON_ENABLED=off; alternativamente usar los CLI job:*.
+  startCron();
+
+  registrarApagado(server);
 }
 
-process.on('SIGINT', () => void shutdown('SIGINT'));
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
+/** Apagado ordenado: detiene cron, cierra el servidor HTTP y el pool de BD. */
+function registrarApagado(server: import('node:http').Server): void {
+  const apagar = async (signal: string): Promise<void> => {
+    logger.info({ signal }, 'Apagando…');
+    stopCron();
+    server.close(async () => {
+      await closePool();
+      process.exit(0);
+    });
+    // Salvavidas si algo se cuelga.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on('SIGINT', () => void apagar('SIGINT'));
+  process.on('SIGTERM', () => void apagar('SIGTERM'));
+}
+
+main().catch((err) => {
+  logger.error({ err }, 'Fallo fatal en el arranque');
+  process.exit(1);
+});

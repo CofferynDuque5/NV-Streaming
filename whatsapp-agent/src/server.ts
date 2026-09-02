@@ -1,7 +1,10 @@
 /** Construcción de la app Express (rutas, middleware, manejo de errores). */
-import express, { type Request, type Response, type NextFunction } from 'express';
+import express from 'express';
 import { pinoHttp } from 'pino-http';
 import { logger } from './utils/logger.js';
+import { requestId, requestTimeout } from './core/request-context.js';
+import { rateLimit } from './core/rate-limit.js';
+import { errorHandler, notFound } from './core/error-handler.js';
 import { webhookRouter } from './modules/webhook/webhook.routes.js';
 import { paymentsRouter } from './modules/payments/payments.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
@@ -20,8 +23,16 @@ import type { RawBodyRequest } from './modules/webhook/webhook.controller.js';
 export function createApp() {
   const app = express();
 
-  // Log de peticiones.
+  // Identificador de correlación por petición (X-Request-Id) — antes del log
+  // para que cada línea lo lleve.
+  app.use(requestId());
+
+  // Log de peticiones (incluye el requestId ya presente en la cabecera).
   app.use(pinoHttp({ logger }));
+
+  // Presupuesto de tiempo por petición: si una ruta no responde en 20 s se
+  // corta con 503 en vez de dejar la conexión colgada (resiliencia).
+  app.use(requestTimeout(20_000));
 
   // CORS. Por defecto permite el origen configurado o '*' (dev). En producción
   // define CORS_ORIGIN con tu dominio del frontend para restringirlo.
@@ -82,14 +93,12 @@ export function createApp() {
   // Asistente NV: enrutador de intenciones sobre datos reales.
   app.use('/api', chatRouter);
 
-  // 404.
-  app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
+  // 404 uniforme.
+  app.use(notFound);
 
-  // Manejador de errores centralizado.
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    logger.error({ err }, 'Error no controlado');
-    res.status(500).json({ error: 'internal_error' });
-  });
+  // Manejador de errores centralizado: normaliza AppError/ZodError → estado y
+  // cuerpo JSON coherentes; registra con el requestId de correlación.
+  app.use(errorHandler);
 
   return app;
 }

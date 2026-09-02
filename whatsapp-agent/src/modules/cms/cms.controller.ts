@@ -6,6 +6,10 @@
 import type { Request, Response } from 'express';
 import { CmsRepository } from '../../db/repositories/cms.repo.js';
 import type { AuthedRequest } from '../auth/auth.middleware.js';
+import { cacheCms } from '../../core/cache.js';
+
+// Prefijo de clave de caché por colección (agrupa lista + documentos sueltos).
+const claveLista = (coleccion: string): string => `cms:list:${coleccion}`;
 
 // Colecciones de LECTURA PÚBLICA (contenido de la tienda que ve cualquiera).
 export const CMS_PUBLICAS = new Set<string>([
@@ -37,7 +41,12 @@ export const CmsController = {
     const c = req.params.coleccion || '';
     if (!validarColeccion(c, res)) return;
     if (!puedeLeer(c, req)) { res.status(401).json({ error: 'no_autenticado' }); return; }
-    res.json({ coleccion: c, documentos: await CmsRepository.listar(c) });
+    // Solo cacheamos las colecciones públicas (contenido de tienda, muy leído y
+    // casi estático). Las privadas siempre van a BD.
+    const documentos = CMS_PUBLICAS.has(c)
+      ? await cacheCms.obtenerO(claveLista(c), () => CmsRepository.listar(c))
+      : await CmsRepository.listar(c);
+    res.json({ coleccion: c, documentos });
   },
 
   async obtener(req: Request, res: Response): Promise<void> {
@@ -55,6 +64,7 @@ export const CmsController = {
     if (!validarColeccion(c, res)) return;
     const body = (req.body && typeof req.body === 'object') ? req.body as Record<string, unknown> : {};
     const doc = await CmsRepository.upsert(c, req.params.id || '', body);
+    cacheCms.invalidar(claveLista(c)); // el contenido cambió → refrescar caché.
     res.json(doc);
   },
 
@@ -62,6 +72,7 @@ export const CmsController = {
     const c = req.params.coleccion || '';
     if (!validarColeccion(c, res)) return;
     const ok = await CmsRepository.borrar(c, req.params.id || '');
+    cacheCms.invalidar(claveLista(c));
     res.status(ok ? 200 : 404).json({ ok });
   },
 };

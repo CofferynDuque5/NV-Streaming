@@ -10,15 +10,21 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 import { env, isProd } from '../../config/env.js';
 import { UsersRepository, type UsuarioAuth } from '../../db/repositories/users.repo.js';
 import { ResellerRepository } from '../../db/repositories/reseller.repo.js';
+import { AppError } from '../../core/errors.js';
 
 if (isProd && !env.JWT_SECRET) {
   throw new Error('JWT_SECRET es obligatorio en producción (define un secreto fuerte).');
 }
 const SECRET: string = env.JWT_SECRET || 'nv-dev-secret-NO-USAR-EN-PROD';
 
-export class AuthError extends Error {
-  code: string;
-  constructor(code: string, message: string) { super(message); this.code = code; }
+const ESTADO_AUTH: Readonly<Record<string, number>> = {
+  email_en_uso: 409, credenciales: 401, email_invalido: 400, password_debil: 400,
+};
+
+export class AuthError extends AppError {
+  constructor(code: string, message: string) {
+    super({ code, message, statusCode: ESTADO_AUTH[code] ?? 400 });
+  }
 }
 
 export type SesionPublica = { id: string; email: string | null; nombre: string | null; rol: string; saldo: number };

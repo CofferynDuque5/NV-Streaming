@@ -10,10 +10,16 @@
  *     del revendedor, con asiento en el libro mayor, todo en una transacción.
  */
 import { query, withTransaction } from '../pool.js';
+import { AppError } from '../../core/errors.js';
 
-export class ResellerError extends Error {
-  code: string;
-  constructor(code: string, message: string) { super(message); this.code = code; }
+const ESTADO_RESELLER: Readonly<Record<string, number>> = {
+  sin_comisiones: 409, usuario_no_encontrado: 404, codigo_no_generado: 500,
+};
+
+export class ResellerError extends AppError {
+  constructor(code: string, message: string) {
+    super({ code, message, statusCode: ESTADO_RESELLER[code] ?? 400 });
+  }
 }
 
 const money2 = (n: number): number => Math.round(n * 100) / 100;

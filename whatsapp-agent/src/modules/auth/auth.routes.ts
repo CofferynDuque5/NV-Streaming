@@ -5,16 +5,19 @@
  *   GET  /api/auth/me        (Bearer token)               → { usuario }
  *   POST /api/auth/logout                                 → { ok } (el cliente descarta el token)
  */
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { Router } from 'express';
 import { AuthController } from './auth.controller.js';
 import { requireAuth } from './auth.middleware.js';
-
-const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
-  (req: Request, res: Response, next: NextFunction) => { fn(req, res).catch(next); };
+import { asyncHandler } from '../../core/async-handler.js';
+import { rateLimit } from '../../core/rate-limit.js';
 
 export const authRouter = Router();
 
-authRouter.post('/auth/register', wrap(AuthController.register));
-authRouter.post('/auth/login', wrap(AuthController.login));
-authRouter.get('/auth/me', requireAuth, wrap(AuthController.me));
+// Freno anti-fuerza-bruta: como máximo 10 intentos por IP cada 5 min sobre los
+// endpoints con credenciales (registro/login). Devuelve 429 con Retry-After.
+const limiteCredenciales = rateLimit({ windowMs: 5 * 60_000, max: 10 });
+
+authRouter.post('/auth/register', limiteCredenciales, asyncHandler(AuthController.register));
+authRouter.post('/auth/login', limiteCredenciales, asyncHandler(AuthController.login));
+authRouter.get('/auth/me', requireAuth, asyncHandler(AuthController.me));
 authRouter.post('/auth/logout', (_req, res) => { res.json({ ok: true }); });

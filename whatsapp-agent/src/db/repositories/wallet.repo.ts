@@ -5,10 +5,18 @@
  * algo falla, todo se revierte. Nunca hay crédito sin asiento ni saldo negativo.
  */
 import { query, withTransaction } from '../pool.js';
+import { AppError } from '../../core/errors.js';
 
-export class WalletError extends Error {
-  code: string;
-  constructor(code: string, message: string) { super(message); this.code = code; }
+/** Código de fallo de billetera → estado HTTP (traducido por el manejador central). */
+const ESTADO_WALLET: Readonly<Record<string, number>> = {
+  saldo_insuficiente: 402, usuario_no_encontrado: 404, recarga_no_pendiente: 409,
+  destino_no_encontrado: 404, destino_invalido: 400, monto_invalido: 400,
+};
+
+export class WalletError extends AppError {
+  constructor(code: string, message: string) {
+    super({ code, message, statusCode: ESTADO_WALLET[code] ?? 400 });
+  }
 }
 
 /** Redondea dinero a 2 decimales (evita ruido de coma flotante en las respuestas). */
