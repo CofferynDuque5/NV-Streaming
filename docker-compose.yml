@@ -24,7 +24,8 @@ services:
       timeout: 3s
       retries: 20
 
-  # ── Backend Node/Express (migra el esquema y crea el admin al arrancar) ──
+  # ── Backend Node/Express (al arrancar: migra el esquema, siembra el catálogo
+  #    real y crea el admin desde SEED_ADMIN_*; todo idempotente) ──
   backend:
     build: ./whatsapp-agent
     depends_on:
@@ -34,14 +35,15 @@ services:
       NODE_ENV: development
       PORT: "3000"
       DATABASE_URL: postgres://nv:nvpass@db:5432/nv_streaming
-      # ⚠️ En producción cambia este secreto por uno fuerte.
+      # ⚠️ En producción cambia este secreto por uno fuerte (≥ 32 caracteres).
       JWT_SECRET: cambia-esto-por-un-secreto-fuerte-en-produccion
       WHATSAPP_VERIFY_TOKEN: dev
       WHATSAPP_APP_SECRET: dev
       CRON_ENABLED: "off"
       CORS_ORIGIN: "*"
-      ADMIN_EMAIL: admin@nv.com
-      ADMIN_PASS: Admin12345
+      # Admin inicial que crea el seeder (cámbialo si quieres).
+      SEED_ADMIN_EMAIL: admin@nv.com
+      SEED_ADMIN_PASSWORD: Admin12345
     ports:
       - "3000:3000"
 
