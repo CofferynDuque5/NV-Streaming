@@ -31,6 +31,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# Arranque: aplica migraciones y levanta la API. El seed (catálogo/admin) se
-# ejecuta aparte y de forma controlada:  docker compose run --rm app npm run seed
-CMD ["sh", "-c", "node dist/db/migrate.js && node dist/index.js"]
+# Arranque: (1) migra el esquema [crítico], (2) siembra catálogo real + admin
+# desde SEED_ADMIN_* [idempotente, best-effort], (3) levanta la API. Así, con
+# `docker compose up`, la web no arranca vacía. Todo usa el JS ya compilado
+# (dist/), sin tsx, para funcionar en la imagen de producción (--omit=dev).
+CMD ["sh", "-c", "node dist/db/migrate.js && (node dist/scripts/seed.js || echo 'seed omitido') && node dist/index.js"]
