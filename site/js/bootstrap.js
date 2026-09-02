@@ -23,6 +23,10 @@ import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarReseller } from "./modules/reseller-api.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
+import { instalarToasts } from "./modules/nv-toast.js";
+import { instalarForms } from "./modules/nv-forms.js";
+import { instalarUiState } from "./modules/nv-ui-state.js";
+import { instalarPerf } from "./modules/nv-perf.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -60,6 +64,10 @@ async function pedirWhatsApp() {
 async function boot() {
   Commerce.initCommerce();        // carrito + moneda desde localStorage
   instalarBridge();               // window.NV + decorate + delegación de clics
+  instalarToasts();               // notificaciones no bloqueantes (window.NVToast) + errores de red
+  instalarUiState();              // helper skeleton/empty/error (window.NVState)
+  instalarForms();                // validación de formularios en tiempo real
+  instalarPerf();                 // rendimiento: lazy-loading de imágenes (actuales y futuras)
   instalarUI();                   // spinner + modales (window.NVUI)
   instalarSonido();               // feedback auditivo (window.NVSound)
   instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte
