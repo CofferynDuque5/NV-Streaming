@@ -37,11 +37,19 @@ const PLANES: ReadonlyArray<{ plataformaId: string; nombre: string; precio: numb
   { plataformaId: 'chatgpt', nombre: 'ChatGPT Plus — 1 mes', precio: 9.99 },
 ];
 
+async function leerSeedCms(): Promise<string | null> {
+  // Prioridad: SEED_CMS_FILE → seed-cms.json (copia local, .gitignore) →
+  // seed-cms.example.json (plantilla versionada, siempre presente).
+  const candidatos = [process.env.SEED_CMS_FILE, 'seed-cms.json', 'seed-cms.example.json'].filter(Boolean) as string[];
+  for (const ruta of candidatos) {
+    try { return await readFile(ruta, 'utf8'); } catch { /* siguiente candidato */ }
+  }
+  return null;
+}
+
 async function seedCms(): Promise<number> {
-  const file = process.env.SEED_CMS_FILE || 'seed-cms.json';
-  let raw: string;
-  try { raw = await readFile(file, 'utf8'); }
-  catch { logger.warn(`(CMS) ${file} no encontrado — omito el contenido de tienda.`); return 0; }
+  const raw = await leerSeedCms();
+  if (raw == null) { logger.warn('(CMS) No hay seed-cms.json ni seed-cms.example.json — omito el contenido de tienda.'); return 0; }
   const data = JSON.parse(raw) as Record<string, Array<Record<string, unknown>>>;
   let total = 0;
   for (const [coleccion, docs] of Object.entries(data)) {

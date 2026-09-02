@@ -19,9 +19,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-# Artefactos compilados y ficheros de datos necesarios en runtime.
+# Artefactos compilados y datos de arranque. Se copia la PLANTILLA versionada
+# (seed-cms.example.json siempre existe en el repo); el seeder la usa como
+# respaldo si no hay un seed-cms.json local. Se copian ambos patrones con '*'
+# para que, si existe un seed-cms.json propio, también entre.
 COPY --from=build /app/dist ./dist
-COPY seed-cms.json ./seed-cms.json
+COPY seed-cms*.json ./
 
 # Ejecuta como usuario sin privilegios (buena práctica).
 USER node
