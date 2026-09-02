@@ -1,18 +1,25 @@
 /** Webhooks de OTP (Telegram / WhatsApp) + lectura para operadores. Portado de las Functions. */
+import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
-import { env } from '../../config/env.js';
+import { env, isProd } from '../../config/env.js';
 import * as Otp from './otp.service.js';
 import { CodigosRepository } from '../../db/repositories/codigos.repo.js';
 
-// Valida el token del webhook (bearer / cabecera de Telegram / query). Si el
-// secreto está vacío NO bloquea (solo dev) — igual que la Cloud Function.
+/** Comparación de tokens en tiempo constante (evita ataques de temporización). */
+function igualdadSegura(a: string, b: string): boolean {
+  const ba = Buffer.from(a); const bb = Buffer.from(b);
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+// Valida el token del webhook por cabecera (Bearer o cabecera de Telegram). NO
+// se acepta por query-string (los tokens en la URL acaban en logs/proxies). Si
+// el secreto está vacío: en producción se DENIEGA (fail-closed); en dev se permite.
 function tokenValido(req: Request, esperado: string): boolean {
-  if (!esperado) return true;
+  if (!esperado) return !isProd;
   const header = String(req.headers.authorization || '');
   const bearer = header.startsWith('Bearer ') ? header.slice(7) : '';
   const tg = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-  const q = typeof req.query.token === 'string' ? req.query.token : '';
-  return bearer === esperado || tg === esperado || q === esperado;
+  return igualdadSegura(bearer, esperado) || igualdadSegura(tg, esperado);
 }
 
 export const OtpController = {

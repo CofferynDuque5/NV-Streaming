@@ -23,3 +23,6 @@ Thumbs.db
 
 # Copia local del seed (el template versionado es seed-cms.example.json)
 whatsapp-agent/seed-cms.json
+
+# Artefactos de exportación generados por scripts/make-clean-zip.sh
+nv-streaming-*.zip

@@ -16,7 +16,7 @@ let _obs = null;
 /* ── Tabla "Mis Clientes": el <sc-for> dentro de <tbody> lo reubica el parser
    HTML (foster-parenting), así que pintamos el cuerpo desde JS con los clientes
    referidos REALES y lo re-pintamos si el runtime lo limpia. ── */
-const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (n) => "$" + (Number(n) || 0).toFixed(2);
 const fecha = (d) => { try { return d ? Utils.fecha(d) : "—"; } catch (_) { return "—"; } };
 const bordes = "border-bottom:1px solid rgba(80,100,200,0.08);border-right:1px solid rgba(80,100,200,0.06);";

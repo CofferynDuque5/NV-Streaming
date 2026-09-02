@@ -12,13 +12,14 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { PARAMETROS, TEMA_INTERFAZ, PLANTILLAS_MENSAJES } from '../../config/platform-config.js';
 import { UsersRepository } from '../../db/repositories/users.repo.js';
 import { SubscriptionsRepository } from '../../db/repositories/subscriptions.repo.js';
+import { optionalAuth, type AuthedRequest } from '../auth/auth.middleware.js';
 
 export const gatewayRouter = Router();
 
 gatewayRouter.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
   next();
 });
@@ -38,11 +39,12 @@ gatewayRouter.get('/config', (_req, res) => {
   });
 });
 
-// Perfil real o estado Guest (nunca inventa un perfil).
-gatewayRouter.get('/user/profile', wrap(async (req, res) => {
-  const userId = req.query.userId ? String(req.query.userId) : '';
-  if (!userId) { res.json({ ok: true, autenticado: false, guest: true, perfil: null }); return; }
-  const u = await UsersRepository.findByWhatsapp(userId).catch(() => null);
+// Perfil real o estado Guest. La identidad SIEMPRE sale del JWT (optionalAuth):
+// se acabó el `?userId=<teléfono>` que permitía leer el perfil de cualquiera.
+gatewayRouter.get('/user/profile', optionalAuth, wrap(async (req, res) => {
+  const sub = (req as AuthedRequest).user?.sub;
+  if (!sub) { res.json({ ok: true, autenticado: false, guest: true, perfil: null }); return; }
+  const u = await UsersRepository.findById(sub).catch(() => null);
   if (!u) { res.json({ ok: true, autenticado: false, guest: true, perfil: null }); return; }
   const subs = await SubscriptionsRepository.findActiveDetailedByUser(u.id).catch(() => []);
   res.json({
@@ -53,7 +55,6 @@ gatewayRouter.get('/user/profile', wrap(async (req, res) => {
       id: u.id,
       nombre: u.nombre,
       email: u.email,
-      id_whatsapp: u.id_whatsapp,
       servicios_activos: subs.length,
     },
   });

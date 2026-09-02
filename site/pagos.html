@@ -8,6 +8,8 @@
 <script type="module" src="./js/bootstrap.js"></script>
 <title>Pagos — NV Streaming</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-tokens.css">
+<link rel="stylesheet" href="./css/nv-design-system.css">
 <link rel="stylesheet" href="./css/nv-fixes.css">
 <link rel="stylesheet" href="./css/inspector.css">
 <style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
@@ -334,34 +336,19 @@ class Component extends DCLogic {
 
   renderVals() {
     const cur = this.state.method;
+    // NOTA: sin datos de cobro de ejemplo. El bridge (decoratePagos) rellena estas
+    // líneas con los métodos de pago REALES de metodos_pago_config, o muestra el
+    // estado "Método no configurado". Este objeto es solo la estructura de primer
+    // render; nunca debe contener cuentas/teléfonos/correos reales o inventados.
+    const sinConfig = (title) => ({ title, lines:[
+      { label:'Estado', value:'Aún no configurado' },
+    ]});
     const DETAILS = {
-      movil: { title:'Pago Móvil', lines:[
-        { label:'Banco', value:'Banesco · 0134' },
-        { label:'Teléfono', value:'0412-555-6677' },
-        { label:'Cédula/RIF', value:'V-12.345.678' },
-        { label:'Monto exacto', value:'$7.99' },
-      ]},
-      zelle: { title:'Zelle', lines:[
-        { label:'Correo Zelle', value:'pagos@nvplatform.io' },
-        { label:'Titular', value:'NV Streaming LLC' },
-        { label:'Monto exacto', value:'$7.99' },
-      ]},
-      binance: { title:'Binance Pay', lines:[
-        { label:'Pay ID', value:'384 552 019' },
-        { label:'Red', value:'USDT · BEP20' },
-        { label:'Monto exacto', value:'7.99 USDT' },
-      ]},
-      transferencia: { title:'Transferencia', lines:[
-        { label:'Banco', value:'Mercantil · 0105' },
-        { label:'Cuenta', value:'0105-1234-5678-9012' },
-        { label:'Titular', value:'NV Streaming LLC' },
-        { label:'Monto exacto', value:'$7.99' },
-      ]},
-      paypal: { title:'PayPal', lines:[
-        { label:'Correo PayPal', value:'pagos@nvplatform.io' },
-        { label:'Tipo', value:'Amigos y familia' },
-        { label:'Monto exacto', value:'$7.99' },
-      ]},
+      movil: sinConfig('Pago Móvil'),
+      zelle: sinConfig('Zelle'),
+      binance: sinConfig('Binance Pay'),
+      transferencia: sinConfig('Transferencia'),
+      paypal: sinConfig('PayPal'),
     };
     const mk = (id, name, emoji, iconBg, iconBorder, desc) => ({
       id, name, emoji, iconBg, iconBorder, desc, active: cur === id,

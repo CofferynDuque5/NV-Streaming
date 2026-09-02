@@ -3,7 +3,8 @@
  *
  * Reemplaza las burbujas estáticas quemadas del HTML por un flujo real:
  *   1. `onSendMessage()` captura el texto del input del chat.
- *   2. POST asíncrono a `http://localhost:3000/api/chat` con `{ message, userId }`.
+ *   2. POST asíncrono a `http://localhost:3000/api/chat` con `{ message }` y el
+ *      token JWT en `Authorization` (la identidad nunca viaja en el cuerpo).
  *   3. Mientras la promesa está pendiente → indicador "Asistente NV está
  *      procesando…" (typing real, no simulado).
  *   4. Al responder el backend → renderiza dinámicamente la burbuja de la IA
@@ -26,17 +27,17 @@ function api() {
   return (c.base || "http://localhost:3000").replace(/\/$/, "") + (c.chat || "/api/chat");
 }
 
-function userId() {
-  const s = Store.get("sesion") || {};
-  const u = s.usuario;
-  if (u && (u.telefono || u.uid)) return String(u.telefono || u.uid);
-  let g = null;
-  try { g = localStorage.getItem("nv_chat_uid"); if (!g) { g = "guest_" + Date.now().toString(36); localStorage.setItem("nv_chat_uid", g); } } catch (_) { g = "guest"; }
-  return g;
+// El token JWT identifica al usuario en el backend (la identidad NUNCA viaja en
+// el cuerpo). Sin token → invitado: el asistente responde temas generales
+// (catálogo/precios) pero no datos de cuenta.
+function token() {
+  try { return localStorage.getItem("nv_token") || ""; } catch (_) { return ""; }
 }
 
 /* ─────────────────────────  RENDER  ───────────────────────── */
-const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+// Escapa también comillas: estos valores se interpolan dentro de atributos
+// (p. ej. data-cmd="..."), no solo en texto — evita romper el atributo (XSS).
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function avatarIA() {
   return `<div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#0A3AAE,#00CFFF);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8z"/></svg></div>`;
@@ -131,10 +132,13 @@ async function onSendMessage(texto, stream) {
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 3500);
+    const tk = token();
+    const headers = { "Content-Type": "application/json", Accept: "application/json" };
+    if (tk) headers.Authorization = "Bearer " + tk;
     const res = await fetch(api(), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ message: msg, userId: userId() }),
+      headers,
+      body: JSON.stringify({ message: msg }), // identidad por token, no por body
       signal: ctrl.signal,
     });
     clearTimeout(to);

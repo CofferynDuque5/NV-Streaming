@@ -1,61 +1,35 @@
 /**
- * seeder.js — Completa la base de datos de PostgreSQL con las colecciones que
- * faltaban del blueprint. Idempotente: usa setDoc con id fijo, de modo que
- * re-ejecutarlo no duplica documentos.
+ * seeder.js — DESACTIVADO por seguridad de datos (QA de integración).
  *
- * Se dispara desde el Back Office (botón "Completar base de datos") o desde la
- * consola: `import('./js/seeder.js').then(m => m.sembrarTodo())`.
+ * Antes empujaba el dataset de demostración (`seed.js`) a la base de datos real:
+ * usuarios, pedidos, credenciales y datos de contacto FICTICIOS. Eso contamina
+ * producción con datos falsos y NO debe ocurrir jamás.
+ *
+ * La hidratación con datos REALES se hace ahora SOLO desde el backend, con datos
+ * versionados y auditables:
+ *     cd whatsapp-agent
+ *     npm run migrate        # esquema
+ *     npm run seed           # catálogo real (planes) + CMS + admin (por ENV)
+ *
+ * Se conservan las firmas para no romper llamadas existentes, pero rechazan.
  */
 
-import NVCore from "./core.js";
-import SEED from "./seed.js";
+const MENSAJE =
+  "Sembrado desde el frontend deshabilitado. Usa el seeder del backend " +
+  "(cd whatsapp-agent && npm run seed) para hidratar con datos reales.";
 
-const { DB } = NVCore;
-
-// Separa `_id` (id de documento) del resto de campos.
-function partir(docObj) {
-  const { _id, id, ...campos } = docObj;
-  return { id: _id || id, campos };
+export async function sembrarTodo() {
+  console.warn("[seeder] " + MENSAJE);
+  throw new Error(MENSAJE);
 }
 
-export async function sembrarColeccion(coll, docs, onProgress) {
-  let n = 0;
-  for (const d of docs) {
-    const { id, campos } = partir(d);
-    try {
-      if (id) await DB.setOne(coll, id, campos, true);
-      else await DB.add(coll, campos);
-      n++;
-      if (onProgress) onProgress(coll, n, docs.length);
-    } catch (e) {
-      console.warn("[seeder]", coll, id, e && e.message);
-    }
-  }
-  return n;
-}
-
-export async function sembrarTodo(onProgress) {
-  if (!DB.online) throw new Error("Firebase no disponible: no se puede sembrar en modo offline.");
-  const resultado = {};
-
-  // configuracion_sistema: 3 documentos de id fijo.
-  const cfg = SEED.configuracion_sistema;
-  await DB.setOne("configuracion_sistema", "parametros", cfg.parametros, true);
-  await DB.setOne("configuracion_sistema", "tema_interfaz", cfg.tema_interfaz, true);
-  await DB.setOne("configuracion_sistema", "plantillas_mensajes", cfg.plantillas_mensajes, true);
-  resultado.configuracion_sistema = 3;
-  if (onProgress) onProgress("configuracion_sistema", 3, 3);
-
-  // Resto de colecciones (arrays).
-  for (const [coll, docs] of Object.entries(SEED)) {
-    if (coll === "configuracion_sistema") continue;
-    resultado[coll] = await sembrarColeccion(coll, docs, onProgress);
-  }
-  return resultado;
+export async function sembrarColeccion() {
+  console.warn("[seeder] " + MENSAJE);
+  throw new Error(MENSAJE);
 }
 
 if (typeof window !== "undefined") {
-  window.NVSeeder = { sembrarTodo, sembrarColeccion };
+  window.NVSeeder = { sembrarTodo, sembrarColeccion, deshabilitado: true };
 }
 
 export default { sembrarTodo, sembrarColeccion };

@@ -4,6 +4,10 @@ import { WalletRepository, WalletError } from '../../db/repositories/wallet.repo
 import { normalizarMetodoRecarga, METODOS_RECARGA_VALIDOS } from '../../config/payment-methods.js';
 import type { AuthedRequest } from '../auth/auth.middleware.js';
 
+// Tope superior de importe por operación (defensa: evita montos absurdos por
+// error o abuso; los importes normales del negocio están muy por debajo).
+const MONTO_MAX = 100_000;
+
 export const WalletController = {
   // Cliente: su saldo + últimos movimientos.
   async resumen(req: Request, res: Response): Promise<void> {
@@ -25,7 +29,7 @@ export const WalletController = {
   async solicitarRecarga(req: Request, res: Response): Promise<void> {
     const uid = (req as AuthedRequest).user!.sub;
     const monto = Number(req.body?.monto);
-    if (!Number.isFinite(monto) || monto <= 0) { res.status(400).json({ error: 'monto_invalido' }); return; }
+    if (!Number.isFinite(monto) || monto <= 0 || monto > MONTO_MAX) { res.status(400).json({ error: 'monto_invalido' }); return; }
     // El método de pago se valida y normaliza a su forma canónica; un valor
     // desconocido (o un alias del frontend) ya no se guarda tal cual.
     const metodoPago = normalizarMetodoRecarga(req.body?.metodo_pago);
@@ -50,7 +54,7 @@ export const WalletController = {
     const emailDestino = String(req.body?.email ?? req.body?.email_destino ?? '').trim();
     const monto = Number(req.body?.monto);
     if (!emailDestino) { res.status(400).json({ error: 'email_requerido' }); return; }
-    if (!Number.isFinite(monto) || monto <= 0) { res.status(400).json({ error: 'monto_invalido' }); return; }
+    if (!Number.isFinite(monto) || monto <= 0 || monto > MONTO_MAX) { res.status(400).json({ error: 'monto_invalido' }); return; }
     try {
       const r = await WalletRepository.transferir(uid, emailDestino, monto, 'Transferencia');
       res.json({ ok: true, saldo: r.saldoOrigen, destino: { email: r.destino.email, nombre: r.destino.nombre } });

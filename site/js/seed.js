@@ -261,107 +261,73 @@ export const TARJETAS_HEADER = [
 ];
 
 /* ──────────────────────────  MÉTODOS DE PAGO  ──────────────────────── */
+// Métodos de pago: se muestra la ESTRUCTURA (banco/tipo/instrucciones) pero los
+// DATOS DE COBRO (titular, cédula, teléfono, correo) van VACÍOS a propósito. El
+// titular los rellena en el panel de admin y el backend sirve los reales por
+// `/api/cms/metodos_pago_config`. Nunca datos de cobro de ejemplo (evita que
+// alguien pague a una cuenta falsa).
 export const METODOS_PAGO = [
   {
-    _id: "pago_movil_bdv", documento_identidad: "V-12345678", estado_activo: true,
-    id_pago: "pago_movil_bdv", logo_url: "", orden: 0, telefono_pago: "04120000000",
-    tipo_banco: "Banco de Venezuela", titular: "Titular NV Streaming", tipo: "pago_movil",
+    _id: "pago_movil_bdv", documento_identidad: "", estado_activo: true,
+    id_pago: "pago_movil_bdv", logo_url: "", orden: 0, telefono_pago: "",
+    tipo_banco: "Banco de Venezuela", titular: "", tipo: "pago_movil",
     instrucciones: "Envía el pago móvil y sube el comprobante en el checkout.",
   },
   {
     _id: "binance_pay", documento_identidad: "", estado_activo: true, id_pago: "binance_pay",
-    logo_url: "", orden: 1, telefono_pago: "", tipo_banco: "Binance Pay", titular: "Titular NV Streaming",
-    tipo: "crypto", correo_binance: "pagos@tudominio.com",
+    logo_url: "", orden: 1, telefono_pago: "", tipo_banco: "Binance Pay", titular: "",
+    tipo: "crypto", correo_binance: "",
     instrucciones: "Paga en USDT/BNB al Binance ID y sube el comprobante.",
   },
   {
     _id: "zelle", documento_identidad: "", estado_activo: true, id_pago: "zelle",
-    logo_url: "", orden: 2, telefono_pago: "", tipo_banco: "Zelle", titular: "Titular NV Streaming",
-    correo_zelle: "pagos@tudominio.com", tipo: "zelle",
+    logo_url: "", orden: 2, telefono_pago: "", tipo_banco: "Zelle", titular: "",
+    correo_zelle: "", tipo: "zelle",
     instrucciones: "Transfiere por Zelle al correo indicado.",
   },
   {
     _id: "paypal", documento_identidad: "", estado_activo: true, id_pago: "paypal",
-    logo_url: "", orden: 3, telefono_pago: "", tipo_banco: "PayPal", titular: "Titular NV Streaming",
-    correo_paypal: "pagos@tudominio.com", tipo: "paypal",
+    logo_url: "", orden: 3, telefono_pago: "", tipo_banco: "PayPal", titular: "",
+    correo_paypal: "", tipo: "paypal",
     instrucciones: "Envía como 'amigos y familia' y sube el comprobante.",
   },
 ];
 
 /* ───────────────────────────  INVENTARIO  ──────────────────────────── */
-export const INVENTARIO = [
-  { _id: "cuenta_netflix_001", estado: "disponible", id_servicio: "netflix", credenciales: { clave: "DEMO-NO-USAR", perfil: "Perfil 01", pin: "1234", usuario: "cuenta001@gmail.com" } },
-  { _id: "cuenta_netflix_002", estado: "disponible", id_servicio: "netflix", credenciales: { clave: "password456", perfil: "Perfil 02", pin: "5678", usuario: "cuenta002@gmail.com" } },
-  { _id: "cuenta_disney_001", estado: "disponible", id_servicio: "disney", credenciales: { clave: "DEMO-NO-USAR", perfil: "Perfil 01", pin: "0001", usuario: "disney001@gmail.com" } },
-  { _id: "cuenta_spotify_001", estado: "disponible", id_servicio: "spotify", credenciales: { clave: "DEMO-NO-USAR", perfil: "Titular", pin: "", usuario: "spotify001@gmail.com" } },
-  { _id: "cuenta_chatgpt_001", estado: "vendido", id_servicio: "chatgpt", credenciales: { clave: "gpt2026", perfil: "Titular", pin: "", usuario: "gpt001@gmail.com" } },
-  { _id: "cuenta_hbo_001", estado: "disponible", id_servicio: "hbo", credenciales: { clave: "hbo2026", perfil: "Perfil 03", pin: "1122", usuario: "hbo001@gmail.com" } },
-];
+// Inventario de cuentas: son CREDENCIALES reales → nunca de ejemplo. Vacío por
+// defecto; el stock real vive en `cuentas_streaming` (backend) y se gestiona en
+// el panel de admin. La web muestra estado vacío hasta que existan cuentas.
+export const INVENTARIO = [];
 
 /* ─────────────────────────────  USUARIOS  ──────────────────────────── */
-export const USUARIOS = [
-  {
-    _id: "admin_root_uid", activo: true, baneado: false, email: "admin@nvstreaming.com",
-    fechacreado: T("2026-06-01"), nombre: "Titular NV Streaming", rol: "admin", saldoBilletera: 0,
-    telefono: "584164600411", uid: "admin_root_uid", ultimoLogin: AHORA,
-  },
-  {
-    _id: "reseller_demo_uid", activo: true, baneado: false, email: "revendedor@nvstreaming.com",
-    fechacreado: T("2026-06-05"), nombre: "Valeryn Duque", rol: "revendedor", saldoBilletera: 150,
-    telefono: "584140000000", uid: "reseller_demo_uid", ultimoLogin: AHORA,
-    suscripcion_panel: { activa: true, plan: "Pro", vence: T("2026-07-31") },
-  },
-  {
-    _id: "cliente_demo_uid", activo: true, baneado: false,
-    email: "cliente.demo@example.com", fechacreado: T("2026-06-16"),
-    nombre: "Cliente Demo", rol: "cliente", saldoBilletera: 0, telefono: "",
-    uid: "cliente_demo_uid", ultimoLogin: AHORA,
-  },
-];
+// Sin usuarios de ejemplo: los usuarios reales viven en la tabla `usuarios`
+// (backend). Crea el admin con `npm run seed` (o crear-admin), no aquí.
+export const USUARIOS = [];
 
 /* ────────────────────────────  PEDIDOS  ──────────────────────────── */
-export const PEDIDOS = [
-  { _id: "ped_0001", comprobante: "", creadoEn: T("2026-06-15"), estado: "pendiente", id_servicio: "netflix", metodo_pago: "pago_movil_bdv", precio: 7, tipo_precio: "detal", nombre_cliente: "Cliente Demo", email_cliente: "cliente.demo@example.com", uid_cliente: "cliente_demo_uid" },
-  { _id: "ped_0002", comprobante: "", creadoEn: T("2026-06-14"), estado: "aprobado", id_servicio: "spotify", metodo_pago: "binance_pay", precio: 4.49, tipo_precio: "detal", nombre_cliente: "Carlos R.", email_cliente: "carlos@example.com", uid_cliente: "" },
-  { _id: "ped_0003", comprobante: "", creadoEn: T("2026-06-13"), estado: "aprobado", id_servicio: "disney", metodo_pago: "zelle", precio: 5.49, tipo_precio: "detal", nombre_cliente: "María G.", email_cliente: "maria@example.com", uid_cliente: "" },
-  { _id: "ped_0004", comprobante: "", creadoEn: T("2026-06-12"), estado: "rechazado", id_servicio: "hbo", metodo_pago: "paypal", precio: 5.99, tipo_precio: "detal", nombre_cliente: "Diego R.", email_cliente: "diego@example.com", uid_cliente: "" },
-];
+// Sin pedidos ficticios: los pedidos reales llegan de `/api/pedidos`.
+export const PEDIDOS = [];
 
 /* ────────────────────────────  RECARGAS  ──────────────────────────── */
-export const RECARGAS = [
-  { _id: "rec_0001", aprobadoPor: "", comprobante: "", creadoEn: T("2026-06-16"), estado: "pendiente", metodo_pago: "pago_movil_bdv", monto: 7 },
-];
-export const RECARGAS_BILLETERA = [
-  { _id: "recb_0001", aprobadoPor: "", comprobante: "", creadoEn: T("2026-06-16"), estado: "pendiente", metodo_pago: "binance_pay", monto: 50, uid_usuario: "reseller_demo_uid", email: "revendedor@nvstreaming.com" },
-  { _id: "recb_0002", aprobadoPor: "admin_root_uid", comprobante: "", creadoEn: T("2026-06-15"), estado: "aprobado", metodo_pago: "zelle", monto: 100, uid_usuario: "reseller_demo_uid", email: "revendedor@nvstreaming.com" },
-];
+// Sin recargas ficticias: datos reales desde `/api/wallet/recargas`.
+export const RECARGAS = [];
+export const RECARGAS_BILLETERA = [];
 
 /* ────────────────────────  HISTORIAL MOVIMIENTOS  ──────────────────── */
-export const HISTORIAL = [
-  { _id: "mov_0001", descripcion: "Recarga de saldo autorizada por mesa de control", ejecutado_por: "sistema", fecha: T("2026-06-16"), monto: 50, referencia: "", saldo_anterior: 0, saldo_posterior: 50, tipo: "ingreso", usuario: "reseller_demo_uid" },
-  { _id: "mov_0002", descripcion: "Venta de suscripción Netflix", ejecutado_por: "reseller_demo_uid", fecha: T("2026-06-16"), monto: 4.5, referencia: "ped_0002", saldo_anterior: 150, saldo_posterior: 145.5, tipo: "egreso", usuario: "reseller_demo_uid" },
-];
+// Sin movimientos ficticios: el libro real vive en `movimientos_billetera`.
+export const HISTORIAL = [];
 
 /* ─────────────────────────  SUSCRIPCIONES  ─────────────────────────── */
-export const SUSCRIPCIONES = [
-  { _id: "sus_0001", actualizadoEn: AHORA, correo: "cliente.demo@example.com", creadoEn: T("2026-06-16"), cuentaCorreo: "cuenta001@gmail.com", cuentaPass: "DEMO-NO-USAR", estado: "activo", nombre: "Cliente Demo", notas: "", perfil: "Perfil 01", pinPerfil: "1234", precioVenta: 7, servicio: "netflix", tipo: "individual", vence: T("2026-07-16"), ws: "584140000000" },
-  { _id: "sus_0002", actualizadoEn: AHORA, correo: "carlos@example.com", creadoEn: T("2026-06-01"), cuentaCorreo: "spotify001@gmail.com", cuentaPass: "DEMO-NO-USAR", estado: "activo", nombre: "Carlos R.", notas: "", perfil: "Titular", pinPerfil: "", precioVenta: 4.49, servicio: "spotify", tipo: "individual", vence: T("2026-06-20"), ws: "" },
-  { _id: "sus_0003", actualizadoEn: AHORA, correo: "maria@example.com", creadoEn: T("2026-05-18"), cuentaCorreo: "disney001@gmail.com", cuentaPass: "DEMO-NO-USAR", estado: "activo", nombre: "María G.", notas: "Renovación automática", perfil: "Perfil 01", pinPerfil: "0001", precioVenta: 5.49, servicio: "disney", tipo: "individual", vence: T("2026-06-18"), ws: "" },
-];
+// Sin suscripciones ficticias (contenían credenciales de ejemplo): las reales
+// se sirven por usuario desde `/api/mis/suscripciones`.
+export const SUSCRIPCIONES = [];
 
 /* ────────────────────────  RENOVACIONES PENDIENTES  ────────────────── */
-export const RENOVACIONES = [
-  { _id: "ren_0001", dias_para_vencer: 2, email_usuario: "carlos@example.com", estado_notificacion: "pendiente", id_renovacion: "ren_0001", id_suscripcion: "sus_0002", precio_renovacion: 4.49, servicio: "spotify", nombre: "Carlos R." },
-  { _id: "ren_0002", dias_para_vencer: 0, email_usuario: "maria@example.com", estado_notificacion: "pendiente", id_renovacion: "ren_0002", id_suscripcion: "sus_0003", precio_renovacion: 5.49, servicio: "disney", nombre: "María G." },
-];
+export const RENOVACIONES = [];
 
 /* ───────────────────────────  COMENTARIOS  ─────────────────────────── */
-export const COMENTARIOS = [
-  { _id: "com_0001", aprobado: true, creadoEn: T("2026-06-02"), estrellas: 5, id_servicio: "netflix", nombre: "Ana C.", texto: "Excelente, activación al instante." },
-  { _id: "com_0002", aprobado: true, creadoEn: T("2026-06-10"), estrellas: 5, id_servicio: "spotify", nombre: "Laura M.", texto: "Todo perfecto, muy recomendado." },
-  { _id: "com_0003", aprobado: true, creadoEn: T("2026-06-12"), estrellas: 4, id_servicio: "chatgpt", nombre: "José P.", texto: "Buen precio y soporte rápido." },
-  { _id: "com_0004", aprobado: false, creadoEn: T("2026-06-14"), estrellas: 3, id_servicio: "hbo", nombre: "Anónimo", texto: "Pendiente de moderación." },
-];
+// Sin testimonios inventados: se mostrarán reseñas reales cuando existan.
+export const COMENTARIOS = [];
 
 /* ──────────────────────────  FAQ  ─────────────────────────── */
 export const FAQS = [
@@ -428,45 +394,14 @@ export const TEMA_INTERFAZ = {
 };
 
 /* ─────────────────────  CHATS Y TICKETS DE SOPORTE  ────────────────── */
-export const CHATS_SOPORTE = [
-  {
-    _id: "chat_0001", actualizadoEn: AHORA, email_usuario: "cliente.demo@example.com",
-    estado_canal: "esperando_soporte", id_canal: "chat_0001", nombre_usuario: "Cliente Demo",
-    rol_usuario: "cliente", ultimo_mensaje: "Hola, no puedo entrar a mi perfil de Netflix",
-    mensajes: [
-      { fecha: T("2026-06-16T10:00:00Z"), id_mensaje: "m1", leido: true, remitente: "cliente", texto: "Hola, buenas tardes" },
-      { fecha: T("2026-06-16T10:01:00Z"), id_mensaje: "m2", leido: true, remitente: "soporte", texto: "¡Hola! ¿En qué podemos ayudarte?" },
-      { fecha: T("2026-06-16T10:02:00Z"), id_mensaje: "m3", leido: false, remitente: "cliente", texto: "Hola, no puedo entrar a mi perfil de Netflix" },
-    ],
-  },
-  {
-    _id: "chat_0002", actualizadoEn: T("2026-06-15T18:00:00Z"), email_usuario: "carlos@example.com",
-    estado_canal: "resuelto", id_canal: "chat_0002", nombre_usuario: "Carlos R.",
-    rol_usuario: "cliente", ultimo_mensaje: "¡Gracias, ya funciona!",
-    mensajes: [
-      { fecha: T("2026-06-15T17:58:00Z"), id_mensaje: "m1", leido: true, remitente: "cliente", texto: "Mi Spotify pide contraseña" },
-      { fecha: T("2026-06-15T17:59:00Z"), id_mensaje: "m2", leido: true, remitente: "soporte", texto: "Te reenvío las credenciales actualizadas" },
-      { fecha: T("2026-06-15T18:00:00Z"), id_mensaje: "m3", leido: true, remitente: "cliente", texto: "¡Gracias, ya funciona!" },
-    ],
-  },
-];
-
-export const TICKETS = [
-  { _id: "tk_0001", creadoEn: T("2026-06-16"), email_usuario: "cliente.demo@example.com", estado: "en_revision", historial_respuestas: ["Estamos revisando tu caso."], id_suscripcion_afectada: "sus_0001", id_ticket: "tk_0001", mensaje_cliente: "El PIN de mi perfil no funciona", tipo_falla: "pin_incorrecto" },
-  { _id: "tk_0002", creadoEn: T("2026-06-14"), email_usuario: "maria@example.com", estado: "resuelto", historial_respuestas: ["Cuenta reemplazada.", "Confirmado por el cliente."], id_suscripcion_afectada: "sus_0003", id_ticket: "tk_0002", mensaje_cliente: "La cuenta pide verificación", tipo_falla: "cuenta_caida" },
-];
+// Sin conversaciones ni tickets ficticios: el soporte real llega del backend.
+export const CHATS_SOPORTE = [];
+export const TICKETS = [];
 
 /* ────────────────────  NOTIFICACIONES (cliente/admin)  ─────────────── */
-export const NOTIFICACIONES = [
-  { _id: "not_0001", creadoEn: T("2026-06-15"), leida: false, mensaje: "Servicio de NETFLIX activo", tipo: "nuevo_pedido", uid_origen: "cliente_demo_uid", url_destinas: "mi-cuenta.html" },
-  { _id: "not_0002", creadoEn: T("2026-06-14"), leida: true, mensaje: "Tu recarga fue aprobada", tipo: "recarga", uid_origen: "reseller_demo_uid", url_destinas: "billetera.html" },
-];
-
-export const NOTIFICACIONES_ADMIN = [
-  { _id: "nadm_0001", creadoEn: T("2026-06-16"), email: "cliente.demo@example.com", leido: false, mensaje: "Nuevo pedido pendiente de aprobación", tipo: "nuevo_pedido" },
-  { _id: "nadm_0002", creadoEn: T("2026-06-16"), email: "revendedor@nvstreaming.com", leido: false, mensaje: "Recarga de billetera pendiente por 50 USD", tipo: "recarga_billetera" },
-  { _id: "nadm_0003", creadoEn: T("2026-06-15"), email: "carlos@example.com", leido: true, mensaje: "Ticket de soporte resuelto", tipo: "ticket" },
-];
+// Sin notificaciones inventadas: las reales se generan por eventos del backend.
+export const NOTIFICACIONES = [];
+export const NOTIFICACIONES_ADMIN = [];
 
 /* ────────────────────────  FLYERS REVENDEDORES  ───────────────────── */
 export const FLYERS_REVENDEDORES = [
@@ -494,13 +429,9 @@ export const PLATAFORMAS = [
   { _id: "vix", nombre: "ViX", id_servicio: "vix", estado: 1, keywords: ["vix"] },
 ];
 
-/* `codigos_verificacion` — historial/recepción de OTP.
- * cuenta_madre_id → doc de `inventario`; plataforma_id → `plataformas`. */
-export const CODIGOS_VERIFICACION = [
-  { _id: "otp_0001", cuenta_madre_id: "cuenta_netflix_001", plataforma_id: "netflix", codigo: "834192", recibido_via: "Telegram", remitente: "bot_netflix", texto_original: "Tu código de acceso de Netflix es 834192", fecha_recepcion: T("2026-06-16T11:58:00Z"), expira_at: T("2026-06-16T12:08:00Z"), leido: 0, obsoleto: false, perfil_id: "sus_0001", cliente_id: "cliente_demo_uid" },
-  { _id: "otp_0002", cuenta_madre_id: "cuenta_disney_001", plataforma_id: "disney", codigo: "5521", recibido_via: "WhatsApp", remitente: "bot_disney", texto_original: "Disney+: tu código de verificación es 5521", fecha_recepcion: T("2026-06-16T11:40:00Z"), expira_at: T("2026-06-16T11:50:00Z"), leido: 1, obsoleto: false, perfil_id: "sus_0003", cliente_id: "" },
-  { _id: "otp_0003", cuenta_madre_id: "cuenta_spotify_001", plataforma_id: "spotify", codigo: "77219340", recibido_via: "Telegram", remitente: "bot_spotify", texto_original: "Spotify code: 77219340", fecha_recepcion: T("2026-06-16T10:15:00Z"), expira_at: T("2026-06-16T10:25:00Z"), leido: 1, obsoleto: true, perfil_id: "sus_0002", cliente_id: "" },
-];
+/* `codigos_verificacion` — recepción real de OTP (Telegram/WhatsApp).
+ * Vacío: los códigos reales los inserta el backend al recibirlos. Nunca de ejemplo. */
+export const CODIGOS_VERIFICACION = [];
 
 /* `plantillas_permisos` — RBAC del módulo: quién inyecta / ve / configura. */
 export const PLANTILLAS_PERMISOS = [

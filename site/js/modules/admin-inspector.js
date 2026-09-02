@@ -77,11 +77,13 @@ function renderResumen(cont, rep) {
           `<span>Campo</span><span>Tipo</span><span>Cobertura</span><span>Ejemplo</span>`));
         for (const f of col.campos) {
           const fila = el("div", "nv-insp-fila");
+          // Nombres/ejemplos vienen de datos inspeccionados → escapar por completo.
+          const escI = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
           fila.innerHTML =
-            `<span class="nv-insp-campo">${f.nombre}${f.siemprePresente ? "" : ' <i title="opcional">?</i>'}</span>` +
+            `<span class="nv-insp-campo">${escI(f.nombre)}${f.siemprePresente ? "" : ' <i title="opcional">?</i>'}</span>` +
             `<span>${pillTipo(f.tipo)}</span>` +
             `<span class="nv-insp-cob"><i style="width:${f.cobertura}%"></i>${f.cobertura}%</span>` +
-            `<span class="nv-insp-ej">${String(f.ejemplo).replace(/</g, "&lt;")}</span>`;
+            `<span class="nv-insp-ej">${escI(f.ejemplo)}</span>`;
           tabla.appendChild(fila);
         }
         card.appendChild(tabla);

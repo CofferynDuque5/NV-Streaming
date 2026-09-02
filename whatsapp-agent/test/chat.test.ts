@@ -34,7 +34,12 @@ const subServ = (o: Partial<SuscripcionServicio> = {}): SuscripcionServicio => (
 function crear(over: any = {}) {
   const llamadas: any = { renovar: null };
   const deps: any = {
-    users: { findByWhatsapp: async (id: string) => (over.user === null ? null : (over.user ?? USER)), upsertByWhatsapp: async () => USER },
+    users: {
+      // La identidad ahora llega del JWT → el handler resuelve por findById.
+      findById: async (_id: string) => (over.user === null ? null : (over.user ?? USER)),
+      findByWhatsapp: async (_id: string) => (over.user === null ? null : (over.user ?? USER)),
+      upsertByWhatsapp: async () => USER,
+    },
     subs: {
       findActiveDetailedByUser: async () => over.subs ?? [subDet()],
       findForService: async (_u: string, p: string) => (over.sub === null ? null : (over.sub ?? subServ({ plataforma_id: p }))),

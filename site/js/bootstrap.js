@@ -23,6 +23,10 @@ import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarReseller } from "./modules/reseller-api.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
+import { instalarToasts } from "./modules/nv-toast.js";
+import { instalarForms } from "./modules/nv-forms.js";
+import { instalarUiState } from "./modules/nv-ui-state.js";
+import { instalarPerf } from "./modules/nv-perf.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -60,6 +64,10 @@ async function pedirWhatsApp() {
 async function boot() {
   Commerce.initCommerce();        // carrito + moneda desde localStorage
   instalarBridge();               // window.NV + decorate + delegación de clics
+  instalarToasts();               // notificaciones no bloqueantes (window.NVToast) + errores de red
+  instalarUiState();              // helper skeleton/empty/error (window.NVState)
+  instalarForms();                // validación de formularios en tiempo real
+  instalarPerf();                 // rendimiento: lazy-loading de imágenes (actuales y futuras)
   instalarUI();                   // spinner + modales (window.NVUI)
   instalarSonido();               // feedback auditivo (window.NVSound)
   instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte
@@ -72,7 +80,7 @@ async function boot() {
   instalarReseller();             // panel revendedor: referidos + comisiones reales
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
-  wireSeeder();                   // botón "Completar base de datos" (admin)
+  wireSeeder();                   // launcher del módulo OTP (admin); el sembrado va por el backend
 
   // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
   await NVCore.init();
@@ -176,7 +184,7 @@ function wireAcciones() {
         ev.preventDefault();
         const link = await NV.admin.Pedidos.aprobar(id);
         NV.toast("Pedido aprobado ✓", "rgba(0,212,160,0.5)");
-        if (link) window.open(link, "_blank");
+        if (link && /^https?:\/\//i.test(String(link))) window.open(link, "_blank", "noopener");
         return;
       }
       if (id && /rechazar/.test(txt)) {
@@ -193,8 +201,6 @@ function wireAcciones() {
 // Botón flotante en el admin para completar la base de datos en PostgreSQL.
 function wireSeeder() {
   if (page() !== "admin") return;
-  // Precarga el seeder para exponer window.NVSeeder desde el arranque.
-  import("./seeder.js").catch(() => {});
 
   // Launcher del módulo de Automatización de Credenciales (OTP).
   const otp = document.createElement("a");

@@ -8,6 +8,8 @@
 <script type="module" src="./js/bootstrap.js"></script>
 <title>NV Streaming — Acceso premium a servicios digitales</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-tokens.css">
+<link rel="stylesheet" href="./css/nv-design-system.css">
 <link rel="stylesheet" href="./css/nv-fixes.css">
 <link rel="stylesheet" href="./css/inspector.css">
 <style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
@@ -178,10 +180,9 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </div>
       <div style="flex:1;">
-        <div style="font-size:13.5px;font-weight:600;color:#EEF2FF;line-height:1.2;">Mi Cuenta</div>
-        <div style="font-size:11.5px;color:rgba(200,215,255,0.42);margin-top:1px;">usuario@nvplatform.io</div>
+        <div style="font-size:13.5px;font-weight:600;color:#EEF2FF;line-height:1.2;" data-nv-acct-nombre>Mi Cuenta</div>
+        <div style="font-size:11.5px;color:rgba(200,215,255,0.42);margin-top:1px;" data-nv-acct-email>Inicia sesión</div>
       </div>
-      <div style="padding:3px 8px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.22);border-radius:5px;font-size:10px;color:#00D4A0;font-weight:600;font-family:'JetBrains Mono',monospace;">PRO</div>
     </div>
 
     <!-- Billetera quick -->
@@ -193,7 +194,7 @@
           </div>
           <div>
             <div style="font-size:11px;color:rgba(200,215,255,0.5);">Billetera NV</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;color:#EEF2FF;line-height:1.2;">$125.00</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;color:#EEF2FF;line-height:1.2;" data-nv-acct-balance>$0.00</div>
           </div>
         </div>
         <button style="padding:7px 13px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:7px;color:white;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(155,63,255,0.3);">Recargar</button>
@@ -699,7 +700,7 @@
         <div class="svc-card" data-empty="{{ svc._empty }}">
           <!-- Card header/banner -->
           <div style="height:184px;background:linear-gradient(160deg,#0C0C26,#07071A);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-            <img src="{{ svc.img }}" alt="{{ svc.name }}" decoding="async" style="height:164px;width:auto;max-width:90%;object-fit:contain;filter:drop-shadow(0 12px 22px rgba(0,0,0,0.55));position:relative;z-index:1;" />
+            <img loading="lazy" decoding="async" src="{{ svc.img }}" alt="{{ svc.name }}" decoding="async" style="height:164px;width:auto;max-width:90%;object-fit:contain;filter:drop-shadow(0 12px 22px rgba(0,0,0,0.55));position:relative;z-index:1;" />
             <!-- Category tag -->
             <div style="position:absolute;top:8px;right:8px;padding:2px 7px;background:rgba(0,0,0,0.5);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,0.7);letter-spacing:0.04em;">{{ svc.category }}</div>
             <!-- Popular badge -->
@@ -955,22 +956,22 @@
           <div style="position:absolute;inset:0;animation:spinFlat 55s linear infinite;transform-origin:center center;">
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(45deg) translate(156px) rotate(-45deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,212,160,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,212,160,0.2);">
-                <img src="assets/t-spotify.png" alt="Spotify" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-spotify.png" alt="Spotify" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(135deg) translate(156px) rotate(-135deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,207,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,207,255,0.2);">
-                <img src="assets/t-tidal.png" alt="Tidal" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-tidal.png" alt="Tidal" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(225deg) translate(156px) rotate(-225deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(255,42,90,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(255,42,90,0.2);">
-                <img src="assets/t-youtube.png" alt="YouTube Music" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-youtube.png" alt="YouTube Music" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(315deg) translate(156px) rotate(-315deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(162,56,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(162,56,255,0.2);">
-                <img src="assets/t-deezer.png" alt="Deezer" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-deezer.png" alt="Deezer" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
           </div>
@@ -994,22 +995,22 @@
           <div style="position:absolute;inset:0;animation:spinFlat 55s linear infinite;transform-origin:center center;">
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(45deg) translate(156px) rotate(-45deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(255,42,90,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(255,42,90,0.2);">
-                <img src="assets/t-netflix.png" alt="Netflix" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-netflix.png" alt="Netflix" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(135deg) translate(156px) rotate(-135deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,120,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,120,255,0.2);">
-                <img src="assets/t-disney.png" alt="Disney+" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-disney.png" alt="Disney+" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(225deg) translate(156px) rotate(-225deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(155,63,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(155,63,255,0.2);">
-                <img src="assets/t-hbo.png" alt="HBO Max" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-hbo.png" alt="HBO Max" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(315deg) translate(156px) rotate(-315deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,207,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,207,255,0.2);">
-                <img src="assets/t-appletv.png" alt="Apple TV+" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-appletv.png" alt="Apple TV+" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
           </div>
@@ -1103,22 +1104,22 @@
           <div style="position:absolute;inset:0;animation:spinFlat 55s linear infinite;transform-origin:center center;">
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(45deg) translate(156px) rotate(-45deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,120,212,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,120,212,0.2);">
-                <img src="assets/t-windows11.png" alt="Windows 11" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-windows11.png" alt="Windows 11" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(135deg) translate(156px) rotate(-135deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(232,85,45,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(232,85,45,0.2);">
-                <img src="assets/t-office365.png" alt="Office 365" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-office365.png" alt="Office 365" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(225deg) translate(156px) rotate(-225deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,168,107,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,168,107,0.2);">
-                <img src="assets/t-googleone.png" alt="Google One" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-googleone.png" alt="Google One" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
             <div style="position:absolute;top:50%;left:50%;width:132px;height:132px;margin:-66px;transform:rotate(315deg) translate(156px) rotate(-315deg);">
               <div style="width:132px;height:132px;border-radius:50%;overflow:hidden;animation:spinFlatRev 55s linear infinite;transform-origin:center center;border:2px solid rgba(0,207,255,0.4);background:#0C0C26;box-shadow:0 8px 22px rgba(0,0,0,0.5),0 0 16px rgba(0,207,255,0.2);">
-                <img src="assets/t-adobe.png" alt="Adobe" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
+                <img loading="lazy" decoding="async" src="assets/t-adobe.png" alt="Adobe" decoding="async" style="width:100%;height:100%;object-fit:cover;" />
               </div>
             </div>
           </div>
@@ -1620,7 +1621,7 @@ class Component extends DCLogic {
       ],
       mobileUserLinks: [
         { label:'Mis servicios',     icon:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',                                          color:'#00CFFF', badge:'3',       badgeBg:'rgba(0,207,255,0.12)', badgeColor:'#00CFFF' },
-        { label:'Billetera',         icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/>',              color:'#9B3FFF', badge:'$125',    badgeBg:'rgba(155,63,255,0.1)', badgeColor:'#9B3FFF' },
+        { label:'Billetera',         icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/>',              color:'#9B3FFF', badge:'',    badgeBg:'rgba(155,63,255,0.1)', badgeColor:'#9B3FFF' },
         { label:'Mis pedidos',       icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>',  color:'#00D4A0', badge:'',       badgeBg:'', badgeColor:'' },
         { label:'Notificaciones',    icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',        color:'#FFB020', badge:'4 nuevas', badgeBg:'rgba(255,62,108,0.1)', badgeColor:'#FF3E6C' },
         { label:'Configuración',     icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>', color:'rgba(200,215,255,0.5)', badge:'', badgeBg:'', badgeColor:'' },

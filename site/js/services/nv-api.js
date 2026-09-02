@@ -14,15 +14,51 @@ const TOKEN_KEY = "nv_token";
 export function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (_) { return ""; } }
 export function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (_) {} }
 
+// Presupuesto de tiempo por petición (resiliencia): si el servidor no responde,
+// abortamos en vez de dejar la promesa colgada para siempre.
+const REQ_TIMEOUT_MS = 15000;
+
+/** Avisa a la capa de UI (toasts) de un fallo de red, de forma desacoplada. */
+function emitirErrorRed(status, message) {
+  if (typeof window === "undefined") return;
+  try { window.dispatchEvent(new CustomEvent("nv:neterror", { detail: { status, message } })); } catch (_) {}
+}
+
 async function req(method, path, body) {
   const headers = { "Content-Type": "application/json" };
   const tk = getToken(); if (tk) headers.Authorization = "Bearer " + tk;
-  const res = await fetch(base() + path, { method, headers, body: body != null ? JSON.stringify(body) : undefined });
-  const txt = await res.text();
+
+  // Timeout con AbortController (compatible con navegadores modernos).
+  const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => ctrl.abort(), REQ_TIMEOUT_MS) : null;
+
+  let res, txt;
+  try {
+    res = await fetch(base() + path, {
+      method, headers,
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    txt = await res.text();
+  } catch (netErr) {
+    // Fallo de transporte (offline, DNS, CORS, timeout/abort): status 0.
+    const abortado = netErr && netErr.name === "AbortError";
+    const err = new Error(abortado ? "La solicitud tardó demasiado." : "No hay conexión con el servidor.");
+    err.status = 0; err.network = true; err.aborted = abortado;
+    emitirErrorRed(0, err.message);
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
   let data = null; try { data = txt ? JSON.parse(txt) : null; } catch (_) { data = txt; }
   if (!res.ok) {
     const err = new Error((data && (data.mensaje || data.error)) || ("HTTP " + res.status));
-    err.status = res.status; err.data = data; throw err;
+    err.status = res.status; err.data = data;
+    // Solo los fallos "de sistema" (sesión expirada, 5xx, rate limit) se
+    // notifican globalmente; los 4xx de validación los maneja cada vista.
+    if (res.status === 401 || res.status === 429 || res.status >= 500) emitirErrorRed(res.status, err.message);
+    throw err;
   }
   return data;
 }

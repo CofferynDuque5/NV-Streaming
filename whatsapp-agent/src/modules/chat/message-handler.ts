@@ -15,7 +15,6 @@ import { SubscriptionsRepository } from '../../db/repositories/subscriptions.rep
 import { AccountsRepository } from '../../db/repositories/accounts.repo.js';
 import { PlansRepository } from '../../db/repositories/plans.repo.js';
 import type { SuscripcionServicio, SuscripcionDetallada } from '../../db/repositories/subscriptions.repo.js';
-import type { Usuario } from '../../db/models.js';
 
 /* ─────────────────────────── Contratos ─────────────────────────── */
 export interface EntradaChat { message: string; userId?: string | null; }
@@ -146,9 +145,10 @@ export class MessageHandler {
 
   /* ─────────────── Utilidades de una sola tarea ─────────────── */
   private normalizarId(userId?: string | null): string | null { return userId ? String(userId) : null; }
-  private async resolverUsuario(userId: string | null): Promise<Usuario | null> {
+  private async resolverUsuario(userId: string | null): Promise<{ id: string; nombre: string | null } | null> {
+    // `userId` es el id de usuario del JWT verificado (no un teléfono del cliente).
     if (!userId) return null;
-    try { return await this.deps.users.findByWhatsapp(userId); } catch { return null; }
+    try { return await this.deps.users.findById(userId); } catch { return null; }
   }
   private mensajeVacio(): RespuestaChat {
     return respuesta('vacio', 'Escríbeme tu consulta 🙂 (por ejemplo: /saldo, /renovar o "no puedo entrar a Netflix").');

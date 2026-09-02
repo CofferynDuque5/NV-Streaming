@@ -8,6 +8,8 @@
 <script type="module" src="./js/bootstrap.js"></script>
 <title>Carrito — NV Streaming</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-tokens.css">
+<link rel="stylesheet" href="./css/nv-design-system.css">
 <link rel="stylesheet" href="./css/nv-fixes.css">
 <link rel="stylesheet" href="./css/inspector.css">
 <style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
@@ -92,7 +94,7 @@
         <div style="display:flex;align-items:center;gap:15px;padding:14px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:14px;transition:border-color 0.15s;" style-hover="border-color:rgba(123,102,255,0.25);">
           <!-- thumb -->
           <div style="width:68px;height:102px;border-radius:11px;overflow:hidden;background:transparent;flex-shrink:0;box-shadow:0 6px 18px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);">
-            <img src="{{ it.img }}" alt="{{ it.name }}" decoding="async" style="width:100%;height:100%;object-fit:cover;object-position:center;image-rendering:auto;display:block;" />
+            <img loading="lazy" decoding="async" src="{{ it.img }}" alt="{{ it.name }}" decoding="async" style="width:100%;height:100%;object-fit:cover;object-position:center;image-rendering:auto;display:block;" />
           </div>
           <!-- info -->
           <div style="flex:1;min-width:0;">

@@ -1,0 +1,45 @@
+# render.yaml — Blueprint de Render para NV Streaming.
+# En Render:  New → Blueprint → conecta este repo. Crea la BD y el servicio web.
+# Documentación del formato: https://render.com/docs/blueprint-spec
+services:
+  # ── API backend (Node) ──
+  - type: web
+    name: nv-streaming-api
+    runtime: node
+    rootDir: whatsapp-agent           # el backend vive aquí
+    plan: starter
+    buildCommand: npm ci && npm run build
+    # Migra el esquema y arranca. El seed inicial se corre una vez a mano
+    # (Shell del servicio):  npm run seed
+    startCommand: npm run migrate:prod && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nv-streaming-db
+          property: connectionString
+      # Secretos fuertes generados por Render (no los escribas tú).
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CREDENTIALS_ENC_KEY
+        generateValue: true
+      # Requeridos por el esquema de entorno (defínelos en el panel):
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      # Restringe el CORS a tu dominio de frontend (coma-separado).
+      - key: CORS_ORIGIN
+        sync: false
+      # Opcionales (correo, pagos, OTP…): añádelos según los actives.
+
+databases:
+  - name: nv-streaming-db
+    plan: starter
+    databaseName: nv_streaming
+    user: nv

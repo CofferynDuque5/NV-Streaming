@@ -8,6 +8,8 @@
 <script type="module" src="./js/bootstrap.js"></script>
 <title>Acceder — NV Streaming</title>
 <link rel="icon" type="image/svg+xml" href="./assets/favicon-nv.svg">
+<link rel="stylesheet" href="./css/nv-tokens.css">
+<link rel="stylesheet" href="./css/nv-design-system.css">
 <link rel="stylesheet" href="./css/nv-fixes.css">
 <link rel="stylesheet" href="./css/inspector.css">
 <style>html:not([data-nv-ready]) [data-nv-root]{visibility:hidden;}</style>
@@ -32,13 +34,16 @@
     .star-bg{background-image:radial-gradient(circle,rgba(255,255,255,0.5) 1px,transparent 1px),radial-gradient(circle,rgba(255,255,255,0.25) 1px,transparent 1px);background-size:80px 80px,130px 130px;background-position:0 0,40px 40px;}
     input::placeholder{color:rgba(160,185,240,0.3);}
     input:focus{outline:none;}
-    .nv-input{width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:9px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:#EEF2FF;transition:all 0.15s;caret-color:#00CFFF;}
-    .nv-input:focus{border-color:rgba(0,207,255,0.45);box-shadow:0 0 0 3px rgba(0,207,255,0.1),0 0 12px rgba(0,207,255,0.06);}
-    .nv-btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(0,100,255,0.35);transition:all 0.2s;}
-    .nv-btn-primary:hover{box-shadow:0 6px 28px rgba(0,100,255,0.5);transform:translateY(-1px);}
-    .otp-input{width:52px;height:56px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.2);border-radius:10px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:500;color:#00CFFF;caret-color:#00CFFF;transition:all 0.15s;}
-    .otp-input:focus{border-color:rgba(0,207,255,0.5);box-shadow:0 0 0 3px rgba(0,207,255,0.12);background:rgba(0,207,255,0.04);}
-    input[type=checkbox]{accent-color:#00CFFF;}
+    /* Controles del formulario tokenizados (misma clase → sin tocar el markup).
+       Fuente de verdad: nv-tokens.css. */
+    .nv-input{width:100%;background:var(--nv-glass-bg-soft);border:1px solid var(--nv-line);border-radius:var(--nv-radius-sm);padding:12px 14px;font-family:var(--nv-font-body);font-size:14px;color:var(--nv-ink);transition:border-color var(--nv-dur-fast),box-shadow var(--nv-dur-fast),background var(--nv-dur-fast);caret-color:var(--nv-cyan);}
+    .nv-input:focus{border-color:var(--nv-cyan-a24);box-shadow:0 0 0 3px var(--nv-cyan-a08);background:rgba(0,207,255,0.03);}
+    .nv-btn-primary{width:100%;padding:13px;background:var(--nv-grad-action);color:#fff;border:none;border-radius:var(--nv-radius-md);font-family:var(--nv-font-body);font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 4px 20px rgba(0,100,255,0.35),var(--nv-inset-top);transition:transform var(--nv-dur-base),box-shadow var(--nv-dur-base);}
+    .nv-btn-primary:hover{box-shadow:0 8px 32px rgba(0,120,255,0.5),var(--nv-inset-top);transform:translateY(-1px);}
+    .nv-btn-primary:active{transform:translateY(1px) scale(0.99);}
+    .otp-input{width:52px;height:56px;background:var(--nv-glass-bg-soft);border:1px solid var(--nv-line);border-radius:var(--nv-radius-md);text-align:center;font-family:var(--nv-font-mono);font-size:22px;font-weight:500;color:var(--nv-cyan);caret-color:var(--nv-cyan);transition:border-color var(--nv-dur-fast),box-shadow var(--nv-dur-fast),background var(--nv-dur-fast);}
+    .otp-input:focus{border-color:var(--nv-cyan-glow);box-shadow:0 0 0 3px var(--nv-cyan-a12,rgba(0,207,255,0.12));background:rgba(0,207,255,0.04);}
+    input[type=checkbox]{accent-color:var(--nv-cyan);}
   </style>
 </helmet>
 
@@ -147,10 +152,10 @@
             <h1 style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:6px;">Bienvenido de nuevo</h1>
             <p style="font-size:14.5px;color:rgba(200,215,255,0.5);font-weight:300;">Ingresa a tu cuenta de NV Streaming</p>
           </div>
-          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
+          <div data-nv-form style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;font-weight:400;">Correo electrónico</label>
-              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" data-login-email="1" onKeydown="{{ onKeyLogin }}" />
+              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" data-login-email="1" data-nv-rules="required|email" onKeydown="{{ onKeyLogin }}" />
             </div>
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -158,7 +163,7 @@
                 <a onClick="{{ goForgot }}" style="font-size:12px;color:#00CFFF;cursor:pointer;text-decoration:none;" style-hover="color:#00DFFF;">¿Olvidaste tu contraseña?</a>
               </div>
               <div style="position:relative;">
-                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" data-login-pass="1" onKeydown="{{ onKeyLogin }}" />
+                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" data-login-pass="1" data-nv-rules="required|min:8" onKeydown="{{ onKeyLogin }}" />
                 <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -202,11 +207,11 @@
             <h1 style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:6px;">Crear tu cuenta</h1>
             <p style="font-size:14px;color:rgba(200,215,255,0.5);font-weight:300;">Únete a la plataforma de servicios digitales</p>
           </div>
-          <div style="display:flex;flex-direction:column;gap:13px;margin-bottom:18px;">
+          <div data-nv-form style="display:flex;flex-direction:column;gap:13px;margin-bottom:18px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div>
                 <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Nombre</label>
-                <input type="text" placeholder="Juan" class="nv-input" data-reg-nombre="1" />
+                <input type="text" placeholder="Juan" class="nv-input" data-reg-nombre="1" data-nv-rules="required" />
               </div>
               <div>
                 <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Apellido</label>
@@ -215,12 +220,12 @@
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Correo electrónico</label>
-              <input type="email" placeholder="juan@ejemplo.com" class="nv-input" data-reg-email="1" />
+              <input type="email" placeholder="juan@ejemplo.com" class="nv-input" data-reg-email="1" data-nv-rules="required|email" />
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Contraseña</label>
               <div style="position:relative;">
-                <input type="password" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" data-reg-pass="1" />
+                <input type="password" name="reg-pass" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" data-reg-pass="1" data-nv-rules="required|min:8" />
                 <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
@@ -236,7 +241,7 @@
             </div>
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Confirmar contraseña</label>
-              <input type="password" placeholder="Repite la contraseña" class="nv-input" data-reg-pass2="1" onKeydown="{{ onKeyRegister }}" />
+              <input type="password" placeholder="Repite la contraseña" class="nv-input" data-reg-pass2="1" data-nv-rules="required|match:reg-pass" onKeydown="{{ onKeyRegister }}" />
             </div>
             <div style="display:flex;align-items:flex-start;gap:8px;">
               <input type="checkbox" id="terms" style="width:14px;height:14px;margin-top:2px;flex-shrink:0;" />
