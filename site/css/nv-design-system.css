@@ -1,0 +1,246 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   nv-design-system.css — Componentes base de NV Streaming
+   ───────────────────────────────────────────────────────────────────────────
+   Componentes reutilizables construidos ÍNTEGRAMENTE sobre los tokens de
+   nv-tokens.css. Namespace `nv-` para convivir sin choques con los estilos
+   inline existentes. Objetivo: sustituir progresivamente el hex incrustado por
+   clases con intención de marca (botones, superficies, inputs, badges,
+   skeletons, empty states, microinteracciones).
+
+   Cargar SIEMPRE después de nv-tokens.css y ANTES de nv-fixes.css.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── TIPOGRAFÍA de sistema ──────────────────────────────────────────────── */
+.nv-display   { font-family: var(--nv-font-display); font-weight: 800;
+                letter-spacing: var(--nv-tracking-tight); line-height: var(--nv-lh-tight);
+                color: var(--nv-ink-strong); }
+.nv-h1 { font-size: var(--nv-fs-2xl); }
+.nv-h2 { font-size: var(--nv-fs-xl); }
+.nv-h3 { font-size: var(--nv-fs-lg); }
+.nv-body      { font-family: var(--nv-font-body); font-size: var(--nv-fs-base);
+                line-height: var(--nv-lh-normal); color: var(--nv-ink); }
+.nv-muted     { color: var(--nv-ink-muted); }
+/* Etiqueta mono en mayúsculas — el "sello técnico" de la marca. */
+.nv-eyebrow   { font-family: var(--nv-font-mono); font-size: var(--nv-fs-micro);
+                letter-spacing: var(--nv-tracking-wide); text-transform: uppercase;
+                color: var(--nv-ink-muted); font-weight: 500; }
+.nv-mono      { font-family: var(--nv-font-mono); }
+/* Texto con relleno de gradiente aurora (para cifras y titulares clave). */
+.nv-gradient-text {
+  background: var(--nv-grad-brand);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ── SUPERFICIES ────────────────────────────────────────────────────────── */
+.nv-surface {
+  position: relative;
+  background: var(--nv-bg-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-radius-lg);
+  box-shadow: var(--nv-shadow-md), var(--nv-inset-top);
+}
+/* Filo superior con aurora (hairline luminoso). */
+.nv-surface::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: var(--nv-grad-hairline); pointer-events: none; z-index: 1;
+  border-radius: var(--nv-radius-lg) var(--nv-radius-lg) 0 0;
+}
+.nv-surface--raised { background: var(--nv-bg-raised); box-shadow: var(--nv-shadow-lg), var(--nv-inset-top); }
+.nv-surface--flush::before { content: none; }
+
+/* Vidrio (glassmorphism) — para overlays, cabeceras flotantes, tarjetas héroe. */
+.nv-glass {
+  background: var(--nv-glass-bg);
+  -webkit-backdrop-filter: blur(var(--nv-glass-blur));
+  backdrop-filter: blur(var(--nv-glass-blur));
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-radius-lg);
+  box-shadow: var(--nv-shadow-lg), var(--nv-inset-top);
+}
+
+/* Tarjeta con BORDE de gradiente real (no simulado con sombra). */
+.nv-card-gradient {
+  position: relative; border-radius: var(--nv-radius-lg);
+  background:
+    linear-gradient(var(--nv-bg-raised), var(--nv-bg-raised)) padding-box,
+    var(--nv-grad-aurora) border-box;
+  border: 1px solid transparent;
+  box-shadow: var(--nv-shadow-md);
+}
+
+/* ── MICROINTERACCIONES (utilidades) ────────────────────────────────────── */
+.nv-interactive { transition:
+  transform var(--nv-dur-base) var(--nv-ease-spring),
+  box-shadow var(--nv-dur-base) var(--nv-ease-out),
+  border-color var(--nv-dur-base) var(--nv-ease-out),
+  background var(--nv-dur-base) var(--nv-ease-out); }
+.nv-lift:hover   { transform: translateY(-4px); box-shadow: var(--nv-shadow-lg); }
+.nv-lift:active  { transform: translateY(-1px); }
+.nv-glow-hover:hover { border-color: var(--nv-cyan-a24); box-shadow: var(--nv-glow-cyan); }
+/* Tarjeta clicable estándar (reemplaza a .svc-card/.tcard). */
+.nv-tile {
+  background: var(--nv-bg-raised); border: 1px solid var(--nv-line);
+  border-radius: var(--nv-radius-md); overflow: hidden; cursor: pointer;
+  transition: transform var(--nv-dur-base) var(--nv-ease-spring),
+              border-color var(--nv-dur-base), box-shadow var(--nv-dur-base);
+}
+.nv-tile:hover {
+  transform: translateY(-5px);
+  border-color: var(--nv-cyan-a24);
+  box-shadow: var(--nv-shadow-lg), 0 0 0 1px var(--nv-cyan-a08);
+}
+
+/* ── BOTONES ────────────────────────────────────────────────────────────── */
+.nv-btn {
+  --_bg: var(--nv-glass-bg-soft); --_fg: var(--nv-ink); --_bd: var(--nv-line);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--nv-space-2);
+  padding: 12px 22px; font-family: var(--nv-font-body); font-size: var(--nv-fs-base);
+  font-weight: 600; line-height: 1; text-decoration: none; white-space: nowrap;
+  color: var(--_fg); background: var(--_bg); border: 1px solid var(--_bd);
+  border-radius: var(--nv-radius-md); cursor: pointer; position: relative; isolation: isolate;
+  transition: transform var(--nv-dur-fast) var(--nv-ease-out),
+              box-shadow var(--nv-dur-base), filter var(--nv-dur-base),
+              background var(--nv-dur-base), border-color var(--nv-dur-base);
+}
+.nv-btn:active { transform: translateY(1px) scale(0.99); }
+.nv-btn:focus-visible { outline: 2px solid var(--nv-cyan); outline-offset: 2px; }
+.nv-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.nv-btn--primary {
+  --_bg: var(--nv-grad-action); --_fg: #fff; --_bd: transparent;
+  box-shadow: 0 6px 24px rgba(0, 120, 255, 0.34), var(--nv-inset-top);
+}
+.nv-btn--primary:hover { box-shadow: 0 10px 34px rgba(0, 120, 255, 0.5), var(--nv-inset-top); transform: translateY(-1px); }
+
+.nv-btn--royal {
+  --_bg: var(--nv-grad-royal); --_fg: #fff; --_bd: transparent;
+  box-shadow: 0 6px 22px var(--nv-violet-glow), var(--nv-inset-top);
+}
+.nv-btn--royal:hover { box-shadow: 0 10px 32px var(--nv-violet-glow), var(--nv-inset-top); transform: translateY(-1px); }
+
+.nv-btn--ghost:hover { --_bg: var(--nv-cyan-a08); --_bd: var(--nv-cyan-a24); color: var(--nv-ink-strong); }
+
+/* Botón con relleno de gradiente animado en el borde (CTA de héroe). */
+.nv-btn--aurora {
+  --_fg: var(--nv-ink-strong); color: var(--_fg);
+  background: linear-gradient(var(--nv-bg-raised), var(--nv-bg-raised)) padding-box,
+              var(--nv-grad-aurora) border-box;
+  border: 1px solid transparent;
+}
+.nv-btn--aurora::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  background: var(--nv-grad-aurora); opacity: 0; transition: opacity var(--nv-dur-base);
+}
+.nv-btn--aurora:hover::after { opacity: 0.16; }
+
+.nv-btn--sm { padding: 8px 14px; font-size: var(--nv-fs-sm); }
+.nv-btn--lg { padding: 15px 30px; font-size: var(--nv-fs-md); }
+
+/* ── PILLS / BADGES / CHIPS ─────────────────────────────────────────────── */
+.nv-pill {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px;
+  font-size: var(--nv-fs-xs); font-weight: 600; border-radius: var(--nv-radius-pill);
+  border: 1px solid var(--nv-cyan-a16); background: var(--nv-cyan-a08); color: var(--nv-cyan);
+}
+.nv-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px;
+  font-family: var(--nv-font-mono); font-size: var(--nv-fs-micro); font-weight: 600;
+  letter-spacing: 0.04em; border-radius: var(--nv-radius-xs);
+  border: 1px solid var(--nv-line); color: var(--nv-ink-soft); background: var(--nv-glass-bg-soft);
+}
+.nv-badge--success { color: var(--nv-success); border-color: var(--nv-success-a12); background: var(--nv-success-a12); }
+.nv-badge--warning { color: var(--nv-warning); border-color: var(--nv-warning-a12); background: var(--nv-warning-a12); }
+.nv-badge--danger  { color: var(--nv-danger);  border-color: var(--nv-danger-a12);  background: var(--nv-danger-a12); }
+.nv-badge--violet  { color: var(--nv-violet-ink); border-color: var(--nv-violet-a20); background: var(--nv-violet-a12); }
+.nv-badge--gold    { color: var(--nv-gold); border-color: rgba(232,199,126,0.24); background: rgba(232,199,126,0.10); }
+
+/* Punto "en vivo" con latido. */
+.nv-dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--nv-success);
+  box-shadow: 0 0 0 0 var(--nv-success); animation: nvLive 1.8s ease-out infinite; }
+@keyframes nvLive {
+  0%   { box-shadow: 0 0 0 0 rgba(0, 212, 160, 0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(0, 212, 160, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 212, 160, 0); }
+}
+
+/* ── FORMULARIOS ────────────────────────────────────────────────────────── */
+.nv-field { display: flex; flex-direction: column; gap: 6px; }
+.nv-label { font-size: var(--nv-fs-sm); font-weight: 500; color: var(--nv-ink-soft); }
+.nv-input, .nv-textarea, .nv-select {
+  width: 100%; padding: 12px 14px; font-family: var(--nv-font-body); font-size: var(--nv-fs-base);
+  color: var(--nv-ink); background: var(--nv-glass-bg-soft);
+  border: 1px solid var(--nv-line); border-radius: var(--nv-radius-md);
+  transition: border-color var(--nv-dur-base), box-shadow var(--nv-dur-base), background var(--nv-dur-base);
+}
+.nv-input::placeholder, .nv-textarea::placeholder { color: var(--nv-ink-faint); }
+.nv-input:focus, .nv-textarea:focus, .nv-select:focus {
+  outline: none; border-color: var(--nv-cyan-a24);
+  box-shadow: 0 0 0 3px var(--nv-cyan-a08); background: rgba(0, 207, 255, 0.03);
+}
+.nv-input--invalid { border-color: var(--nv-danger); box-shadow: 0 0 0 3px var(--nv-danger-a12); }
+
+/* ── ENCABEZADO de sección (ritmo tipográfico + aire) ───────────────────── */
+.nv-section-head { display: flex; flex-direction: column; gap: var(--nv-space-2); margin-bottom: var(--nv-space-6); }
+.nv-section-head .nv-title { font-family: var(--nv-font-display); font-weight: 800;
+  font-size: var(--nv-fs-xl); letter-spacing: var(--nv-tracking-tight); color: var(--nv-ink-strong); }
+.nv-divider { height: 1px; background: var(--nv-line-soft); border: 0; margin: var(--nv-space-6) 0; }
+.nv-divider--aurora { background: var(--nv-grad-hairline); }
+
+/* ── SKELETONS (carga) — mantienen la estética del sistema ──────────────── */
+.nv-skeleton {
+  position: relative; overflow: hidden; border-radius: var(--nv-radius-sm);
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.03) 100%);
+}
+.nv-skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent,
+    rgba(0, 207, 255, 0.10), rgba(155, 63, 255, 0.08), transparent);
+  animation: nvShimmer 1.4s ease-in-out infinite;
+}
+@keyframes nvShimmer { 100% { transform: translateX(100%); } }
+.nv-skeleton--text  { height: 12px; margin: 6px 0; }
+.nv-skeleton--title { height: 20px; width: 60%; margin: 8px 0; }
+.nv-skeleton--line  { height: 12px; width: 100%; }
+.nv-skeleton--chip  { height: 24px; width: 84px; border-radius: var(--nv-radius-pill); }
+.nv-skeleton--card  { height: 148px; border-radius: var(--nv-radius-md); }
+.nv-skeleton--avatar{ height: 40px; width: 40px; border-radius: var(--nv-radius-md); }
+@media (prefers-reduced-motion: reduce) { .nv-skeleton::after { animation: none; } }
+
+/* ── EMPTY STATES (estados vacíos con personalidad) ─────────────────────── */
+.nv-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--nv-space-3); padding: var(--nv-space-12) var(--nv-space-6);
+  border: 1px dashed var(--nv-line); border-radius: var(--nv-radius-lg);
+  background:
+    radial-gradient(60% 80% at 50% 0%, var(--nv-cyan-a08), transparent 70%),
+    var(--nv-bg-surface);
+}
+.nv-empty__orb {
+  display: grid; place-items: center; width: 68px; height: 68px; border-radius: var(--nv-radius-xl);
+  color: var(--nv-cyan);
+  background: radial-gradient(circle at 30% 25%, var(--nv-cyan-a24), transparent 65%), var(--nv-bg-raised);
+  border: 1px solid var(--nv-cyan-a16); box-shadow: var(--nv-glow-cyan);
+}
+.nv-empty__title { font-family: var(--nv-font-display); font-weight: 700;
+  font-size: var(--nv-fs-md); color: var(--nv-ink-strong); }
+.nv-empty__desc  { font-size: var(--nv-fs-sm); color: var(--nv-ink-muted); max-width: 42ch; line-height: var(--nv-lh-normal); }
+
+/* ── APARICIÓN al montar (transición de vistas sin dependencias) ────────── */
+.nv-enter { animation: nvEnter var(--nv-dur-slow) var(--nv-ease-out) both; }
+.nv-enter-stagger > * { animation: nvEnter var(--nv-dur-slow) var(--nv-ease-out) both; }
+.nv-enter-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.nv-enter-stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.nv-enter-stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.nv-enter-stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.nv-enter-stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.nv-enter-stagger > *:nth-child(6) { animation-delay: 0.34s; }
+@keyframes nvEnter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ── FONDO de página con malla de nebulosas (opcional, sutil) ───────────── */
+.nv-mesh-bg { position: relative; }
+.nv-mesh-bg::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--nv-grad-mesh);
+}
