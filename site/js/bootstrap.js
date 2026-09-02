@@ -184,7 +184,7 @@ function wireAcciones() {
         ev.preventDefault();
         const link = await NV.admin.Pedidos.aprobar(id);
         NV.toast("Pedido aprobado ✓", "rgba(0,212,160,0.5)");
-        if (link) window.open(link, "_blank");
+        if (link && /^https?:\/\//i.test(String(link))) window.open(link, "_blank", "noopener");
         return;
       }
       if (id && /rechazar/.test(txt)) {

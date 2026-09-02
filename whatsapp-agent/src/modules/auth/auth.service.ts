@@ -5,17 +5,27 @@
  * - Sesión sin estado mediante JWT firmado con `JWT_SECRET`.
  * - En PRODUCCIÓN el secreto es obligatorio (fail-fast si falta).
  */
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { env, isProd } from '../../config/env.js';
+import { logger } from '../../utils/logger.js';
 import { UsersRepository, type UsuarioAuth } from '../../db/repositories/users.repo.js';
 import { ResellerRepository } from '../../db/repositories/reseller.repo.js';
 import { AppError } from '../../core/errors.js';
 
-if (isProd && !env.JWT_SECRET) {
-  throw new Error('JWT_SECRET es obligatorio en producción (define un secreto fuerte).');
+// Algoritmo de firma FIJO: al verificar solo se acepta HS256, evitando ataques de
+// confusión de algoritmo (p. ej. forzar 'none' o cambiar a RS/HS).
+const JWT_ALG = 'HS256' as const;
+
+// El secreto debe ser fuerte en producción. En desarrollo, si no se define, se
+// usa uno ALEATORIO efímero (nunca un literal fijo forjable): así un despliegue
+// sin NODE_ENV=production no queda con tokens falsificables.
+if (isProd && (env.JWT_SECRET || '').length < 32) {
+  throw new Error('JWT_SECRET debe tener al menos 32 caracteres en producción (genera uno fuerte).');
 }
-const SECRET: string = env.JWT_SECRET || 'nv-dev-secret-NO-USAR-EN-PROD';
+const SECRET: string = env.JWT_SECRET || crypto.randomBytes(48).toString('base64');
+if (!env.JWT_SECRET) logger.warn('JWT_SECRET ausente: usando un secreto EFÍMERO de desarrollo (no válido en producción).');
 
 const ESTADO_AUTH: Readonly<Record<string, number>> = {
   email_en_uso: 409, credenciales: 401, email_invalido: 400, password_debil: 400,
@@ -38,11 +48,14 @@ export function verifyPassword(pw: string, hash: string): Promise<boolean> { ret
 
 export function signToken(u: UsuarioAuth): string {
   const payload: TokenPayload = { sub: u.id, email: u.email, rol: u.rol };
-  const opts: SignOptions = { expiresIn: env.JWT_EXPIRES_IN as unknown as NonNullable<SignOptions['expiresIn']> };
+  const opts: SignOptions = {
+    algorithm: JWT_ALG,
+    expiresIn: env.JWT_EXPIRES_IN as unknown as NonNullable<SignOptions['expiresIn']>,
+  };
   return jwt.sign(payload, SECRET, opts);
 }
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, SECRET) as TokenPayload;
+  return jwt.verify(token, SECRET, { algorithms: [JWT_ALG] }) as unknown as TokenPayload;
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

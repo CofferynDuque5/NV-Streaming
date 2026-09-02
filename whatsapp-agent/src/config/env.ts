@@ -44,13 +44,15 @@ const EnvSchema = z.object({
   ADMIN_API_TOKEN: z.string().default(''),
 
   // Datos de recepción de pagos (mostrados como instrucciones; NV Panel).
-  PAGO_MOVIL_BANCO: z.string().default('Banco de Venezuela'),
-  PAGO_MOVIL_CEDULA: z.string().default('V-12345678'),
-  PAGO_MOVIL_TELEFONO: z.string().default('04120000000'),
-  PAGO_MOVIL_TITULAR: z.string().default('Nathan Quevedo'),
-  BINANCE_EMAIL: z.string().default('pagos@nvstreaming.com'),
-  ZELLE_EMAIL: z.string().default('nathan.quevedo@nvstreaming.com'),
-  ZELLE_TITULAR: z.string().default('Nathan Quevedo'),
+  // Sin valores por defecto reales: son datos de cobro/PII y deben configurarse
+  // explícitamente por entorno. Vacío ⇒ el método se muestra "por configurar".
+  PAGO_MOVIL_BANCO: z.string().default(''),
+  PAGO_MOVIL_CEDULA: z.string().default(''),
+  PAGO_MOVIL_TELEFONO: z.string().default(''),
+  PAGO_MOVIL_TITULAR: z.string().default(''),
+  BINANCE_EMAIL: z.string().default(''),
+  ZELLE_EMAIL: z.string().default(''),
+  ZELLE_TITULAR: z.string().default(''),
 
   // ── Pasarela de pago automática (PSP · webhooks) ──
   // Binance Pay: clave/secreto de la API del comercio (para verificar la firma).

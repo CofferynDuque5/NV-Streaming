@@ -105,7 +105,7 @@ async function onAccion(ev) {
       const link = act === "aprobar" ? await admin.Pedidos.aprobar(id) : await admin.Pedidos.rechazar(id);
       patchStore("pedidos", id, { estado: act === "aprobar" ? "aprobado" : "rechazado" });
       if (NV.toast) NV.toast(act === "aprobar" ? "Pedido aprobado ✓" : "Pedido rechazado", okColor);
-      if (link && act === "aprobar") window.open(link, "_blank");
+      if (link && act === "aprobar" && /^https?:\/\//i.test(String(link))) window.open(link, "_blank", "noopener");
     } else if (tabla === "recargasBilletera") {
       if (act === "aprobar") await admin.Billetera.aprobarRecarga(id); else await admin.Billetera.rechazarRecarga(id);
       patchStore("recargasBilletera", id, { estado: act === "aprobar" ? "aprobado" : "rechazado" });
@@ -117,7 +117,7 @@ async function onAccion(ev) {
   }
 }
 const ORDEN = ["pedidos", "usuarios", "suscripciones", "inventario", "recargasBilletera"];
-const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function el(t, c, h) { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; }
 
 function render(panel) {

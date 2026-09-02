@@ -35,7 +35,9 @@ function token() {
 }
 
 /* ─────────────────────────  RENDER  ───────────────────────── */
-const esc = (s) => String(s == null ? "" : s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+// Escapa también comillas: estos valores se interpolan dentro de atributos
+// (p. ej. data-cmd="..."), no solo en texto — evita romper el atributo (XSS).
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function avatarIA() {
   return `<div style="width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#0A3AAE,#00CFFF);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8z"/></svg></div>`;

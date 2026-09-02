@@ -71,7 +71,7 @@ export function spinner(mostrar, texto) {
   }
 }
 
-const esc = (s) => String(s == null ? '' : s).replace(/[<>]/g, (c) => (c === '<' ? '&lt;' : '&gt;'));
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** Modal genérico. `tipo`: ok | err | ask. Devuelve Promise<boolean>. */
 export function modal(opts) {

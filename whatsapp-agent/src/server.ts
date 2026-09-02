@@ -2,6 +2,7 @@
 import express from 'express';
 import { pinoHttp } from 'pino-http';
 import { logger } from './utils/logger.js';
+import { isProd } from './config/env.js';
 import { requestId, requestTimeout } from './core/request-context.js';
 import { rateLimit } from './core/rate-limit.js';
 import { errorHandler, notFound } from './core/error-handler.js';
@@ -34,11 +35,26 @@ export function createApp() {
   // corta con 503 en vez de dejar la conexión colgada (resiliencia).
   app.use(requestTimeout(20_000));
 
-  // CORS. Por defecto permite el origen configurado o '*' (dev). En producción
-  // define CORS_ORIGIN con tu dominio del frontend para restringirlo.
-  const corsOrigin = process.env.CORS_ORIGIN || '*';
+  // Cabeceras de seguridad (sin dependencias): mitigan sniffing, clickjacking y
+  // fuga de referer; HSTS solo en producción (requiere HTTPS).
+  app.use((_req, res, next) => {
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Frame-Options', 'DENY');
+    res.header('Referrer-Policy', 'no-referrer');
+    res.header('X-DNS-Prefetch-Control', 'off');
+    if (isProd) res.header('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    next();
+  });
+
+  // CORS por LISTA BLANCA. Define CORS_ORIGIN con tus dominios de frontend
+  // (coma-separado). Solo se refleja un Origin que esté permitido; si la lista
+  // está vacía, se permite '*' únicamente fuera de producción (desarrollo).
+  const PERMITIDOS = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', corsOrigin);
+    const origin = req.headers.origin;
+    if (origin && PERMITIDOS.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
+    else if (!PERMITIDOS.length && !isProd) res.header('Access-Control-Allow-Origin', '*');
+    res.header('Vary', 'Origin');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     if (req.method === 'OPTIONS') { res.sendStatus(204); return; }

@@ -13,8 +13,10 @@ import Cred, { Permisos, procesarMensaje, asignarMasivo, marcarUsado, avisoDeCod
 
 const { Store, Bus, Utils } = NVCore;
 const $ = (s, r = document) => r.querySelector(s);
-const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const short = (s) => String(s || "?").slice(0, 2).toUpperCase();
+// Solo permite navegar a esquemas seguros (evita javascript:, data:, etc.).
+const urlSegura = (u) => (/^(https?:|mailto:|tel:|wa\.me\/|https:\/\/wa\.me)/i.test(String(u || "").trim()) ? String(u).trim() : "#");
 
 function platNombre(id) { const p = (Store.get("plataformas") || []).find((x) => x.id === id); return p ? p.nombre : (id || "—"); }
 function cuentaLabel(id) { const c = (Store.get("inventario") || []).find((x) => x.id === id); return c && c.credenciales ? c.credenciales.usuario : "—"; }
@@ -83,7 +85,7 @@ async function onSimular() {
   const a = r.aviso;
   box.innerHTML = `<div><span class="kv">Código:</span> <b>${esc(r.registro.codigo)}</b> · <span class="kv">Plataforma:</span> <b>${esc(platNombre(r.registro.plataforma_id))}</b></div>
     <div><span class="kv">Cuenta madre:</span> ${esc(cuentaLabel(r.registro.cuenta_madre_id) || "—")} · <span class="kv">Vía:</span> ${esc(r.registro.recibido_via)}</div>
-    ${a ? `<div class="section-gap"><span class="kv">Notificar a ${esc(a.destinatario || "cliente")}:</span> <a href="${esc(a.whatsapp)}" target="_blank" rel="noopener">WhatsApp</a> · <a href="${esc(a.telegram)}" target="_blank" rel="noopener">Telegram</a></div>` : '<div class="kv section-gap">Sin cliente asignado a este perfil.</div>'}`;
+    ${a ? `<div class="section-gap"><span class="kv">Notificar a ${esc(a.destinatario || "cliente")}:</span> <a href="${esc(urlSegura(a.whatsapp))}" target="_blank" rel="noopener">WhatsApp</a> · <a href="${esc(urlSegura(a.telegram))}" target="_blank" rel="noopener">Telegram</a></div>` : '<div class="kv section-gap">Sin cliente asignado a este perfil.</div>'}`;
   $("#sim-text").value = "";
   toast("Código registrado ✓", "rgba(0,212,160,.5)");
 }
@@ -108,7 +110,7 @@ function onTableClick(ev) {
   const id = tr.getAttribute("data-id");
   if (ev.target.closest(".act-notify")) {
     const a = avisoDeCodigo(id);
-    if (a && a.whatsapp) { window.open(a.whatsapp, "_blank"); toast("Abriendo WhatsApp del cliente…"); }
+    if (a && a.whatsapp) { window.open(urlSegura(a.whatsapp), "_blank", "noopener"); toast("Abriendo WhatsApp del cliente…"); }
     else toast("Este código no tiene cliente asignado", "rgba(255,176,32,.5)");
   }
   if (ev.target.closest(".act-used")) { marcarUsado(id); toast("Marcado como usado"); }
