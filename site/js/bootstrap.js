@@ -80,7 +80,7 @@ async function boot() {
   instalarReseller();             // panel revendedor: referidos + comisiones reales
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
-  wireSeeder();                   // botón "Completar base de datos" (admin)
+  wireSeeder();                   // launcher del módulo OTP (admin); el sembrado va por el backend
 
   // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
   await NVCore.init();
@@ -201,8 +201,6 @@ function wireAcciones() {
 // Botón flotante en el admin para completar la base de datos en PostgreSQL.
 function wireSeeder() {
   if (page() !== "admin") return;
-  // Precarga el seeder para exponer window.NVSeeder desde el arranque.
-  import("./seeder.js").catch(() => {});
 
   // Launcher del módulo de Automatización de Credenciales (OTP).
   const otp = document.createElement("a");

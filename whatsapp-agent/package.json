@@ -40,7 +40,11 @@
     "test:migrate": "tsx test/migrate.test.ts",
     "test:userdocs": "tsx test/userdocs.test.ts",
     "test:otp": "tsx test/otp.test.ts",
-    "test:provisioning": "tsx test/provisioning.test.ts"
+    "test:provisioning": "tsx test/provisioning.test.ts",
+    "test:integration": "tsx test/integration.http.test.ts",
+    "seed": "tsx src/scripts/seed.ts",
+    "seed:prod": "node dist/scripts/seed.js",
+    "hydrate": "npm run migrate && npm run seed"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
