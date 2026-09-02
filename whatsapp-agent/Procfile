@@ -1,0 +1,5 @@
+# Procfile — Railway / Heroku / Dokku. rootDir del backend: whatsapp-agent/
+# release: se ejecuta antes de cada despliegue (migra el esquema).
+# web:     proceso principal (la API ya lee $PORT del entorno).
+release: npm run migrate:prod
+web: npm start
