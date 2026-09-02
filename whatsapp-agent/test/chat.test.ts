@@ -17,12 +17,16 @@ const t = async (name: string, fn: () => Promise<void> | void) => {
 };
 
 const USER: Usuario = { id: 'u1', id_whatsapp: '584160000000', nombre: 'Rouse Duque', email: 'r@x.com', creado_en: new Date(), actualizado_en: new Date() };
+// Fecha de vencimiento RELATIVA (12 días en el futuro): así la prueba no caduca
+// con el paso del tiempo. Antes era una fecha fija ('2026-08-01') que "vencía"
+// y hacía fallar el caso de soporte una vez pasado ese día.
+const EN_12_DIAS = new Date(Date.now() + 12 * 24 * 60 * 60 * 1000);
 const subDet = (o: Partial<SuscripcionDetallada> = {}): SuscripcionDetallada => ({
-  plataforma_id: 'netflix', estado: 'activa', pagada: true, fecha_vencimiento: new Date('2026-08-01'),
+  plataforma_id: 'netflix', estado: 'activa', pagada: true, fecha_vencimiento: EN_12_DIAS,
   renovacion_automatica: false, dias_restantes: 12, perfil: 'Perfil 1', plan_nombre: 'Netflix Premium', plan_precio: '5.99', plan_moneda: 'USD', ...o,
 });
 const subServ = (o: Partial<SuscripcionServicio> = {}): SuscripcionServicio => ({
-  id: 's1', plataforma_id: 'netflix', estado: 'activa', pagada: true, fecha_vencimiento: new Date('2026-08-01'),
+  id: 's1', plataforma_id: 'netflix', estado: 'activa', pagada: true, fecha_vencimiento: EN_12_DIAS,
   correo: 'c@nv.com', contrasena_cifrada: 'X', perfil: 'Perfil 1', pin: '1234', plan_nombre: 'Netflix Premium', plan_precio: '5.99', plan_moneda: 'USD', ...o,
 });
 

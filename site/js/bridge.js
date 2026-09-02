@@ -408,181 +408,211 @@ function decorateAdmin(vals) {
   if (Array.isArray(vals.alerts)) vals.alerts = notif.length ? notif.slice(0, 6).map((n, i) => onSample(vals.alerts, i, { mensaje: n.mensaje, texto: n.mensaje, tipo: n.tipo, fecha: Utils.fecha(n.creadoEn) })) : [];
 }
 
+/* ── Presentador del panel de revendedor (POO · SRP · microfunciones) ──
+   Sustituye a la antigua función monolítica `decorateRevendedor` (~176 líneas).
+   Cada método pinta UNA sección a partir de los datos reales del backend
+   (Store: resellerOverview / resellerClients / resellerCommissions). */
+const NIVEL_UI = {
+  Bronce:   { color: "#CD7F32", color2: "#8B5A2B", emoji: "🥉" },
+  Plata:    { color: "#C0C8D4", color2: "#8A94A6", emoji: "🥈" },
+  Oro:      { color: "#E6B83A", color2: "#B8860B", emoji: "🥇" },
+  Platino:  { color: "#7FD4FF", color2: "#3A9AD9", emoji: "🏆" },
+  Diamante: { color: "#9B7BFF", color2: "#6A3FD9", emoji: "💎" },
+};
+const RANK_COLOR = ["#E6B83A", "#C0C8D4", "#CD7F32", "rgba(160,185,240,0.5)", "rgba(160,185,240,0.5)"];
+
+class PresentadorRevendedor {
+  constructor(vals, store) {
+    this.vals = vals;
+    const sesion = store.get("sesion") || {};
+    this.autenticado = sesion.estado === "autenticado";
+    this.usuario = sesion.usuario || {};
+    this.resumen = store.get("resellerOverview") || null;
+    this.clientesReales = store.get("resellerClients") || [];
+    this.comisionesReales = store.get("resellerCommissions") || [];
+    this.nombre = this._calcularNombre();
+  }
+
+  presentar() {
+    this._identidad();
+    this._comisiones();
+    this._kpis();
+    this._crm();
+    this._libroDeComisiones();
+    this._grafico();
+    this._nivel();
+    this._masVendidos();
+    this._actividad();
+    this.vals.showPipeline = false; // pipeline de maqueta: oculto
+  }
+
+  _monto(campo) { return this.resumen ? Number(this.resumen[campo]) || 0 : 0; }
+  _calcularNombre() {
+    if (!this.autenticado) return "Revendedor";
+    return String(this.usuario.nombre || (this.usuario.email || "").split("@")[0] || "Revendedor");
+  }
+  _codigo() {
+    if (this.resumen && this.resumen.codigo) return this.resumen.codigo;
+    if (!this.autenticado) return "NV-------";
+    const semilla = String(this.usuario.uid || this.usuario.email || "").replace(/[^a-zA-Z0-9]/g, "");
+    return "NV-" + semilla.slice(0, 6).toUpperCase();
+  }
+
+  _identidad() {
+    const codigo = this._codigo();
+    const iniciales = (this.nombre.split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "NV").toUpperCase();
+    const saldo = this.resumen ? fmtUSD(this.resumen.saldo)
+      : (this.autenticado && isFinite(Number(this.usuario.saldoBilletera)) ? fmtUSD(Number(this.usuario.saldoBilletera)) : "$0.00");
+    const referidos = this._monto("clientes");
+    Object.assign(this.vals, {
+      resellerName: this.nombre, resellerFirst: this.nombre.split(" ")[0], resellerInitials: iniciales,
+      resellerCode: codigo, refUser: codigo, resellerSaldo: saldo,
+      memberSince: referidos + " referido" + (referidos === 1 ? "" : "s"),
+    });
+  }
+
+  _comisiones() {
+    if (!Array.isArray(this.vals.commissions)) return;
+    this.vals.commissions = [
+      { label: "Pendiente", value: fmtUSD(this._monto("pendiente")), color: "#FFB020" },
+      { label: "Disponible", value: fmtUSD(this._monto("disponible")), color: "#00D4A0" },
+      { label: "Pagada (mes)", value: fmtUSD(this._monto("pagadaMes")), color: "#00CFFF" },
+      { label: "Total comisión", value: fmtUSD(this._monto("comisionTotal")), color: "#9B3FFF" },
+    ];
+    this.vals.levelXP = fmtUSD(this._monto("comisionTotal"));
+    this.vals.disponibleRetiro = fmtUSD(this._monto("disponible"));
+    this.vals.puedeRetirar = this._monto("disponible") > 0;
+  }
+
+  _kpis() {
+    if (!Array.isArray(this.vals.kpis) || this.vals.kpis.length < 3) return;
+    const pct = this.resumen ? Math.round((Number(this.resumen.comisionPct) || 0) * 100) : 0;
+    const k = this.vals.kpis;
+    this.vals.kpis = [
+      onSample(k, 0, { label: "Ventas", value: String(this._monto("ventas")), sub: "de referidos" }),
+      onSample(k, 1, { label: "Ingresos", value: fmtUSD(this._monto("ingresos")), sub: "generados" }),
+      onSample(k, 2, { label: "Comisión", value: fmtUSD(this._monto("comisionTotal")), sub: pct + "%" }),
+      ...(k[3] ? [onSample(k, 3, { label: "Clientes", value: String(this._monto("clientes")), sub: "referidos" })] : []),
+      ...(k[4] ? [onSample(k, 4, { label: "Disponible", value: fmtUSD(this._monto("disponible")), sub: "para retirar" })] : []),
+    ];
+  }
+
+  _crm() {
+    if (Array.isArray(this.vals.clientes)) {
+      this.vals.clientes = this.clientesReales.length
+        ? this.clientesReales.slice(0, 20).map((c, i) => this._filaCliente(c, i))
+        : [filaVacia({ name: this.autenticado ? "Aún no tienes referidos" : "Inicia sesión", products: "Comparte tu enlace de referido para empezar a ganar comisiones." })];
+    }
+    if (Array.isArray(this.vals.clientFilters) && this.vals.clientFilters[0]) {
+      const total = this._monto("clientes");
+      this.vals.clientFilters = this.vals.clientFilters.map((f, i) => (i === 0 ? Object.assign({}, f, { label: `Todos (${total})` }) : f));
+    }
+  }
+  _filaCliente(c, i) {
+    const activo = Number(c.activas) > 0;
+    return onSample(this.vals.clientes, i, {
+      name: c.nombre || (c.email || "Cliente").split("@")[0], email: c.email || "",
+      initials: short(c.nombre || c.email || "C").slice(0, 2), wa: c.whatsapp || "—",
+      products: Number(c.pedidos) ? `${c.pedidos} pedido(s)` : "Sin compras", amount: fmtUSD(c.total),
+      statusLabel: activo ? "Activo" : "Referido", statusColor: activo ? "#00D4A0" : "#00CFFF",
+      statusBg: activo ? "rgba(0,212,160,0.12)" : "rgba(0,207,255,0.10)",
+      last: c.ultimo ? Utils.fecha(c.ultimo) : "—", renew: c.proximoVence ? Utils.fecha(c.proximoVence) : "—",
+      renewSoon: false, notes: "—",
+    });
+  }
+
+  _libroDeComisiones() {
+    this.vals.comisionesLista = this.comisionesReales.map((c) => ({
+      servicio: c.servicio || "Servicio", cliente: c.clienteNombre || c.clienteEmail || "Cliente",
+      monto: fmtUSD(c.monto), pct: Math.round((Number(c.pct) || 0) * 100) + "%",
+      estado: c.estadoUI, fecha: c.creadoEn ? Utils.fecha(c.creadoEn) : "—",
+    }));
+  }
+
+  _grafico() {
+    this.vals.chartValue = fmtUSD(this._monto("comisionTotal"));
+    this.vals.chartDelta = "";
+    const serie = this.resumen && Array.isArray(this.resumen.serie) && this.resumen.serie.length >= 2 ? this.resumen.serie : null;
+    if (serie) Object.assign(this.vals, new GraficoLineas(serie).paraPlantilla());
+  }
+
+  _nivel() {
+    const nivel = (this.resumen && this.resumen.nivel) || { nombre: "Bronce", siguiente: "Plata", pct: 0, faltante: 0 };
+    const ui = NIVEL_UI[nivel.nombre] || NIVEL_UI.Bronce;
+    const ventas = this._monto("ventas");
+    const promedio = ventas > 0 ? this._monto("comisionTotal") / ventas : 2.5;
+    Object.assign(this.vals, {
+      levelName: nivel.nombre, levelColor: ui.color, levelColor2: ui.color2, levelGlow: ui.color + "55", levelEmoji: ui.emoji,
+      levelPct: nivel.pct, levelNext: nivel.siguiente || "MÁX",
+      levelRemaining: nivel.siguiente ? fmtUSD(nivel.faltante) : "—",
+      levelSalesToGo: nivel.siguiente && nivel.faltante > 0 ? String(Math.max(1, Math.ceil(nivel.faltante / promedio))) : "0",
+    });
+  }
+
+  _masVendidos() {
+    if (!Array.isArray(this.vals.bestSellers)) return;
+    const top = this.resumen && Array.isArray(this.resumen.topServicios) ? this.resumen.topServicios : [];
+    this.vals.bestSellers = top.length
+      ? top.map((t, i) => this._filaMasVendido(t, i))
+      : [filaVacia({ rank: "—", name: "Sin ventas todavía", units: "0", earnings: fmtUSD(0) })];
+  }
+  _filaMasVendido(t, i) {
+    const nombre = (Catalogo.porId(t.servicio) || {}).nombre_display || t.servicio;
+    return onSample(this.vals.bestSellers, i, {
+      rank: "0" + (i + 1), rankColor: RANK_COLOR[i] || RANK_COLOR[4],
+      icon: short(nombre).slice(0, 1), bg: grad(t.servicio),
+      name: nombre, units: String(t.ventas), earnings: fmtUSD(t.comision),
+    });
+  }
+
+  _actividad() {
+    if (!Array.isArray(this.vals.activity)) return;
+    this.vals.activity = this.comisionesReales.length
+      ? this.comisionesReales.slice(0, 6).map((c, i) => this._filaActividad(c, i))
+      : [filaVacia({ text: "Aún no hay actividad. Tu primera comisión aparecerá aquí.", amount: "", time: "" })];
+  }
+  _filaActividad(c, i) {
+    const nombre = (Catalogo.porId(c.servicio) || {}).nombre_display || c.servicio || "servicio";
+    const cliente = c.clienteNombre || (c.clienteEmail || "cliente").split("@")[0];
+    return onSample(this.vals.activity, i, {
+      text: `Comisión por ${nombre} · ${cliente}`, amount: "+" + fmtUSD(c.monto), amountColor: "#00D4A0",
+      time: c.creadoEn ? Utils.fecha(c.creadoEn) : "", icon: '<path d="M20 6 9 17l-5-5"/>',
+      iconColor: "#00D4A0", iconBg: "rgba(0,212,160,0.1)", iconBorder: "rgba(0,212,160,0.24)",
+    });
+  }
+}
+
+/* ── Entidad de dibujo: convierte la serie mensual en coordenadas SVG ── */
+class GraficoLineas {
+  constructor(serie) {
+    this.serie = serie;
+    this.puntosEje = serie.length;
+    this.maxValor = Math.max(1, ...serie.flatMap((s) => [Number(s.ventas) || 0, Number(s.comision) || 0]));
+  }
+  _x(indice) { return Math.round(20 + indice * (520 / (this.puntosEje - 1))); }
+  _y(valor) { return Math.round(130 - ((Number(valor) || 0) / this.maxValor) * 92); }
+  _serieDe(campo) { return this.serie.map((s, i) => [this._x(i), this._y(s[campo])]); }
+  _area(puntos) {
+    const ultimo = puntos[puntos.length - 1];
+    const trazo = puntos.slice(1).map((p) => `L${p[0]},${p[1]}`).join(" ");
+    return `M${puntos[0][0]},${puntos[0][1]} ${trazo} L${ultimo[0]},150 L${puntos[0][0]},150 Z`;
+  }
+  paraPlantilla() {
+    const ventas = this._serieDe("ventas");
+    const comision = this._serieDe("comision");
+    const ultimo = ventas[this.puntosEje - 1];
+    return {
+      chartSales: ventas.map((p) => p.join(",")).join(" "),
+      chartProfit: comision.map((p) => p.join(",")).join(" "),
+      chartArea: this._area(ventas),
+      chartDotX: ultimo[0], chartDotY: ultimo[1],
+      chartLabels: this.serie.map((s, i) => ({ label: s.label, x: ventas[i][0] })),
+    };
+  }
+}
+
 function decorateRevendedor(vals) {
-  const ses = Store.get("sesion") || {};
-  const auth = ses.estado === "autenticado";
-  const u = ses.usuario || {};
-  const nom = auth ? String(u.nombre || (u.email || "").split("@")[0] || "Revendedor") : "Revendedor";
-
-  // Datos REALES del backend (/api/reseller/*), cargados por reseller-api.js.
-  const ov = Store.get("resellerOverview");           // resumen: código, KPIs, comisiones
-  const clientesReales = Store.get("resellerClients") || [];
-  const comisionesReales = Store.get("resellerCommissions") || [];
-
-  // ── Identidad ── (código real del backend si está; si no, provisional) ──
-  const codigo = (ov && ov.codigo) || (auth ? "NV-" + String(u.uid || u.email || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase() : "NV-------");
-  vals.resellerName = nom;
-  vals.resellerFirst = nom.split(" ")[0];
-  vals.resellerInitials = (nom.split(/\s+/).map((w) => w[0]).join("").slice(0, 2) || "NV").toUpperCase();
-  vals.resellerCode = codigo;
-  vals.refUser = codigo;
-  vals.resellerSaldo = ov ? fmtUSD(ov.saldo) : (auth && isFinite(Number(u.saldoBilletera)) ? fmtUSD(Number(u.saldoBilletera)) : "$0.00");
-
-  // ── Comisiones reales (cubos del backend) ──
-  const pendiente = ov ? Number(ov.pendiente) || 0 : 0;
-  const disponible = ov ? Number(ov.disponible) || 0 : 0;
-  const pagadaMes = ov ? Number(ov.pagadaMes) || 0 : 0;
-  const comisionTotal = ov ? Number(ov.comisionTotal) || 0 : 0;
-  const ingresos = ov ? Number(ov.ingresos) || 0 : 0;
-  const ventas = ov ? Number(ov.ventas) || 0 : 0;
-  const nClientes = ov ? Number(ov.clientes) || 0 : 0;
-  if (Array.isArray(vals.commissions)) {
-    vals.commissions = [
-      { label: "Pendiente", value: fmtUSD(pendiente), color: "#FFB020" },
-      { label: "Disponible", value: fmtUSD(disponible), color: "#00D4A0" },
-      { label: "Pagada (mes)", value: fmtUSD(pagadaMes), color: "#00CFFF" },
-      { label: "Total comisión", value: fmtUSD(comisionTotal), color: "#9B3FFF" },
-    ];
-  }
-  vals.levelXP = fmtUSD(comisionTotal);
-  vals.disponibleRetiro = fmtUSD(disponible);
-  vals.puedeRetirar = disponible > 0;
-  vals.memberSince = (ov ? Number(ov.clientes) || 0 : 0) + " referido" + ((ov ? Number(ov.clientes) || 0 : 0) === 1 ? "" : "s");
-
-  // ── KPIs reales del dashboard ──
-  if (Array.isArray(vals.kpis) && vals.kpis.length >= 3) {
-    vals.kpis = [
-      onSample(vals.kpis, 0, { label: "Ventas", value: String(ventas), sub: "de referidos" }),
-      onSample(vals.kpis, 1, { label: "Ingresos", value: fmtUSD(ingresos), sub: "generados" }),
-      onSample(vals.kpis, 2, { label: "Comisión", value: fmtUSD(comisionTotal), sub: (ov ? Math.round((Number(ov.comisionPct) || 0) * 100) : 0) + "%" }),
-      ...(vals.kpis[3] ? [onSample(vals.kpis, 3, { label: "Clientes", value: String(nClientes), sub: "referidos" })] : []),
-      ...(vals.kpis[4] ? [onSample(vals.kpis, 4, { label: "Disponible", value: fmtUSD(disponible), sub: "para retirar" })] : []),
-    ];
-  }
-
-  // ── CRM: clientes referidos reales ──
-  if (Array.isArray(vals.clientes)) {
-    if (clientesReales.length) {
-      vals.clientes = clientesReales.slice(0, 20).map((c, i) => {
-        const activo = Number(c.activas) > 0;
-        return onSample(vals.clientes, i, {
-          name: c.nombre || (c.email || "Cliente").split("@")[0],
-          email: c.email || "",
-          initials: short(c.nombre || c.email || "C").slice(0, 2),
-          wa: c.whatsapp || "—",
-          products: Number(c.pedidos) ? `${c.pedidos} pedido(s)` : "Sin compras",
-          amount: fmtUSD(c.total),
-          statusLabel: activo ? "Activo" : "Referido",
-          statusColor: activo ? "#00D4A0" : "#00CFFF",
-          statusBg: activo ? "rgba(0,212,160,0.12)" : "rgba(0,207,255,0.10)",
-          last: c.ultimo ? Utils.fecha(c.ultimo) : "—",
-          renew: c.proximoVence ? Utils.fecha(c.proximoVence) : "—",
-          renewSoon: false,
-          notes: "—",
-        });
-      });
-    } else {
-      vals.clientes = [filaVacia({ name: auth ? "Aún no tienes referidos" : "Inicia sesión", products: "Comparte tu enlace de referido para empezar a ganar comisiones." })];
-    }
-  }
-  // Filtro "Todos (N)" con el conteo real.
-  if (Array.isArray(vals.clientFilters) && vals.clientFilters[0]) {
-    vals.clientFilters = vals.clientFilters.map((f, i) => (i === 0 ? Object.assign({}, f, { label: `Todos (${nClientes})` }) : f));
-  }
-
-  // ── Libro de comisiones (para el módulo Centro Financiero / Comisión) ──
-  vals.comisionesLista = comisionesReales.map((c) => ({
-    servicio: c.servicio || "Servicio",
-    cliente: c.clienteNombre || c.clienteEmail || "Cliente",
-    monto: fmtUSD(c.monto),
-    pct: Math.round((Number(c.pct) || 0) * 100) + "%",
-    estado: c.estadoUI,
-    fecha: c.creadoEn ? Utils.fecha(c.creadoEn) : "—",
-  }));
-
-  // ── Gráfico "Ventas & Ganancias" desde la serie real (últimos 6 meses) ──
-  const serie = (ov && Array.isArray(ov.serie) && ov.serie.length) ? ov.serie : null;
-  vals.chartValue = fmtUSD(comisionTotal);
-  vals.chartDelta = "";
-  if (serie && serie.length >= 2) {
-    const n = serie.length;
-    const maxV = Math.max(1, ...serie.map((s) => Math.max(Number(s.ventas) || 0, Number(s.comision) || 0)));
-    const xAt = (i) => Math.round(20 + i * (520 / (n - 1)));
-    const yAt = (v) => Math.round(130 - ((Number(v) || 0) / maxV) * 92);  // 38..130 (y invertida)
-    const ventasPts = serie.map((s, i) => [xAt(i), yAt(s.ventas)]);
-    const comisPts = serie.map((s, i) => [xAt(i), yAt(s.comision)]);
-    const last = ventasPts[n - 1];
-    vals.chartSales = ventasPts.map((p) => p.join(",")).join(" ");
-    vals.chartProfit = comisPts.map((p) => p.join(",")).join(" ");
-    vals.chartArea = `M${ventasPts[0][0]},${ventasPts[0][1]} ` + ventasPts.slice(1).map((p) => `L${p[0]},${p[1]}`).join(" ") + ` L${last[0]},150 L${ventasPts[0][0]},150 Z`;
-    vals.chartDotX = last[0];
-    vals.chartDotY = last[1];
-    vals.chartLabels = serie.map((s, i) => ({ label: s.label, x: ventasPts[i][0] }));
-  }
-
-  // ── Nivel con umbrales REALES (por comisión acumulada) ──
-  const NIVEL_UI = {
-    Bronce: { c: "#CD7F32", c2: "#8B5A2B", e: "🥉" },
-    Plata: { c: "#C0C8D4", c2: "#8A94A6", e: "🥈" },
-    Oro: { c: "#E6B83A", c2: "#B8860B", e: "🥇" },
-    Platino: { c: "#7FD4FF", c2: "#3A9AD9", e: "🏆" },
-    Diamante: { c: "#9B7BFF", c2: "#6A3FD9", e: "💎" },
-  };
-  const niv = (ov && ov.nivel) || { nombre: "Bronce", siguiente: "Plata", pct: 0, faltante: 0 };
-  const nui = NIVEL_UI[niv.nombre] || NIVEL_UI.Bronce;
-  vals.levelName = niv.nombre;
-  vals.levelColor = nui.c;
-  vals.levelColor2 = nui.c2;
-  vals.levelGlow = nui.c + "55";
-  vals.levelEmoji = nui.e;
-  vals.levelPct = niv.pct;
-  vals.levelNext = niv.siguiente || "MÁX";
-  vals.levelRemaining = niv.siguiente ? fmtUSD(niv.faltante) : "—";
-  const avgCom = ventas > 0 ? comisionTotal / ventas : 2.5;
-  vals.levelSalesToGo = niv.siguiente && niv.faltante > 0 ? String(Math.max(1, Math.ceil(niv.faltante / avgCom))) : "0";
-
-  // ── "Más vendidos" desde el top real de servicios (por comisión) ──
-  const top = (ov && Array.isArray(ov.topServicios)) ? ov.topServicios : [];
-  const rankCol = ["#E6B83A", "#C0C8D4", "#CD7F32", "rgba(160,185,240,0.5)", "rgba(160,185,240,0.5)"];
-  if (Array.isArray(vals.bestSellers)) {
-    if (top.length) {
-      vals.bestSellers = top.map((t, i) => {
-        const s = Catalogo.porId(t.servicio) || {};
-        const nombre = s.nombre_display || t.servicio;
-        return onSample(vals.bestSellers, i, {
-          rank: "0" + (i + 1), rankColor: rankCol[i] || rankCol[4],
-          icon: short(nombre).slice(0, 1), bg: grad(t.servicio),
-          name: nombre, units: String(t.ventas), earnings: fmtUSD(t.comision),
-        });
-      });
-    } else {
-      vals.bestSellers = [filaVacia({ rank: "—", name: "Sin ventas todavía", units: "0", earnings: fmtUSD(0) })];
-    }
-  }
-
-  // ── "Actividad reciente" desde el libro de comisiones real ──
-  if (Array.isArray(vals.activity)) {
-    if (comisionesReales.length) {
-      vals.activity = comisionesReales.slice(0, 6).map((c, i) => {
-        const s = Catalogo.porId(c.servicio) || {};
-        const nombre = s.nombre_display || c.servicio || "servicio";
-        const cli = c.clienteNombre || (c.clienteEmail || "cliente").split("@")[0];
-        return onSample(vals.activity, i, {
-          text: `Comisión por ${nombre} · ${cli}`,
-          amount: "+" + fmtUSD(c.monto), amountColor: "#00D4A0",
-          time: c.creadoEn ? Utils.fecha(c.creadoEn) : "",
-          icon: '<path d="M20 6 9 17l-5-5"/>',
-          iconColor: "#00D4A0", iconBg: "rgba(0,212,160,0.1)", iconBorder: "rgba(0,212,160,0.24)",
-        });
-      });
-    } else {
-      vals.activity = [filaVacia({ text: "Aún no hay actividad. Tu primera comisión aparecerá aquí.", amount: "", time: "" })];
-    }
-  }
-
-  // El "pipeline CRM" era una maqueta sin respaldo → se oculta; el CRM real vive
-  // en la vista "Mis Clientes" (clientes referidos con actividad real).
-  vals.showPipeline = false;
+  new PresentadorRevendedor(vals, Store).presentar();
 }
 
 /* ──────────────────────────  INTERACTIVIDAD  ───────────────────────── */
