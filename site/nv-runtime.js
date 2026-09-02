@@ -173,6 +173,18 @@
     return typeof v === "string" && /<[a-zA-Z/]/.test(v);
   }
 
+  // Seguridad (anti-XSS): el HTML CRUDO (innerHTML) solo se permite para
+  // expresiones de CONFIANZA escritas por el desarrollador — iconos/SVG, cuyo
+  // último segmento contiene "icon" o "svg" (p.ej. {{ cat.icon }}, platformIcon).
+  // Cualquier otro binding ({{ rev.text }}, nombres, descripciones…) se renderiza
+  // como TEXTO escapado aunque su valor parezca HTML, cerrando el XSS almacenado.
+  // El atacante controla el VALOR de los datos, nunca el NOMBRE del binding en la
+  // plantilla, así que este límite de confianza es robusto.
+  function rawPermitido(expr) {
+    const seg = String(expr || "").trim().split(".").pop() || "";
+    return /icon|svg/i.test(seg);
+  }
+
   function compileNode(node) {
     // TEXT
     if (node.nodeType === Node.TEXT_NODE) {
@@ -359,8 +371,8 @@
     el.__nvEvents = bound;
     el.__nvBuilder = b;
 
-    // children (raw-HTML fast path for icon strings etc.)
-    if (b.rawChild) {
+    // children (raw-HTML fast path SOLO para iconos/SVG de confianza)
+    if (b.rawChild && rawPermitido(b.rawChild)) {
       const v = resolve(vals, b.rawChild);
       if (looksLikeHTML(v)) {
         el.innerHTML = v;
@@ -413,8 +425,8 @@
     }
     oldN.__nvEvents = newN.__nvEvents || [];
 
-    // if new node was built via raw innerHTML, mirror it and stop
-    if (newN.__nvBuilder && newN.__nvBuilder.rawChild) {
+    // if new node was built via raw innerHTML (icono/SVG de confianza), mirror it
+    if (newN.__nvBuilder && newN.__nvBuilder.rawChild && rawPermitido(newN.__nvBuilder.rawChild)) {
       if (oldN.innerHTML !== newN.innerHTML) oldN.innerHTML = newN.innerHTML;
       return oldN;
     }
