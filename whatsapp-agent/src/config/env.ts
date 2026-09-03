@@ -82,6 +82,10 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().default(''),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
+  // Acceso con Google (opcional). Client ID OAuth de Google (Web) — el MISMO
+  // que uses en el frontend (config.js googleClientId). Vacío ⇒ Google desactivado.
+  GOOGLE_CLIENT_ID: z.string().default(''),
+
   // OTP (portado de las Cloud Functions). Secretos de los webhooks entrantes y
   // token del bot de Telegram para reenviar el código al cliente. Si un secreto
   // queda vacío, ese webhook NO valida token (solo para desarrollo).

@@ -92,3 +92,41 @@ export async function sesionDeId(id: string): Promise<SesionPublica | null> {
   const u = await UsersRepository.findById(id);
   return u ? publico(u) : null;
 }
+
+/**
+ * Acceso con Google. Verifica el id_token (credential de Google Identity
+ * Services) contra el endpoint tokeninfo de Google — sin dependencias — y
+ * comprueba que el `aud` coincide con nuestro GOOGLE_CLIENT_ID. Si el correo es
+ * nuevo, crea la cuenta (sin contraseña utilizable); si existe, inicia sesión.
+ */
+type TokenInfoGoogle = { aud?: string; email?: string; email_verified?: string; name?: string };
+
+export async function loginConGoogle(input: { credential?: string; ref?: string | null }) {
+  const clientId = env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw new AuthError('google_no_configurado', 'El acceso con Google no está configurado en el servidor.');
+  const credential = (input.credential || '').trim();
+  if (!credential) throw new AuthError('google_sin_credencial', 'Falta la credencial de Google.');
+
+  let info: TokenInfoGoogle;
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential));
+    if (!res.ok) throw new Error('tokeninfo ' + res.status);
+    info = (await res.json()) as TokenInfoGoogle;
+  } catch (causa) {
+    throw new AuthError('google_invalido', 'No pudimos validar tu acceso con Google.');
+  }
+  // El token debe haber sido emitido PARA nuestra app y con el correo verificado.
+  if (info.aud !== clientId) throw new AuthError('google_invalido', 'La credencial de Google no es válida para esta app.');
+  const email = (info.email || '').trim().toLowerCase();
+  if (!email || info.email_verified !== 'true') throw new AuthError('google_invalido', 'Tu correo de Google no está verificado.');
+
+  const existente = await UsersRepository.findByEmail(email);
+  if (existente) return { usuario: publico(existente), token: signToken(existente) };
+
+  // Cuenta nueva vía Google: contraseña aleatoria no utilizable (solo entra por Google).
+  const passwordHash = await hashPassword(crypto.randomBytes(24).toString('base64'));
+  const u = await UsersRepository.createWebUser({ email, nombre: (info.name || '').trim() || null, passwordHash });
+  const ref = (input.ref || '').trim();
+  if (ref) { try { await ResellerRepository.marcarReferido(u.id, ref); } catch { /* ignora ref inválido */ } }
+  return { usuario: publico(u), token: signToken(u) };
+}

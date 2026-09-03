@@ -63,6 +63,12 @@
       perfil: "/api/user/profile",     // perfil real o estado Guest
     },
 
+    // Acceso con Google (opcional). Pega aquí tu Client ID OAuth de Google (Web)
+    // y define el MISMO en el backend (GOOGLE_CLIENT_ID). Vacío ⇒ botón desactivado.
+    // Cómo obtenerlo: console.cloud.google.com → APIs & Services → Credenciales →
+    // "ID de cliente de OAuth" tipo Web → Orígenes autorizados: tu dominio.
+    googleClientId: "",
+
     /* ── Moneda / conversor ── */
     moneda: {
       base: "USD",
@@ -87,7 +93,7 @@
     /* ── Redes / canales oficiales (EDITA aquí tus enlaces reales) ── */
     // Deja en "" cualquiera que no uses y el botón correspondiente se ocultará.
     redes: {
-      telegram: "",                    // p.ej. "https://t.me/tucanal" o "nvstreaming"
+      telegram: "https://t.me/nathanstreaming",   // canal de Telegram del negocio
       instagram: "",                   // p.ej. "https://instagram.com/nvstreaming"
       x: "",                           // p.ej. "https://x.com/nvstreaming"
     },

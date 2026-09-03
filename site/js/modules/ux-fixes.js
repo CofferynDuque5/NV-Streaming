@@ -65,40 +65,9 @@ function abrirX() {
   if (!url) { if (window.NVUI) window.NVUI.info("X no configurado", "Añade tu perfil en js/config.js (redes.x)."); return; }
   window.open(url, "_blank", "noopener");
 }
-// Modal de métodos de pago (datos NO sensibles desde config.pagos).
-async function abrirPagos() {
-  const pagos = (cfg().pagos && cfg().pagos.length) ? cfg().pagos : [
-    { nombre: "Pago Móvil", detalle: "Confirmación por WhatsApp" },
-    { nombre: "Transferencia", detalle: "Envía el comprobante" },
-  ];
-  const NVUI = window.NVUI;
-  const filas = pagos.map((p) =>
-    `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(0,207,255,0.16);border-radius:12px;margin-bottom:9px;background:rgba(0,207,255,0.04);">
-       <div style="width:34px;height:34px;border-radius:9px;background:rgba(0,207,255,0.12);display:flex;align-items:center;justify-content:center;color:#00CFFF;flex-shrink:0;">
-         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-       </div>
-       <div style="text-align:left;">
-         <div style="font-weight:600;color:#EEF2FF;font-size:14px;">${p.nombre}</div>
-         <div style="font-size:12px;color:rgba(200,215,255,0.55);">${p.detalle || ""}</div>
-       </div>
-     </div>`).join("");
-  const html =
-    `<div style="max-height:52vh;overflow:auto;margin:4px 0 2px;">${filas}</div>
-     <div style="font-size:12px;color:rgba(200,215,255,0.5);margin-top:6px;">Los datos exactos de pago se confirman por WhatsApp al hacer tu pedido.</div>`;
-  if (NVUI && NVUI.modal) {
-    await NVUI.modal({
-      tipo: "ask",
-      icono: "💳",
-      titulo: "Métodos de pago",
-      html,
-      acciones: [
-        { label: "Escribir por WhatsApp", val: "wa" },
-        { label: "Cerrar", ghost: true, val: 0 },
-      ],
-    }).then((v) => { if (v === "wa") abrirWhatsApp(); });
-  } else {
-    alert("Métodos de pago:\n" + pagos.map((p) => "• " + p.nombre).join("\n"));
-  }
+// "Métodos de pago" → lleva a la página de pagos (checkout/instrucciones reales).
+function abrirPagos() {
+  window.location.href = "pagos.html";
 }
 // Enlaza los botones marcados con data-nv-link (métodos de pago, WhatsApp,
 // Telegram, Instagram, X) tanto en el header como en el pie.
@@ -573,7 +542,36 @@ function esBotonAuthHeader(el) {
   if (t === "Acceder" && el.closest("header,nav,[data-nv-header]") && !/\$|\d/.test(t)) return true;
   return false;
 }
+// En los paneles internos (revendedor/admin/editor) añade un enlace fijo para
+// volver a "Mi cuenta" — así las pantallas quedan encadenadas y no son callejones.
+function wireVolverPanel() {
+  if (wireVolverPanel._done) return;
+  const page = window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "";
+  if (!["revendedor", "admin", "editor"].includes(page)) return;
+  wireVolverPanel._done = true;
+  const a = document.createElement("a");
+  a.href = "mi-cuenta.html";
+  a.setAttribute("data-nv-volver", "1");
+  a.textContent = "← Mi cuenta";
+  a.title = "Volver a mi cuenta";
+  a.style.cssText =
+    "position:fixed;top:11px;left:50%;transform:translateX(-50%);z-index:99990;" +
+    "padding:6px 14px;border-radius:100px;font:600 12.5px 'DM Sans',sans-serif;" +
+    "color:#EEF2FF;background:rgba(10,12,30,0.92);border:1px solid rgba(0,207,255,0.3);" +
+    "text-decoration:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);" +
+    "box-shadow:0 6px 20px rgba(0,0,30,0.4);";
+  document.body.appendChild(a);
+}
+
+// Revela los accesos marcados data-nv-role="admin" solo a administradores.
+function aplicarAccesosPorRol() {
+  const { auth, u } = sesion();
+  const esAdmin = !!(auth && u && String(u.rol || u.role || "").toLowerCase() === "admin");
+  document.querySelectorAll('[data-nv-role="admin"]').forEach((el) => { el.hidden = !esAdmin; });
+}
+
 function gestionarSesionHeader() {
+  aplicarAccesosPorRol();
   const { auth, u } = sesion();
   const nombre = auth && u ? String(u.nombre || (u.email || "").split("@")[0] || "Cliente").split(" ")[0] : "";
   document.querySelectorAll("button,a").forEach((el) => {
@@ -645,6 +643,7 @@ export function instalarUX() {
   wireBilletera();
   wireMoneda();
   wireCuenta();
+  wireVolverPanel();   // enlace "← Mi cuenta" en paneles internos
 
   // Decoración dependiente del DOM (se repite tras cada re-render del runtime).
   redecorar();

@@ -19,5 +19,6 @@ const limiteCredenciales = rateLimit({ windowMs: 5 * 60_000, max: 10 });
 
 authRouter.post('/auth/register', limiteCredenciales, asyncHandler(AuthController.register));
 authRouter.post('/auth/login', limiteCredenciales, asyncHandler(AuthController.login));
+authRouter.post('/auth/google', limiteCredenciales, asyncHandler(AuthController.google));
 authRouter.get('/auth/me', requireAuth, asyncHandler(AuthController.me));
 authRouter.post('/auth/logout', (_req, res) => { res.json({ ok: true }); });
