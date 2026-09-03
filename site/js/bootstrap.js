@@ -28,6 +28,7 @@ import { instalarForms } from "./modules/nv-forms.js";
 import { instalarUiState } from "./modules/nv-ui-state.js";
 import { instalarPerf } from "./modules/nv-perf.js";
 import { instalarGoogle } from "./modules/nv-google.js";
+import { instalarLayout } from "./modules/nv-layout.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -91,6 +92,7 @@ async function boot() {
   Auth.iniciarObservadorSesion(); // sesión → Store (anónimo en modo offline)
   cargarCatalogoReal();           // precios/stock reales desde el backend (sin datos falsos)
   cargarConfigReal();             // parametros (tasa_bcv viva) + tema desde /api/config
+  instalarLayout();               // storefront ← layout PUBLICADO del editor visual (paginas_layout)
   aplicarGatekeeper();
 
   Bus.emit("app:ready", { online: NVCore.online, page: page() });

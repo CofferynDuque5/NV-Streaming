@@ -556,19 +556,19 @@
     <!-- LEFT: Hero text -->
     <div>
       <!-- Trust chip -->
-      <div style="display:inline-flex;align-items:center;gap:7px;padding:5px 13px;background:rgba(0,207,255,0.07);border:1px solid rgba(0,207,255,0.2);border-radius:100px;margin-bottom:24px;">
+      <div data-nv-slot="hero.eyebrow.box" style="display:inline-flex;align-items:center;gap:7px;padding:5px 13px;background:rgba(0,207,255,0.07);border:1px solid rgba(0,207,255,0.2);border-radius:100px;margin-bottom:24px;">
         <div style="width:6px;height:6px;background:#00DFFF;border-radius:50%;animation:glow 2s ease-in-out infinite;box-shadow:0 0 6px rgba(0,223,255,0.8);"></div>
-        <span style="font-size:11.5px;color:#00CFFF;letter-spacing:0.06em;font-weight:500;text-transform:uppercase;">Activación Inmediata · Soporte 24/7</span>
+        <span data-nv-slot="hero.eyebrow" style="font-size:11.5px;color:#00CFFF;letter-spacing:0.06em;font-weight:500;text-transform:uppercase;">Activación Inmediata · Soporte 24/7</span>
       </div>
 
       <!-- Main headline -->
-      <h1 style="font-family:'Syne',sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:0.92;margin-bottom:22px;text-wrap:pretty;">
+      <h1 data-nv-slot="hero.title" style="font-family:'Syne',sans-serif;font-weight:800;letter-spacing:-0.035em;line-height:0.92;margin-bottom:22px;text-wrap:pretty;">
         <span style="display:block;font-size:78px;color:#EEF2FF;">ACCESO</span>
         <span style="display:block;font-size:78px;background:linear-gradient(120deg,#00CFFF 0%,#00DFFF 40%,#9B3FFF 80%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">ILIMITADO.</span>
       </h1>
 
       <!-- Subtitle -->
-      <p style="font-size:17px;color:rgba(200,215,255,0.58);line-height:1.72;font-weight:300;max-width:500px;margin-bottom:36px;">Netflix, Spotify, Disney+, ChatGPT y <strong style="color:rgba(200,215,255,0.85);font-weight:500;">más servicios premium</strong> al mejor precio. Compra hoy, activa en minutos.</p>
+      <p data-nv-slot="hero.subtitle" style="font-size:17px;color:rgba(200,215,255,0.58);line-height:1.72;font-weight:300;max-width:500px;margin-bottom:36px;">Netflix, Spotify, Disney+, ChatGPT y <strong style="color:rgba(200,215,255,0.85);font-weight:500;">más servicios premium</strong> al mejor precio. Compra hoy, activa en minutos.</p>
 
       <!-- CTAs -->
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:44px;flex-wrap:wrap;">
@@ -583,7 +583,7 @@
       </div>
 
       <!-- Stats -->
-      <div style="display:flex;gap:28px;align-items:center;padding-top:28px;border-top:1px solid rgba(80,100,200,0.14);">
+      <div data-nv-slot="hero.stats" style="display:flex;gap:28px;align-items:center;padding-top:28px;border-top:1px solid rgba(80,100,200,0.14);">
         <div>
           <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;line-height:1;text-shadow:0 0 20px rgba(0,207,255,0.2);">Inmediata</div>
           <div style="font-size:12px;color:rgba(200,215,255,0.42);margin-top:3px;">Activación</div>
@@ -607,7 +607,7 @@
     </div>
 
     <!-- RIGHT: 3D Orbital Card Stack -->
-    <div style="position:relative;height:460px;display:flex;align-items:center;justify-content:center;">
+    <div data-nv-slot="hero.floating" style="position:relative;height:460px;display:flex;align-items:center;justify-content:center;">
       <!-- Orbital rings base -->
       <div style="perspective:350px;position:absolute;bottom:60px;left:50%;transform:translateX(-50%);width:400px;height:100px;display:flex;align-items:center;justify-content:center;pointer-events:none;">
         <div style="width:380px;height:380px;border:2px solid rgba(0,223,255,0.6);border-radius:50%;animation:orbSpin 6s linear infinite;box-shadow:0 0 28px rgba(0,223,255,0.35),inset 0 0 20px rgba(0,223,255,0.05);flex-shrink:0;"></div>
@@ -689,7 +689,7 @@
           <span style="font-size:11px;color:#FF30A0;">🔥</span>
           <span style="font-size:10.5px;color:#FF30A0;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Top más vendidos</span>
         </div>
-        <h2 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Los favoritos de la comunidad</h2>
+        <h2 data-nv-slot="s2.title" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Los favoritos de la comunidad</h2>
       </div>
       <a style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#00CFFF;text-decoration:none;cursor:pointer;" style-hover="color:#00DFFF;">Ver catálogo completo <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg></a>
     </div>
@@ -768,7 +768,7 @@
           <span style="font-size:11px;color:#9B3FFF;letter-spacing:0.04em;">✦</span>
           <span style="font-size:10.5px;color:#9B3FFF;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Servicios Premium</span>
         </div>
-        <h2 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Todo lo que necesitas, aquí</h2>
+        <h2 data-nv-slot="s3.title" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Todo lo que necesitas, aquí</h2>
       </div>
       <div style="display:flex;align-items:center;gap:14px;"><a style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#00CFFF;text-decoration:none;cursor:pointer;" style-hover="color:#00DFFF;">Ver catálogo completo <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg></a><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;"><button onClick="{{ railScroll }}" data-target="rail-premium" data-dir="prev" aria-label="Anterior" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.22);color:rgba(200,215,255,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.35);color:#00CFFF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><button onClick="{{ railScroll }}" data-target="rail-premium" data-dir="next" aria-label="Siguiente" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.22);color:rgba(200,215,255,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.35);color:#00CFFF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button></div></div>
     </div>
@@ -827,7 +827,7 @@
           <svg width="8" height="8" viewBox="0 0 12 12" fill="none"><rect x="1" y="6" width="7" height="7" rx="0.5" transform="rotate(-45 1 6)" fill="#C8900A"/></svg>
           <span style="font-size:10.5px;color:#E6B83A;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">Packs exclusivos</span>
         </div>
-        <h2 style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Ahorra más con nuestros Combos</h2>
+        <h2 data-nv-slot="s4.title" style="font-family:'Syne',sans-serif;font-size:26px;font-weight:700;color:#EEF2FF;letter-spacing:-0.015em;">Ahorra más con nuestros Combos</h2>
       </div>
       <div style="display:flex;align-items:center;gap:14px;"><a style="display:flex;align-items:center;gap:5px;font-size:13.5px;color:#00CFFF;text-decoration:none;cursor:pointer;" style-hover="color:#00DFFF;">Ver todos <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m9 18 6-6-6-6"/></svg></a><div style="display:flex;align-items:center;gap:8px;flex-shrink:0;"><button onClick="{{ railScroll }}" data-target="rail-combos" data-dir="prev" aria-label="Anterior" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.22);color:rgba(200,215,255,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.35);color:#00CFFF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><button onClick="{{ railScroll }}" data-target="rail-combos" data-dir="next" aria-label="Siguiente" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.22);color:rgba(200,215,255,0.7);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.35);color:#00CFFF;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button></div></div>
     </div>
@@ -1253,7 +1253,7 @@
     <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,207,255,0.3),rgba(155,63,255,0.2),transparent);pointer-events:none;"></div>
     <div style="max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;">
       <div>
-        <h3 style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#EEF2FF;letter-spacing:-0.025em;margin-bottom:8px;line-height:1.1;">¿Listo para comenzar?</h3>
+        <h3 data-nv-slot="s6.title" style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#EEF2FF;letter-spacing:-0.025em;margin-bottom:8px;line-height:1.1;">¿Listo para comenzar?</h3>
         <p style="font-size:14.5px;color:rgba(200,215,255,0.5);font-weight:300;max-width:440px;">Elige tu servicio favorito y actívalo en minutos con NV Streaming.</p>
       </div>
       <div style="display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;">
