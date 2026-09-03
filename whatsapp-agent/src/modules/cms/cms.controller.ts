@@ -22,18 +22,36 @@ export const CMS_PUBLICAS = new Set<string>([
 export const CMS_GESTIONABLES = new Set<string>([
   ...CMS_PUBLICAS,
   'respuestas_rapidas', 'flyers_revendedores', 'plantillas_permisos', 'notificaciones_admin',
-  'paginas_layout', // borrador del editor visual (solo admin)
+  'paginas_layout', // layout del editor visual (lectura pública SOLO si está publicado)
 ]);
+
+// Colecciones de lectura CONDICIONAL: el público solo ve los documentos con
+// `publicado === true`; el admin (con sesión) ve también los borradores. Así el
+// storefront estático puede renderizar lo que el editor publica sin exponer
+// borradores a cualquiera.
+export const CMS_PUBLICAS_PUBLICADAS = new Set<string>(['paginas_layout']);
 
 function validarColeccion(c: string, res: Response): boolean {
   if (!CMS_GESTIONABLES.has(c)) { res.status(404).json({ error: 'coleccion_desconocida' }); return false; }
   return true;
 }
 
-// Para colecciones no públicas, exige sesión.
+// Para colecciones no públicas, exige sesión (salvo las de lectura condicional,
+// que dejan pasar y luego se filtran por `publicado`).
 function puedeLeer(coleccion: string, req: Request): boolean {
   if (CMS_PUBLICAS.has(coleccion)) return true;
+  if (CMS_PUBLICAS_PUBLICADAS.has(coleccion)) return true;
   return !!(req as AuthedRequest).user;
+}
+
+// ¿La petición está autenticada? (los admins/usuarios ven borradores).
+function estaAutenticado(req: Request): boolean {
+  return !!(req as AuthedRequest).user;
+}
+
+// Un documento de layout es visible sin sesión solo si está publicado.
+function layoutPublicado(doc: unknown): boolean {
+  return !!(doc && typeof doc === 'object' && (doc as Record<string, unknown>).publicado === true);
 }
 
 export const CmsController = {
@@ -43,9 +61,13 @@ export const CmsController = {
     if (!puedeLeer(c, req)) { res.status(401).json({ error: 'no_autenticado' }); return; }
     // Solo cacheamos las colecciones públicas (contenido de tienda, muy leído y
     // casi estático). Las privadas siempre van a BD.
-    const documentos = CMS_PUBLICAS.has(c)
+    let documentos = CMS_PUBLICAS.has(c)
       ? await cacheCms.obtenerO(claveLista(c), () => CmsRepository.listar(c))
       : await CmsRepository.listar(c);
+    // Lectura condicional: sin sesión, solo se listan los layouts publicados.
+    if (CMS_PUBLICAS_PUBLICADAS.has(c) && !estaAutenticado(req)) {
+      documentos = (documentos || []).filter(layoutPublicado);
+    }
     res.json({ coleccion: c, documentos });
   },
 
@@ -55,6 +77,10 @@ export const CmsController = {
     if (!puedeLeer(c, req)) { res.status(401).json({ error: 'no_autenticado' }); return; }
     const doc = await CmsRepository.obtener(c, req.params.id || '');
     if (!doc) { res.status(404).json({ error: 'no_encontrado' }); return; }
+    // Lectura condicional: sin sesión, un layout no publicado no existe (404).
+    if (CMS_PUBLICAS_PUBLICADAS.has(c) && !estaAutenticado(req) && !layoutPublicado(doc)) {
+      res.status(404).json({ error: 'no_encontrado' }); return;
+    }
     res.json(doc);
   },
 
