@@ -563,7 +563,11 @@ function sincronizarNavActivo() {
 // sesión al pulsarlo. Antes esos botones no hacían nada (maquetas estáticas).
 function esBotonAuthHeader(el) {
   const t = (el.textContent || "").trim();
-  if (t === "Iniciar Sesión") return true;                 // inequívoco (solo en headers)
+  // NUNCA tratar como "botón de header" al botón de envío del propio formulario
+  // de acceso (auth.html también rotula "Iniciar Sesión"): eso secuestraba el
+  // login. Solo cuenta si está en un header/nav y NO dentro de un formulario.
+  if (el.closest("form,[data-nv-form]")) return false;
+  if (t === "Iniciar Sesión" && el.closest("header,nav,[data-nv-header]")) return true;
   // "Acceder" está sobrecargado (CTA de productos): solo lo tratamos como login
   // si está en un header/nav y no lleva precio.
   if (t === "Acceder" && el.closest("header,nav,[data-nv-header]") && !/\$|\d/.test(t)) return true;
