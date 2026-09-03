@@ -112,7 +112,7 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00D4A0" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <div>
-            <div style="font-size:13px;font-weight:500;color:#EEF2FF;">2.400+ Usuarios activos</div>
+            <div style="font-size:13px;font-weight:500;color:#EEF2FF;">Activación inmediata</div>
             <div style="font-size:11.5px;color:rgba(200,215,255,0.42);font-weight:300;">Soporte 24/7 siempre disponible</div>
           </div>
         </div>
@@ -121,12 +121,12 @@
       <!-- Stats -->
       <div style="display:flex;gap:0;border:1px solid rgba(80,100,200,0.15);border-radius:10px;overflow:hidden;">
         <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(80,100,200,0.12);text-align:center;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#00CFFF;text-shadow:0 0 12px rgba(0,207,255,0.3);">50+</div>
-          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Servicios</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:#00CFFF;text-shadow:0 0 12px rgba(0,207,255,0.3);">Al día</div>
+          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Catálogo</div>
         </div>
         <div style="flex:1;padding:12px 16px;border-right:1px solid rgba(80,100,200,0.12);text-align:center;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#9B3FFF;text-shadow:0 0 12px rgba(155,63,255,0.3);">99%</div>
-          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Satisfacción</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:#9B3FFF;text-shadow:0 0 12px rgba(155,63,255,0.3);">Incluida</div>
+          <div style="font-size:10.5px;color:rgba(200,215,255,0.38);margin-top:2px;">Garantía</div>
         </div>
         <div style="flex:1;padding:12px 16px;text-align:center;">
           <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;color:#00D4A0;text-shadow:0 0 12px rgba(0,212,160,0.3);">24/7</div>
@@ -148,14 +148,18 @@
       <!-- Mode: LOGIN -->
       <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
         <div style="animation:formSlide 0.25s ease-out;">
+          <a onClick="{{ irAlInicio }}" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:rgba(200,215,255,0.55);cursor:pointer;text-decoration:none;margin-bottom:18px;" style-hover="color:#00CFFF;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Volver al inicio
+          </a>
           <div style="margin-bottom:32px;">
             <h1 style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#EEF2FF;letter-spacing:-0.02em;margin-bottom:6px;">Bienvenido de nuevo</h1>
             <p style="font-size:14.5px;color:rgba(200,215,255,0.5);font-weight:300;">Ingresa a tu cuenta de NV Streaming</p>
           </div>
-          <div data-nv-form style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
+          <form data-nv-form onSubmit="{{ onSubmitLogin }}" style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
             <div>
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;font-weight:400;">Correo electrónico</label>
-              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" data-login-email="1" data-nv-rules="required|email" onKeydown="{{ onKeyLogin }}" />
+              <input type="email" placeholder="usuario@ejemplo.com" class="nv-input" data-login-email="1" data-nv-rules="required|email" autocomplete="username" onKeydown="{{ onKeyLogin }}" />
             </div>
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -163,8 +167,8 @@
                 <a onClick="{{ goForgot }}" style="font-size:12px;color:#00CFFF;cursor:pointer;text-decoration:none;" style-hover="color:#00DFFF;">¿Olvidaste tu contraseña?</a>
               </div>
               <div style="position:relative;">
-                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" data-login-pass="1" data-nv-rules="required|min:8" onKeydown="{{ onKeyLogin }}" />
-                <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;" style-hover="color:rgba(200,215,255,0.8);">
+                <input type="password" placeholder="••••••••" class="nv-input" style="padding-right:44px;" data-login-pass="1" data-nv-rules="required|min:8" autocomplete="current-password" onKeydown="{{ onKeyLogin }}" />
+                <button type="button" onClick="{{ togglePassLogin }}" aria-label="Mostrar u ocultar contraseña" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);display:flex;align-items:center;" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
@@ -173,9 +177,9 @@
               <input type="checkbox" id="remember" style="width:14px;height:14px;" />
               <label for="remember" style="font-size:13px;color:rgba(200,215,255,0.55);cursor:pointer;">Recordar sesión</label>
             </div>
-          </div>
-          <button onClick="{{ submitLogin }}" class="nv-btn-primary" style="margin-bottom:14px;">Iniciar Sesión</button>
-          <button onClick="{{ go2FA }}" style="width:100%;padding:11px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:10px;color:#9B3FFF;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.15s;margin-bottom:24px;" style-hover="background:rgba(155,63,255,0.14);">
+            <button type="button" onClick="{{ submitLogin }}" class="nv-btn-primary" style="margin-bottom:4px;">Iniciar Sesión</button>
+          </form>
+          <button type="button" onClick="{{ go2FA }}" style="width:100%;padding:11px;background:rgba(155,63,255,0.08);border:1px solid rgba(155,63,255,0.2);border-radius:10px;color:#9B3FFF;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all 0.15s;margin-bottom:24px;" style-hover="background:rgba(155,63,255,0.14);">
             Usar autenticación de dos factores
           </button>
           <!-- Divider -->
@@ -186,11 +190,11 @@
           </div>
           <!-- Social auth -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;">
-            <button style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
+            <button type="button" style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
               <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
               Google
             </button>
-            <button style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
+            <button type="button" style="padding:11px;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;font-size:13.5px;color:rgba(200,215,255,0.75);" style-hover="background:rgba(255,255,255,0.08);border-color:rgba(0,207,255,0.22);">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(200,215,255,0.8)"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
               WhatsApp
             </button>
@@ -226,7 +230,7 @@
               <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:5px;">Contraseña</label>
               <div style="position:relative;">
                 <input type="password" name="reg-pass" placeholder="Mínimo 8 caracteres" class="nv-input" style="padding-right:44px;" data-reg-pass="1" data-nv-rules="required|min:8" />
-                <button style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);" style-hover="color:rgba(200,215,255,0.8);">
+                <button type="button" onClick="{{ togglePassReg }}" aria-label="Mostrar u ocultar contraseña" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:rgba(200,215,255,0.4);" style-hover="color:rgba(200,215,255,0.8);">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
               </div>
@@ -248,7 +252,7 @@
               <label for="terms" style="font-size:12.5px;color:rgba(200,215,255,0.5);cursor:pointer;line-height:1.5;">Acepto los <a style="color:#00CFFF;text-decoration:none;">Términos de Servicio</a> y la <a style="color:#00CFFF;text-decoration:none;">Política de Privacidad</a> de NV Streaming</label>
             </div>
           </div>
-          <button onClick="{{ submitRegister }}" class="nv-btn-primary" style="margin-bottom:20px;">Crear Cuenta</button>
+          <button type="button" onClick="{{ submitRegister }}" class="nv-btn-primary" style="margin-bottom:20px;">Crear Cuenta</button>
           <p style="text-align:center;font-size:13.5px;color:rgba(200,215,255,0.5);">¿Ya tienes cuenta? <a onClick="{{ goLogin }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;" style-hover="color:#00DFFF;">Iniciar sesión</a></p>
         </div>
       </sc-if>
@@ -282,8 +286,8 @@
             </div>
             <p style="font-size:13px;color:rgba(200,215,255,0.45);">¿No recibiste el código? <a onClick="{{ resendOtp }}" style="color:#00CFFF;cursor:pointer;font-weight:500;text-decoration:none;">Reenviar</a></p>
           </div>
-          <button class="nv-btn-primary" style="margin-bottom:14px;">Verificar código</button>
-          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.6);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Volver al inicio</button>
+          <button type="button" class="nv-btn-primary" style="margin-bottom:14px;">Verificar código</button>
+          <button type="button" onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.6);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Volver al inicio</button>
         </div>
       </sc-if>
 
@@ -323,8 +327,8 @@
               <div style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(80,100,200,0.3);flex-shrink:0;"></div>
             </div>
           </div>
-          <button class="nv-btn-primary" style="margin-bottom:14px;">Continuar</button>
-          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Cancelar</button>
+          <button type="button" class="nv-btn-primary" style="margin-bottom:14px;">Continuar</button>
+          <button type="button" onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">Cancelar</button>
         </div>
       </sc-if>
 
@@ -340,8 +344,8 @@
             <label style="display:block;font-size:12.5px;color:rgba(200,215,255,0.6);margin-bottom:6px;">Correo electrónico</label>
             <input type="email" placeholder="juan@ejemplo.com" class="nv-input" />
           </div>
-          <button class="nv-btn-primary" style="margin-bottom:14px;">Enviar instrucciones</button>
-          <button onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">
+          <button type="button" class="nv-btn-primary" style="margin-bottom:14px;">Enviar instrucciones</button>
+          <button type="button" onClick="{{ goLogin }}" style="width:100%;padding:11px;background:transparent;border:1px solid rgba(80,100,200,0.18);border-radius:10px;color:rgba(200,215,255,0.55);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;" style-hover="background:rgba(255,255,255,0.04);color:#EEF2FF;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="vertical-align:middle;margin-right:5px;"><path d="m15 18-6-6 6-6"/></svg>
             Volver al inicio de sesión
           </button>
@@ -417,8 +421,19 @@ class Component extends DCLogic {
     this._autenticar((core) => core.Auth.register(email, pass, { nombre: nombreCompleto, ref: ref || null }));
   }
 
+  // Envío del formulario (click en el botón o Enter): preventDefault evita la
+  // recarga por "envío implícito" de Chrome ante un campo de contraseña.
+  onSubmitLogin(ev)    { if (ev && ev.preventDefault) ev.preventDefault(); this.submitLogin(); }
+  onSubmitRegister(ev) { if (ev && ev.preventDefault) ev.preventDefault(); this.submitRegister(); }
   onKeyLogin(ev)    { if (ev && ev.key === 'Enter') { ev.preventDefault(); this.submitLogin(); } }
   onKeyRegister(ev) { if (ev && ev.key === 'Enter') { ev.preventDefault(); this.submitRegister(); } }
+
+  // Mostrar/ocultar contraseña (alterna el type del input).
+  _togglePass(sel) { const el = document.querySelector('[' + sel + ']'); if (el) el.type = (el.type === 'password') ? 'text' : 'password'; }
+  togglePassLogin() { this._togglePass('data-login-pass'); }
+  togglePassReg()   { this._togglePass('data-reg-pass'); }
+  // Volver a la página de inicio.
+  irAlInicio() { window.location.href = 'index.html'; }
 
   renderVals() {
     const { mode, otpSeconds } = this.state;
@@ -442,6 +457,11 @@ class Component extends DCLogic {
       submitRegister: () => this.submitRegister(),
       onKeyLogin:     (ev) => this.onKeyLogin(ev),
       onKeyRegister:  (ev) => this.onKeyRegister(ev),
+      togglePassLogin: () => this.togglePassLogin(),
+      togglePassReg:   () => this.togglePassReg(),
+      irAlInicio:      () => this.irAlInicio(),
+      onSubmitLogin:    (ev) => this.onSubmitLogin(ev),
+      onSubmitRegister: (ev) => this.onSubmitRegister(ev),
     };
   }
 }

@@ -46,14 +46,15 @@ export function createApp() {
     next();
   });
 
-  // CORS por LISTA BLANCA. Define CORS_ORIGIN con tus dominios de frontend
-  // (coma-separado). Solo se refleja un Origin que esté permitido; si la lista
-  // está vacía, se permite '*' únicamente fuera de producción (desarrollo).
+  // CORS. `CORS_ORIGIN` acepta '*' (permitir todos, p. ej. docker-compose/dev) o
+  // una lista blanca de dominios coma-separada. Si va vacío, se permite todo solo
+  // fuera de producción. Con lista blanca, solo se refleja un Origin permitido.
   const PERMITIDOS = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const PERMITIR_TODO = PERMITIDOS.includes('*') || (PERMITIDOS.length === 0 && !isProd);
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin && PERMITIDOS.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
-    else if (!PERMITIDOS.length && !isProd) res.header('Access-Control-Allow-Origin', '*');
+    if (PERMITIR_TODO) res.header('Access-Control-Allow-Origin', origin || '*');
+    else if (origin && PERMITIDOS.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
     res.header('Vary', 'Origin');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
