@@ -27,6 +27,7 @@ import { instalarToasts } from "./modules/nv-toast.js";
 import { instalarForms } from "./modules/nv-forms.js";
 import { instalarUiState } from "./modules/nv-ui-state.js";
 import { instalarPerf } from "./modules/nv-perf.js";
+import { instalarGoogle } from "./modules/nv-google.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -68,6 +69,7 @@ async function boot() {
   instalarUiState();              // helper skeleton/empty/error (window.NVState)
   instalarForms();                // validación de formularios en tiempo real
   instalarPerf();                 // rendimiento: lazy-loading de imágenes (actuales y futuras)
+  instalarGoogle();               // acceso con Google (si hay googleClientId en config)
   instalarUI();                   // spinner + modales (window.NVUI)
   instalarSonido();               // feedback auditivo (window.NVSound)
   instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte

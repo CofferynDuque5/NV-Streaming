@@ -20,6 +20,10 @@ export const AuthController = {
     res.json(await Auth.login(req.body || {}));
   },
 
+  async google(req: Request, res: Response): Promise<void> {
+    res.json(await Auth.loginConGoogle(req.body || {}));
+  },
+
   async me(req: Request, res: Response): Promise<void> {
     const payload = (req as AuthedRequest).user;
     if (!payload) throw new UnauthorizedError('No autenticado.');

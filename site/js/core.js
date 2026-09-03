@@ -185,6 +185,10 @@ class Auth {
     const r = await NVApi.register(email, password, extra.nombre || "", extra.ref || null);
     return this._aplicarSesion(r && r.usuario);
   }
+  async loginGoogle(credential, ref = null) {
+    const r = await NVApi.loginGoogle(credential, ref);
+    return this._aplicarSesion(r && r.usuario);
+  }
   async logout() {
     NVApi.logout();
     this.usuario = null;

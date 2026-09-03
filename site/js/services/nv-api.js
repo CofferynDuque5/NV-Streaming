@@ -81,6 +81,7 @@ export const NVApi = {
   // ── Auth ──
   async register(email, password, nombre, ref) { const r = await req("POST", "/auth/register", { email, password, nombre, ref: ref || null }); if (r && r.token) setToken(r.token); return r; },
   async login(email, password) { const r = await req("POST", "/auth/login", { email, password }); if (r && r.token) setToken(r.token); return r; },
+  async loginGoogle(credential, ref) { const r = await req("POST", "/auth/google", { credential, ref: ref || null }); if (r && r.token) setToken(r.token); return r; },
   async me() { return req("GET", "/auth/me"); },
   logout() { setToken(""); },
 
