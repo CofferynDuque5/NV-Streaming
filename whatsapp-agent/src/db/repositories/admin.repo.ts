@@ -24,6 +24,10 @@ export type AdminOverview = {
   roles: Array<{ rol: string; total: number }>;
   // Actividad reciente real (pedidos y recargas), ya ordenada y formateada.
   actividad: Array<{ tipo: string; actor: string; accion: string; modulo: string; estado: string; cuando: string }>;
+  // Serie de 14 días (ventas + pedidos por día) para el gráfico del dashboard.
+  serie: Array<{ dia: string; ventas: number; pedidos: number }>;
+  // Top de servicios por ingresos reales.
+  topServicios: Array<{ servicio: string; ventas: number; ingresos: number }>;
 };
 
 function num(v: unknown): number { const n = Number(v); return Number.isFinite(n) ? n : 0; }
@@ -62,7 +66,22 @@ export const AdminRepository = {
          FROM recargas_billetera ORDER BY creado_en DESC LIMIT 6`,
     );
 
-    const [kpi, cms, roles, rev, pedidos, recargas] = await Promise.all([kpiQ, cmsQ, rolesQ, revQ, pedidosAct, recargasAct]);
+    // Serie de los últimos 14 días (ventas aprobadas + pedidos por día).
+    const serieQ = query<{ dia: string; ventas: string; pedidos: string }>(
+      `SELECT to_char(d::date,'YYYY-MM-DD') AS dia,
+              COALESCE((SELECT SUM(precio) FROM pedidos WHERE estado IN ('aprobado','entregado') AND creado_en::date = d::date),0) AS ventas,
+              COALESCE((SELECT COUNT(*)    FROM pedidos WHERE creado_en::date = d::date),0) AS pedidos
+         FROM generate_series(current_date - interval '13 days', current_date, interval '1 day') d
+        ORDER BY d`,
+    );
+    // Top servicios por ingresos (pedidos aprobados/entregados).
+    const topQ = query<{ servicio: string; ventas: string; ingresos: string }>(
+      `SELECT id_servicio AS servicio, COUNT(*)::int AS ventas, COALESCE(SUM(precio),0) AS ingresos
+         FROM pedidos WHERE estado IN ('aprobado','entregado')
+        GROUP BY id_servicio ORDER BY ingresos DESC LIMIT 6`,
+    );
+
+    const [kpi, cms, roles, rev, pedidos, recargas, serie, top] = await Promise.all([kpiQ, cmsQ, rolesQ, revQ, pedidosAct, recargasAct, serieQ, topQ]);
 
     const k = kpi[0] || ({} as Record<string, string>);
     const conteos: Record<string, number> = {};
@@ -102,6 +121,8 @@ export const AdminRepository = {
       conteos,
       roles: roles.map((r) => ({ rol: r.rol, total: num(r.total) })),
       actividad,
+      serie: serie.map((s) => ({ dia: s.dia, ventas: num(s.ventas), pedidos: num(s.pedidos) })),
+      topServicios: top.map((t) => ({ servicio: t.servicio, ventas: num(t.ventas), ingresos: num(t.ingresos) })),
     };
   },
 
