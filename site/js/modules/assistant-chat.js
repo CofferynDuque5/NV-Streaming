@@ -24,7 +24,7 @@ let _obs = null;
 
 function api() {
   const c = (window.NV_CONFIG && window.NV_CONFIG.api) || {};
-  return (c.base || "http://localhost:3000").replace(/\/$/, "") + (c.chat || "/api/chat");
+  return (c.base || (typeof location !== "undefined" ? location.origin : "")).replace(/\/$/, "") + (c.chat || "/api/chat");
 }
 
 // El token JWT identifica al usuario en el backend (la identidad NUNCA viaja en

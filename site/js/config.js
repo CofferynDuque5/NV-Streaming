@@ -54,9 +54,15 @@
       whatsapp: "#25D366",
     },
 
-    /* ── Backend real (catálogo/precios por fetch) ── */
+    /* ── Backend real (catálogo/precios por fetch) ──
+     * base VACÍO ⇒ MISMO ORIGEN: las llamadas van a `/api` del propio host y
+     * nginx (o el proxy del despliegue) las reenvía al backend. Así el editor,
+     * el admin y la tienda se conectan al backend desde cualquier dispositivo o
+     * dominio, sin depender de `localhost:3000`.
+     * Para desarrollo con el backend en OTRO puerto/host, pon aquí la URL
+     * completa (p. ej. "http://localhost:3000"). */
     api: {
-      base: "http://localhost:3000",   // agente NV Streaming (Node/Express)
+      base: "",                        // "" ⇒ mismo origen (nginx hace proxy de /api)
       servicios: "/api/servicios",
       config: "/api/config",           // parametros (tasa_bcv) + tema
       chat: "/api/chat",               // asistente NV (enrutador de intenciones)

@@ -6,8 +6,10 @@
  * se envía como `Authorization: Bearer` en cada petición.
  */
 const cfg = () => (typeof window !== "undefined" && window.NV_CONFIG) || {};
-// Host del backend (p.ej. "http://localhost:3000"); las rutas van bajo /api.
-const host = () => (((cfg().api && cfg().api.base) || "").replace(/\/+$/, "").replace(/\/api$/, ""));
+// Host del backend. base VACÍO ⇒ MISMO ORIGEN (nginx hace proxy de /api), así el
+// front se conecta al backend desde cualquier dominio/dispositivo.
+const origen = () => (typeof location !== "undefined" ? location.origin : "");
+const host = () => (((cfg().api && cfg().api.base) || origen()) || "").replace(/\/+$/, "").replace(/\/api$/, "");
 const base = () => host() + "/api";
 
 const TOKEN_KEY = "nv_token";

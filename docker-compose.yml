@@ -47,13 +47,15 @@ services:
     ports:
       - "3000:3000"
 
-  # ── Frontend estático (nginx sirviendo site/) ──
+  # ── Frontend (nginx sirve site/ Y hace proxy de /api y /health al backend,
+  #    para que el front hable con el backend por el MISMO origen) ──
   frontend:
     image: nginx:alpine
     depends_on:
       - backend
     volumes:
       - ./site:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       # 8090 en el host (8080 suele estar ocupado, p. ej. por EnterpriseDB).
       - "8090:80"

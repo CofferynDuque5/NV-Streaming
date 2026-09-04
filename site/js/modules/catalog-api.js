@@ -12,7 +12,7 @@ const { Store, Bus } = NVCore;
 
 function apiBase() {
   const c = (typeof window !== "undefined" && window.NV_CONFIG && window.NV_CONFIG.api) || {};
-  return { base: c.base || "http://localhost:3000", path: c.servicios || "/api/servicios" };
+  return { base: c.base || (typeof location !== "undefined" ? location.origin : ""), path: c.servicios || "/api/servicios" };
 }
 
 export async function cargarCatalogoReal() {
@@ -61,7 +61,7 @@ export async function cargarCatalogoReal() {
  */
 export async function cargarConfigReal() {
   const c = (typeof window !== "undefined" && window.NV_CONFIG && window.NV_CONFIG.api) || {};
-  const base = (c.base || "http://localhost:3000").replace(/\/$/, "");
+  const base = (c.base || (typeof location !== "undefined" ? location.origin : "")).replace(/\/$/, "");
   try {
     const res = await fetch(base + (c.config || "/api/config"), { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error("HTTP " + res.status);
