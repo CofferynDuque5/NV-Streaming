@@ -507,6 +507,13 @@ class Component extends DCLogic {
     const C = this.state.content;
     const st = this.state;
     const accent = st.accent;
+    // Datos REALES del catálogo (los mismos que ve la tienda), cargados por
+    // bootstrap.js en el Store. Si aún no llegan, se usa el respaldo de ejemplo.
+    const _srv = (typeof window !== 'undefined' && window.NVCore && window.NVCore.Store && window.NVCore.Store.get('servicios')) || [];
+    const _grads = ['linear-gradient(135deg,#1a0a2e,#6a1a8a)','linear-gradient(135deg,#0a1e0a,#1a7a1a)','linear-gradient(135deg,#2e0a0a,#8a1a1a)','linear-gradient(135deg,#0a1a1a,#0a5a4a)','linear-gradient(135deg,#001a2e,#003a6e)','linear-gradient(135deg,#001a10,#003a20)'];
+    const _realMini = _srv.filter(function(s){ return s && s.activo !== false; }).slice(0,6).map(function(s,i){
+      return { name: String(s.nombre_display || s.id_servicio || 'Servicio').toUpperCase().slice(0,14), price: '$' + Number(s.precio || 0).toFixed(2), gradient: _grads[i % _grads.length] };
+    });
     const tCol = on => on ? accent : 'rgba(240,240,250,0.4)';
     const tBd = on => on ? '2px solid '+accent : '2px solid transparent';
     const knobBg = on => on ? accent : 'rgba(255,255,255,0.12)';
@@ -642,7 +649,7 @@ class Component extends DCLogic {
         { name: 'Mi Cuenta',      active: false },
         { name: '404',            active: false },
       ],
-      miniCards: [
+      miniCards: _realMini.length ? _realMini : [
         { name: 'NETFLIX', price: '$9.99',  gradient: 'linear-gradient(135deg,#1a0a2e,#6a1a8a)' },
         { name: 'SPOTIFY', price: '$5.99',  gradient: 'linear-gradient(135deg,#0a1e0a,#1a7a1a)' },
         { name: 'ADOBE',   price: '$18.99', gradient: 'linear-gradient(135deg,#2e0a0a,#8a1a1a)' },

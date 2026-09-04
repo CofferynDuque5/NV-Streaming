@@ -10,6 +10,11 @@ export const AdminController = {
     const resumen = await AdminRepository.overview();
     res.json({ resumen });
   },
+
+  async tablas(_req: Request, res: Response): Promise<void> {
+    const datos = await AdminRepository.tablas();
+    res.json({ datos });
+  },
 };
 
 export default AdminController;
