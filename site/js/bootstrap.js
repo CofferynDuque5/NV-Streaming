@@ -29,6 +29,9 @@ import { instalarUiState } from "./modules/nv-ui-state.js";
 import { instalarPerf } from "./modules/nv-perf.js";
 import { instalarGoogle } from "./modules/nv-google.js";
 import { instalarLayout } from "./modules/nv-layout.js";
+import { instalarAdminOverview } from "./modules/admin-overview.js";
+import { instalarSearchSuggest } from "./modules/search-suggest.js";
+import { instalarAdminPanel } from "./modules/admin-panel.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -83,7 +86,6 @@ async function boot() {
   instalarReseller();             // panel revendedor: referidos + comisiones reales
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
-  wireSeeder();                   // launcher del módulo OTP (admin); el sembrado va por el backend
 
   // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
   await NVCore.init();
@@ -93,6 +95,9 @@ async function boot() {
   cargarCatalogoReal();           // precios/stock reales desde el backend (sin datos falsos)
   cargarConfigReal();             // parametros (tasa_bcv viva) + tema desde /api/config
   instalarLayout();               // storefront ← layout PUBLICADO del editor visual (paginas_layout)
+  instalarAdminOverview();        // panel admin ← resumen REAL (/admin/overview): KPIs, roles, actividad
+  instalarSearchSuggest();        // autocompletado en vivo bajo las cajas de búsqueda
+  instalarAdminPanel();           // back office: panel bonito primero; tarjetas abren herramientas reales
   aplicarGatekeeper();
 
   Bus.emit("app:ready", { online: NVCore.online, page: page() });
@@ -199,37 +204,6 @@ function wireAcciones() {
       }
     }
   }, false);
-}
-
-/* ─────────────────────  SEEDER (Back Office)  ───────────────── */
-// Botón flotante en el admin para completar la base de datos en PostgreSQL.
-function wireSeeder() {
-  if (page() !== "admin") return;
-
-  // Launcher del módulo de Automatización de Credenciales (OTP).
-  const otp = document.createElement("a");
-  otp.href = "credenciales.html";
-  otp.textContent = "🔑 Credenciales OTP";
-  otp.title = "Módulo de automatización de códigos (Telegram/WhatsApp)";
-  otp.style.cssText = "position:fixed;left:16px;bottom:60px;z-index:99998;padding:10px 16px;border-radius:10px;font:600 12.5px/1 'DM Sans',sans-serif;color:#fff;text-decoration:none;background:linear-gradient(135deg,#5510BB,#9B3FFF);box-shadow:0 8px 26px rgba(155,63,255,0.35);";
-  document.body.appendChild(otp);
-
-  const btn = document.createElement("button");
-  btn.textContent = "⛁ Completar base de datos";
-  btn.title = "Escribe todas las colecciones del seed en PostgreSQL (idempotente)";
-  btn.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:99998;padding:10px 16px;border-radius:10px;font:600 12.5px/1 'DM Sans',sans-serif;color:#02040c;background:linear-gradient(135deg,#00d2ff,#00ffcc);border:none;cursor:pointer;box-shadow:0 8px 26px rgba(0,210,255,0.35);";
-  btn.addEventListener("click", async () => {
-    if (!NVCore.online) { NV.toast("Firebase no disponible (offline)", "rgba(255,176,32,0.5)"); return; }
-    btn.disabled = true; btn.textContent = "Sembrando…";
-    try {
-      const { sembrarTodo } = await import("./seeder.js");
-      const res = await sembrarTodo((coll, n, tot) => { btn.textContent = `Sembrando ${coll} (${n}/${tot})`; });
-      const total = Object.values(res).reduce((a, b) => a + b, 0);
-      NV.toast(`Base de datos completada: ${total} documentos`, "rgba(0,212,160,0.55)");
-    } catch (e) { NV.toast("Error al sembrar: " + (e.message || e), "rgba(255,68,102,0.5)"); }
-    btn.disabled = false; btn.textContent = "⛁ Completar base de datos";
-  });
-  document.body.appendChild(btn);
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

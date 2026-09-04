@@ -241,10 +241,6 @@ function construirPanel() {
           <span class="nv-insp-spin" aria-hidden="true"></span>
           <span class="nv-insp-lbl">Revisar Estructura de Datos</span>
         </button>
-        <button type="button" id="nv-insp-poblar" class="nv-insp-btn seed">
-          <span class="nv-insp-spin" aria-hidden="true"></span>
-          <span class="nv-insp-lbl">Poblar Base de Datos</span>
-        </button>
         <button type="button" id="nv-insp-pdf" class="nv-insp-btn ghost" disabled>
           <span class="nv-insp-spin" aria-hidden="true"></span>
           <span class="nv-insp-lbl">Descargar Reporte PDF</span>
@@ -252,11 +248,10 @@ function construirPanel() {
       </div>
     </div>
     <div class="nv-insp-resumen" id="nv-insp-resumen">
-      <div class="nv-insp-inicial">Pulsa <b>Revisar Estructura de Datos</b> para inspeccionar, o <b>Poblar Base de Datos</b> para crear las colecciones en PostgreSQL.</div>
+      <div class="nv-insp-inicial">Pulsa <b>Revisar Estructura de Datos</b> para inspeccionar las colecciones reales de PostgreSQL.</div>
     </div>`;
   const contResumen = panel.querySelector("#nv-insp-resumen");
   panel.querySelector("#nv-insp-revisar").addEventListener("click", (e) => onRevisar(e.currentTarget, contResumen));
-  panel.querySelector("#nv-insp-poblar").addEventListener("click", (e) => onPoblar(e.currentTarget, contResumen));
   panel.querySelector("#nv-insp-pdf").addEventListener("click", (e) => onDescargar(e.currentTarget));
   // Restaura el último resumen si el panel se re-monta tras un repintado.
   if (estado.reporte) { renderResumen(contResumen, estado.reporte); contResumen.classList.add("visible"); panel.querySelector("#nv-insp-pdf").disabled = false; }
