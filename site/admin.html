@@ -1679,12 +1679,9 @@ class Component extends DCLogic {
     const grid = this.buildGrid();
 
     // ── Notifications ──
-    const rawNotifs = [
-      { title:'Nueva venta · Netflix Premium', meta:'María González · $12.99', time:'hace 1 min', color:'#00CFFF', bg:'rgba(0,207,255,0.12)', icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>', go:'Control de Ventas' },
-      { title:'Recarga pendiente de aprobación', meta:'Carlos Ruiz · $25.00 · Pago Móvil', time:'hace 4 min', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>', go:'Recargas' },
-      { title:'3 suscripciones vencen hoy', meta:'Disney+, HBO Max, Spotify', time:'hace 12 min', color:'#FF3E6C', bg:'rgba(255,62,108,0.12)', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', go:'Control de Vencimientos' },
-      { title:'Bajo stock · Disney+', meta:'Quedan 5 accesos disponibles', time:'hace 22 min', color:'#FFB020', bg:'rgba(255,176,32,0.12)', icon:'<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5"/>', go:'Catálogo de Servicios' },
-    ];
+    // Notificaciones REALES: las inyecta bridge.decorateAdmin desde la actividad
+    // del backend (pedidos/recargas). Sin datos inventados en el HTML.
+    const rawNotifs = [];
     const notifs = rawNotifs.map(nn => ({ ...nn, onClick: () => this.notifGo(nn.go) }));
     const notifCount = this.state.notifRead ? 0 : rawNotifs.length;
 

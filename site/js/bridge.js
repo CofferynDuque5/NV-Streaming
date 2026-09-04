@@ -465,6 +465,16 @@ function decorateAdmin(vals) {
   // Alertas = notificaciones_admin reales (sin alertas de demostración si no hay).
   const notif = (Store.get("notifAdmin") || []).filter((n) => !n.leido);
   if (Array.isArray(vals.alerts)) vals.alerts = notif.length ? notif.slice(0, 6).map((n, i) => onSample(vals.alerts, i, { mensaje: n.mensaje, texto: n.mensaje, tipo: n.tipo, fecha: Utils.fecha(n.creadoEn) })) : [];
+  // Campana de notificaciones = actividad REAL (pedidos/recargas), sin nombres
+  // inventados. Sin badge falso; clic sin acción (no abre maquetas).
+  if (ov && Array.isArray(vals.notifs)) {
+    const act = Array.isArray(ov.actividad) ? ov.actividad : [];
+    vals.notifs = act.slice(0, 6).map((a) => ({
+      title: a.accion, meta: a.actor + " · " + a.estado, time: haceCuanto(a.cuando),
+      color: "#00CFFF", bg: "rgba(0,207,255,0.12)", icon: "", onClick: () => {},
+    }));
+    vals.notifCount = 0; vals.hasNotif = false;
+  }
 }
 
 /* ── Presentador del panel de revendedor (POO · SRP · microfunciones) ──
