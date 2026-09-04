@@ -47,12 +47,16 @@ async function guardar(publicar) {
     //    storefront (acento re-skinnea el chrome vía Theme.aplicar; fondo y logo).
     //    `neon_cyan` = acento primario de marca; `neon_purple` = secundario.
     const persistido = await editorService.guardarTema({ neon_cyan: st.accent, neon_purple: st.accent, bg_space_dark: st.bgStart, bg_space_core: st.bgEnd });
-    // 2) Borrador del layout (secciones/textos): best-effort, NUNCA bloquea el
-    //    tema. El storefront es estático, así que esto es un borrador editable.
+    // 2) Layout REAL de la página: recogemos del iframe en vivo (slots/hidden) lo
+    //    que el usuario editó sobre la página real. Formato nuevo por SLOTS.
     try {
-      const layout = construirLayout(st);
+      const live = window.NVEditorLive;
+      const pageName = live ? live.pageName() : (st.page || "Home");
+      let layout;
+      if (live) { const c = await live.collect(); layout = { slots: c.slots || {}, hidden: c.hidden || {} }; }
+      else { layout = construirLayout(st); } // respaldo si el iframe no está
       if (publicar) { layout.publicado = true; layout.publicadoEn = new Date().toISOString(); }
-      await editorService.guardarLayout(st.page || "Home", layout);
+      await editorService.guardarLayout(pageName, layout);
     } catch (eLay) { /* no crítico: el tema ya se publicó */ }
     if (NVUI) NVUI.spinner(false);
     reproducir("success");
@@ -66,21 +70,24 @@ async function guardar(publicar) {
   }
 }
 
-async function cargarInicial() {
-  const i = instancia();
-  if (!i || !i.state || !i.setState) return;
+// Carga el layout guardado de una página y lo APLICA sobre el iframe en vivo.
+// Se llama una vez por cada montaje de página (evento editor:pagina-montada).
+async function cargarLayoutPagina(pageName) {
   try {
-    const lay = await editorService.cargarLayout(i.state.page || "Home");
+    const lay = await editorService.cargarLayout(pageName || "Home");
     if (!lay) return;
-    i.setState({
-      accent: lay.accent || i.state.accent,
-      bgStart: lay.bgStart || i.state.bgStart,
-      bgEnd: lay.bgEnd || i.state.bgEnd,
-      showStats: lay.showStats !== false,
-      showFloating: lay.showFloating !== false,
-      showEyebrow: lay.showEyebrow !== false,
-      content: lay.componentes || i.state.content,
-    });
+    const i = instancia();
+    // Refleja los toggles guardados en la barra (formato nuevo hidden / viejo showX).
+    if (i && i.setState) {
+      const hidden = lay.hidden || {};
+      i.setState({
+        showStats: hidden["hero.stats"] !== true && lay.showStats !== false,
+        showFloating: hidden["hero.floating"] !== true && lay.showFloating !== false,
+        showEyebrow: hidden["hero.eyebrow.box"] !== true && lay.showEyebrow !== false,
+      });
+    }
+    // Aplica textos y bloques ocultos sobre la página real del iframe.
+    if (window.NVEditorLive) window.NVEditorLive.apply({ slots: lay.slots || {}, hidden: lay.hidden || {}, componentes: lay.componentes });
     marcar("Cargado desde BD", "rgba(0,207,255,0.8)");
   } catch (_) { /* conserva el estado por defecto */ }
 }
@@ -163,9 +170,9 @@ export function instalarEditorPersist() {
     else if (/^publicar(\s|$)/.test(t)) { ev.preventDefault(); guardar(true); }
   }, true);
 
-  // Carga el layout guardado cuando el editor ya montó su instancia.
-  const intentar = (n) => { if (instancia()) cargarInicial(); else if (n > 0) setTimeout(() => intentar(n - 1), 250); };
-  intentar(8);
+  // Cada vez que el iframe monta una página, cargamos su layout publicado y lo
+  // aplicamos sobre la página real (una sola vez por carga).
+  NVCore.Bus && NVCore.Bus.on && NVCore.Bus.on("editor:pagina-montada", (d) => cargarLayoutPagina((d && d.pageName) || "Home"));
 
   // Expone el servicio para la consola / otros módulos.
   window.NV = Object.assign(window.NV || {}, { editor: editorService });

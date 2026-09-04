@@ -32,6 +32,8 @@ import { instalarLayout } from "./modules/nv-layout.js";
 import { instalarAdminOverview } from "./modules/admin-overview.js";
 import { instalarSearchSuggest } from "./modules/search-suggest.js";
 import { instalarAdminPanel } from "./modules/admin-panel.js";
+import { instalarEditorBridge } from "./modules/editor-bridge.js";
+import { instalarEditorLive } from "./modules/editor-live.js";
 
 const { Auth, Store, Bus, Utils } = NVCore;
 const page = () => window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page")) || "index";
@@ -98,6 +100,8 @@ async function boot() {
   instalarAdminOverview();        // panel admin ← resumen REAL (/admin/overview): KPIs, roles, actividad
   instalarSearchSuggest();        // autocompletado en vivo bajo las cajas de búsqueda
   instalarAdminPanel();           // back office: panel bonito primero; tarjetas abren herramientas reales
+  instalarEditorBridge();         // editor en vivo: la tienda (dentro del iframe) se vuelve editable
+  instalarEditorLive();           // editor: iframe con la página REAL + sincronía de la barra
   aplicarGatekeeper();
 
   Bus.emit("app:ready", { online: NVCore.online, page: page() });

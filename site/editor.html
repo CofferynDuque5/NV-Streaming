@@ -205,12 +205,12 @@
     </div>
 
     <!-- ══ CANVAS ══ -->
-    <div style="flex:1;background:#0A0A16;overflow-y:auto;overflow-x:hidden;position:relative;display:flex;flex-direction:column;align-items:center;padding:28px 24px;min-height:0;">
+    <div data-nv-canvas="1" style="flex:1;background:#0A0A16;overflow-y:auto;overflow-x:hidden;position:relative;display:flex;flex-direction:column;align-items:center;padding:28px 24px;min-height:0;">
       <!-- Canvas dot pattern -->
       <div style="position:fixed;inset:0;background-image:radial-gradient(rgba(255,255,255,0.04) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;"></div>
 
-      <!-- Page preview container -->
-      <div style="width:100%;max-width:{{ canvasMax }};flex-shrink:0;align-self:center;position:relative;z-index:1;border-radius:4px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);transition:max-width 0.3s ease;">
+      <!-- Page preview container (maqueta; el iframe en vivo la reemplaza) -->
+      <div data-nv-mock="1" style="width:100%;max-width:{{ canvasMax }};flex-shrink:0;align-self:center;position:relative;z-index:1;border-radius:4px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.08);transition:max-width 0.3s ease;">
 
         <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
         <!-- 1. HEADER SECTION -->
