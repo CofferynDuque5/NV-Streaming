@@ -19,8 +19,18 @@ async function cargar() {
   if (cargando) return;
   cargando = true;
   try {
+    // 1) Resumen (KPIs, roles, actividad) → panel principal.
     const resumen = await NVApi.adminOverview();
     if (resumen) Store.set("adminOverview", resumen); // dispara store:changed → repinta
+    // 2) Conjuntos reales para las tablas del back office (Usuarios, Suscripciones,
+    //    Recargas, Inventario) — así TODAS las secciones se alimentan de PostgreSQL.
+    const datos = await NVApi.adminDatos();
+    if (datos) {
+      if (Array.isArray(datos.usuarios)) Store.set("usuarios", datos.usuarios);
+      if (Array.isArray(datos.suscripciones)) Store.set("suscripciones", datos.suscripciones);
+      if (Array.isArray(datos.recargas)) Store.set("recargasBilletera", datos.recargas);
+      if (Array.isArray(datos.cuentas)) Store.set("inventario", datos.cuentas);
+    }
   } catch (_) {
     // Sin sesión admin / offline: se conserva lo que haya (o queda vacío).
   } finally {

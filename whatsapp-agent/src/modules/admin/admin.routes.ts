@@ -10,3 +10,4 @@ import { asyncHandler } from '../../core/async-handler.js';
 export const adminRouter = Router();
 
 adminRouter.get('/admin/overview', requireAuth, requireRol('admin'), asyncHandler(AdminController.overview));
+adminRouter.get('/admin/datos', requireAuth, requireRol('admin'), asyncHandler(AdminController.tablas));

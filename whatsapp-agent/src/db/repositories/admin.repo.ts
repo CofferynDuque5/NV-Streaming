@@ -104,6 +104,64 @@ export const AdminRepository = {
       actividad,
     };
   },
+
+  /**
+   * Conjuntos de datos REALES para las tablas del back office (Usuarios,
+   * Suscripciones, Recargas, Inventario). Cada fila ya viene con la forma que
+   * espera la tabla del front (sin normalizar aparte). Solo lectura, solo admin.
+   */
+  async tablas(): Promise<{
+    usuarios: unknown[]; suscripciones: unknown[]; recargas: unknown[]; cuentas: unknown[];
+  }> {
+    const usuariosQ = query<{ id: string; nombre: string | null; email: string | null; rol: string; saldo: string; id_whatsapp: string | null }>(
+      `SELECT id::text, nombre, email, COALESCE(NULLIF(rol,''),'cliente') AS rol,
+              COALESCE(saldo_billetera,0) AS saldo, id_whatsapp
+         FROM usuarios ORDER BY creado_en DESC LIMIT 500`,
+    );
+    const subsQ = query<{ id: string; cliente: string | null; servicio: string | null; correo: string | null; perfil: string | null; estado: string; precio: string; vence: string | null }>(
+      `SELECT s.id::text, u.nombre AS cliente, s.plataforma_id::text AS servicio,
+              c.correo AS correo, c.perfil AS perfil, s.estado,
+              COALESCE(pl.precio,0) AS precio,
+              to_char(s.fecha_vencimiento,'YYYY-MM-DD') AS vence
+         FROM suscripciones s
+         LEFT JOIN usuarios u          ON u.id = s.usuario_id
+         LEFT JOIN cuentas_streaming c ON c.id = s.cuenta_streaming_id
+         LEFT JOIN planes pl           ON pl.id = s.plan_id
+        ORDER BY s.creado_en DESC LIMIT 500`,
+    );
+    const recargasQ = query<{ id: string; email: string | null; monto: string; estado: string; metodo_pago: string | null; aprobado_por: string | null; creado_en: string }>(
+      `SELECT r.id::text, u.email AS email, r.monto, r.estado, r.metodo_pago,
+              r.aprobado_por::text AS aprobado_por,
+              to_char(r.creado_en,'YYYY-MM-DD') AS creado_en
+         FROM recargas_billetera r
+         LEFT JOIN usuarios u ON u.id = r.uid_usuario
+        ORDER BY r.creado_en DESC LIMIT 500`,
+    );
+    const cuentasQ = query<{ id: string; id_servicio: string | null; estado: string; correo: string | null; perfil: string | null; pin: string | null }>(
+      `SELECT id::text, plataforma_id::text AS id_servicio, estado, correo, perfil, pin
+         FROM cuentas_streaming ORDER BY creado_en DESC LIMIT 500`,
+    );
+    const [usuarios, subs, recargas, cuentas] = await Promise.all([usuariosQ, subsQ, recargasQ, cuentasQ]);
+
+    return {
+      usuarios: usuarios.map((u) => ({
+        id: u.id, nombre: u.nombre || '', email: u.email || '', rol: u.rol,
+        saldoBilletera: num(u.saldo), telefono: u.id_whatsapp || '', activo: true, baneado: false,
+      })),
+      suscripciones: subs.map((s) => ({
+        id: s.id, nombre: s.cliente || '', servicio: s.servicio || '', correo: s.correo || '',
+        perfil: s.perfil || '', estado: s.estado, precioVenta: num(s.precio), vence: s.vence || '',
+      })),
+      recargas: recargas.map((r) => ({
+        id: r.id, email: r.email || '', monto: num(r.monto), estado: r.estado,
+        metodo_pago: r.metodo_pago || '', aprobadoPor: r.aprobado_por || '', creadoEn: r.creado_en,
+      })),
+      cuentas: cuentas.map((c) => ({
+        id: c.id, id_servicio: c.id_servicio || '', estado: c.estado,
+        credenciales: { usuario: c.correo || '', perfil: c.perfil || '', pin: c.pin || '' },
+      })),
+    };
+  },
 };
 
 export default AdminRepository;

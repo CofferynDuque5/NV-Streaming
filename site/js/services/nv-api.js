@@ -126,6 +126,8 @@ export const NVApi = {
 
   // ── Panel de administración (resumen real de negocio) ──
   async adminOverview() { const r = await req("GET", "/admin/overview"); return (r && r.resumen) || null; },
+  // Conjuntos de datos reales para las tablas del back office.
+  async adminDatos() { const r = await req("GET", "/admin/datos"); return (r && r.datos) || null; },
 };
 
 export default NVApi;

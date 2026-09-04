@@ -81,6 +81,7 @@ function wireEnlaces() {
     ev.preventDefault(); ev.stopPropagation();
     reproducir("click");
     if (tipo === "pagos") abrirPagos();
+    else if (tipo === "catalogo") window.location.href = "catalogo.html";
     else if (tipo === "whatsapp") abrirWhatsApp();
     else if (tipo === "telegram") abrirTelegram();
     else if (tipo === "instagram") abrirInstagram();

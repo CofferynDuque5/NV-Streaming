@@ -151,6 +151,9 @@ export function instalarEditorPersist() {
   if (page !== "editor") return;
   montarLogoPanel();
   Store.subscribe && Store.subscribe("tema", () => pintarLogoPanel());
+  // Cuando llega el catálogo REAL (bootstrap.js), forzamos un repintado del
+  // editor para que el preview muestre los servicios/precios reales, no ejemplos.
+  Store.subscribe && Store.subscribe("servicios", () => { const i = instancia(); if (i && i.setState) i.setState({ _srvTick: Date.now() }); });
 
   document.addEventListener("click", (ev) => {
     const b = ev.target.closest("button");
