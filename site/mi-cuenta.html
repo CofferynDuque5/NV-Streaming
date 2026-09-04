@@ -155,7 +155,7 @@
     <!-- Subscriptions list -->
     <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;margin-bottom:24px;">
       <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;">Suscripciones activas</span>
+        <span data-nv-slot="acc.subs.title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;">Suscripciones activas</span>
         <div style="display:flex;gap:6px;">
           <button style="padding:5px 11px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:rgba(240,240,250,0.5);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="background:rgba(255,255,255,0.08);">Filtrar</button>
           <button style="padding:5px 11px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:rgba(240,240,250,0.5);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="background:rgba(255,255,255,0.08);">Ordenar</button>
@@ -218,7 +218,7 @@
       </div>
       <!-- Recent transactions -->
       <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 20px;">
-        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#EEF2FF;margin-bottom:14px;">Movimientos recientes</div>
+        <div data-nv-slot="acc.tx.title" style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:#EEF2FF;margin-bottom:14px;">Movimientos recientes</div>
         <div style="display:flex;flex-direction:column;gap:9px;">
           <sc-for list="{{ transactions }}" as="tx">
             <div data-empty="{{ tx._empty }}" style="display:flex;align-items:center;gap:10px;">
@@ -240,7 +240,7 @@
     <!-- Billing history table -->
     <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;">
       <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;">Historial de pagos</span>
+        <span data-nv-slot="acc.billing.title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;">Historial de pagos</span>
         <button style="display:flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:6px;color:rgba(240,240,250,0.5);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;" style-hover="background:rgba(255,255,255,0.08);">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar PDF
@@ -280,7 +280,7 @@
     <sc-if value="{{ isSeguridad }}" hint-placeholder-val="{{ false }}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:22px;">
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;margin-bottom:4px;">Contraseña</div>
+          <div data-nv-slot="acc.security.title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:#EEF2FF;margin-bottom:4px;">Contraseña</div>
           <p style="font-size:12.5px;color:rgba(240,240,250,0.42);margin-bottom:16px;font-weight:300;">Actualízala periódicamente para mayor seguridad.</p>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;flex-direction:column;gap:5px;"><label style="font-size:11px;color:rgba(240,240,250,0.45);">Contraseña actual</label><div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:8px;padding:10px 12px;color:rgba(240,240,250,0.35);font-size:13px;">••••••••</div></div>
