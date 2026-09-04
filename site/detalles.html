@@ -120,7 +120,7 @@
 
     <!-- Features grid -->
     <div style="margin-bottom:40px;">
-      <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;margin-bottom:18px;">Lo que incluye</h3>
+      <h3 data-nv-slot="det.included.title" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;margin-bottom:18px;">Lo que incluye</h3>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <sc-for list="{{ features }}" as="feat">
           <div style="display:flex;align-items:flex-start;gap:12px;padding:16px;background:#07071A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;" style-hover="border-color:rgba(255,255,255,0.1);">
@@ -138,7 +138,7 @@
 
     <!-- Plans comparison -->
     <div style="margin-bottom:40px;">
-      <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;margin-bottom:18px;">Comparar planes</h3>
+      <h3 data-nv-slot="det.plans.title" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;margin-bottom:18px;">Comparar planes</h3>
       <div style="background:#0D0D1B;border:1px solid rgba(255,255,255,0.06);border-radius:12px;overflow:hidden;">
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.06);">
           <div style="padding:14px 18px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:rgba(240,240,250,0.3);font-weight:500;"></div>
@@ -169,7 +169,7 @@
     <!-- Reviews -->
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;">Reseñas recientes</h3>
+        <h3 data-nv-slot="det.reviews.title" style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;">Reseñas recientes</h3>
         <div style="display:flex;align-items:center;gap:8px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="#FFB000" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#EEF2FF;">4.8</span>
@@ -252,7 +252,7 @@
     </div>
 
     <!-- Add to bundle suggestion -->
-    <div style="margin-top:12px;background:linear-gradient(135deg,rgba(200,144,10,0.08),rgba(0,207,255,0.06));border:1px solid rgba(200,144,10,0.2);border-radius:12px;padding:14px 16px;">
+    <div data-nv-toggle="det.upsell" style="margin-top:12px;background:linear-gradient(135deg,rgba(200,144,10,0.08),rgba(0,207,255,0.06));border:1px solid rgba(200,144,10,0.2);border-radius:12px;padding:14px 16px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><rect x="1" y="6" width="7" height="7" rx="0.5" transform="rotate(-45 1 6)" fill="#C8900A"/></svg>
         <span style="font-size:11px;color:#E6B83A;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;">Ahorra más</span>
@@ -264,10 +264,10 @@
 </div>
 
 <!-- RELATED SERVICES -->
-<section style="border-top:1px solid rgba(255,255,255,0.06);padding:48px 48px 80px;background:#0D0D1B;">
+<section data-nv-toggle="det.related" style="border-top:1px solid rgba(255,255,255,0.06);padding:48px 48px 80px;background:#0D0D1B;">
   <div style="max-width:1280px;margin:0 auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-      <h2 style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;">También te puede interesar</h2>
+      <h2 data-nv-slot="det.related.title" style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#EEF2FF;letter-spacing:-0.01em;">También te puede interesar</h2>
       <a style="font-size:13px;color:#00CFFF;text-decoration:none;cursor:pointer;" style-hover="color:#00DFFF;">Ver todo →</a>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">

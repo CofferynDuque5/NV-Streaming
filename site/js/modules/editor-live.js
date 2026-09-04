@@ -31,6 +31,18 @@ const SECCION_SLOTS = {
     2: { title: "s2.title" }, 3: { title: "s3.title" }, 4: { title: "s4.title" }, 6: { title: "s6.title" },
   },
   "Catálogo": { 1: { title: "cat.title", subtitle: "cat.subtitle" } },
+  "Detalle": {
+    2: { title: "det.included.title" }, 3: { title: "det.plans.title" },
+    4: { title: "det.reviews.title" }, 5: { title: "det.related.title" },
+  },
+  "Checkout": {
+    1: { title: "co.summary.title" }, 2: { title: "co.contact.title" },
+    3: { title: "co.payment.title" }, 5: { title: "co.submit.note" },
+  },
+  "Mi Cuenta": {
+    2: { title: "acc.subs.title" }, 3: { title: "acc.tx.title" },
+    4: { title: "acc.billing.title" }, 5: { title: "acc.security.title" },
+  },
 };
 
 let iframe = null;

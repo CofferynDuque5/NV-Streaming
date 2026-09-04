@@ -24,6 +24,16 @@ const ETIQUETAS = {
   "hero.stats": "Hero · Estadísticas", "hero.floating": "Hero · Tarjetas flotantes", "hero.eyebrow.box": "Hero · Chip de etiqueta",
   "s2.title": "Servicios populares · Título", "s3.title": "Feature · Título", "s4.title": "Combos · Título", "s6.title": "CTA final · Título",
   "cat.title": "Catálogo · Título", "cat.subtitle": "Catálogo · Subtítulo",
+  // Detalle
+  "det.included.title": "Detalle · Título «Lo que incluye»", "det.plans.title": "Detalle · Título «Comparar planes»",
+  "det.reviews.title": "Detalle · Título «Reseñas»", "det.related.title": "Detalle · Título «Relacionados»",
+  "det.upsell": "Detalle · Caja «Ahorra más»", "det.related": "Detalle · Bloque relacionados",
+  // Checkout
+  "co.contact.title": "Checkout · Título «Contacto»", "co.payment.title": "Checkout · Título «Método de pago»",
+  "co.summary.title": "Checkout · Título «Resumen»", "co.submit.note": "Checkout · Nota bajo el botón",
+  // Mi Cuenta
+  "acc.subs.title": "Mi Cuenta · Título «Suscripciones»", "acc.tx.title": "Mi Cuenta · Título «Movimientos»",
+  "acc.billing.title": "Mi Cuenta · Título «Historial de pagos»", "acc.security.title": "Mi Cuenta · Título «Contraseña»",
 };
 function etiqueta(nombre) { return ETIQUETAS[nombre] || nombre; }
 
@@ -33,6 +43,25 @@ function enEditor() {
 function enviar(msg) { try { window.parent.postMessage(Object.assign({ source: "nv-store" }, msg), "*"); } catch (_) {} }
 
 let seleccionado = null;
+
+// Memoria de lo editado en esta página (texto por slot, oculto por bloque). El
+// runtime DCLogic repinta y revierte el DOM a la plantilla; guardamos aquí lo
+// que el usuario editó y lo RE-APLICAMOS tras cada repintado (igual que hace el
+// render público en nv-layout). Sin esto, en páginas que se repintan (p. ej.
+// Detalle) la edición inline se perdía antes de publicar.
+const editado = { slots: {}, hidden: {} };
+
+/** Re-aplica lo editado sobre el DOM actual (idempotente). No toca el slot que
+ *  el usuario está escribiendo ahora mismo para no mover el cursor. */
+function reaplicarEditado() {
+  for (const [n, v] of Object.entries(editado.slots)) {
+    const el = elDeSlot(n);
+    if (el && el === document.activeElement) continue; // no interrumpir la escritura
+    aplicarTextoSlot(n, v);
+  }
+  for (const [n, h] of Object.entries(editado.hidden)) ocultarSlot(n, !!h);
+}
+function elDeSlot(n) { try { return document.querySelector('[data-nv-slot="' + CSS.escape(n) + '"]'); } catch (_) { return null; } }
 
 function inventario() {
   const slots = [];
@@ -64,7 +93,11 @@ function marcarEditables() {
     el.addEventListener("mouseenter", () => { if (el !== seleccionado) el.style.outline = "1.5px dashed rgba(123,102,255,0.6)"; el.style.outlineOffset = "3px"; });
     el.addEventListener("mouseleave", () => { if (el !== seleccionado) el.style.outline = "none"; });
     el.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); activar(el); }, true);
-    el.addEventListener("input", () => enviar({ type: "edit", name: el.getAttribute("data-nv-slot"), value: (el.textContent || "").trim() }));
+    el.addEventListener("input", () => {
+      const n = el.getAttribute("data-nv-slot");
+      editado.slots[n] = (el.textContent || "").trim(); // recuerda la edición (sobrevive al repintado)
+      enviar({ type: "edit", name: n, value: editado.slots[n] });
+    });
     el.addEventListener("blur", () => { el.removeAttribute("contenteditable"); });
   });
 }
@@ -81,12 +114,18 @@ function activar(el) {
 function alMensaje(ev) {
   const d = ev.data;
   if (!d || d.source !== "nv-editor") return;
-  if (d.type === "set-text") { aplicarTextoSlot(d.name, d.value); }
-  else if (d.type === "toggle") { ocultarSlot(d.name, !d.visible); } // NO re-reportar 'ready' (evita bucle de mensajes)
+  if (d.type === "set-text") { editado.slots[d.name] = d.value; aplicarTextoSlot(d.name, d.value); }
+  else if (d.type === "toggle") { editado.hidden[d.name] = !d.visible; ocultarSlot(d.name, !d.visible); } // NO re-reportar 'ready' (evita bucle de mensajes)
   else if (d.type === "theme") { if (NVCore.aplicarTema) NVCore.aplicarTema(Object.assign({}, NVCore.Store.get("tema"), d.tokens || {})); }
-  else if (d.type === "apply") { aplicarLayout({ slots: d.slots || {}, hidden: d.hidden || {} }); reportarListo(); }
+  else if (d.type === "apply") {
+    Object.assign(editado.slots, d.slots || {}); Object.assign(editado.hidden, d.hidden || {});
+    aplicarLayout({ slots: d.slots || {}, hidden: d.hidden || {} }); reportarListo();
+  }
   else if (d.type === "highlight") { const el = document.querySelector('[data-nv-slot="' + CSS.escape(d.name) + '"]'); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); activar(el); } }
-  else if (d.type === "collect") { enviar({ type: "collected", slots: textoDeSlots(), hidden: estadoToggles() }); }
+  // collect: lo editado MANDA sobre el DOM (que el repintado pudo revertir).
+  else if (d.type === "collect") {
+    enviar({ type: "collected", slots: Object.assign({}, textoDeSlots(), editado.slots), hidden: Object.assign({}, estadoToggles(), editado.hidden) });
+  }
 }
 
 export function instalarEditorBridge() {
@@ -95,14 +134,14 @@ export function instalarEditorBridge() {
   document.documentElement.setAttribute("data-nv-editor-mode", "1");
   window.addEventListener("message", alMensaje);
 
-  const arranque = () => { marcarEditables(); reportarListo(); };
+  const arranque = () => { marcarEditables(); reaplicarEditado(); reportarListo(); };
   arranque();
-  // El runtime repinta; re-marcamos y re-reportamos (con antirrebote).
+  // El runtime repinta; re-marcamos, RE-APLICAMOS lo editado y re-reportamos.
   if (NVCore.Bus && NVCore.Bus.on) { NVCore.Bus.on("app:ready", arranque); NVCore.Bus.on("catalogo:real", arranque); }
   const root = document.querySelector("[data-nv-root]") || document.body;
   if (root && "MutationObserver" in window) {
     let pend = 0;
-    new MutationObserver(() => { if (pend) return; pend = requestAnimationFrame(() => { pend = 0; marcarEditables(); }); }).observe(root, { childList: true, subtree: true });
+    new MutationObserver(() => { if (pend) return; pend = requestAnimationFrame(() => { pend = 0; marcarEditables(); reaplicarEditado(); }); }).observe(root, { childList: true, subtree: true, characterData: true });
   }
   // Reintento de reporte por si el inventario cambia al llegar datos reales.
   setTimeout(reportarListo, 1200);
