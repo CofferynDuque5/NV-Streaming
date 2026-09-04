@@ -123,6 +123,9 @@ export const NVApi = {
   async actualizarPlan(id, body) { const r = await req("PUT", "/admin/planes/" + encodeURIComponent(id), body); return r && r.plan; },
   async borrarPlan(id) { return req("DELETE", "/admin/planes/" + encodeURIComponent(id)); },
   async colaEspera() { const r = await req("GET", "/admin/cola-espera"); return (r && r.cola) || []; },
+
+  // ── Panel de administración (resumen real de negocio) ──
+  async adminOverview() { const r = await req("GET", "/admin/overview"); return (r && r.resumen) || null; },
 };
 
 export default NVApi;

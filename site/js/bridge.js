@@ -378,19 +378,78 @@ function decorateCuenta(vals) {
   }
 }
 
+// Roles reales → etiqueta de alcance (para la columna "scope" del panel).
+const SCOPE_ROL = { admin: "ROOT", supervisor: "R/W", operador: "R/W", soporte: "READ", revendedor: "SCOPE", cliente: "READ" };
+const NOMBRE_ROL = { admin: "Administrador", revendedor: "Revendedor", cliente: "Cliente", soporte: "Soporte", operador: "Operador", supervisor: "Supervisor" };
+// Módulo (nombre visible en el panel) → clave de conteo real del overview.
+const CONTEO_MODULO = {
+  "Catálogo de Servicios": (o) => n(o.conteos.servicios_sistema, "servicio", "servicios"),
+  "Combos": (o) => n(o.conteos.combos_suscripciones, "combo", "combos"),
+  "Órdenes": (o) => n(o.conteos.pedidos, "pedido", "pedidos"),
+  "Inventario": (o) => n(o.conteos.cuentas, "cuenta", "cuentas"),
+  "Usuarios": (o) => n(o.conteos.usuarios, "usuario", "usuarios"),
+  "Revendedores": (o) => n(o.conteos.revendedores, "activo", "activos"),
+  "Métodos de Pago": (o) => n(o.conteos.metodos_pago_config, "método", "métodos"),
+  "Recargas": (o) => n(o.conteos.recargas_pendientes, "pendiente", "pendientes"),
+  "Roles & Permisos": (o) => n((o.roles || []).length, "rol", "roles"),
+  "Cartelera Digital": (o) => n(o.conteos.carteleras_estrenos, "activa", "activas"),
+  "Promociones": (o) => n(o.conteos.ofertas, "activa", "activas"),
+  "Suscripciones": (o) => n(o.conteos.suscripciones, "activa", "activas"),
+};
+function n(v, sing, plur) { const x = Utils.num(v); return x > 0 ? x + " " + (x === 1 ? sing : plur) : ""; }
+function haceCuanto(iso) {
+  const t = Date.parse(iso); if (!t) return "";
+  const s = Math.max(1, Math.floor((Date.now() - t) / 1000));
+  if (s < 60) return "hace " + s + "s";
+  const m = Math.floor(s / 60); if (m < 60) return "hace " + m + " min";
+  const h = Math.floor(m / 60); if (h < 24) return "hace " + h + " h";
+  return "hace " + Math.floor(h / 24) + " d";
+}
+
 function decorateAdmin(vals) {
-  // KPIs reales de negocio (sin widgets de "estado del sistema").
+  // Resumen REAL del negocio (GET /api/admin/overview → Store.adminOverview).
+  const ov = Store.get("adminOverview") || null;
   const pedidos = Store.get("pedidos") || [];
-  const aprob = pedidos.filter((p) => p.estado === "aprobado");
-  const revenue = aprob.reduce((a, p) => a + Utils.num(p.precio), 0);
-  const usuarios = Store.get("usuarios") || [];
+  const aprob = pedidos.filter((p) => p.estado === "aprobado" || p.estado === "entregado");
+  const revenue = ov ? Utils.num(ov.kpis.ventasAprobadas) : aprob.reduce((a, p) => a + Utils.num(p.precio), 0);
+  const nAprob = ov ? Utils.num(ov.kpis.pedidosAprobados) : aprob.length;
+  const nPend = ov ? Utils.num(ov.kpis.pedidosPendientes) : pedidos.filter((p) => p.estado === "pendiente").length;
+  const nUsers = ov ? Utils.num(ov.kpis.usuarios) : (Store.get("usuarios") || []).length;
+  const nSubs = ov ? Utils.num(ov.kpis.suscripcionesActivas) : (Store.get("suscripciones") || []).length;
   if (Array.isArray(vals.kpis) && vals.kpis.length >= 4) {
+    // arrow/delta vacíos: no inventamos variaciones "↑12.3%".
     vals.kpis = [
-      onSample(vals.kpis, 0, { label: "Ventas aprobadas", value: fmtUSD(revenue), sub: aprob.length + " pedidos" }),
-      onSample(vals.kpis, 1, { label: "Pedidos pendientes", value: String(pedidos.filter((p) => p.estado === "pendiente").length), sub: "por aprobar" }),
-      onSample(vals.kpis, 2, { label: "Usuarios", value: String(usuarios.length), sub: "registrados" }),
-      onSample(vals.kpis, 3, { label: "Suscripciones", value: String((Store.get("suscripciones") || []).length), sub: "activas" }),
+      onSample(vals.kpis, 0, { label: "Ventas aprobadas", value: fmtUSD(revenue), sub: nAprob + (nAprob === 1 ? " pedido" : " pedidos"), arrow: "", delta: "", positive: true }),
+      onSample(vals.kpis, 1, { label: "Pedidos pendientes", value: String(nPend), sub: "por aprobar", arrow: "", delta: "", positive: true }),
+      onSample(vals.kpis, 2, { label: "Usuarios", value: String(nUsers), sub: "registrados", arrow: "", delta: "", positive: true }),
+      onSample(vals.kpis, 3, { label: "Suscripciones", value: String(nSubs), sub: "activas", arrow: "", delta: "", positive: true }),
     ];
+  }
+  // Roles reales (reparto de usuarios por rol) — sin cifras inventadas.
+  if (ov && Array.isArray(vals.roles) && Array.isArray(ov.roles)) {
+    vals.roles = ov.roles.map((r, i) => onSample(vals.roles, i, {
+      name: NOMBRE_ROL[r.rol] || (r.rol ? r.rol[0].toUpperCase() + r.rol.slice(1) : "Usuario"),
+      count: String(r.total), scope: SCOPE_ROL[r.rol] || "READ",
+    }));
+  }
+  // Actividad reciente REAL (pedidos + recargas), no personas inventadas.
+  if (ov && Array.isArray(vals.auditLog)) {
+    const act = Array.isArray(ov.actividad) ? ov.actividad : [];
+    vals.auditLog = act.length
+      ? act.map((a, i) => onSample(vals.auditLog, i, { actor: a.actor, action: a.accion + " · " + a.estado, module: a.modulo, time: haceCuanto(a.cuando) }))
+      : [onSample(vals.auditLog, 0, { actor: "Sistema", action: "sin actividad reciente", module: "—", time: "" })];
+  }
+  // Conteos reales en las tarjetas de módulo. Regla honesta: si tenemos el dato
+  // real lo mostramos; si no, se deja en blanco (nunca una cifra inventada).
+  if (ov && Array.isArray(vals.visibleGroups)) {
+    for (const g of vals.visibleGroups) {
+      if (!g || !Array.isArray(g.modules)) continue;
+      for (const m of g.modules) {
+        if (!m) continue;
+        const f = CONTEO_MODULO[m.name];
+        m.count = f ? f(ov) : "";
+      }
+    }
   }
   // Tabla de órdenes real (con acciones aprobar/rechazar).
   if (Array.isArray(vals.orders)) {

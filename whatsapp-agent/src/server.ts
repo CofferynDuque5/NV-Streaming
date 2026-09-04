@@ -18,6 +18,7 @@ import { commerceRouter } from './modules/commerce/commerce.routes.js';
 import { userdocsRouter } from './modules/userdocs/userdocs.routes.js';
 import { inventoryRouter } from './modules/inventory/inventory.routes.js';
 import { resellerRouter } from './modules/reseller/reseller.routes.js';
+import { adminRouter } from './modules/admin/admin.routes.js';
 import { otpRouter } from './modules/otp/otp.routes.js';
 import type { RawBodyRequest } from './modules/webhook/webhook.controller.js';
 
@@ -97,6 +98,7 @@ export function createApp() {
   app.use('/api', userdocsRouter);
   app.use('/api', inventoryRouter);
   app.use('/api', resellerRouter);
+  app.use('/api', adminRouter);
 
   // OTP: webhooks de Telegram/WhatsApp + lectura (portado de Cloud Functions).
   app.use('/', otpRouter);
