@@ -127,6 +127,70 @@ export const AdminRepository = {
   },
 
   /**
+   * Lista REAL de revendedores para el back office: cada usuario que es
+   * revendedor (o que ya generó comisiones / tiene referidos), con su red y sus
+   * comisiones agregadas. Solo lectura, solo admin.
+   */
+  async revendedores(): Promise<Array<Record<string, unknown>>> {
+    const rows = await query<{
+      id: string; nombre: string | null; email: string | null; codigo_ref: string | null;
+      comision_pct: string; saldo: string; clientes: string; ventas: string;
+      comision_total: string; pendiente: string; pagada: string;
+    }>(`
+      SELECT u.id::text, u.nombre, u.email, u.codigo_ref, u.comision_pct,
+             COALESCE(u.saldo_billetera,0) AS saldo,
+             (SELECT COUNT(*) FROM usuarios r WHERE r.referido_por = u.id)                                    AS clientes,
+             (SELECT COUNT(*) FROM comisiones c WHERE c.revendedor_id = u.id)                                 AS ventas,
+             COALESCE((SELECT SUM(monto) FROM comisiones c WHERE c.revendedor_id = u.id),0)                   AS comision_total,
+             COALESCE((SELECT SUM(monto) FROM comisiones c WHERE c.revendedor_id = u.id AND c.estado='pendiente'),0) AS pendiente,
+             COALESCE((SELECT SUM(monto) FROM comisiones c WHERE c.revendedor_id = u.id AND c.estado='pagada'),0)    AS pagada
+        FROM usuarios u
+       WHERE u.rol = 'revendedor'
+          OR EXISTS (SELECT 1 FROM comisiones c WHERE c.revendedor_id = u.id)
+          OR EXISTS (SELECT 1 FROM usuarios r WHERE r.referido_por = u.id)
+       ORDER BY comision_total DESC, clientes DESC
+       LIMIT 200
+    `);
+    return rows.map((r) => ({
+      id: r.id, nombre: r.nombre || '', email: r.email || '', codigo: r.codigo_ref || '',
+      comisionPct: num(r.comision_pct), saldo: num(r.saldo), clientes: num(r.clientes),
+      ventas: num(r.ventas), comisionTotal: num(r.comision_total),
+      pendiente: num(r.pendiente), pagada: num(r.pagada),
+    }));
+  },
+
+  /**
+   * Actualiza campos administrables de un usuario (rol, saldo, % de comisión).
+   * Solo admin. Devuelve el usuario ya actualizado, o null si el id no existe.
+   */
+  async actualizarUsuario(
+    id: string,
+    patch: { rol?: string; saldoBilletera?: number; comisionPct?: number },
+  ): Promise<Record<string, unknown> | null> {
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    let i = 1;
+    const ROLES = new Set(['cliente', 'revendedor', 'admin']);
+    if (patch.rol != null && ROLES.has(patch.rol)) { sets.push(`rol=$${i++}`); vals.push(patch.rol); }
+    if (patch.saldoBilletera != null && Number.isFinite(patch.saldoBilletera) && patch.saldoBilletera >= 0) {
+      sets.push(`saldo_billetera=$${i++}`); vals.push(patch.saldoBilletera);
+    }
+    if (patch.comisionPct != null && Number.isFinite(patch.comisionPct) && patch.comisionPct >= 0 && patch.comisionPct <= 1) {
+      sets.push(`comision_pct=$${i++}`); vals.push(patch.comisionPct);
+    }
+    if (!sets.length) return null;
+    vals.push(id);
+    const rows = await query<{ id: string; nombre: string | null; email: string | null; rol: string; saldo_billetera: string; comision_pct: string }>(
+      `UPDATE usuarios SET ${sets.join(', ')}, actualizado_en=now() WHERE id=$${i}
+        RETURNING id::text, nombre, email, rol, saldo_billetera, comision_pct`,
+      vals,
+    );
+    const u = rows[0];
+    if (!u) return null;
+    return { id: u.id, nombre: u.nombre || '', email: u.email || '', rol: u.rol, saldoBilletera: num(u.saldo_billetera), comisionPct: num(u.comision_pct) };
+  },
+
+  /**
    * Conjuntos de datos REALES para las tablas del back office (Usuarios,
    * Suscripciones, Recargas, Inventario). Cada fila ya viene con la forma que
    * espera la tabla del front (sin normalizar aparte). Solo lectura, solo admin.

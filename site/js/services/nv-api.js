@@ -130,6 +130,10 @@ export const NVApi = {
   async adminOverview() { const r = await req("GET", "/admin/overview"); return (r && r.resumen) || null; },
   // Conjuntos de datos reales para las tablas del back office.
   async adminDatos() { const r = await req("GET", "/admin/datos"); return (r && r.datos) || null; },
+  // Red de revendedores (referidos + comisiones agregadas) para el back office.
+  async adminRevendedores() { const r = await req("GET", "/admin/revendedores"); return (r && r.revendedores) || []; },
+  // Actualiza rol / saldo / % de comisión de un usuario (solo admin).
+  async adminActualizarUsuario(id, patch) { const r = await req("PUT", "/admin/usuarios/" + encodeURIComponent(id), patch || {}); return (r && r.usuario) || null; },
 };
 
 export default NVApi;

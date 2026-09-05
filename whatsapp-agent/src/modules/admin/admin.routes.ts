@@ -11,3 +11,5 @@ export const adminRouter = Router();
 
 adminRouter.get('/admin/overview', requireAuth, requireRol('admin'), asyncHandler(AdminController.overview));
 adminRouter.get('/admin/datos', requireAuth, requireRol('admin'), asyncHandler(AdminController.tablas));
+adminRouter.get('/admin/revendedores', requireAuth, requireRol('admin'), asyncHandler(AdminController.revendedores));
+adminRouter.put('/admin/usuarios/:id', requireAuth, requireRol('admin'), asyncHandler(AdminController.actualizarUsuario));

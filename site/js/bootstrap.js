@@ -15,10 +15,6 @@ import { instalarSonido, reproducir } from "./modules/sound.js";
 import { instalarUI, NVUI } from "./modules/ui-feedback.js";
 import { instalarUX } from "./modules/ux-fixes.js";
 import { instalarSubidaImagenes } from "./modules/image-upload.js";
-import { instalarInspector } from "./modules/admin-inspector.js";
-import { instalarCrud } from "./modules/admin-crud.js";
-import { instalarTablas } from "./modules/admin-tables.js";
-import { instalarInventario } from "./modules/admin-inventory.js";
 import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarReseller } from "./modules/reseller-api.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
@@ -29,9 +25,8 @@ import { instalarUiState } from "./modules/nv-ui-state.js";
 import { instalarPerf } from "./modules/nv-perf.js";
 import { instalarGoogle } from "./modules/nv-google.js";
 import { instalarLayout } from "./modules/nv-layout.js";
-import { instalarAdminOverview } from "./modules/admin-overview.js";
 import { instalarSearchSuggest } from "./modules/search-suggest.js";
-import { instalarAdminPanel } from "./modules/admin-panel.js";
+import { instalarAdminApp } from "./modules/admin-app.js";
 import { instalarEditorBridge } from "./modules/editor-bridge.js";
 import { instalarEditorLive } from "./modules/editor-live.js";
 
@@ -80,10 +75,6 @@ async function boot() {
   instalarSonido();               // feedback auditivo (window.NVSound)
   instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte
   instalarSubidaImagenes();       // subida de imágenes a ImgBB (admin/editor)
-  instalarInspector();            // módulo "Auditoría de Base de Datos" (admin)
-  instalarCrud();                 // Gestor de Contenido CRUD (admin → PostgreSQL)
-  instalarTablas();               // Tablas estilo Excel con datos reales (admin)
-  instalarInventario();           // Gestión de inventario de streaming (cuentas/planes)
   instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
   instalarReseller();             // panel revendedor: referidos + comisiones reales
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
@@ -97,9 +88,8 @@ async function boot() {
   cargarCatalogoReal();           // precios/stock reales desde el backend (sin datos falsos)
   cargarConfigReal();             // parametros (tasa_bcv viva) + tema desde /api/config
   instalarLayout();               // storefront ← layout PUBLICADO del editor visual (paginas_layout)
-  instalarAdminOverview();        // panel admin ← resumen REAL (/admin/overview): KPIs, roles, actividad
   instalarSearchSuggest();        // autocompletado en vivo bajo las cajas de búsqueda
-  instalarAdminPanel();           // back office: panel bonito primero; tarjetas abren herramientas reales
+  instalarAdminApp();             // Back Office REAL: navegación lateral + secciones conectadas a PostgreSQL
   instalarEditorBridge();         // editor en vivo: la tienda (dentro del iframe) se vuelve editable
   instalarEditorLive();           // editor: iframe con la página REAL + sincronía de la barra
   aplicarGatekeeper();
