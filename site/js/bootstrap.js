@@ -16,7 +16,7 @@ import { instalarUI, NVUI } from "./modules/ui-feedback.js";
 import { instalarUX } from "./modules/ux-fixes.js";
 import { instalarSubidaImagenes } from "./modules/image-upload.js";
 import { instalarChat } from "./modules/assistant-chat.js";
-import { instalarReseller } from "./modules/reseller-api.js";
+import { instalarResellerApp } from "./modules/reseller-app.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
 import { instalarToasts } from "./modules/nv-toast.js";
@@ -76,7 +76,7 @@ async function boot() {
   instalarUX();                   // pulido UX: sliders, buscador, moneda, billetera, soporte
   instalarSubidaImagenes();       // subida de imágenes a ImgBB (admin/editor)
   instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
-  instalarReseller();             // panel revendedor: referidos + comisiones reales
+  instalarResellerApp();          // Panel de Revendedor REAL: navegación lateral + /api/reseller/*
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   wireAcciones();                 // captura de comprobante + checkout + recarga
 
