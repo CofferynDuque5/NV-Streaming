@@ -222,17 +222,47 @@ function decorateCatalogo(vals, svc) {
 }
 
 function decorateDetalles(vals, svc) {
-  vals.related = svc.length ? svc.filter((s) => s.destacado).slice(0, 4).map(toRelated) : [];
-  const coment = (Store.get("comentarios") || []).filter((c) => c.aprobado);
-  if (coment.length) {
-    const samples = Array.isArray(vals.reviews) ? vals.reviews : [];
-    vals.reviews = coment.slice(0, 6).map((c, i) => onSample(samples, i, { initial: short(c.nombre).slice(0, 1), name: c.nombre, date: Utils.fecha(c.creadoEn), text: c.texto }));
+  // ── Producto REAL según ?id= (o ?servicio=/?s=). Sin producto → primer
+  //    destacado/activo. Si el catálogo está vacío, estado honesto. ──
+  let idSel = "";
+  try { const q = new URLSearchParams(location.search); idSel = q.get("id") || q.get("servicio") || q.get("s") || ""; } catch (_) {}
+  const prod = (idSel && Catalogo.porId(idSel)) || svc[0] || null;
+
+  if (prod) {
+    const nombre = prod.nombre_display || prod.id_servicio || "Servicio";
+    vals.prodName = nombre;
+    vals.prodInitial = (short(nombre)[0] || "•").toUpperCase();
+    vals.prodCategoria = catLabel(prod.categoria || "STREAMING");
+    vals.prodDesc = prod.descripcion || prod.tipo_entrega || "Servicio premium disponible en NV Streaming.";
+    vals.prodPrice = fmtUSD(Catalogo.precioFinalUSD(prod));
+    // "Lo que incluye": etiquetas reales del servicio (si las tiene).
+    const tags = Array.isArray(prod.tags) ? prod.tags.filter(Boolean) : [];
+    vals.features = tags.map((t) => ({ title: String(t) }));
+    vals.hayFeatures = vals.features.length > 0;
   } else {
-    vals.reviews = [];
+    vals.prodName = "Servicio no encontrado";
+    vals.prodInitial = "?";
+    vals.prodCategoria = "Catálogo";
+    vals.prodDesc = "Este servicio no está disponible. Explora el catálogo para ver los servicios activos.";
+    vals.prodPrice = "—";
+    vals.features = []; vals.hayFeatures = false;
   }
+
+  // Relacionados REALES (otros servicios, excluyendo el actual).
+  const otros = svc.filter((s) => (s.id_servicio || s.id) !== (prod && (prod.id_servicio || prod.id)));
+  const rel = (otros.filter((s) => s.destacado).concat(otros)).slice(0, 4);
+  vals.related = dedupServicios(rel).slice(0, 4).map(toRelated);
+
+  // Reseñas REALES (comentarios aprobados) o se oculta la sección.
+  const coment = (Store.get("comentarios") || []).filter((c) => c.aprobado);
+  vals.reviews = coment.length
+    ? coment.slice(0, 6).map((c) => ({ initial: short(c.nombre).slice(0, 1), name: c.nombre, date: Utils.fecha(c.creadoEn), text: c.texto, avatarBg: "linear-gradient(135deg,#00CFFF,#5040CC)" }))
+    : [];
+  vals.hayReviews = vals.reviews.length > 0;
+
   // Perfil privado real (inventario) que se entrega en la compra de pantallas.
   const inv = (Store.get("inventario") || []).find((x) => x.estado === "disponible");
-  if (inv) vals.perfilPrivado = { usuario: inv.credenciales.usuario, perfil: inv.credenciales.perfil, pin: inv.credenciales.pin };
+  if (inv && inv.credenciales) vals.perfilPrivado = { usuario: inv.credenciales.usuario, perfil: inv.credenciales.perfil, pin: inv.credenciales.pin };
 }
 
 function decorateCarrito(vals) {

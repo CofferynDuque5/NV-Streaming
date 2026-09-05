@@ -25,6 +25,7 @@ import { instalarUiState } from "./modules/nv-ui-state.js";
 import { instalarPerf } from "./modules/nv-perf.js";
 import { instalarGoogle } from "./modules/nv-google.js";
 import { instalarLayout } from "./modules/nv-layout.js";
+import { instalarDetalleNav } from "./modules/detalle-nav.js";
 import { instalarSearchSuggest } from "./modules/search-suggest.js";
 import { instalarAdminApp } from "./modules/admin-app.js";
 import { instalarEditorBridge } from "./modules/editor-bridge.js";
@@ -88,6 +89,7 @@ async function boot() {
   cargarCatalogoReal();           // precios/stock reales desde el backend (sin datos falsos)
   cargarConfigReal();             // parametros (tasa_bcv viva) + tema desde /api/config
   instalarLayout();               // storefront ← layout PUBLICADO del editor visual (paginas_layout)
+  instalarDetalleNav();           // tarjetas de servicio → ficha real (detalles.html?id=)
   instalarSearchSuggest();        // autocompletado en vivo bajo las cajas de búsqueda
   instalarAdminApp();             // Back Office REAL: navegación lateral + secciones conectadas a PostgreSQL
   instalarEditorBridge();         // editor en vivo: la tienda (dentro del iframe) se vuelve editable

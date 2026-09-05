@@ -215,7 +215,7 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
       <sc-for list="{{ streamingCards }}" as="card">
-        <div data-empty="{{ card._empty }}" style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);border-color:rgba(255,255,255,0.12);">
+        <div data-nv-id="{{ card._id }}" data-empty="{{ card._empty }}" style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);border-color:rgba(255,255,255,0.12);">
           <div style="height:110px;display:flex;align-items:center;justify-content:center;background:{{ card.gradient }};position:relative;overflow:hidden;">
             <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:white;letter-spacing:0.06em;position:relative;z-index:1;">{{ card.shortName }}</div>
             <div style="position:absolute;top:8px;right:8px;padding:2px 6px;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,0.7);">{{ card.tag }}</div>
@@ -247,7 +247,7 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
       <sc-for list="{{ aiCards }}" as="card">
-        <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);">
+        <div data-nv-id="{{ card._id }}" style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);">
           <div style="height:110px;display:flex;align-items:center;justify-content:center;background:{{ card.gradient }};position:relative;overflow:hidden;">
             <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:white;letter-spacing:0.04em;position:relative;z-index:1;text-align:center;padding:0 12px;">{{ card.shortName }}</div>
             <sc-if value="{{ card.isPremium }}" hint-placeholder-val="{{ false }}">
@@ -282,7 +282,7 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
       <sc-for list="{{ prodCards }}" as="card">
-        <div style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);">
+        <div data-nv-id="{{ card._id }}" style="background:#07071A;border:1px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;" style-hover="transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,0.5);">
           <div style="height:110px;display:flex;align-items:center;justify-content:center;background:{{ card.gradient }};position:relative;overflow:hidden;">
             <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:white;letter-spacing:0.04em;position:relative;z-index:1;">{{ card.shortName }}</div>
             <div style="position:absolute;top:8px;right:8px;padding:2px 6px;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,0.7);">{{ card.tag }}</div>
