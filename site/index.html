@@ -774,7 +774,7 @@
     </div>
     <div class="nv-rail" id="rail-premium" style="display:flex;gap:16px;overflow-x:auto;padding-bottom:10px;">
       <sc-for list="{{ premiumServices }}" as="svc" hint-placeholder-count="4">
-        <div style="flex-shrink:0;width:240px;background:#0C0C26;border:1px solid rgba(80,100,200,0.2);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;position:relative;" style-hover="transform:translateY(-5px);border-color:rgba(0,207,255,0.3);box-shadow:0 20px 48px rgba(0,0,30,0.5);">
+        <div data-nv-id="{{ svc._id }}" style="flex-shrink:0;width:240px;background:#0C0C26;border:1px solid rgba(80,100,200,0.2);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;position:relative;" style-hover="transform:translateY(-5px);border-color:rgba(0,207,255,0.3);box-shadow:0 20px 48px rgba(0,0,30,0.5);">
           <sc-if value="{{ svc.isTop }}" hint-placeholder-val="{{ false }}">
             <div style="position:absolute;top:12px;left:12px;z-index:3;padding:3px 8px;background:rgba(255,48,160,0.28);border:1px solid rgba(255,48,160,0.5);border-radius:5px;font-size:9px;font-weight:700;color:#FF30A0;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;">{{ svc.topLabel }}</div>
           </sc-if>
