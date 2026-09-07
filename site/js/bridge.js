@@ -326,6 +326,14 @@ function decorateBilletera(vals) {
 
 function decorateCuenta(vals) {
   const subs = Store.get("suscripciones") || [];
+  // Compras REALES del usuario: pedidos aprobados/entregados (/pedidos/mios).
+  const pedidosOk = (Store.get("pedidos") || []).filter((p) => ["aprobado", "entregado"].includes(String(p.estado)));
+  // Lo que el usuario realmente tiene: suscripciones relacionales (si las hay) +
+  // sus pedidos aprobados como servicios comprados. Sin datos inventados.
+  const servicios = subs.concat(pedidosOk.map((p) => ({
+    servicio: p.id_servicio, estado: "activo", perfil: "Comprado",
+    vence: p.vence || "", precioVenta: Number(p.precio) || 0, _creado: p.creadoEn,
+  })));
 
   // ── Perfil + estadísticas REALES (sin datos inventados) ──
   const ses = Store.get("sesion") || {};
@@ -336,7 +344,7 @@ function decorateCuenta(vals) {
   vals.userEmail = auth ? (u.email || "—") : "Inicia sesión";
   vals.userInitial = (nombre.trim()[0] || "?").toUpperCase();
 
-  const activas = subs.filter((s) => s.estado === "activo" || s.estado === "activa");
+  const activas = servicios.filter((s) => s.estado === "activo" || s.estado === "activa");
   const hoy = Date.now();
   const diasDe = (v) => (v ? Math.ceil((new Date(v).getTime() - hoy) / 864e5) : null);
   const porVencer = activas
@@ -356,9 +364,10 @@ function decorateCuenta(vals) {
   }
 
   const bs = Store.get("billeteraStats");
-  const gasto = bs && isFinite(Number(bs.gastadoMes))
-    ? Number(bs.gastadoMes)
-    : activas.reduce((a, s) => a + (Number(s.precioVenta) || 0), 0);
+  // Gasto = suma de los servicios activos (recurrente real); si no hay, el gasto
+  // de billetera del mes como respaldo.
+  const gastoServicios = activas.reduce((a, s) => a + (Number(s.precioVenta) || 0), 0);
+  const gasto = gastoServicios || (bs && isFinite(Number(bs.gastadoMes)) ? Number(bs.gastadoMes) : 0);
   vals.statGasto = auth ? fmtUSD(gasto) : "—";
   vals.statGastoSub = auth ? "Este mes" : "Inicia sesión";
 
@@ -378,30 +387,33 @@ function decorateCuenta(vals) {
 
   // Sin sesión → NO mostramos suscripciones/movimientos de demo: estado vacío
   // con invitación a iniciar sesión (nunca datos de otro usuario ni inventados).
-  const subsReales = auth ? subs : [];
+  const serviciosReales = auth ? servicios : [];
   const mov = auth ? (Store.get("movimientos") || []) : [];
+  const pedidosAuth = auth ? pedidosOk : [];
+  // Nombre visible de un servicio del catálogo.
+  const nomServ = (id) => (Catalogo.porId(id) || {}).nombre_display || id;
   if (Array.isArray(vals.subscriptions)) {
-    if (subsReales.length) {
-      vals.subscriptions = subsReales.slice(0, 8).map((s, i) => {
-        const serv = Catalogo.porId(s.servicio) || {};
-        return onSample(vals.subscriptions, i, { icon: short(serv.nombre_display || s.servicio).slice(0, 1), gradient: grad(s.servicio), name: serv.nombre_display || s.servicio, plan: s.perfil || s.tipo, expires: Utils.fecha(s.vence), status: s.estado === "activo" ? "Activo" : s.estado, price: fmtUSD(s.precioVenta) });
-      });
+    if (serviciosReales.length) {
+      vals.subscriptions = serviciosReales.slice(0, 8).map((s, i) => onSample(vals.subscriptions, i, { icon: short(nomServ(s.servicio)).slice(0, 1), gradient: grad(s.servicio), name: nomServ(s.servicio), plan: s.perfil || s.tipo || "Servicio", expires: s.vence ? Utils.fecha(s.vence) : "—", status: (s.estado === "activo" || s.estado === "activa") ? "Activo" : s.estado, price: fmtUSD(s.precioVenta) }));
     } else {
-      vals.subscriptions = [filaVacia({ name: auth ? "Sin suscripciones activas" : "Inicia sesión para ver tus servicios", plan: auth ? "Explora el catálogo para contratar un servicio." : "Aquí aparecerán tus suscripciones." })];
+      vals.subscriptions = [filaVacia({ name: auth ? "Sin servicios todavía" : "Inicia sesión para ver tus servicios", plan: auth ? "Explora el catálogo para contratar un servicio." : "Aquí aparecerán tus servicios." })];
     }
   }
+  // Movimientos = recargas/pagos reales de la billetera + compras (pedidos) reales.
+  const movsCompra = pedidosAuth.map((p) => ({ label: "Compra · " + nomServ(p.id_servicio), fecha: p.creadoEn, monto: Number(p.precio) || 0, tipo: "egreso" }));
+  const movimientos = mov.concat(movsCompra).sort((a, b) => (String(a.fecha) < String(b.fecha) ? 1 : -1));
   if (Array.isArray(vals.transactions)) {
-    if (mov.length) {
-      vals.transactions = mov.slice(0, 8).map((m, i) => onSample(vals.transactions, i, { label: m.descripcion, date: Utils.fecha(m.fecha), amount: (m.tipo === "ingreso" ? "+" : "−") + fmtUSD(m.monto), amountColor: m.tipo === "ingreso" ? "#00C896" : "#FF4466" }));
+    if (movimientos.length) {
+      vals.transactions = movimientos.slice(0, 8).map((m, i) => onSample(vals.transactions, i, { label: m.descripcion || m.label || "Movimiento", date: Utils.fecha(m.fecha), amount: (m.tipo === "ingreso" ? "+" : "−") + fmtUSD(m.monto), amountColor: m.tipo === "ingreso" ? "#00C896" : "#FF4466" }));
     } else {
       vals.transactions = [filaVacia({ label: auth ? "Sin movimientos todavía" : "Inicia sesión para ver tus movimientos" })];
     }
   }
-  // Historial de facturación = egresos/pagos reales (no facturas inventadas).
+  // Historial de facturación = pagos reales (compras + egresos de billetera).
   if (Array.isArray(vals.billing)) {
-    const pagos = mov.filter((m) => m.tipo !== "ingreso");
+    const pagos = movimientos.filter((m) => m.tipo !== "ingreso");
     if (pagos.length) {
-      vals.billing = pagos.slice(0, 8).map((m, i) => onSample(vals.billing, i, { date: Utils.fecha(m.fecha), service: m.descripcion || "Compra", status: "Completado", statusColor: "#00C896", statusBg: "rgba(0,200,150,0.08)", statusBorder: "rgba(0,200,150,0.18)", amount: fmtUSD(m.monto) }));
+      vals.billing = pagos.slice(0, 8).map((m, i) => onSample(vals.billing, i, { date: Utils.fecha(m.fecha), service: m.label || m.descripcion || "Compra", status: "Pagado", statusColor: "#00C896", statusBg: "rgba(0,200,150,0.08)", statusBorder: "rgba(0,200,150,0.18)", amount: fmtUSD(m.monto) }));
     } else {
       vals.billing = [filaVacia({ date: "—", service: "Sin pagos registrados", status: "—", amount: "—", statusColor: "rgba(240,240,250,0.4)", statusBg: "rgba(255,255,255,0.03)", statusBorder: "rgba(255,255,255,0.08)" })];
     }
