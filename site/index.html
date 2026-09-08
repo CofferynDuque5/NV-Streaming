@@ -197,7 +197,7 @@
             <div style="font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;color:#EEF2FF;line-height:1.2;" data-nv-acct-balance>$0.00</div>
           </div>
         </div>
-        <button style="padding:7px 13px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:7px;color:white;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(155,63,255,0.3);">Recargar</button>
+        <a href="billetera.html" style="padding:7px 13px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:7px;color:white;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 3px 10px rgba(155,63,255,0.3);text-decoration:none;">Recargar</a>
       </div>
     </div>
 
@@ -797,11 +797,6 @@
                 </div>
               </sc-for>
             </div>
-            <div style="display:flex;align-items:center;gap:5px;margin-bottom:12px;">
-              <span style="color:#FFB020;font-size:11px;letter-spacing:1px;">★★★★★</span>
-              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#FFB020;font-weight:500;">{{ svc.rating }}</span>
-              <span style="font-size:11px;color:rgba(200,215,255,0.35);">({{ svc.reviews }})</span>
-            </div>
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div>
                 <span style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:500;color:#00CFFF;text-shadow:0 0 12px rgba(0,207,255,0.3);">{{ svc.price }}</span>
@@ -1173,18 +1168,6 @@
           <!-- Body -->
           <div style="padding:18px 20px 20px;">
             <p style="font-size:13.5px;color:rgba(200,215,255,0.58);line-height:1.6;font-weight:300;margin-bottom:16px;">{{ estreno.desc }}</p>
-            <!-- Social proof -->
-            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.12);border-radius:10px;margin-bottom:16px;">
-              <div style="display:flex;flex-shrink:0;">
-                <sc-for list="{{ estreno.buyers }}" as="buyer" hint-placeholder-count="3">
-                  <div style="width:26px;height:26px;border-radius:50%;background:{{ buyer.bg }};border:2px solid #0C0C26;margin-left:-7px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:white;flex-shrink:0;">{{ buyer.initial }}</div>
-                </sc-for>
-              </div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:12.5px;color:#EEF2FF;font-weight:500;"><span style="color:#00CFFF;font-family:'JetBrains Mono',monospace;font-weight:500;">{{ estreno.buyersCount }}</span> personas compraron para ver este estreno</div>
-                <div style="font-size:11.5px;color:rgba(200,215,255,0.42);margin-top:2px;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ estreno.buyerPreview }}</div>
-              </div>
-            </div>
             <!-- CTAs -->
             <div style="display:flex;align-items:center;gap:10px;">
               <button style="flex:1;padding:12px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,100,255,0.32);display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.2s;" style-hover="box-shadow:0 6px 22px rgba(0,100,255,0.45);transform:translateY(-1px);">

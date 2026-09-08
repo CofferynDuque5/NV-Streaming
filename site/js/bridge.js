@@ -50,7 +50,8 @@ const isLow = (s) => s.en_stock && s.stock > 0 && s.stock <= 6;
 /* ─────────────────────  TRANSFORMS → FORMA DE PLANTILLA  ───────────────── */
 const toServiceRow = (s) => ({ shortName: short(s.nombre_display), img: crop(s), name: s.nombre_display, desc: s.descripcion || s.tipo_entrega, price: fmtUSD(Catalogo.precioFinalUSD(s)), gradient: grad(s.id_servicio), category: catLabel(s.categoria), isTop: s.destacado, lowStock: isLow(s), stockLabel: stockLabel(s), _id: s.id_servicio });
 const toServiceCard = (s) => ({ img: crop(s), name: s.nombre_display, price: fmtUSD(Catalogo.precioFinalUSD(s)), lowStock: isLow(s), stockLabel: stockLabel(s), _id: s.id_servicio });
-const toPremium = (s) => ({ shortName: short(s.nombre_display), name: s.nombre_display, plan: s.descripcion, gradient: grad(s.id_servicio), category: catLabel(s.categoria), price: fmtUSD(Catalogo.precioFinalUSD(s)), features: (s.descripcion || "").split("·").map((x) => x.trim()).filter(Boolean).slice(0, 3), rating: "4.8", reviews: (100 + (s.stock * 37) % 900) / 100 + "K", isTop: s.destacado, topLabel: s.nuevo ? "NUEVO" : s.destacado ? "MÁS VENDIDO" : "", _id: s.id_servicio });
+// Sin rating/reviews inventados: no hay sistema de reseñas con datos reales.
+const toPremium = (s) => ({ shortName: short(s.nombre_display), name: s.nombre_display, plan: s.descripcion, gradient: grad(s.id_servicio), category: catLabel(s.categoria), price: fmtUSD(Catalogo.precioFinalUSD(s)), features: (s.descripcion || "").split("·").map((x) => x.trim()).filter(Boolean).slice(0, 3), isTop: s.destacado, topLabel: s.nuevo ? "NUEVO" : s.destacado ? "MÁS VENDIDO" : "", _id: s.id_servicio });
 const toMkCard = (s) => ({ shortName: short(s.nombre_display), name: s.nombre_display, desc: s.descripcion || s.tipo_entrega, price: fmtUSD(Catalogo.precioFinalUSD(s)), gradient: grad(s.id_servicio), tag: (s.tags && s.tags[0]) ? String(s.tags[0]).toUpperCase() : catLabel(s.categoria), isPremium: s.destacado, _id: s.id_servicio });
 const toRelated = (s) => ({ short: short(s.nombre_display), name: s.nombre_display, price: fmtUSD(Catalogo.precioFinalUSD(s)), gradient: grad(s.id_servicio), _id: s.id_servicio });
 
@@ -71,15 +72,14 @@ function toCombo(c) {
 }
 function toEstreno(e, i) {
   const urg = [{ t: "SE ESTRENA MAÑANA", c: "#FF30A0", bg: "rgba(255,48,160,0.18)", b: "rgba(255,48,160,0.4)" }, { t: "EN 3 DÍAS", c: "#FFB020", bg: "rgba(255,176,32,0.16)", b: "rgba(255,176,32,0.38)" }, { t: "PRÓXIMA SEMANA", c: "#00D4A0", bg: "rgba(0,212,160,0.14)", b: "rgba(0,212,160,0.34)" }][i % 3];
-  const buyers = 800 + ((i + 1) * 653) % 2600;
   return {
     title: e.titulo_banner, type: "Estreno · " + e.plataforma, platform: e.plataforma, platformIcon: short(e.plataforma).slice(0, 1),
     platformBg: grad((e.plataforma || "").toLowerCase().includes("disney") ? "disney" : (e.plataforma || "").toLowerCase().includes("max") || (e.plataforma || "").toLowerCase().includes("hbo") ? "hbo" : "netflix"),
     urgency: urg.t, urgencyColor: urg.c, urgencyBg: urg.bg, urgencyBorder: urg.b,
     gradient: "linear-gradient(135deg,#0A041A 0%,#1A0A3E 40%,#2E0A5A 70%,#0A041A 100%)",
     desc: `Disponible en ${e.plataforma}. ${e.llamado_accion}.`,
-    buyersCount: buyers.toLocaleString("es-VE"), buyerPreview: `${buyers.toLocaleString("es-VE")} personas ya lo tienen`,
-    buyers: [{ initial: "M", bg: "linear-gradient(135deg,#0A3AAE,#1A8FFF)" }, { initial: "C", bg: "linear-gradient(135deg,#C8900A,#8B5E00)" }, { initial: "A", bg: "linear-gradient(135deg,#00A87A,#006A4E)" }],
+    // Sin "N personas ya lo tienen": no inventamos compras/compradores.
+    buyersCount: "", buyerPreview: "", buyers: [],
     ctaLabel: e.llamado_accion, imagen_background: e.imagen_background,
   };
 }
@@ -161,6 +161,13 @@ function decorateIndex(vals, svc) {
     vals.premiumServices = [];
   }
   const combos = Catalogo.combos(); vals.combos = combos.length ? combos.map(toCombo) : [];
+  // Conteo REAL de servicios por categoría en el explorador (sin números inventados).
+  if (Array.isArray(vals.catExplorer)) {
+    const CATMAP = { "Streaming": "STREAMING", "Música": "MUSICA", "Inteligencia IA": "IA", "Juegos": "JUEGOS", "Software": "SOFTWARE", "Cloud": "CLOUD" };
+    const cuenta = {};
+    for (const s of svc) { const k = s.categoria; cuenta[k] = (cuenta[k] || 0) + 1; }
+    vals.catExplorer = vals.catExplorer.map((c) => Object.assign({}, c, { count: cuenta[CATMAP[c.name]] || 0 }));
+  }
   const cart = Store.get("carteleras") || []; const estr = cart.filter((e) => e.activo); vals.estrenos = estr.length ? estr.map(toEstreno) : [];
   const mp = (Store.get("metodosPago") || []).filter((m) => m.estado_activo); vals.paymentMethods = mp.length ? mp.map(toPayment) : [];
   // Carrito lateral en vivo desde el Store real.
@@ -278,9 +285,32 @@ function decorateCarrito(vals) {
   // Métodos de pago reales para el selector rápido (vacío si no hay configurados).
   const mp = (Store.get("metodosPago") || []).filter((m) => m.estado_activo);
   if (Array.isArray(vals.payMethods)) vals.payMethods = mp.length ? mp.map((m, i) => onSample(vals.payMethods, i, { name: m.tipo_banco, label: m.tipo_banco, _id: m.id_pago })) : [];
+
+  // ── Totales REALES del carrito (antes: subtotal fijo $35.97 inventado) ──
+  const sub = Cart.subtotalUSD();
+  const desc = Cart.descuentoUSD();
+  const total = Cart.totalUSD();
+  vals.subtotalFmt = fmtUSD(sub);
+  vals.comboFmt = fmtUSD(desc);          // descuento real (combos/rol), no 15% fijo
+  vals.couponFmt = fmtUSD(0);            // sin sistema de cupones → 0 (no inventado)
+  vals.totalUSD = fmtUSD(total);
+  vals.totalConverted = fmtUSD(total);   // en USD; sin tasas de cambio inventadas
+  vals.equivList = [];                    // sin equivalencias FX inventadas
 }
 
 function decoratePagos(vals) {
+  // ── Resumen de orden REAL desde el carrito (antes: Netflix $9.99 fijo) ──
+  const items = Cart.items();
+  vals.items = items.map(toCartItem);
+  vals.itemCount = Cart.count();
+  vals.vacio = items.length === 0;
+  const sub = Cart.subtotalUSD();
+  const desc = Cart.descuentoUSD();
+  vals.subtotalFmt = fmtUSD(sub);
+  vals.descuentoFmt = fmtUSD(desc);
+  vals.hayDescuento = desc > 0.0001;
+  vals.totalFmt = fmtUSD(Cart.totalUSD());
+
   const mp = (Store.get("metodosPago") || []).filter((m) => m.estado_activo);
   if (!mp.length) {
     // Sin métodos configurados → no mostrar datos de pago de demostración.
