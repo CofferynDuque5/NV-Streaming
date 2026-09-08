@@ -337,6 +337,15 @@ export const FAQS = [
   { _id: "faq_004", categoria: "entrega", id_faq: "faq_004", orden: 3, pregunta: "¿En cuánto tiempo recibo mi cuenta?", respuesta: "La activación es inmediata. En cuanto validamos el pago recibes las credenciales por WhatsApp y en tu panel." },
 ];
 
+/* ──────────────  PLANES DE REVENDEDOR (página "Hazte revendedor")  ────────────── */
+/* Planes por defecto (editables en Admin → Catálogo → Planes revendedor). El
+ * backend (colección CMS `planes_revendedor`) los sobrescribe cuando responde. */
+export const PLANES_REVENDEDOR = [
+  { _id: "rev_starter", id: "rev_starter", name: "Starter", price: "$9.99", period: "/mes", accent: "#00CFFF", featured: false, orden: 1, activo: true, tagline: "Ideal para empezar a revender.", features: ["Precios de revendedor", "Panel de ventas", "Hasta 30 clientes", "Soporte por chat"] },
+  { _id: "rev_pro", id: "rev_pro", name: "Pro", price: "$24.99", period: "/mes", accent: "#9B3FFF", featured: true, orden: 2, activo: true, tagline: "El favorito de los revendedores activos.", features: ["Todo lo de Starter", "Clientes ilimitados", "Comisiones potenciadas", "CRM + cotizaciones", "Material de marketing"] },
+  { _id: "rev_anual", id: "rev_anual", name: "Anual", price: "$199", period: "/año", accent: "#00D4A0", featured: false, orden: 3, activo: true, tagline: "2 meses gratis pagando al año.", features: ["Todo lo de Pro", "2 meses gratis", "Prioridad de soporte", "Insignia verificada"] },
+];
+
 /* ─────────────────────────  RESPUESTAS RÁPIDAS  ────────────────────── */
 export const RESPUESTAS_RAPIDAS = [
   { _id: "macro_pin", atajo_teclado: "/pin", categoria: "streaming", cuerpo_mensaje: "Hola, recuerda que para ingresar a tu perfil asignado debes colocar el código de seguridad inyectado en tus credenciales. Cualquier duda estamos para ayudarte.", id_macro: "macro_pin", titulo_macro: "Instrucciones de PIN de Perfil" },
@@ -465,6 +474,7 @@ export const SEED = {
   renovaciones_pendientes: RENOVACIONES,
   comentarios: COMENTARIOS,
   preguntas_frecuentes: FAQS,
+  planes_revendedor: PLANES_REVENDEDOR,
   respuestas_rapidas: RESPUESTAS_RAPIDAS,
   chats_soporte: CHATS_SOPORTE,
   tickets_soporte: TICKETS,

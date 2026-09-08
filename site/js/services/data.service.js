@@ -28,6 +28,7 @@ const TABLA = [
   { coll: "metodos_pago_config", key: "metodosPago", norm: N.normalizarMetodoPago, seed: SEED.metodos_pago_config, sort: ["orden", "asc"] },
   { coll: "tarjetas_header", key: "tarjetasHeader", norm: N.normalizarTarjetaHeader, seed: SEED.tarjetas_header, sort: ["orden", "asc"] },
   { coll: "preguntas_frecuentes", key: "faqs", norm: N.normalizarFaq, seed: SEED.preguntas_frecuentes, sort: ["orden", "asc"] },
+  { coll: "planes_revendedor", key: "planesRevendedor", norm: (d) => d, seed: SEED.planes_revendedor, sort: ["orden", "asc"] },
   { coll: "comentarios", key: "comentarios", norm: N.normalizarComentario, seed: SEED.comentarios, sort: ["creadoEn", "desc"] },
   { coll: "usuarios", key: "usuarios", norm: N.normalizarUsuario, seed: SEED.usuarios },
   { coll: "pedidos", key: "pedidos", norm: N.normalizarPedido, seed: SEED.pedidos, sort: ["creadoEn", "desc"] },

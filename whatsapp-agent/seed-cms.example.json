@@ -28,5 +28,10 @@
     { "id": "prime", "id_servicio": "prime", "nombre_display": "Prime Video", "descripcion": "Amazon Prime Video", "categoria": "STREAMING", "precio": 3.99, "activo": true, "destacado": false, "orden": 4 },
     { "id": "spotify", "id_servicio": "spotify", "nombre_display": "Spotify", "descripcion": "Premium individual", "categoria": "MUSICA", "precio": 3.49, "activo": true, "destacado": true, "orden": 5 },
     { "id": "chatgpt", "id_servicio": "chatgpt", "nombre_display": "ChatGPT Plus", "descripcion": "GPT avanzado", "categoria": "IA", "precio": 9.99, "activo": true, "destacado": false, "orden": 6 }
+  ],
+  "planes_revendedor": [
+    { "id": "rev_starter", "name": "Starter", "price": "$9.99", "period": "/mes", "accent": "#00CFFF", "featured": false, "orden": 1, "activo": true, "tagline": "Ideal para empezar a revender.", "features": ["Precios de revendedor", "Panel de ventas", "Hasta 30 clientes", "Soporte por chat"] },
+    { "id": "rev_pro", "name": "Pro", "price": "$24.99", "period": "/mes", "accent": "#9B3FFF", "featured": true, "orden": 2, "activo": true, "tagline": "El favorito de los revendedores activos.", "features": ["Todo lo de Starter", "Clientes ilimitados", "Comisiones potenciadas", "CRM + cotizaciones", "Material de marketing"] },
+    { "id": "rev_anual", "name": "Anual", "price": "$199", "period": "/año", "accent": "#00D4A0", "featured": false, "orden": 3, "activo": true, "tagline": "2 meses gratis pagando al año.", "features": ["Todo lo de Pro", "2 meses gratis", "Prioridad de soporte", "Insignia verificada"] }
   ]
 }

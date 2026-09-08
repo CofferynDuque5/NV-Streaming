@@ -214,9 +214,9 @@ export const AdminRepository = {
          LEFT JOIN planes pl           ON pl.id = s.plan_id
         ORDER BY s.creado_en DESC LIMIT 500`,
     );
-    const recargasQ = query<{ id: string; email: string | null; monto: string; estado: string; metodo_pago: string | null; aprobado_por: string | null; creado_en: string }>(
+    const recargasQ = query<{ id: string; email: string | null; monto: string; estado: string; metodo_pago: string | null; aprobado_por: string | null; comprobante: string | null; creado_en: string }>(
       `SELECT r.id::text, u.email AS email, r.monto, r.estado, r.metodo_pago,
-              r.aprobado_por::text AS aprobado_por,
+              r.aprobado_por::text AS aprobado_por, r.comprobante,
               to_char(r.creado_en,'YYYY-MM-DD') AS creado_en
          FROM recargas_billetera r
          LEFT JOIN usuarios u ON u.id = r.uid_usuario
@@ -240,6 +240,7 @@ export const AdminRepository = {
       recargas: recargas.map((r) => ({
         id: r.id, email: r.email || '', monto: num(r.monto), estado: r.estado,
         metodo_pago: r.metodo_pago || '', aprobadoPor: r.aprobado_por || '', creadoEn: r.creado_en,
+        comprobante: r.comprobante || '',
       })),
       cuentas: cuentas.map((c) => ({
         id: c.id, id_servicio: c.id_servicio || '', estado: c.estado,
