@@ -1,13 +1,21 @@
 /**
  * Pruebas del cobro automático (webhook PSP) con firmas HMAC reales y deps
- * falsas. Requiere BINANCE_PAY_SECRET y PAGO_MOVIL_WEBHOOK_SECRET en el entorno.
+ * falsas. Usa BINANCE_PAY_SECRET y PAGO_MOVIL_WEBHOOK_SECRET del entorno; si no
+ * están definidos, cae a un secreto de prueba fijo (el mismo valor se usa para
+ * FIRMAR y para VERIFICAR), de modo que `npm test` corre sin configuración.
  * Ejecutar:  npm run test:psp
  */
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { procesarNotificacionPSP, type PSPDeps } from '../src/modules/payments/psp/psp.service.js';
+import type { PSPDeps } from '../src/modules/payments/psp/psp.service.js';
 import type { HeadersLike } from '../src/modules/payments/psp/types.js';
 import type { Pago } from '../src/db/models.js';
+
+// Los secretos deben fijarse ANTES de importar el servicio: env.ts congela su
+// configuración desde process.env al cargarse. Por eso el import es dinámico.
+process.env['BINANCE_PAY_SECRET'] ||= 'test_binance_secret';
+process.env['PAGO_MOVIL_WEBHOOK_SECRET'] ||= 'test_pm_secret';
+const { procesarNotificacionPSP } = await import('../src/modules/payments/psp/psp.service.js');
 
 const BINANCE_SECRET = process.env['BINANCE_PAY_SECRET']!;
 const PM_SECRET = process.env['PAGO_MOVIL_WEBHOOK_SECRET']!;

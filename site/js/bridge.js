@@ -136,6 +136,7 @@ function decorate(pageId, vals) {
     case "mi-cuenta": return decorateCuenta(vals);
     case "admin": return decorateAdmin(vals);
     case "revendedor": return decorateRevendedor(vals);
+    case "ser-revendedor": return decorateSerRevendedor(vals);
     default: return;
   }
 }
@@ -352,6 +353,26 @@ function decorateBilletera(vals) {
   } else {
     vals.transactions = [filaVacia({ label: "Sin movimientos todavía", sub: "Tus recargas y compras aparecerán aquí." })];
   }
+}
+
+// Página "Hazte revendedor": los planes salen del CMS (planes_revendedor),
+// editables en el Back Office → "Planes revendedor". Sin planes → sin datos
+// inventados (deja lo que traiga el Store, vacío si no hay).
+function decorateSerRevendedor(vals) {
+  const planes = (Store.get("planesRevendedor") || [])
+    .filter((p) => p.activo !== false)
+    .sort((a, b) => (Utils.num(a.orden) - Utils.num(b.orden)));
+  if (!Array.isArray(vals.plans)) return;
+  if (!planes.length) return; // conserva el primer render hasta que llegue el CMS
+  vals.plans = planes.map((p) => ({
+    name: p.name || "Plan",
+    price: p.price || "",
+    period: p.period || "",
+    accent: p.accent || "#00CFFF",
+    featured: !!p.featured,
+    tagline: p.tagline || "",
+    features: Array.isArray(p.features) ? p.features : String(p.features || "").split(",").map((x) => x.trim()).filter(Boolean),
+  }));
 }
 
 function decorateCuenta(vals) {

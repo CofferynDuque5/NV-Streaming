@@ -28,6 +28,7 @@ const TABLA = [
   { coll: "metodos_pago_config", key: "metodosPago", norm: N.normalizarMetodoPago, seed: SEED.metodos_pago_config, sort: ["orden", "asc"] },
   { coll: "tarjetas_header", key: "tarjetasHeader", norm: N.normalizarTarjetaHeader, seed: SEED.tarjetas_header, sort: ["orden", "asc"] },
   { coll: "preguntas_frecuentes", key: "faqs", norm: N.normalizarFaq, seed: SEED.preguntas_frecuentes, sort: ["orden", "asc"] },
+  { coll: "planes_revendedor", key: "planesRevendedor", norm: (d) => d, seed: SEED.planes_revendedor, sort: ["orden", "asc"] },
   { coll: "comentarios", key: "comentarios", norm: N.normalizarComentario, seed: SEED.comentarios, sort: ["creadoEn", "desc"] },
   { coll: "usuarios", key: "usuarios", norm: N.normalizarUsuario, seed: SEED.usuarios },
   { coll: "pedidos", key: "pedidos", norm: N.normalizarPedido, seed: SEED.pedidos, sort: ["creadoEn", "desc"] },
@@ -62,6 +63,12 @@ function publicar(entry, rawDocs, origen) {
 
 const unsubs = [];
 
+// Colecciones OPERATIVAS/ADMIN que NO viven en el CMS: el panel de admin las
+// carga por sus endpoints dedicados (`/api/admin/*`), no por `/api/cms/:coll`.
+// Vigilarlas por CMS solo produce 404 en bucle. Publicamos su seed (vacío) y no
+// abrimos watch; sus datos reales llegan por el panel cuando hay sesión admin.
+const SIN_WATCH_CMS = new Set(["usuarios", "inventario", "codigos_verificacion", "renovaciones_pendientes"]);
+
 /** Inicia carga + sincronización de todas las colecciones. */
 export function iniciarCargaDatos() {
   Store.set("_meta", {});
@@ -76,6 +83,7 @@ export function iniciarCargaDatos() {
   if (!DB.online) { Bus.emit("data:ready", { online: false }); return; }
 
   for (const entry of TABLA) {
+    if (SIN_WATCH_CMS.has(entry.coll)) continue; // servidas por /api/admin, no por CMS
     const un = DB.watch(
       entry.coll,
       // PostgreSQL MANDA cuando hay conexión: publicamos su verdad SIEMPRE, incluso

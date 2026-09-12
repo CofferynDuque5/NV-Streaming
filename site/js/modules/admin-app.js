@@ -89,6 +89,7 @@ const SECCIONES = [
       { k: "email", label: "Usuario", fmt: (r) => esc(r.email || "—") },
       { k: "monto", label: "Monto", fmt: (r) => money(r.monto) },
       { k: "metodo_pago", label: "Método", fmt: (r) => esc(r.metodo_pago || "—") },
+      { k: "comprobante", label: "Comprobante", fmt: (r) => (r.comprobante ? `<a href="${r.comprobante}" target="_blank" rel="noopener" style="color:#00CFFF;">Ver</a>` : '<span style="color:rgba(200,215,255,0.35);">—</span>') },
       { k: "estado", label: "Estado", fmt: (r) => tag(r.estado) },
       { k: "creadoEn", label: "Fecha", fmt: (r) => fechaCorta(r.creadoEn) },
     ],
@@ -152,7 +153,8 @@ const SECCIONES = [
     columnas: [
       { k: "nombre_display", label: "Nombre", fmt: (r) => esc(r.nombre_display || r.id_servicio) },
       { k: "categoria", label: "Categoría", fmt: (r) => esc(r.categoria || "—") },
-      { k: "precio", label: "Precio", fmt: (r) => money(r.precio) },
+      { k: "precio", label: "Precio cliente", fmt: (r) => money(r.precio) },
+      { k: "precio_rev", label: "Precio revendedor", fmt: (r) => (r.precio_rev != null ? money(r.precio_rev) : "—") },
       { k: "stock", label: "Stock", fmt: (r) => (r.stock ?? "—") },
       { k: "activo", label: "Activo", fmt: (r) => (r.activo === false ? "No" : "Sí") },
     ],
@@ -164,7 +166,8 @@ const SECCIONES = [
       { k: "precio", label: "Precio USD", tipo: "number" },
       { k: "precio_rev", label: "Precio revendedor USD", tipo: "number" },
       { k: "stock", label: "Stock", tipo: "number" },
-      { k: "tarjeta_url", label: "Imagen (URL)", tipo: "text" },
+      { k: "tarjeta_url", label: "Imagen del servicio", tipo: "imagen" },
+      { k: "logo_url", label: "Logo (opcional)", tipo: "imagen" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
       { k: "destacado", label: "Destacado", tipo: "bool" },
     ],
@@ -183,6 +186,7 @@ const SECCIONES = [
       { k: "descripcion", label: "Descripción", tipo: "textarea" },
       { k: "precio_publico_combo", label: "Precio público USD", tipo: "number" },
       { k: "precio_revendedor_combo", label: "Precio revendedor USD", tipo: "number" },
+      { k: "banner_url", label: "Banner", tipo: "imagen" },
       { k: "servicios_included", label: "Servicios incluidos (separa con comas)", tipo: "tags" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
@@ -239,7 +243,7 @@ const SECCIONES = [
       { k: "titulo_banner", label: "Título", tipo: "text", req: true },
       { k: "plataforma", label: "Plataforma", tipo: "text" },
       { k: "llamado_accion", label: "Texto del botón (CTA)", tipo: "text" },
-      { k: "imagen_background", label: "Imagen de fondo (URL)", tipo: "text" },
+      { k: "imagen_background", label: "Imagen de fondo", tipo: "imagen" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
   },
@@ -276,6 +280,29 @@ const SECCIONES = [
       { k: "pregunta", label: "Pregunta", tipo: "text", req: true },
       { k: "respuesta", label: "Respuesta", tipo: "textarea", req: true },
       { k: "orden", label: "Orden", tipo: "number" },
+    ],
+  },
+
+  { id: "planesrev", grupo: "Catálogo", label: "Planes revendedor", icon: "🪪", tipo: "crud", adaptador: cms("planes_revendedor"),
+    titulo: "Planes de revendedor", sub: "Los planes que se muestran en la página «Hazte revendedor» (ser-revendedor).",
+    resumen: (d) => `${esc(d.name)} · ${esc(d.price)}`,
+    columnas: [
+      { k: "name", label: "Plan", fmt: (r) => esc(r.name) },
+      { k: "price", label: "Precio", fmt: (r) => esc(r.price) },
+      { k: "period", label: "Periodo", fmt: (r) => esc(r.period || "") },
+      { k: "featured", label: "Destacado", fmt: (r) => (r.featured ? "Sí" : "No") },
+      { k: "activo", label: "Activo", fmt: (r) => (r.activo === false ? "No" : "Sí") },
+    ],
+    campos: [
+      { k: "name", label: "Nombre del plan", tipo: "text", req: true },
+      { k: "price", label: "Precio (ej. $9.99)", tipo: "text", req: true },
+      { k: "period", label: "Periodo (ej. /mes, /año)", tipo: "text", def: "/mes" },
+      { k: "tagline", label: "Descripción corta", tipo: "text" },
+      { k: "features", label: "Beneficios (separa con comas)", tipo: "tags" },
+      { k: "accent", label: "Color de acento (hex)", tipo: "text", def: "#00CFFF" },
+      { k: "orden", label: "Orden", tipo: "number" },
+      { k: "featured", label: "Destacado (resaltado)", tipo: "bool" },
+      { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
   },
 
@@ -407,6 +434,17 @@ function campoHTML(c, val) {
   if (c.tipo === "bool") return `<label class="nv-adm-check"><input type="checkbox" id="${id}" ${val === undefined ? (c.def ? "checked" : "") : (val ? "checked" : "")}> ${esc(c.label)}</label>`;
   if (c.tipo === "select") return `<label class="nv-adm-f"><span>${esc(c.label)}</span><select id="${id}">${c.opciones.map((o) => `<option ${String(o) === String(val) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>`;
   if (c.tipo === "textarea") return `<label class="nv-adm-f"><span>${esc(c.label)}${c.req ? " *" : ""}</span><textarea id="${id}">${esc(v)}</textarea></label>`;
+  if (c.tipo === "imagen") {
+    // Subida real a ImgBB (image-upload.js está instalado en el admin). Si no hay
+    // API key configurada, el operador puede pegar la URL a mano. Sin URLs falsas.
+    return `<div class="nv-adm-f"><span>${esc(c.label)}</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="${id}" value="${esc(v)}" placeholder="URL de la imagen" style="flex:1;" data-imgbb-preview="#prev_${id}">
+        <label class="nv-adm-ghost" style="cursor:pointer;white-space:nowrap;">Subir imagen<input type="file" accept="image/*" data-imgbb data-imgbb-target="#${id}" data-imgbb-preview="#prev_${id}" hidden></label>
+      </div>
+      <img id="prev_${id}" src="${esc(v)}" alt="" style="${v ? "" : "display:none;"}max-height:70px;max-width:120px;border-radius:8px;margin-top:6px;object-fit:cover;border:1px solid rgba(80,100,200,0.24);">
+    </div>`;
+  }
   const t = c.tipo === "number" ? "number" : "text";
   return `<label class="nv-adm-f"><span>${esc(c.label)}${c.req ? " *" : ""}</span><input type="${t}" id="${id}" value="${esc(v)}" step="any"></label>`;
 }

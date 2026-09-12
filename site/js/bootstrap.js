@@ -126,9 +126,16 @@ function wireAcciones() {
   document.addEventListener("change", (ev) => {
     const inp = ev.target;
     if (!inp || inp.type !== "file" || !inp.files || !inp.files[0]) return;
+    if (inp.hasAttribute("data-imgbb")) return; // esas subidas las maneja image-upload.js
     const f = inp.files[0];
     const r = new FileReader();
-    r.onload = () => { window.__NV_COMPROBANTE = r.result; NV.toast("Comprobante cargado ✓", "rgba(0,212,160,0.5)"); };
+    r.onload = () => {
+      window.__NV_COMPROBANTE = r.result; NV.toast("Comprobante cargado ✓", "rgba(0,212,160,0.5)");
+      // Muestra el nombre del archivo en el campo de comprobante (si existe).
+      const campo = inp.closest("[data-nv-comprobante-field]") || inp.parentElement;
+      const nom = campo && campo.querySelector("[data-nv-comprobante-nombre]");
+      if (nom) nom.textContent = f.name;
+    };
     r.readAsDataURL(f);
   }, true);
 
