@@ -139,6 +139,10 @@
       whatsappFab: true,
       sonidos: true,
       modales: true,
+      // Seguridad de paneles internos (admin / revendedor / editor). true = ESTRICTO:
+      // exige iniciar sesión con el rol correcto o rebota a auth/inicio. Ponlo en
+      // false SOLO para una demo local sin backend (revisión estática sin cuentas).
+      enforceRoles: true,
     },
   };
 })();

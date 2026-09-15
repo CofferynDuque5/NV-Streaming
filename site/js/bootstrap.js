@@ -100,24 +100,62 @@ async function boot() {
   if (window.NV && window.NV.rerender) window.NV.rerender();
 }
 
-/* ──────────────  GATEKEEPER (admin / revendedor)  ────────────── */
-// Verifica rol para paneles internos. Permisivo por defecto (modo demo) para no
-// bloquear la revisión sin cuentas Auth reales; pon window.NV_ENFORCE=true para
-// activar el rebote real al storefront cuando el rol no corresponda.
+/* ──────────────  GATEKEEPER (admin / revendedor / editor)  ────────────── */
+// Verifica el rol para los paneles internos. ESTRICTO por defecto: sin sesión
+// válida con el rol correcto, rebota a auth.html (o al inicio). El editor visual
+// es admin-only porque escribe el CMS/layout.
+//
+// Se puede DESACTIVAR solo para una demo local sin backend poniendo
+// `window.NV_ENFORCE = false` o `NV_CONFIG.flags.enforceRoles = false`.
+function enforcementActivo() {
+  if (window.NV_ENFORCE === false) return false;                 // opt-out explícito
+  const f = window.NV_CONFIG && window.NV_CONFIG.flags;
+  if (f && f.enforceRoles === false) return false;               // opt-out por config
+  return true;                                                   // ESTRICTO por defecto
+}
+
+// Overlay de bloqueo a pantalla completa mientras se verifica el acceso. Evita
+// que el panel "parpadee" visible antes del rebote y bloquea la interacción.
+function crearOverlayBloqueo() {
+  let ov = document.querySelector(".gatekeeper-fullscreen-blur");
+  if (ov) return ov;
+  ov = document.createElement("div");
+  ov.className = "gatekeeper-fullscreen-blur";
+  ov.setAttribute("role", "status");
+  ov.setAttribute("aria-live", "polite");
+  ov.style.cssText = "position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(4,4,12,0.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#EEF2FF;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;text-align:center;padding:24px;";
+  ov.innerHTML = '<div style="max-width:340px;"><div style="font-size:15px;font-weight:600;letter-spacing:.3px;">Verificando acceso…</div><div style="margin-top:6px;font-size:13px;color:rgba(200,215,255,.6);">Necesitas iniciar sesión con una cuenta autorizada.</div></div>';
+  (document.body || document.documentElement).appendChild(ov);
+  return ov;
+}
+
 function aplicarGatekeeper() {
   const p = page();
-  const protegido = { admin: "admin", revendedor: "revendedor" }[p];
+  // editor = admin-only (escribe el CMS/layout publicado).
+  const protegido = { admin: "admin", revendedor: "revendedor", editor: "admin" }[p];
   if (!protegido) return;
-  const overlay = document.querySelector(".gatekeeper-fullscreen-blur");
-  const liberar = () => overlay && (overlay.style.display = "none");
+
+  if (!enforcementActivo()) { // demo local: acceso abierto
+    const ov = document.querySelector(".gatekeeper-fullscreen-blur");
+    if (ov) ov.style.display = "none";
+    return;
+  }
+
+  const overlay = crearOverlayBloqueo();
+  const liberar = () => { if (overlay) overlay.style.display = "none"; };
+  const rebote = (url) => { try { location.replace(url); } catch (_) { location.href = url; } };
+
   Store.subscribe("sesion", (s) => {
-    const u = s && s.usuario;
-    if (!window.NV_ENFORCE) { liberar(); return; } // demo: acceso abierto
-    if (!u) { location.href = "auth.html"; return; }
+    if (!s || s.estado === undefined) return;              // sesión aún resolviéndose → sigue bloqueado
+    const u = s.usuario;
+    if (!u) { rebote("auth.html"); return; }               // sin sesión → login
     const ok = protegido === "admin" ? u.rol === "admin" : (u.rol === "revendedor" || u.rol === "admin");
-    if (ok) liberar(); else location.href = "index.html";
+    if (ok) liberar(); else rebote("index.html");          // rol insuficiente → storefront
   });
-  if (!NVCore.online || !window.NV_ENFORCE) liberar();
+
+  // Sin backend no hay sesión que verificar (revisión local estática): liberamos
+  // para no bloquear una demo offline. Con backend, SIEMPRE se exige el rol.
+  if (!NVCore.online) liberar();
 }
 
 /* ─────────────────────────  ACCIONES  ───────────────────────── */
