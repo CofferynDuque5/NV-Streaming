@@ -29,6 +29,12 @@ const GRAD = {
   tidal: "linear-gradient(135deg,#001018,#004a6a)", youtube: "linear-gradient(135deg,#2e0000,#8a0000)",
   deezer: "linear-gradient(135deg,#14001a,#5a00aa)", office365: "linear-gradient(135deg,#001a2e,#003a6e)",
   windows11: "linear-gradient(135deg,#001a2e,#0060b0)", googleone: "linear-gradient(135deg,#0a0a1a,#2a4a8a)",
+  // Catálogo real NV: ids sin arte propio todavía (se sube en Admin → Servicios).
+  max: "linear-gradient(135deg,#1e0a2e,#5a0a7a)", disney_espn: "linear-gradient(135deg,#0a0a2e,#2a2a8a)",
+  prime: "linear-gradient(135deg,#001a2e,#00a8e0)", plex: "linear-gradient(135deg,#1a1a00,#c08a00)",
+  telelatino: "linear-gradient(135deg,#0a1a2e,#1a5a9a)", flujotv: "linear-gradient(135deg,#002a1a,#00806a)",
+  rakuten: "linear-gradient(135deg,#1a0a2e,#4a1a9a)", canva: "linear-gradient(135deg,#0a1a2e,#00b0c8)",
+  capcut: "linear-gradient(135deg,#0a0a0a,#3a3a3a)", gemini: "linear-gradient(135deg,#0a0a2e,#4a5aff)",
 };
 const CROP = { netflix: 1, spotify: 1, disney: 1, hbo: 1, chatgpt: 1, adobe: 1, appletv: 1, vix: 1, crunchyroll: 1, paramount: 1, office365: 1, googleone: 1, tvmagico: 1, flujo: 1 };
 const PAY = {
@@ -57,8 +63,10 @@ const toRelated = (s) => ({ short: short(s.nombre_display), name: s.nombre_displ
 
 function toCombo(c) {
   const included = (c.servicios_included || []).map((nombre) => {
-    const s = Catalogo.servicios().find((x) => x.nombre_display === nombre) || {};
-    return { icon: short(nombre).slice(0, 1), name: nombre, price: fmtUSD(s.precio || 0), bg: grad(s.id_servicio || "") };
+    const s = Catalogo.servicios().find((x) => x.nombre_display === nombre) || null;
+    // Precio de cada ítem SEGÚN ROL (revendedor ve su tarifa), coherente con el
+    // total del combo que calcula el motor de precios.
+    return { icon: short(nombre).slice(0, 1), name: nombre, price: fmtUSD(s ? Catalogo.precioFinalUSD(s) : 0), bg: grad(s ? s.id_servicio : "") };
   });
   const orig = included.reduce((a, i) => a + Utils.num(i.price.replace("$", "")), 0);
   const precioCombo = Catalogo.precioComboUSD(c); // tarifa por rol (revendedor/estándar)
@@ -171,6 +179,18 @@ function decorateIndex(vals, svc) {
   }
   const cart = Store.get("carteleras") || []; const estr = cart.filter((e) => e.activo); vals.estrenos = estr.length ? estr.map(toEstreno) : [];
   const mp = (Store.get("metodosPago") || []).filter((m) => m.estado_activo); vals.paymentMethods = mp.length ? mp.map(toPayment) : [];
+  // "Un universo por cada categoría": listas REALES por mundo (primeros 4 por
+  // orden, precio según rol). Antes eran nombres y precios fijos en el HTML.
+  const PALETA = ["#1DB954", "#00CFFF", "#A238FF", "#FFB020"];
+  const glowDe = (hex) => { const n = hex.replace("#", ""); return `rgba(${parseInt(n.slice(0, 2), 16)},${parseInt(n.slice(2, 4), 16)},${parseInt(n.slice(4, 6), 16)},0.6)`; };
+  const mundo = (cats) => svc.filter((s) => cats.includes(s.categoria)).slice(0, 4)
+    .map((s, i) => ({ name: s.nombre_display, price: fmtUSD(Catalogo.precioFinalUSD(s)), color: PALETA[i % 4], glow: glowDe(PALETA[i % 4]) }));
+  vals.mundoMusica = mundo(["MUSICA"]);
+  vals.mundoStreaming = mundo(["STREAMING"]);
+  vals.mundoProductividad = mundo(["SOFTWARE", "CLOUD", "IA"]);
+  // Tarjetas decorativas del hero: precio REAL del catálogo (vacío si no existe).
+  const precioDe = (id) => { const s = Catalogo.porId(id); return s ? fmtUSD(Catalogo.precioFinalUSD(s)) : ""; };
+  vals.hero = { chatgpt: precioDe("chatgpt"), spotify: precioDe("spotify"), netflix: precioDe("netflix") };
   // Carrito lateral en vivo desde el Store real.
   const items = Cart.items();
   vals.cartItems = items.map(toCartItem);

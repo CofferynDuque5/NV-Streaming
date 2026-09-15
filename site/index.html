@@ -625,7 +625,7 @@
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:rgba(0,220,220,0.7);letter-spacing:0.15em;text-transform:uppercase;">GPT PRO</div>
         <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;text-shadow:0 0 20px rgba(0,200,220,0.6);">ChatGPT</div>
         <div style="font-size:11px;color:rgba(200,240,240,0.5);">GLOBAL ACCESS</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#00DFFF;font-weight:500;text-shadow:0 0 16px rgba(0,223,255,0.5);">$19.99</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#00DFFF;font-weight:500;text-shadow:0 0 16px rgba(0,223,255,0.5);">{{ hero.chatgpt }}</div>
       </div>
 
       <!-- CARD 2 (middle — Spotify) -->
@@ -634,7 +634,7 @@
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:rgba(0,220,100,0.7);letter-spacing:0.15em;text-transform:uppercase;">PREMIUM</div>
         <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;text-shadow:0 0 20px rgba(0,200,80,0.5);">Spotify</div>
         <div style="font-size:11px;color:rgba(180,240,200,0.5);">INDIVIDUAL PLAN</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#00D4A0;font-weight:500;text-shadow:0 0 16px rgba(0,212,160,0.5);">$5.99</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#00D4A0;font-weight:500;text-shadow:0 0 16px rgba(0,212,160,0.5);">{{ hero.spotify }}</div>
       </div>
 
       <!-- CARD 1 (front — Netflix, primary) -->
@@ -646,7 +646,7 @@
         <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:rgba(200,150,255,0.7);letter-spacing:0.15em;text-transform:uppercase;position:relative;z-index:1;">PREMIUM PLAN</div>
         <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:white;letter-spacing:0.04em;text-shadow:0 0 24px rgba(200,100,255,0.5);position:relative;z-index:1;">NETFLIX</div>
         <div style="font-size:11.5px;color:rgba(220,180,255,0.55);position:relative;z-index:1;">4K ULTRA HD · 4 SCREENS</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:26px;color:#00CFFF;font-weight:500;text-shadow:0 0 20px rgba(0,207,255,0.55);position:relative;z-index:1;">$9.99</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:26px;color:#00CFFF;font-weight:500;text-shadow:0 0 20px rgba(0,207,255,0.55);position:relative;z-index:1;">{{ hero.netflix }}</div>
         <!-- Bottom NV badge -->
         <div style="position:absolute;bottom:14px;right:14px;display:flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(0,0,0,0.4);border:1px solid rgba(0,207,255,0.2);border-radius:5px;z-index:1;">
           <div style="width:5px;height:5px;background:#00D4A0;border-radius:50%;animation:glow 2s ease-in-out infinite;"></div>
@@ -909,26 +909,14 @@
         <p style="font-size:14.5px;color:rgba(200,215,255,0.5);line-height:1.7;font-weight:300;max-width:420px;margin-bottom:20px;">Streaming de audio en alta fidelidad, sin anuncios y offline. Spotify, Tidal, YouTube Music y Deezer al mejor precio.</p>
         <!-- Service list -->
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;max-width:360px;">
+          <!-- Lista REAL (catálogo · categoría MÚSICA · precio según rol) -->
+          <sc-for list="{{ mundoMusica }}" as="it" hint-placeholder-count="4">
           <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#1DB954;box-shadow:0 0 6px rgba(29,185,84,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Spotify Premium</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $5.99</span>
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ it.color }};box-shadow:0 0 6px {{ it.glow }};"></div>
+            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">{{ it.name }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">{{ it.price }}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#00CFFF;box-shadow:0 0 6px rgba(0,207,255,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Tidal HiFi</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $7.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#FF0000;box-shadow:0 0 6px rgba(255,0,0,0.5);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">YouTube Music</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $4.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#A238FF;box-shadow:0 0 6px rgba(162,56,255,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Deezer Premium</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $5.49</span>
-          </div>
+          </sc-for>
         </div>
         <button style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,rgba(0,160,130,0.9),rgba(0,212,160,0.85));border:none;border-radius:10px;color:#04120E;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(0,212,160,0.3);" style-hover="box-shadow:0 6px 24px rgba(0,212,160,0.45);transform:translateY(-1px);">
           Explorar Música
@@ -1020,26 +1008,14 @@
         <h3 style="font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:#EEF2FF;letter-spacing:-0.03em;line-height:0.98;margin-bottom:16px;">Todo el streaming<br>premium</h3>
         <p style="font-size:14.5px;color:rgba(200,215,255,0.5);line-height:1.7;font-weight:300;max-width:420px;margin-bottom:20px;">Películas, series y anime en 4K Ultra HD. Netflix, Disney+, HBO Max, Paramount+ y muchos más, siempre disponibles.</p>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;max-width:360px;">
+          <!-- Lista REAL (catálogo · categoría STREAMING · precio según rol) -->
+          <sc-for list="{{ mundoStreaming }}" as="it" hint-placeholder-count="4">
           <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#E50914;box-shadow:0 0 6px rgba(229,9,20,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Netflix Premium</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $9.99</span>
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ it.color }};box-shadow:0 0 6px {{ it.glow }};"></div>
+            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">{{ it.name }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">{{ it.price }}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#0063E5;box-shadow:0 0 6px rgba(0,99,229,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Disney+</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $8.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#A238FF;box-shadow:0 0 6px rgba(162,56,255,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">HBO Max</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $10.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#0064FF;box-shadow:0 0 6px rgba(0,100,255,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Paramount+</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $5.99</span>
-          </div>
+          </sc-for>
         </div>
         <button style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,#5510BB,#9B3FFF);border:none;border-radius:10px;color:white;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(155,63,255,0.3);" style-hover="box-shadow:0 6px 24px rgba(155,63,255,0.45);transform:translateY(-1px);">
           Explorar Streaming
@@ -1059,26 +1035,14 @@
         <h3 style="font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:#EEF2FF;letter-spacing:-0.03em;line-height:0.98;margin-bottom:16px;">Productividad<br>y licencias</h3>
         <p style="font-size:14.5px;color:rgba(200,215,255,0.5);line-height:1.7;font-weight:300;max-width:420px;margin-bottom:20px;">Licencias originales y suites completas para trabajar sin límites. Windows 11, Office 365, Adobe y almacenamiento en la nube.</p>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;max-width:360px;">
+          <!-- Lista REAL (catálogo · SOFTWARE + CLOUD + IA · precio según rol) -->
+          <sc-for list="{{ mundoProductividad }}" as="it" hint-placeholder-count="4">
           <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#0078D4;box-shadow:0 0 6px rgba(0,120,212,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Windows 11 Pro</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">licencia $12.99</span>
+            <div style="width:8px;height:8px;border-radius:50%;background:{{ it.color }};box-shadow:0 0 6px {{ it.glow }};"></div>
+            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">{{ it.name }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">{{ it.price }}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#E8552D;box-shadow:0 0 6px rgba(232,85,45,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Microsoft Office 365</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $14.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#FF2A5A;box-shadow:0 0 6px rgba(255,42,90,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Adobe Creative Cloud</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $18.99</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px;padding:9px 13px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:10px;">
-            <div style="width:8px;height:8px;border-radius:50%;background:#00A86B;box-shadow:0 0 6px rgba(0,168,107,0.6);"></div>
-            <span style="font-size:13.5px;color:#EEF2FF;font-weight:500;flex:1;">Google One · 2TB</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(200,215,255,0.5);">desde $6.99</span>
-          </div>
+          </sc-for>
         </div>
         <button style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,#C8900A,#E6B83A);border:none;border-radius:10px;color:#120C02;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(230,184,58,0.28);" style-hover="box-shadow:0 6px 24px rgba(230,184,58,0.42);transform:translateY(-1px);">
           Explorar Productividad
@@ -1663,6 +1627,10 @@ class Component extends DCLogic {
         { img:'assets/crop-flujo.png',       name:'Flujo TV',        price:'$5.99',  lowStock:true,  stockLabel:'QUEDAN 3'   },
       ],
       // Category explorer
+      // Precios del hero y listas por "mundo": los rellena bridge.decorateIndex
+      // desde el catálogo real (aquí vacíos para no mostrar nada inventado).
+      hero: { chatgpt: '', spotify: '', netflix: '' },
+      mundoMusica: [], mundoStreaming: [], mundoProductividad: [],
       catExplorer: [
         { emoji:'▶', name:'Streaming',       count:8,  color:'#9B3FFF', bg:'rgba(155,63,255,0.1)'  },
         { emoji:'♪', name:'Música',          count:5,  color:'#00D4A0', bg:'rgba(0,212,160,0.1)'   },
