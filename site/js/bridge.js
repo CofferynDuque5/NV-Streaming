@@ -508,6 +508,11 @@ const CONTEO_MODULO = {
   "Cartelera Digital": (o) => n(o.conteos.carteleras_estrenos, "activa", "activas"),
   "Promociones": (o) => n(o.conteos.ofertas, "activa", "activas"),
   "Suscripciones": (o) => n(o.conteos.suscripciones, "activa", "activas"),
+  "Control de Vencimientos": (o) => n(o.conteos.suscripciones, "activa", "activas"),
+  "Planes": (o) => n(o.conteos.planes, "plan", "planes"),
+  "Planes revendedor": (o) => n(o.conteos.planes_revendedor, "plan", "planes"),
+  "FAQs": (o) => n(o.conteos.preguntas_frecuentes, "pregunta", "preguntas"),
+  "Notificaciones": (o) => n(o.conteos.alertas_no_leidas, "sin leer", "sin leer"),
 };
 function n(v, sing, plur) { const x = Utils.num(v); return x > 0 ? x + " " + (x === 1 ? sing : plur) : ""; }
 function haceCuanto(iso) {
@@ -539,28 +544,28 @@ function decorateAdmin(vals) {
     ];
   }
   // Roles reales (reparto de usuarios por rol) — sin cifras inventadas.
-  if (ov && Array.isArray(vals.roles) && Array.isArray(ov.roles)) {
-    vals.roles = ov.roles.map((r, i) => onSample(vals.roles, i, {
+  if (Array.isArray(vals.roles)) { // sin resumen → lista vacía (nunca roles inventados)
+    vals.roles = (ov && Array.isArray(ov.roles) ? ov.roles : []).map((r, i) => onSample(vals.roles, i, {
       name: NOMBRE_ROL[r.rol] || (r.rol ? r.rol[0].toUpperCase() + r.rol.slice(1) : "Usuario"),
       count: String(r.total), scope: SCOPE_ROL[r.rol] || "READ",
     }));
   }
   // Actividad reciente REAL (pedidos + recargas), no personas inventadas.
-  if (ov && Array.isArray(vals.auditLog)) {
-    const act = Array.isArray(ov.actividad) ? ov.actividad : [];
+  if (Array.isArray(vals.auditLog)) {
+    const act = ov && Array.isArray(ov.actividad) ? ov.actividad : [];
     vals.auditLog = act.length
       ? act.map((a, i) => onSample(vals.auditLog, i, { actor: a.actor, action: a.accion + " · " + a.estado, module: a.modulo, time: haceCuanto(a.cuando) }))
       : [onSample(vals.auditLog, 0, { actor: "Sistema", action: "sin actividad reciente", module: "—", time: "" })];
   }
   // Conteos reales en las tarjetas de módulo. Regla honesta: si tenemos el dato
   // real lo mostramos; si no, se deja en blanco (nunca una cifra inventada).
-  if (ov && Array.isArray(vals.visibleGroups)) {
+  if (Array.isArray(vals.visibleGroups)) {
     for (const g of vals.visibleGroups) {
       if (!g || !Array.isArray(g.modules)) continue;
       for (const m of g.modules) {
         if (!m) continue;
         const f = CONTEO_MODULO[m.name];
-        m.count = f ? f(ov) : "";
+        m.count = (ov && f) ? f(ov) : "";
       }
     }
   }

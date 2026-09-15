@@ -588,6 +588,11 @@ function wireVolverPanel() {
     "color:#EEF2FF;background:rgba(10,12,30,0.92);border:1px solid rgba(0,207,255,0.3);" +
     "text-decoration:none;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);" +
     "box-shadow:0 6px 20px rgba(0,0,30,0.4);";
+  // En el panel de admin (diseño NV OS) la cabecera ya ocupa el centro superior
+  // (buscador): la píldora va abajo a la derecha para no taparla.
+  if (document.body && document.body.hasAttribute("data-nv-adm-legacy")) {
+    a.style.top = "auto"; a.style.bottom = "16px"; a.style.left = "auto"; a.style.right = "16px"; a.style.transform = "none";
+  }
   document.body.appendChild(a);
 }
 

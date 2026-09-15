@@ -405,6 +405,8 @@ function inyectarEstilos() {
   .nv-adm-nav:hover{background:rgba(255,255,255,0.04);color:#fff;}
   .nv-adm-nav.on{background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.25);color:#EAF6FF;}
   .nv-adm-nav .ic{width:20px;text-align:center;}
+  .nv-adm-back{color:#9fe9ff;border-color:rgba(0,207,255,0.25);background:rgba(0,207,255,0.06);margin-bottom:8px;}
+  #nv-adm.nv-adm-overlay{z-index:20000;} /* por encima de la cabecera fija del panel anterior; los modales NVUI van más arriba */
   .nv-adm-badge{margin-left:auto;background:#FF4466;color:#fff;font-size:11px;font-weight:700;line-height:1;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 0 0 1px rgba(255,68,102,0.4);}
   .nv-adm-main{flex:1;height:100%;overflow-y:auto;padding:26px 30px 60px;}
   .nv-adm-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;}
@@ -512,6 +514,7 @@ function pintarSidebar(side) {
   const grupos = [];
   for (const s of SECCIONES) { if (!grupos.includes(s.grupo)) grupos.push(s.grupo); }
   side.innerHTML = `<div class="nv-adm-brand"><div class="nv-adm-logo">NV</div><div><b>Back Office</b><span>NV STREAMING</span></div></div>`;
+  if (LEGACY) { const back = el("button", "nv-adm-nav nv-adm-back", `<span class="ic">←</span><span>Volver al panel</span>`); back.addEventListener("click", cerrarLegacy); side.appendChild(back); }
   for (const g of grupos) {
     side.appendChild(el("div", "nv-adm-grp", esc(g)));
     for (const s of SECCIONES.filter((x) => x.grupo === g)) {
@@ -618,7 +621,7 @@ async function renderTabla(s) {
       const b = el("button", "nv-adm-btn", esc(a.label));
       b.addEventListener("click", async () => {
         b.disabled = true;
-        try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); refrescarBadgeAlertas(); }
+        try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
         catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
       });
       acc.appendChild(b);
@@ -634,7 +637,7 @@ async function renderTabla(s) {
     // Confirmación opcional (acciones sensibles: mover dinero, etc.).
     if (a.confirm) { const ok = await confirmar(a.confirmTitulo || "Confirmar", a.confirm, a.label); if (!ok) return; }
     b.disabled = true; b.textContent = "…";
-    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); refrescarBadgeAlertas(); }
+    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
     catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
   }));
 }
@@ -710,6 +713,52 @@ async function renderConfig(s) {
   });
 }
 
+/* ──────────────────  MODO "PANEL ANTERIOR" (NV OS)  ────────────────── */
+// admin.html conserva su diseño original (dock, KPIs, mosaicos, roles y
+// auditoría con datos reales). Cada mosaico abre aquí la herramienta REAL
+// (tablas/CRUD conectados) en una capa superior con "Volver al panel".
+let LEGACY = false;
+const NOMBRE_A_SECCION = {
+  "Dashboard Ejecutivo": "dashboard", "Estadísticas": "dashboard", "Órdenes": "pedidos",
+  "Control de Vencimientos": "suscripciones", "Catálogo de Servicios": "servicios", "Combos": "combos",
+  "Categorías": "categorias", "Inventario": "inventario", "Promociones": "ofertas", "Planes": "planes",
+  "Usuarios": "usuarios", "Roles & Permisos": "usuarios", "Revendedores": "revendedores",
+  "Métodos de Pago": "metodos", "Recargas": "recargas", "Billetera": "recargas", "Planes revendedor": "planesrev",
+  "CMS Visual": "editor", "Gestión del Home": "editor", "Banners": "editor", "Cartelera Digital": "cartelera",
+  "FAQs": "faqs", "Configuración General": "config", "Tema de la Plataforma": "config", "Notificaciones": "notificaciones",
+};
+// Resumen real (KPIs, roles, actividad, conteos) → Store → bridge.decorateAdmin.
+async function cargarOverview() { try { const ov = await NVApi.adminOverview(); if (ov) Store.set("adminOverview", ov); } catch (_) {} }
+function invalidarOverview() { Store.set("adminOverview", null); if (LEGACY) cargarOverview(); }
+function abrirLegacy(nombreOId) {
+  const id = NOMBRE_A_SECCION[nombreOId] || (porId(nombreOId) ? nombreOId : "dashboard");
+  const s = porId(id); if (!s) return;
+  if (s.tipo === "link") { window.location.href = s.url; return; }
+  montar();
+  root.classList.add("nv-adm-overlay"); root.style.display = "";
+  ir(id);
+}
+function cerrarLegacy() {
+  if (root) root.style.display = "none";
+  cargarOverview(); // el panel de fondo refleja lo que se hizo en la herramienta
+  try { history.replaceState(null, "", location.pathname); } catch (_) {}
+}
+function instalarLegacy() {
+  LEGACY = true;
+  inyectarEstilos();
+  window.NVAdmin = { abrir: abrirLegacy, cerrar: cerrarLegacy };
+  cargarOverview();
+  // Botones del panel anterior sin acción propia → herramienta real, por texto.
+  const POR_TEXTO = { "gestionar permisos por módulo": "Usuarios", "ver todo": "Notificaciones", "ver pedidos": "Órdenes", "ver catálogo de servicios": "Catálogo de Servicios" };
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button,a"); if (!b || b.closest("#nv-adm")) return;
+    const destino = POR_TEXTO[(b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase()];
+    if (!destino) return;
+    ev.preventDefault(); ev.stopPropagation(); abrirLegacy(destino);
+  }, true);
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && root && root.style.display !== "none" && !document.querySelector(".nv-adm-modal, .nv-modal")) cerrarLegacy(); });
+}
+
 /* ─────────────────────────────  MONTAJE  ───────────────────────────── */
 function montar() {
   if (document.getElementById("nv-adm")) return;
@@ -723,6 +772,7 @@ function montar() {
   pintarSidebar(side);
   refrescarBadgeAlertas(); // contador de notificaciones no leídas en el menú
   // sección inicial desde el hash
+  if (LEGACY) return; // en el panel anterior, la sección la elige abrirLegacy()
   const h = (location.hash || "").replace("#", "");
   if (h && porId(h) && porId(h).tipo !== "link") actual = h;
   ir(actual);
@@ -732,7 +782,9 @@ export function instalarAdminApp() {
   const esAdmin = (typeof window !== "undefined") && ((window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page"))) === "admin");
   if (!esAdmin || window.__NV_ADMIN_APP) return;
   window.__NV_ADMIN_APP = true;
-  const arranca = () => montar();
+  // admin.html trae su propio diseño (NV OS): no montamos el SPA a pantalla
+  // completa; exponemos window.NVAdmin y cada mosaico abre su herramienta real.
+  const arranca = () => (document.body && document.body.hasAttribute("data-nv-adm-legacy") ? instalarLegacy() : montar());
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arranca);
   else arranca();
 }
