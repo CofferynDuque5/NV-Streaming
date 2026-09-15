@@ -94,8 +94,16 @@ const SECCIONES = [
       { k: "creadoEn", label: "Fecha", fmt: (r) => fechaCorta(r.creadoEn) },
     ],
     acciones: (r) => (String(r.estado) === "pendiente" ? [
-      { label: "Aprobar", tono: "ok", run: () => NVApi.aprobarRecarga(r.id) },
-      { label: "Rechazar", tono: "bad", run: () => NVApi.rechazarRecarga(r.id) },
+      { label: "Aprobar", tono: "ok",
+        confirmTitulo: "Aprobar recarga",
+        confirm: `Vas a ACREDITAR ${money(r.monto)} al saldo de ${r.email || "este usuario"}. Hazlo solo si verificaste el pago. ¿Confirmas?`,
+        okMsg: "Recarga aprobada ✓ — saldo acreditado",
+        run: () => NVApi.aprobarRecarga(r.id) },
+      { label: "Rechazar", tono: "bad",
+        confirmTitulo: "Rechazar recarga",
+        confirm: `Vas a RECHAZAR la recarga de ${money(r.monto)} de ${r.email || "este usuario"}. No se acreditará saldo. ¿Confirmas?`,
+        okMsg: "Recarga rechazada",
+        run: () => NVApi.rechazarRecarga(r.id) },
     ] : []),
   },
 
@@ -590,8 +598,10 @@ async function renderTabla(s) {
     const [i, j] = b.getAttribute("data-act").split(":").map(Number);
     const a = (s.acciones(filas[i]) || [])[j]; if (!a) return;
     if (a.form) { return abrirForm({ titulo: a.form.titulo, campos: a.form.campos, valores: a.form.valores, onGuardar: async (d) => { await a.form.guardar(d); ir(s.id); } }); }
+    // Confirmación opcional (acciones sensibles: mover dinero, etc.).
+    if (a.confirm) { const ok = await confirmar(a.confirmTitulo || "Confirmar", a.confirm, a.label); if (!ok) return; }
     b.disabled = true; b.textContent = "…";
-    try { await a.run(); toast("Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); }
+    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); }
     catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
   }));
 }
