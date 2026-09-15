@@ -3,10 +3,16 @@
 #   docker compose up --build        # levanta BD + backend + frontend
 #   → Frontend: http://localhost:8090
 #   → Backend : http://localhost:3000/health
-#   → Admin   : admin@nv.com / Admin12345
+#   → Admin   : admin@nv.com / Admin12345   (login estricto: entra por /auth.html)
 #
 #   docker compose down              # detiene todo (conserva los datos)
 #   docker compose down -v           # detiene y BORRA la base de datos
+#
+# Claves OPCIONALES (agente de estrenos con IA, WhatsApp, ImgBB): crea un
+# archivo `.env` JUNTO A ESTE (raíz del proyecto, ya está en .gitignore) con:
+#   OPENAI_API_KEY=sk-...      OPENAI_MODEL=gpt-4o-mini      ADMIN_WHATSAPP=58412...
+# El compose las inyecta al backend automáticamente; si faltan, el agente usa
+# una plantilla de reserva (todo lo demás funciona igual).
 #
 services:
   # ── PostgreSQL (no necesitas instalarlo) ──
@@ -44,6 +50,11 @@ services:
       # Admin inicial que crea el seeder (cámbialo si quieres).
       SEED_ADMIN_EMAIL: admin@nv.com
       SEED_ADMIN_PASSWORD: Admin12345
+      # Opcionales: se leen de un `.env` en la raíz (ver cabecera). Si no existe,
+      # quedan vacías y el agente de estrenos usa su plantilla de reserva.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ADMIN_WHATSAPP: ${ADMIN_WHATSAPP:-}
     ports:
       - "3000:3000"
 
@@ -52,7 +63,8 @@ services:
   frontend:
     image: nginx:alpine
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./site:/usr/share/nginx/html:ro
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
