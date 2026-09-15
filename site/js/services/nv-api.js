@@ -134,6 +134,10 @@ export const NVApi = {
   async adminRevendedores() { const r = await req("GET", "/admin/revendedores"); return (r && r.revendedores) || []; },
   // Actualiza rol / saldo / % de comisión de un usuario (solo admin).
   async adminActualizarUsuario(id, patch) { const r = await req("PUT", "/admin/usuarios/" + encodeURIComponent(id), patch || {}); return (r && r.usuario) || null; },
+  // Bandeja de notificaciones del admin (alertas_admin).
+  async adminAlertas() { const r = await req("GET", "/admin/alertas"); return (r && r.alertas) || []; },
+  async adminMarcarAlerta(id) { return req("POST", "/admin/alertas/" + encodeURIComponent(id) + "/leida"); },
+  async adminMarcarTodasAlertas() { return req("POST", "/admin/alertas/leer-todas"); },
 };
 
 export default NVApi;

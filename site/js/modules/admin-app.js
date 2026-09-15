@@ -33,6 +33,9 @@ const OK = "rgba(0,212,160,0.55)", BAD = "rgba(255,120,80,0.55)";
 function fechaCorta(v) { if (!v) return ""; const t = Date.parse(v); if (!t) return String(v).slice(0, 10); return new Date(t).toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" }); }
 function haceCuanto(iso) { const t = Date.parse(iso); if (!t) return ""; const s = Math.max(1, (Date.now() - t) / 1000); if (s < 3600) return "hace " + Math.floor(s / 60) + " min"; if (s < 86400) return "hace " + Math.floor(s / 3600) + " h"; return "hace " + Math.floor(s / 86400) + " d"; }
 async function confirmar(titulo, msg, ok) { if (window.NVUI && window.NVUI.confirmar) return window.NVUI.confirmar(titulo, msg, ok || "Confirmar"); return window.confirm(msg); }
+// Icono + etiqueta para el tipo de alerta de la bandeja de notificaciones.
+const ALERTA_ICON = { estreno: "🎬", sin_stock: "📦", pago: "💳", recarga: "💰", sistema: "⚙️" };
+function iconoAlerta(tipo) { const t = String(tipo || "sistema"); return `${ALERTA_ICON[t] || "🔔"} ${esc(t.replace(/_/g, " "))}`; }
 
 const CATS = ["STREAMING", "MUSICA", "IA", "SOFTWARE", "CLOUD", "JUEGOS"];
 const ESTADO_TAG = { pendiente: "#FFB000", aprobado: "#00C896", entregado: "#00C896", activa: "#00C896", rechazado: "#FF5B7A", anulada: "#FF5B7A", pagada: "#00CFFF", disponible: "#00C896", asignada: "#FFB000" };
@@ -65,6 +68,22 @@ const cuentasAdaptador = {
 // tipo: dashboard | tabla | crud | config | link
 const SECCIONES = [
   { id: "dashboard", grupo: "General", label: "Dashboard", icon: "▦", tipo: "dashboard" },
+
+  { id: "notificaciones", grupo: "General", label: "Notificaciones", icon: "🔔", tipo: "tabla",
+    titulo: "Notificaciones", sub: "Avisos del sistema: estrenos, stock y más.",
+    vacio: "No hay notificaciones por ahora.",
+    cargar: async () => await NVApi.adminAlertas(),
+    barra: () => [{ label: "Marcar todas leídas", run: () => NVApi.adminMarcarTodasAlertas() }],
+    columnas: [
+      { k: "tipo", label: "Tipo", fmt: (r) => iconoAlerta(r.tipo) },
+      { k: "mensaje", label: "Mensaje", fmt: (r) => `<span style="${r.leida ? "opacity:.55;" : "font-weight:600;"}white-space:pre-line;">${esc(r.mensaje)}</span>` },
+      { k: "leida", label: "Estado", fmt: (r) => (r.leida ? '<span style="color:rgba(200,215,255,0.4);">Leída</span>' : '<b style="color:#00CFFF;">Nueva</b>') },
+      { k: "creadoEn", label: "Fecha", fmt: (r) => fechaCorta(r.creadoEn) },
+    ],
+    acciones: (r) => (r.leida ? [] : [
+      { label: "Marcar leída", tono: "ok", okMsg: "Marcada como leída", run: () => NVApi.adminMarcarAlerta(r.id) },
+    ]),
+  },
 
   { id: "pedidos", grupo: "Ventas", label: "Pedidos", icon: "🧾", tipo: "tabla",
     titulo: "Pedidos", sub: "Órdenes de compra, entregas y estados.",
@@ -386,6 +405,7 @@ function inyectarEstilos() {
   .nv-adm-nav:hover{background:rgba(255,255,255,0.04);color:#fff;}
   .nv-adm-nav.on{background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.25);color:#EAF6FF;}
   .nv-adm-nav .ic{width:20px;text-align:center;}
+  .nv-adm-badge{margin-left:auto;background:#FF4466;color:#fff;font-size:11px;font-weight:700;line-height:1;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 0 0 1px rgba(255,68,102,0.4);}
   .nv-adm-main{flex:1;height:100%;overflow-y:auto;padding:26px 30px 60px;}
   .nv-adm-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;}
   .nv-adm-h{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.01em;}
@@ -591,6 +611,19 @@ async function renderTabla(s) {
   const filas = (await s.cargar()) || [];
   if (actual !== s.id) return;
   main.querySelector(".nv-adm-load")?.remove();
+  // Botones de barra (acciones a nivel de sección, p.ej. "Marcar todas leídas").
+  if (typeof s.barra === "function") {
+    const acc = main.querySelector("[data-acc]");
+    if (acc) (s.barra(filas) || []).forEach((a) => {
+      const b = el("button", "nv-adm-btn", esc(a.label));
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); refrescarBadgeAlertas(); }
+        catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
+      });
+      acc.appendChild(b);
+    });
+  }
   const wrap = el("div"); wrap.innerHTML = tablaHTML(s, filas);
   main.appendChild(wrap);
   // acciones de fila
@@ -601,9 +634,25 @@ async function renderTabla(s) {
     // Confirmación opcional (acciones sensibles: mover dinero, etc.).
     if (a.confirm) { const ok = await confirmar(a.confirmTitulo || "Confirmar", a.confirm, a.label); if (!ok) return; }
     b.disabled = true; b.textContent = "…";
-    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); }
+    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); refrescarBadgeAlertas(); }
     catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
   }));
+}
+
+// Badge de no-leídas en el ítem "Notificaciones" del menú lateral.
+async function refrescarBadgeAlertas() {
+  const btn = root && root.querySelector('.nv-adm-nav[data-sec="notificaciones"]');
+  if (!btn) return;
+  let badge = btn.querySelector("[data-badge]");
+  try {
+    const alertas = await NVApi.adminAlertas();
+    const n = alertas.filter((a) => !a.leida).length;
+    if (n > 0) {
+      if (!badge) { badge = el("span", "nv-adm-badge"); badge.setAttribute("data-badge", ""); btn.appendChild(badge); }
+      badge.textContent = n > 99 ? "99+" : String(n);
+      badge.style.display = "";
+    } else if (badge) { badge.style.display = "none"; }
+  } catch (_) { /* sin sesión / offline: sin badge */ }
 }
 
 async function renderCrud(s) {
@@ -672,6 +721,7 @@ function montar() {
   document.body.appendChild(root);
   const boot = document.getElementById("nv-adm-boot"); if (boot) boot.remove();
   pintarSidebar(side);
+  refrescarBadgeAlertas(); // contador de notificaciones no leídas en el menú
   // sección inicial desde el hash
   const h = (location.hash || "").replace("#", "");
   if (h && porId(h) && porId(h).tipo !== "link") actual = h;

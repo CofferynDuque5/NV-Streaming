@@ -34,6 +34,24 @@ export const AdminController = {
     if (!usuario) throw new ValidationError('No hay cambios válidos o el usuario no existe');
     res.json({ usuario });
   },
+
+  // ── Bandeja de notificaciones del admin (alertas_admin) ──
+  async alertas(_req: Request, res: Response): Promise<void> {
+    const alertas = await AdminRepository.alertas();
+    res.json({ alertas });
+  },
+
+  async marcarAlertaLeida(req: Request, res: Response): Promise<void> {
+    const id = String(req.params.id || '');
+    if (!id) throw new ValidationError('Falta el id de la alerta');
+    const ok = await AdminRepository.marcarAlertaLeida(id);
+    res.status(ok ? 200 : 404).json({ ok });
+  },
+
+  async marcarTodasAlertasLeidas(_req: Request, res: Response): Promise<void> {
+    const total = await AdminRepository.marcarTodasAlertasLeidas();
+    res.json({ ok: true, total });
+  },
 };
 
 export default AdminController;
