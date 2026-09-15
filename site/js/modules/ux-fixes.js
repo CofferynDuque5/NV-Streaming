@@ -91,13 +91,21 @@ function wireEnlaces() {
 
 /* ── recorrido de nodos de texto (para moneda y limpieza de datos) ── */
 function walkTexto(fn) {
-  const root = document.querySelector("[data-nv-root]") || document.body;
+  // Recorremos TODO el body: algunas secciones (carruseles, tarjetas movidas por
+  // el runtime) quedan fuera de [data-nv-root] y antes se saltaban en la
+  // conversión de moneda. El filtro de abajo ya excluye script/style/menús UX.
+  const root = document.body;
   const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const p = node.parentNode;
       if (!p) return NodeFilter.FILTER_REJECT;
       const tag = p.nodeName;
-      if (tag === "SCRIPT" || tag === "STYLE" || tag === "AUDIO" || p.closest("[data-nv-ux]"))
+      // Excluimos SOLO los overlays con etiquetas de moneda LITERALES (el menú de
+      // divisas dice "$ · USD") o la caja de sugerencias; NO todo [data-nv-ux],
+      // porque los carruseles (.nv-rail-host) llevan ese marcador y contienen
+      // precios REALES que sí deben convertirse.
+      if (tag === "SCRIPT" || tag === "STYLE" || tag === "AUDIO" ||
+          p.closest(".nv-moneda-menu, #nv-search-suggest"))
         return NodeFilter.FILTER_REJECT;
       return node.nodeValue && node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     },
@@ -184,7 +192,13 @@ function wireBuscador() {
   inputs.forEach((inp) => {
     if (inp.__nvWired) return;
     inp.__nvWired = true;
-    inp.addEventListener("input", () => aplicarFiltro(inp.value));
+    // Filtrado EN VIVO solo en el catálogo (esa página existe para filtrar). En
+    // el resto (index, etc.) teclear NO re-renderiza toda la página —eso causaba
+    // un parpadeo fuerte—: las sugerencias en vivo las da search-suggest.js y el
+    // Enter/lupa lleva al catálogo con el término.
+    if (window.__NV_PAGE === "catalogo") {
+      inp.addEventListener("input", () => aplicarFiltro(inp.value));
+    }
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); enviarBusqueda(inp); } });
     // Botón de lupa: es el <button> hermano dentro del mismo contenedor.
     const cont = inp.closest("div,form") || inp.parentElement;
@@ -194,11 +208,12 @@ function wireBuscador() {
       btn.addEventListener("click", (e) => { e.preventDefault(); enviarBusqueda(inp); });
     }
   });
-  // Aplica ?q= al entrar (deep-link de búsqueda).
+  // Aplica ?q= al entrar (deep-link de búsqueda). Solo filtra en vivo en el
+  // catálogo; en otras páginas solo rellena la caja (sin re-render global).
   const q = new URLSearchParams(location.search).get("q");
   if (q) {
     inputs.forEach((i) => { if (!i.value) i.value = q; });
-    aplicarFiltro(q);
+    if (window.__NV_PAGE === "catalogo") aplicarFiltro(q);
   }
 }
 function aplicarFiltro(termino) {
@@ -390,6 +405,10 @@ function seleccionarMoneda(code) {
   reproducir("click");
   // USD = estado nativo del DOM (re-render limpio); otras = overlay tras render.
   if (window.NV && window.NV.rerender) window.NV.rerender(); else aplicarMoneda();
+  // La conversión es un overlay sobre el DOM: los re-render tardíos (snapshot de
+  // PostgreSQL, carruseles que clonan tarjetas) repintan precios nativos en $.
+  // Re-aplicamos unas cuantas veces para que NINGÚN precio quede sin convertir.
+  reaplicarMoneda();
   if (window.NV && window.NV.toast) window.NV.toast(`Moneda: ${m.nombre} (${m.sym})`, "rgba(0,207,255,0.5)");
 }
 function etiquetarSelector(btn) {
@@ -421,6 +440,14 @@ function aplicarMoneda() {
       return cur.sym + " " + (usd * tasa).toLocaleString("es-VE", { maximumFractionDigits: dec, minimumFractionDigits: dec });
     });
   });
+}
+// Re-aplica la moneda varias veces para capturar renders tardíos (snapshots de
+// PostgreSQL, carruseles que clonan tarjetas) y que ningún precio quede en $.
+let _reaplicarTimers = [];
+function reaplicarMoneda() {
+  _reaplicarTimers.forEach(clearTimeout); _reaplicarTimers = [];
+  if (state.moneda === "USD") return;
+  [60, 250, 600, 1200].forEach((ms) => { _reaplicarTimers.push(setTimeout(aplicarMoneda, ms)); });
 }
 
 /* ───────────── 8. Botón "Mi Cuenta" + logo real en el header ───────────── */
@@ -648,8 +675,9 @@ export function instalarUX() {
 
   // Decoración dependiente del DOM (se repite tras cada re-render del runtime).
   redecorar();
-  Bus.on && Bus.on("app:ready", redecorar);
-  Bus.on && Bus.on("catalogo:real", redecorar);
+  reaplicarMoneda(); // si vuelve un usuario con VES guardado, convierte todo al cargar
+  Bus.on && Bus.on("app:ready", () => { redecorar(); reaplicarMoneda(); });
+  Bus.on && Bus.on("catalogo:real", () => { redecorar(); reaplicarMoneda(); }); // precios reales llegan tarde
   Store.subscribe && Store.subscribe("sesion", () => { limpiarDatosFalsos(); pintarSaldo(); gestionarSesionHeader(); });
   Store.subscribe && Store.subscribe("billeteraStats", () => { pintarStatsBilletera(); aplicarMoneda(); });
   Store.subscribe && Store.subscribe("tema", () => arreglarLogo()); // logo dinámico desde la BD

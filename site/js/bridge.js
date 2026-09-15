@@ -814,9 +814,18 @@ function onGlobalClick(ev) {
   if (!btn) return;
   const txt = (btn.textContent || "").trim();
   if (!ADD_RX.test(txt)) return;
-  const s = nombreEnTarjeta(btn);
+  // Resolver el servicio: primero por el id REAL de la tarjeta (data-nv-id), que
+  // es fiable; si no, por el nombre visible (respaldo).
+  const cont = btn.closest("[data-nv-id]");
+  const idCard = cont && cont.getAttribute("data-nv-id");
+  let s = (idCard && idCard.indexOf("{{") === -1) ? Catalogo.porId(idCard) : null;
+  if (!s) s = nombreEnTarjeta(btn);
   if (!s) return;
   ev.preventDefault();
+  // Frenar la propagación: si no, detalle-nav.js (que escucha clics en la
+  // tarjeta) navegaría a la ficha y "comería" el añadido al carrito.
+  ev.stopPropagation();
+  if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
   Cart.addServicio(s.id_servicio);
   toast(`${s.nombre_display} añadido al carrito`, "rgba(0,212,160,0.5)");
   if (window.NVSound) window.NVSound.reproducir("notify");
