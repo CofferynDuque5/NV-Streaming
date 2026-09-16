@@ -59,7 +59,9 @@ async function req(method, path, body) {
     err.status = res.status; err.data = data;
     // Solo los fallos "de sistema" (sesión expirada, 5xx, rate limit) se
     // notifican globalmente; los 4xx de validación los maneja cada vista.
-    if (res.status === 401 || res.status === 429 || res.status >= 500) emitirErrorRed(res.status, err.message);
+    // Un 401 SIN token no es "sesión expirada": es un visitante anónimo tocando
+    // una ruta privada (no se molesta con avisos). Con token sí se avisa.
+    if ((res.status === 401 && tk) || res.status === 429 || res.status >= 500) emitirErrorRed(res.status, err.message);
     throw err;
   }
   return data;
@@ -71,7 +73,13 @@ export const NVApi = {
   /** ¿El backend responde? (para decidir modo online/seed). */
   async health() {
     if (!host()) return false;
-    try { const r = await fetch(host() + "/health", { method: "GET" }); return r.ok; } catch (_) { return false; }
+    // Con presupuesto de tiempo: si el backend acepta la conexión pero no
+    // responde (colgado), NO puede bloquear el arranque de la página.
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
+    try { const r = await fetch(host() + "/health", { method: "GET", signal: ctrl ? ctrl.signal : undefined }); return r.ok; }
+    catch (_) { return false; }
+    finally { if (timer) clearTimeout(timer); }
   },
 
   // ── CMS / contenido ──
@@ -134,6 +142,18 @@ export const NVApi = {
   async adminRevendedores() { const r = await req("GET", "/admin/revendedores"); return (r && r.revendedores) || []; },
   // Actualiza rol / saldo / % de comisión de un usuario (solo admin).
   async adminActualizarUsuario(id, patch) { const r = await req("PUT", "/admin/usuarios/" + encodeURIComponent(id), patch || {}); return (r && r.usuario) || null; },
+  // Bandeja de notificaciones del admin (alertas_admin).
+  async adminAlertas() { const r = await req("GET", "/admin/alertas"); return (r && r.alertas) || []; },
+  async adminMarcarAlerta(id) { return req("POST", "/admin/alertas/" + encodeURIComponent(id) + "/leida"); },
+  async adminMarcarTodasAlertas() { return req("POST", "/admin/alertas/leer-todas"); },
+
+  // Biblioteca de medios (imágenes en ImgBB, subidas por el SERVIDOR con su clave).
+  // → { configurado:boolean, medios:[{id,nombre,uso,url,thumb_url,delete_url,…}] }
+  async medios() { const r = await req("GET", "/admin/medios"); return r && typeof r === "object" ? r : { configurado: false, medios: [] }; },
+  // body: { imagen: dataURL|base64, nombre, uso } → medio creado (201).
+  async subirMedio(body) { const r = await req("POST", "/admin/medios", body || {}); return (r && r.medio) || null; },
+  // Quita de la biblioteca; devuelve { ok, medio, delete_url, nota }.
+  async borrarMedio(id) { return req("DELETE", "/admin/medios/" + encodeURIComponent(id)); },
 };
 
 export default NVApi;

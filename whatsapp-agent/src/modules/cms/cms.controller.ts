@@ -7,6 +7,10 @@ import type { Request, Response } from 'express';
 import { CmsRepository } from '../../db/repositories/cms.repo.js';
 import type { AuthedRequest } from '../auth/auth.middleware.js';
 import { cacheCms } from '../../core/cache.js';
+import { notificarEstreno } from '../agent/estreno-notifier.js';
+
+// Colección de la cartelera de estrenos: al crear uno nuevo se avisa al admin.
+const COLECCION_ESTRENOS = 'carteleras_estrenos';
 
 // Prefijo de clave de caché por colección (agrupa lista + documentos sueltos).
 const claveLista = (coleccion: string): string => `cms:list:${coleccion}`;
@@ -15,7 +19,7 @@ const claveLista = (coleccion: string): string => `cms:list:${coleccion}`;
 export const CMS_PUBLICAS = new Set<string>([
   'servicios_sistema', 'ofertas', 'combos_suscripciones', 'carteleras_estrenos',
   'metodos_pago_config', 'tarjetas_header', 'preguntas_frecuentes', 'plataformas',
-  'configuracion_sistema', 'banners_posiciones', 'comentarios',
+  'configuracion_sistema', 'banners_posiciones', 'comentarios', 'planes_revendedor',
 ]);
 
 // Colecciones GESTIONABLES por esta API (públicas + internas de admin).
@@ -89,8 +93,17 @@ export const CmsController = {
     const c = req.params.coleccion || '';
     if (!validarColeccion(c, res)) return;
     const body = (req.body && typeof req.body === 'object') ? req.body as Record<string, unknown> : {};
-    const doc = await CmsRepository.upsert(c, req.params.id || '', body);
+    const id = req.params.id || '';
+    // ¿Es un estreno NUEVO? (existía antes → es edición, no dispara el aviso).
+    let esEstrenoNuevo = false;
+    if (c === COLECCION_ESTRENOS) {
+      const previo = await CmsRepository.obtener(c, id).catch(() => null);
+      esEstrenoNuevo = !previo;
+    }
+    const doc = await CmsRepository.upsert(c, id, body);
     cacheCms.invalidar(claveLista(c)); // el contenido cambió → refrescar caché.
+    // Agente de estrenos: aviso al admin (OpenAI) sin bloquear la respuesta.
+    if (esEstrenoNuevo) void notificarEstreno(doc);
     res.json(doc);
   },
 

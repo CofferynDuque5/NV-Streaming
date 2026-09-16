@@ -40,6 +40,7 @@ export const normalizarOferta = (o) => ({
   id_servicio: str(o.id_servicio),
   nombre: str(o.nombre),
   etiqueta: str(o.etiqueta || "OFERTA"),
+  codigo: str(o.codigo).trim().toUpperCase(), // cupón canjeable en el carrito (vacío = sin cupón)
   descuento_pct: num(o.descuento_pct),
   precio_normal: num(o.precio_normal),
   precio_oferta: num(o.precio_oferta),

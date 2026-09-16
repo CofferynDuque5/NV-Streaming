@@ -37,7 +37,7 @@ export const AdminRepository = {
     const kpiQ = query<{
       ventas_aprobadas: string; pedidos_aprobados: string; pedidos_pendientes: string;
       usuarios: string; suscripciones_activas: string; recargas_pendientes: string;
-      cuentas_stock: string; planes: string;
+      cuentas_stock: string; planes: string; alertas_no_leidas: string;
     }>(`
       SELECT
         (SELECT COALESCE(SUM(precio),0) FROM pedidos WHERE estado IN ('aprobado','entregado')) AS ventas_aprobadas,
@@ -47,7 +47,8 @@ export const AdminRepository = {
         (SELECT COUNT(*) FROM suscripciones WHERE estado='activa')                             AS suscripciones_activas,
         (SELECT COUNT(*) FROM recargas_billetera WHERE estado='pendiente')                     AS recargas_pendientes,
         (SELECT COUNT(*) FROM cuentas_streaming)                                               AS cuentas_stock,
-        (SELECT COUNT(*) FROM planes)                                                          AS planes
+        (SELECT COUNT(*) FROM planes)                                                          AS planes,
+        (SELECT COUNT(*) FROM alertas_admin WHERE leida=false)                                 AS alertas_no_leidas
     `);
 
     const cmsQ = query<{ coleccion: string; total: string }>(
@@ -94,6 +95,7 @@ export const AdminRepository = {
     conteos['recargas_pendientes'] = num(k.recargas_pendientes);
     conteos['cuentas'] = num(k.cuentas_stock);
     conteos['planes'] = num(k.planes);
+    conteos['alertas_no_leidas'] = num(k.alertas_no_leidas);
 
     // Actividad real: mezcla pedidos + recargas, orden descendente por fecha.
     const actividad = [
@@ -214,9 +216,9 @@ export const AdminRepository = {
          LEFT JOIN planes pl           ON pl.id = s.plan_id
         ORDER BY s.creado_en DESC LIMIT 500`,
     );
-    const recargasQ = query<{ id: string; email: string | null; monto: string; estado: string; metodo_pago: string | null; aprobado_por: string | null; creado_en: string }>(
+    const recargasQ = query<{ id: string; email: string | null; monto: string; estado: string; metodo_pago: string | null; aprobado_por: string | null; comprobante: string | null; creado_en: string }>(
       `SELECT r.id::text, u.email AS email, r.monto, r.estado, r.metodo_pago,
-              r.aprobado_por::text AS aprobado_por,
+              r.aprobado_por::text AS aprobado_por, r.comprobante,
               to_char(r.creado_en,'YYYY-MM-DD') AS creado_en
          FROM recargas_billetera r
          LEFT JOIN usuarios u ON u.id = r.uid_usuario
@@ -240,12 +242,38 @@ export const AdminRepository = {
       recargas: recargas.map((r) => ({
         id: r.id, email: r.email || '', monto: num(r.monto), estado: r.estado,
         metodo_pago: r.metodo_pago || '', aprobadoPor: r.aprobado_por || '', creadoEn: r.creado_en,
+        comprobante: r.comprobante || '',
       })),
       cuentas: cuentas.map((c) => ({
         id: c.id, id_servicio: c.id_servicio || '', estado: c.estado,
         credenciales: { usuario: c.correo || '', perfil: c.perfil || '', pin: c.pin || '' },
       })),
     };
+  },
+
+  /** Bandeja de notificaciones del admin: avisos operativos (estrenos, sin stock…). */
+  async alertas(limit = 100): Promise<Array<{ id: string; tipo: string; mensaje: string; leida: boolean; creadoEn: string }>> {
+    const rows = await query<{ id: string; tipo: string; mensaje: string; leida: boolean; creado_en: string }>(
+      `SELECT id::text, tipo, mensaje, leida,
+              to_char(creado_en,'YYYY-MM-DD"T"HH24:MI:SSOF') AS creado_en
+         FROM alertas_admin
+        ORDER BY leida ASC, creado_en DESC
+        LIMIT $1`,
+      [Math.min(Math.max(limit, 1), 500)],
+    );
+    return rows.map((r) => ({ id: r.id, tipo: r.tipo, mensaje: r.mensaje, leida: !!r.leida, creadoEn: r.creado_en }));
+  },
+
+  /** Marca UNA alerta como leída. Devuelve true si existía. */
+  async marcarAlertaLeida(id: string): Promise<boolean> {
+    const rows = await query(`UPDATE alertas_admin SET leida=true WHERE id=$1 RETURNING id`, [id]);
+    return rows.length > 0;
+  },
+
+  /** Marca TODAS las alertas como leídas. Devuelve cuántas se actualizaron. */
+  async marcarTodasAlertasLeidas(): Promise<number> {
+    const rows = await query(`UPDATE alertas_admin SET leida=true WHERE leida=false RETURNING id`);
+    return rows.length;
   },
 };
 

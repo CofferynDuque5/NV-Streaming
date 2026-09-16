@@ -70,6 +70,13 @@ const ENDPOINT_FETCH = {
 
 // Colecciones "por usuario" (dueño o admin): van a /api/mis o /api/admin/docs.
 const USER_COLS = new Set(["suscripciones", "tickets_soporte", "chats_soporte", "notificaciones"]);
+// Colecciones que el servidor solo entrega con sesión (por-usuario, pedidos y
+// billetera, y las privadas del back office). Sin token no se piden: un
+// visitante anónimo no debe generar 401 en bucle ni avisos de "sesión expirada".
+const REQUIERE_SESION = new Set([
+  ...USER_COLS, ...Object.keys(ENDPOINT_FETCH),
+  "flyers_revendedores", "notificaciones_admin", "plantillas_permisos", "respuestas_rapidas",
+]);
 const CLIENT_CREATE = new Set(["tickets_soporte", "chats_soporte"]); // el cliente puede crear
 function esAdminSesion() { try { return (store.get("sesion") && store.get("sesion").usuario && store.get("sesion").usuario.rol) === "admin"; } catch (_) { return false; } }
 
@@ -93,15 +100,22 @@ class DB {
       : (USER_COLS.has(coll)
         ? (esAdminSesion() ? NVApi.docsAdmin(coll) : NVApi.misDocs(coll))
         : NVApi.coleccion(coll));
-    const cargar = () => traer()
-      .then((docs) => { if (vivo) onData(docs || []); })
-      .catch((err) => { if (vivo && onError) onError(err); });
+    // Las colecciones por-usuario exigen sesión: sin token no se pide nada al
+    // servidor (evita 401 en bucle y avisos falsos de "sesión expirada" a los
+    // visitantes); se publica vacío y se recarga al iniciar sesión.
+    const requiereSesion = REQUIERE_SESION.has(coll);
+    const cargar = () => {
+      if (requiereSesion && !NVApi.getToken()) { if (vivo) onData([]); return Promise.resolve(); }
+      return traer()
+        .then((docs) => { if (vivo) onData(docs || []); })
+        .catch((err) => { if (vivo && onError) onError(err); });
+    };
     cargar();
     const t = setInterval(cargar, this._poll);
     // Las colecciones que dependen del rol (pedidos, billetera, por-usuario) se
     // recargan al cambiar la sesión (evita la carrera login ↔ primer fetch).
     let offIn = () => {}, offOut = () => {};
-    if (ENDPOINT_FETCH[coll] || USER_COLS.has(coll)) { offIn = bus.on("user:login", cargar); offOut = bus.on("user:logout", cargar); }
+    if (requiereSesion) { offIn = bus.on("user:login", cargar); offOut = bus.on("user:logout", cargar); }
     return () => { vivo = false; clearInterval(t); offIn(); offOut(); };
   }
   async add(coll, data) {

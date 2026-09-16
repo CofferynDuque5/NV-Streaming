@@ -19,11 +19,25 @@ async function acreditarComision(pedidoId: string): Promise<void> {
   catch { /* la comisión es best-effort: jamás bloquea la compra */ }
 }
 
-async function precioDeServicio(idServicio: string): Promise<number | null> {
+// Roles con tarifa preferencial (misma regla que el motor de precios del front).
+const ROLES_REVENDEDOR = new Set(['revendedor', 'admin', 'distribuidor']);
+
+/**
+ * Precio REAL del servicio según el rol del comprador: los revendedores pagan
+ * `precio_rev` (si está definido y > 0); el resto, `precio`. Así lo que el
+ * revendedor ve en la tienda es exactamente lo que se le cobra.
+ */
+async function precioDeServicio(idServicio: string, rol?: string): Promise<number | null> {
   const doc = await CmsRepository.obtener('servicios_sistema', idServicio);
   if (!doc) return null;
-  const p = Number((doc as { precio?: unknown }).precio);
-  return Number.isFinite(p) && p >= 0 ? p : null;
+  const d = doc as { precio?: unknown; precio_rev?: unknown };
+  const p = Number(d.precio);
+  if (!Number.isFinite(p) || p < 0) return null;
+  if (rol && ROLES_REVENDEDOR.has(rol)) {
+    const rev = Number(d.precio_rev);
+    if (Number.isFinite(rev) && rev > 0) return rev;
+  }
+  return p;
 }
 
 export const OrdersController = {
@@ -33,7 +47,7 @@ export const OrdersController = {
     const body = (req.body || {}) as { id_servicio?: string; metodo_pago?: string; comprobante?: string; telefono?: string };
     const idServicio = (body.id_servicio || '').trim();
     if (!idServicio) { res.status(400).json({ error: 'id_servicio_requerido' }); return; }
-    const precio = await precioDeServicio(idServicio);
+    const precio = await precioDeServicio(idServicio, user.rol);
     if (precio === null) { res.status(400).json({ error: 'servicio_no_encontrado' }); return; }
 
     // Guarda el WhatsApp del cliente (si lo trae el checkout y aún no tenía). Se

@@ -13,3 +13,7 @@ adminRouter.get('/admin/overview', requireAuth, requireRol('admin'), asyncHandle
 adminRouter.get('/admin/datos', requireAuth, requireRol('admin'), asyncHandler(AdminController.tablas));
 adminRouter.get('/admin/revendedores', requireAuth, requireRol('admin'), asyncHandler(AdminController.revendedores));
 adminRouter.put('/admin/usuarios/:id', requireAuth, requireRol('admin'), asyncHandler(AdminController.actualizarUsuario));
+// Bandeja de notificaciones (alertas_admin): listar + marcar leídas.
+adminRouter.get('/admin/alertas', requireAuth, requireRol('admin'), asyncHandler(AdminController.alertas));
+adminRouter.post('/admin/alertas/leer-todas', requireAuth, requireRol('admin'), asyncHandler(AdminController.marcarTodasAlertasLeidas));
+adminRouter.post('/admin/alertas/:id/leida', requireAuth, requireRol('admin'), asyncHandler(AdminController.marcarAlertaLeida));

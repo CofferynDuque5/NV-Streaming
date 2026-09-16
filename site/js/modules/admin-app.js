@@ -33,6 +33,9 @@ const OK = "rgba(0,212,160,0.55)", BAD = "rgba(255,120,80,0.55)";
 function fechaCorta(v) { if (!v) return ""; const t = Date.parse(v); if (!t) return String(v).slice(0, 10); return new Date(t).toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" }); }
 function haceCuanto(iso) { const t = Date.parse(iso); if (!t) return ""; const s = Math.max(1, (Date.now() - t) / 1000); if (s < 3600) return "hace " + Math.floor(s / 60) + " min"; if (s < 86400) return "hace " + Math.floor(s / 3600) + " h"; return "hace " + Math.floor(s / 86400) + " d"; }
 async function confirmar(titulo, msg, ok) { if (window.NVUI && window.NVUI.confirmar) return window.NVUI.confirmar(titulo, msg, ok || "Confirmar"); return window.confirm(msg); }
+// Icono + etiqueta para el tipo de alerta de la bandeja de notificaciones.
+const ALERTA_ICON = { estreno: "🎬", sin_stock: "📦", pago: "💳", recarga: "💰", sistema: "⚙️" };
+function iconoAlerta(tipo) { const t = String(tipo || "sistema"); return `${ALERTA_ICON[t] || "🔔"} ${esc(t.replace(/_/g, " "))}`; }
 
 const CATS = ["STREAMING", "MUSICA", "IA", "SOFTWARE", "CLOUD", "JUEGOS"];
 const ESTADO_TAG = { pendiente: "#FFB000", aprobado: "#00C896", entregado: "#00C896", activa: "#00C896", rechazado: "#FF5B7A", anulada: "#FF5B7A", pagada: "#00CFFF", disponible: "#00C896", asignada: "#FFB000" };
@@ -66,6 +69,22 @@ const cuentasAdaptador = {
 const SECCIONES = [
   { id: "dashboard", grupo: "General", label: "Dashboard", icon: "▦", tipo: "dashboard" },
 
+  { id: "notificaciones", grupo: "General", label: "Notificaciones", icon: "🔔", tipo: "tabla",
+    titulo: "Notificaciones", sub: "Avisos del sistema: estrenos, stock y más.",
+    vacio: "No hay notificaciones por ahora.",
+    cargar: async () => await NVApi.adminAlertas(),
+    barra: () => [{ label: "Marcar todas leídas", run: () => NVApi.adminMarcarTodasAlertas() }],
+    columnas: [
+      { k: "tipo", label: "Tipo", fmt: (r) => iconoAlerta(r.tipo) },
+      { k: "mensaje", label: "Mensaje", fmt: (r) => `<span style="${r.leida ? "opacity:.55;" : "font-weight:600;"}white-space:pre-line;">${esc(r.mensaje)}</span>` },
+      { k: "leida", label: "Estado", fmt: (r) => (r.leida ? '<span style="color:rgba(200,215,255,0.4);">Leída</span>' : '<b style="color:#00CFFF;">Nueva</b>') },
+      { k: "creadoEn", label: "Fecha", fmt: (r) => fechaCorta(r.creadoEn) },
+    ],
+    acciones: (r) => (r.leida ? [] : [
+      { label: "Marcar leída", tono: "ok", okMsg: "Marcada como leída", run: () => NVApi.adminMarcarAlerta(r.id) },
+    ]),
+  },
+
   { id: "pedidos", grupo: "Ventas", label: "Pedidos", icon: "🧾", tipo: "tabla",
     titulo: "Pedidos", sub: "Órdenes de compra, entregas y estados.",
     cargar: () => NVApi.pedidos(),
@@ -89,12 +108,21 @@ const SECCIONES = [
       { k: "email", label: "Usuario", fmt: (r) => esc(r.email || "—") },
       { k: "monto", label: "Monto", fmt: (r) => money(r.monto) },
       { k: "metodo_pago", label: "Método", fmt: (r) => esc(r.metodo_pago || "—") },
+      { k: "comprobante", label: "Comprobante", fmt: (r) => (r.comprobante ? `<a href="${r.comprobante}" target="_blank" rel="noopener" style="color:#00CFFF;">Ver</a>` : '<span style="color:rgba(200,215,255,0.35);">—</span>') },
       { k: "estado", label: "Estado", fmt: (r) => tag(r.estado) },
       { k: "creadoEn", label: "Fecha", fmt: (r) => fechaCorta(r.creadoEn) },
     ],
     acciones: (r) => (String(r.estado) === "pendiente" ? [
-      { label: "Aprobar", tono: "ok", run: () => NVApi.aprobarRecarga(r.id) },
-      { label: "Rechazar", tono: "bad", run: () => NVApi.rechazarRecarga(r.id) },
+      { label: "Aprobar", tono: "ok",
+        confirmTitulo: "Aprobar recarga",
+        confirm: `Vas a ACREDITAR ${money(r.monto)} al saldo de ${r.email || "este usuario"}. Hazlo solo si verificaste el pago. ¿Confirmas?`,
+        okMsg: "Recarga aprobada ✓ — saldo acreditado",
+        run: () => NVApi.aprobarRecarga(r.id) },
+      { label: "Rechazar", tono: "bad",
+        confirmTitulo: "Rechazar recarga",
+        confirm: `Vas a RECHAZAR la recarga de ${money(r.monto)} de ${r.email || "este usuario"}. No se acreditará saldo. ¿Confirmas?`,
+        okMsg: "Recarga rechazada",
+        run: () => NVApi.rechazarRecarga(r.id) },
     ] : []),
   },
 
@@ -152,7 +180,8 @@ const SECCIONES = [
     columnas: [
       { k: "nombre_display", label: "Nombre", fmt: (r) => esc(r.nombre_display || r.id_servicio) },
       { k: "categoria", label: "Categoría", fmt: (r) => esc(r.categoria || "—") },
-      { k: "precio", label: "Precio", fmt: (r) => money(r.precio) },
+      { k: "precio", label: "Precio cliente", fmt: (r) => money(r.precio) },
+      { k: "precio_rev", label: "Precio revendedor", fmt: (r) => (r.precio_rev != null ? money(r.precio_rev) : "—") },
       { k: "stock", label: "Stock", fmt: (r) => (r.stock ?? "—") },
       { k: "activo", label: "Activo", fmt: (r) => (r.activo === false ? "No" : "Sí") },
     ],
@@ -164,7 +193,8 @@ const SECCIONES = [
       { k: "precio", label: "Precio USD", tipo: "number" },
       { k: "precio_rev", label: "Precio revendedor USD", tipo: "number" },
       { k: "stock", label: "Stock", tipo: "number" },
-      { k: "tarjeta_url", label: "Imagen (URL)", tipo: "text" },
+      { k: "tarjeta_url", label: "Imagen del servicio", tipo: "imagen" },
+      { k: "logo_url", label: "Logo (opcional)", tipo: "imagen" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
       { k: "destacado", label: "Destacado", tipo: "bool" },
     ],
@@ -183,6 +213,7 @@ const SECCIONES = [
       { k: "descripcion", label: "Descripción", tipo: "textarea" },
       { k: "precio_publico_combo", label: "Precio público USD", tipo: "number" },
       { k: "precio_revendedor_combo", label: "Precio revendedor USD", tipo: "number" },
+      { k: "banner_url", label: "Banner", tipo: "imagen" },
       { k: "servicios_included", label: "Servicios incluidos (separa con comas)", tipo: "tags" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
@@ -239,7 +270,7 @@ const SECCIONES = [
       { k: "titulo_banner", label: "Título", tipo: "text", req: true },
       { k: "plataforma", label: "Plataforma", tipo: "text" },
       { k: "llamado_accion", label: "Texto del botón (CTA)", tipo: "text" },
-      { k: "imagen_background", label: "Imagen de fondo (URL)", tipo: "text" },
+      { k: "imagen_background", label: "Imagen de fondo", tipo: "imagen" },
       { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
   },
@@ -257,6 +288,7 @@ const SECCIONES = [
       { k: "id_servicio", label: "ID del servicio", tipo: "text", req: true },
       { k: "nombre", label: "Nombre", tipo: "text", req: true },
       { k: "etiqueta", label: "Etiqueta", tipo: "text", def: "OFERTA" },
+      { k: "codigo", label: "Código de cupón (opcional · el cliente lo escribe en el carrito y se aplica el Descuento %)", tipo: "text" },
       { k: "descuento_pct", label: "Descuento %", tipo: "number" },
       { k: "precio_normal", label: "Precio normal USD", tipo: "number" },
       { k: "precio_oferta", label: "Precio oferta USD", tipo: "number" },
@@ -276,6 +308,29 @@ const SECCIONES = [
       { k: "pregunta", label: "Pregunta", tipo: "text", req: true },
       { k: "respuesta", label: "Respuesta", tipo: "textarea", req: true },
       { k: "orden", label: "Orden", tipo: "number" },
+    ],
+  },
+
+  { id: "planesrev", grupo: "Catálogo", label: "Planes revendedor", icon: "🪪", tipo: "crud", adaptador: cms("planes_revendedor"),
+    titulo: "Planes de revendedor", sub: "Los planes que se muestran en la página «Hazte revendedor» (ser-revendedor).",
+    resumen: (d) => `${esc(d.name)} · ${esc(d.price)}`,
+    columnas: [
+      { k: "name", label: "Plan", fmt: (r) => esc(r.name) },
+      { k: "price", label: "Precio", fmt: (r) => esc(r.price) },
+      { k: "period", label: "Periodo", fmt: (r) => esc(r.period || "") },
+      { k: "featured", label: "Destacado", fmt: (r) => (r.featured ? "Sí" : "No") },
+      { k: "activo", label: "Activo", fmt: (r) => (r.activo === false ? "No" : "Sí") },
+    ],
+    campos: [
+      { k: "name", label: "Nombre del plan", tipo: "text", req: true },
+      { k: "price", label: "Precio (ej. $9.99)", tipo: "text", req: true },
+      { k: "period", label: "Periodo (ej. /mes, /año)", tipo: "text", def: "/mes" },
+      { k: "tagline", label: "Descripción corta", tipo: "text" },
+      { k: "features", label: "Beneficios (separa con comas)", tipo: "tags" },
+      { k: "accent", label: "Color de acento (hex)", tipo: "text", def: "#00CFFF" },
+      { k: "orden", label: "Orden", tipo: "number" },
+      { k: "featured", label: "Destacado (resaltado)", tipo: "bool" },
+      { k: "activo", label: "Activo", tipo: "bool", def: true },
     ],
   },
 
@@ -351,6 +406,9 @@ function inyectarEstilos() {
   .nv-adm-nav:hover{background:rgba(255,255,255,0.04);color:#fff;}
   .nv-adm-nav.on{background:rgba(0,207,255,0.1);border-color:rgba(0,207,255,0.25);color:#EAF6FF;}
   .nv-adm-nav .ic{width:20px;text-align:center;}
+  .nv-adm-back{color:#9fe9ff;border-color:rgba(0,207,255,0.25);background:rgba(0,207,255,0.06);margin-bottom:8px;}
+  #nv-adm.nv-adm-overlay{z-index:20000;} /* por encima de la cabecera fija del panel anterior; los modales NVUI van más arriba */
+  .nv-adm-badge{margin-left:auto;background:#FF4466;color:#fff;font-size:11px;font-weight:700;line-height:1;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;box-shadow:0 0 0 1px rgba(255,68,102,0.4);}
   .nv-adm-main{flex:1;height:100%;overflow-y:auto;padding:26px 30px 60px;}
   .nv-adm-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;}
   .nv-adm-h{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;letter-spacing:-0.01em;}
@@ -407,6 +465,17 @@ function campoHTML(c, val) {
   if (c.tipo === "bool") return `<label class="nv-adm-check"><input type="checkbox" id="${id}" ${val === undefined ? (c.def ? "checked" : "") : (val ? "checked" : "")}> ${esc(c.label)}</label>`;
   if (c.tipo === "select") return `<label class="nv-adm-f"><span>${esc(c.label)}</span><select id="${id}">${c.opciones.map((o) => `<option ${String(o) === String(val) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>`;
   if (c.tipo === "textarea") return `<label class="nv-adm-f"><span>${esc(c.label)}${c.req ? " *" : ""}</span><textarea id="${id}">${esc(v)}</textarea></label>`;
+  if (c.tipo === "imagen") {
+    // Subida real a ImgBB (image-upload.js está instalado en el admin). Si no hay
+    // API key configurada, el operador puede pegar la URL a mano. Sin URLs falsas.
+    return `<div class="nv-adm-f"><span>${esc(c.label)}</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="${id}" value="${esc(v)}" placeholder="URL de la imagen" style="flex:1;" data-imgbb-preview="#prev_${id}">
+        <label class="nv-adm-ghost" style="cursor:pointer;white-space:nowrap;">Subir imagen<input type="file" accept="image/*" data-imgbb data-imgbb-target="#${id}" data-imgbb-preview="#prev_${id}" hidden></label>
+      </div>
+      <img id="prev_${id}" src="${esc(v)}" alt="" style="${v ? "" : "display:none;"}max-height:70px;max-width:120px;border-radius:8px;margin-top:6px;object-fit:cover;border:1px solid rgba(80,100,200,0.24);">
+    </div>`;
+  }
   const t = c.tipo === "number" ? "number" : "text";
   return `<label class="nv-adm-f"><span>${esc(c.label)}${c.req ? " *" : ""}</span><input type="${t}" id="${id}" value="${esc(v)}" step="any"></label>`;
 }
@@ -446,6 +515,7 @@ function pintarSidebar(side) {
   const grupos = [];
   for (const s of SECCIONES) { if (!grupos.includes(s.grupo)) grupos.push(s.grupo); }
   side.innerHTML = `<div class="nv-adm-brand"><div class="nv-adm-logo">NV</div><div><b>Back Office</b><span>NV STREAMING</span></div></div>`;
+  if (LEGACY) { const back = el("button", "nv-adm-nav nv-adm-back", `<span class="ic">←</span><span>Volver al panel</span>`); back.addEventListener("click", cerrarLegacy); side.appendChild(back); }
   for (const g of grupos) {
     side.appendChild(el("div", "nv-adm-grp", esc(g)));
     for (const s of SECCIONES.filter((x) => x.grupo === g)) {
@@ -545,6 +615,19 @@ async function renderTabla(s) {
   const filas = (await s.cargar()) || [];
   if (actual !== s.id) return;
   main.querySelector(".nv-adm-load")?.remove();
+  // Botones de barra (acciones a nivel de sección, p.ej. "Marcar todas leídas").
+  if (typeof s.barra === "function") {
+    const acc = main.querySelector("[data-acc]");
+    if (acc) (s.barra(filas) || []).forEach((a) => {
+      const b = el("button", "nv-adm-btn", esc(a.label));
+      b.addEventListener("click", async () => {
+        b.disabled = true;
+        try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
+        catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
+      });
+      acc.appendChild(b);
+    });
+  }
   const wrap = el("div"); wrap.innerHTML = tablaHTML(s, filas);
   main.appendChild(wrap);
   // acciones de fila
@@ -552,10 +635,28 @@ async function renderTabla(s) {
     const [i, j] = b.getAttribute("data-act").split(":").map(Number);
     const a = (s.acciones(filas[i]) || [])[j]; if (!a) return;
     if (a.form) { return abrirForm({ titulo: a.form.titulo, campos: a.form.campos, valores: a.form.valores, onGuardar: async (d) => { await a.form.guardar(d); ir(s.id); } }); }
+    // Confirmación opcional (acciones sensibles: mover dinero, etc.).
+    if (a.confirm) { const ok = await confirmar(a.confirmTitulo || "Confirmar", a.confirm, a.label); if (!ok) return; }
     b.disabled = true; b.textContent = "…";
-    try { await a.run(); toast("Hecho ✓", OK); Store.set("adminOverview", null); ir(s.id); }
+    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
     catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
   }));
+}
+
+// Badge de no-leídas en el ítem "Notificaciones" del menú lateral.
+async function refrescarBadgeAlertas() {
+  const btn = root && root.querySelector('.nv-adm-nav[data-sec="notificaciones"]');
+  if (!btn) return;
+  let badge = btn.querySelector("[data-badge]");
+  try {
+    const alertas = await NVApi.adminAlertas();
+    const n = alertas.filter((a) => !a.leida).length;
+    if (n > 0) {
+      if (!badge) { badge = el("span", "nv-adm-badge"); badge.setAttribute("data-badge", ""); btn.appendChild(badge); }
+      badge.textContent = n > 99 ? "99+" : String(n);
+      badge.style.display = "";
+    } else if (badge) { badge.style.display = "none"; }
+  } catch (_) { /* sin sesión / offline: sin badge */ }
 }
 
 async function renderCrud(s) {
@@ -613,6 +714,52 @@ async function renderConfig(s) {
   });
 }
 
+/* ──────────────────  MODO "PANEL ANTERIOR" (NV OS)  ────────────────── */
+// admin.html conserva su diseño original (dock, KPIs, mosaicos, roles y
+// auditoría con datos reales). Cada mosaico abre aquí la herramienta REAL
+// (tablas/CRUD conectados) en una capa superior con "Volver al panel".
+let LEGACY = false;
+const NOMBRE_A_SECCION = {
+  "Dashboard Ejecutivo": "dashboard", "Estadísticas": "dashboard", "Órdenes": "pedidos",
+  "Control de Vencimientos": "suscripciones", "Catálogo de Servicios": "servicios", "Combos": "combos",
+  "Categorías": "categorias", "Inventario": "inventario", "Promociones": "ofertas", "Planes": "planes",
+  "Usuarios": "usuarios", "Roles & Permisos": "usuarios", "Revendedores": "revendedores",
+  "Métodos de Pago": "metodos", "Recargas": "recargas", "Billetera": "recargas", "Planes revendedor": "planesrev",
+  "CMS Visual": "editor", "Gestión del Home": "editor", "Banners": "editor", "Cartelera Digital": "cartelera",
+  "FAQs": "faqs", "Configuración General": "config", "Tema de la Plataforma": "config", "Notificaciones": "notificaciones",
+};
+// Resumen real (KPIs, roles, actividad, conteos) → Store → bridge.decorateAdmin.
+async function cargarOverview() { try { const ov = await NVApi.adminOverview(); if (ov) Store.set("adminOverview", ov); } catch (_) {} }
+function invalidarOverview() { Store.set("adminOverview", null); if (LEGACY) cargarOverview(); }
+function abrirLegacy(nombreOId) {
+  const id = NOMBRE_A_SECCION[nombreOId] || (porId(nombreOId) ? nombreOId : "dashboard");
+  const s = porId(id); if (!s) return;
+  if (s.tipo === "link") { window.location.href = s.url; return; }
+  montar();
+  root.classList.add("nv-adm-overlay"); root.style.display = "";
+  ir(id);
+}
+function cerrarLegacy() {
+  if (root) root.style.display = "none";
+  cargarOverview(); // el panel de fondo refleja lo que se hizo en la herramienta
+  try { history.replaceState(null, "", location.pathname); } catch (_) {}
+}
+function instalarLegacy() {
+  LEGACY = true;
+  inyectarEstilos();
+  window.NVAdmin = { abrir: abrirLegacy, cerrar: cerrarLegacy };
+  cargarOverview();
+  // Botones del panel anterior sin acción propia → herramienta real, por texto.
+  const POR_TEXTO = { "gestionar permisos por módulo": "Usuarios", "ver todo": "Notificaciones", "ver pedidos": "Órdenes", "ver catálogo de servicios": "Catálogo de Servicios" };
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button,a"); if (!b || b.closest("#nv-adm")) return;
+    const destino = POR_TEXTO[(b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase()];
+    if (!destino) return;
+    ev.preventDefault(); ev.stopPropagation(); abrirLegacy(destino);
+  }, true);
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && root && root.style.display !== "none" && !document.querySelector(".nv-adm-modal, .nv-modal")) cerrarLegacy(); });
+}
+
 /* ─────────────────────────────  MONTAJE  ───────────────────────────── */
 function montar() {
   if (document.getElementById("nv-adm")) return;
@@ -624,7 +771,9 @@ function montar() {
   document.body.appendChild(root);
   const boot = document.getElementById("nv-adm-boot"); if (boot) boot.remove();
   pintarSidebar(side);
+  refrescarBadgeAlertas(); // contador de notificaciones no leídas en el menú
   // sección inicial desde el hash
+  if (LEGACY) return; // en el panel anterior, la sección la elige abrirLegacy()
   const h = (location.hash || "").replace("#", "");
   if (h && porId(h) && porId(h).tipo !== "link") actual = h;
   ir(actual);
@@ -634,7 +783,9 @@ export function instalarAdminApp() {
   const esAdmin = (typeof window !== "undefined") && ((window.__NV_PAGE || (document.body && document.body.getAttribute("data-nv-page"))) === "admin");
   if (!esAdmin || window.__NV_ADMIN_APP) return;
   window.__NV_ADMIN_APP = true;
-  const arranca = () => montar();
+  // admin.html trae su propio diseño (NV OS): no montamos el SPA a pantalla
+  // completa; exponemos window.NVAdmin y cada mosaico abre su herramienta real.
+  const arranca = () => (document.body && document.body.hasAttribute("data-nv-adm-legacy") ? instalarLegacy() : montar());
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arranca);
   else arranca();
 }

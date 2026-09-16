@@ -46,16 +46,22 @@ export const METODOS_VALIDOS: MetodoPago[] = ['pago_movil', 'binance', 'zelle'];
 // ── Métodos válidos para RECARGA de billetera ──
 // Superconjunto de los métodos PSP: la recarga la aprueba el admin manualmente,
 // así que admite también PayPal y transferencia como canales de acreditación.
-export const METODOS_RECARGA_VALIDOS = ['pago_movil', 'binance', 'zelle', 'paypal', 'transferencia'] as const;
+export const METODOS_RECARGA_VALIDOS = [
+  'pago_movil', 'binance', 'zelle', 'paypal', 'transferencia',
+  // Canales del titular (metodos_pago_config): billeteras y bancos de la región.
+  'zinli', 'revolut', 'yape', 'bancolombia', 'ripio', 'pichincha',
+] as const;
 export type MetodoRecarga = (typeof METODOS_RECARGA_VALIDOS)[number];
 
 // Alias que puede mandar el frontend (o el cliente) → método canónico.
 const ALIAS_METODO_RECARGA: Record<string, MetodoRecarga> = {
   binance: 'binance', binance_pay: 'binance', binancepay: 'binance',
   zelle: 'zelle',
-  pago_movil: 'pago_movil', pagomovil: 'pago_movil', movil: 'pago_movil',
+  pago_movil: 'pago_movil', pagomovil: 'pago_movil', movil: 'pago_movil', pago_movil_bdv: 'pago_movil',
   paypal: 'paypal',
   transfer: 'transferencia', transferencia: 'transferencia',
+  zinli: 'zinli', revolut: 'revolut', yape: 'yape', yape_peru: 'yape',
+  bancolombia: 'bancolombia', ripio: 'ripio', pichincha: 'pichincha', banco_pichincha: 'pichincha',
 };
 
 /** Normaliza el método de recarga a su forma canónica; null si no es válido. */
