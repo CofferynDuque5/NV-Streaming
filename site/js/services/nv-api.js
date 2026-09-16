@@ -59,7 +59,9 @@ async function req(method, path, body) {
     err.status = res.status; err.data = data;
     // Solo los fallos "de sistema" (sesión expirada, 5xx, rate limit) se
     // notifican globalmente; los 4xx de validación los maneja cada vista.
-    if (res.status === 401 || res.status === 429 || res.status >= 500) emitirErrorRed(res.status, err.message);
+    // Un 401 SIN token no es "sesión expirada": es un visitante anónimo tocando
+    // una ruta privada (no se molesta con avisos). Con token sí se avisa.
+    if ((res.status === 401 && tk) || res.status === 429 || res.status >= 500) emitirErrorRed(res.status, err.message);
     throw err;
   }
   return data;
