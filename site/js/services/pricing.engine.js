@@ -56,7 +56,9 @@ export class MotorPrecios {
   ofertaDe(servicio) {
     if (!servicio) return null;
     const id = servicio.id_servicio || servicio.id;
-    return this._ofertas().find((o) => o.id_servicio === id) || null;
+    // Las ofertas con `codigo` son CUPONES: solo aplican cuando el cliente los
+    // canjea en el carrito, nunca automáticamente en el precio público.
+    return this._ofertas().find((o) => o.id_servicio === id && !String(o.codigo || "").trim()) || null;
   }
 
   /**
@@ -73,9 +75,18 @@ export class MotorPrecios {
       const rev = Utils.num(servicio.precio_rev);
       return rev > 0 ? rev : Utils.num(servicio.precio);
     }
+    const base = Utils.num(servicio.precio);
     const oferta = this.ofertaDe(servicio);
-    if (oferta) return Utils.num(oferta.precio_oferta);
-    return Utils.num(servicio.precio);
+    if (oferta) {
+      // Oferta con precio fijo > 0 ⇒ ese precio; si solo trae %, se descuenta
+      // sobre el precio base. Una oferta mal cargada (sin precio ni %) NUNCA
+      // deja el servicio en $0.00.
+      const fijo = Utils.num(oferta.precio_oferta);
+      if (fijo > 0) return fijo;
+      const pct = Utils.num(oferta.descuento_pct);
+      if (pct > 0 && pct < 100) return Math.round(base * (1 - pct / 100) * 100) / 100;
+    }
+    return base;
   }
 
   /** Precio final en USD de un COMBO según la regla de negocio. */

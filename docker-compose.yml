@@ -18,6 +18,7 @@
 services:
   # ── PostgreSQL (no necesitas instalarlo) ──
   db:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: nv
@@ -34,6 +35,7 @@ services:
   # ── Backend Node/Express (al arrancar: migra el esquema, siembra el catálogo
   #    real y crea el admin desde SEED_ADMIN_*; todo idempotente) ──
   backend:
+    restart: unless-stopped
     build: ./whatsapp-agent
     depends_on:
       db:
@@ -63,6 +65,7 @@ services:
   # ── Frontend (nginx sirve site/ Y hace proxy de /api y /health al backend,
   #    para que el front hable con el backend por el MISMO origen) ──
   frontend:
+    restart: unless-stopped
     image: nginx:alpine
     depends_on:
       backend:

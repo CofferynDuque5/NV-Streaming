@@ -288,6 +288,7 @@ const SECCIONES = [
       { k: "id_servicio", label: "ID del servicio", tipo: "text", req: true },
       { k: "nombre", label: "Nombre", tipo: "text", req: true },
       { k: "etiqueta", label: "Etiqueta", tipo: "text", def: "OFERTA" },
+      { k: "codigo", label: "Código de cupón (opcional · el cliente lo escribe en el carrito y se aplica el Descuento %)", tipo: "text" },
       { k: "descuento_pct", label: "Descuento %", tipo: "number" },
       { k: "precio_normal", label: "Precio normal USD", tipo: "number" },
       { k: "precio_oferta", label: "Precio oferta USD", tipo: "number" },

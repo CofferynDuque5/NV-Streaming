@@ -60,15 +60,57 @@ export const Cart = {
   },
   subtotalUSD() { return this.items().reduce((a, i) => a + Utils.num(i.precioUSD) * (i.cantidad || 1), 0); },
   cupon() { return Store.get("cupon") || null; },
+  // Cupones REALES: una oferta del CMS (colección `ofertas`, panel Ofertas) con
+  // `codigo` y `descuento_pct` y activa. Sin códigos inventados en el código.
   aplicarCupon(codigo) {
-    const CUP = { NV20: 0.2, NV10: 0.1, BIENVENIDO: 0.15 };
-    const pct = CUP[String(codigo || "").toUpperCase()];
-    if (pct) { Store.set("cupon", { codigo: String(codigo).toUpperCase(), pct }); this._persistir(this.items()); return true; }
-    return false;
+    const code = String(codigo || "").trim().toUpperCase();
+    if (!code) return false;
+    const of = (Store.get("ofertas") || []).find((o) => o.activo !== false && String(o.codigo || "").trim().toUpperCase() === code && Utils.num(o.descuento_pct) > 0);
+    if (!of) return false;
+    Store.set("cupon", { codigo: code, pct: Math.min(100, Utils.num(of.descuento_pct)) / 100 });
+    this._persistir(this.items());
+    return true;
   },
   quitarCupon() { Store.set("cupon", null); this._persistir(this.items()); },
   descuentoUSD() { const c = this.cupon(); return c ? this.subtotalUSD() * c.pct : 0; },
+
+  /**
+   * Reconcilia el carrito guardado (localStorage) con el catálogo ACTUAL:
+   * precios según la tarifa vigente y el rol, nombres al día, y fuera los
+   * servicios/combos que ya no existen. Evita que un carrito viejo muestre
+   * precios de una versión anterior (p.ej. Netflix $4.49 cuando hoy es $4.00).
+   */
+  reconciliar() {
+    const antes = this.items();
+    if (!antes.length) return false;
+    const tipo = motorPrecios.tipoAplicable();
+    const combos = Store.get("combos") || [];
+    const despues = [];
+    for (const it of antes) {
+      if (it.tipo === "combo") {
+        const c = combos.find((x) => x.id === it.id || x.nombre_combo === it.id);
+        if (!c) continue;
+        despues.push(Object.assign({}, it, { nombre: c.nombre_combo, precioUSD: Catalogo.precioComboUSD(c, tipo), img: c.banner_url, meta: Object.assign({}, it.meta, { tipo_precio: tipo }) }));
+      } else {
+        const s = Catalogo.porId(it.id);
+        if (!s || s.activo === false) continue;
+        despues.push(Object.assign({}, it, { nombre: s.nombre_display, precioUSD: Catalogo.precioFinalUSD(s, tipo), img: s.tarjeta_url || s.logo_url, meta: Object.assign({}, it.meta, { categoria: s.categoria, tipo_precio: tipo }) }));
+      }
+    }
+    const cambio = JSON.stringify(antes) !== JSON.stringify(despues);
+    if (cambio) this._persistir(despues);
+    return cambio;
+  },
 };
+
+// El catálogo real llega después del primer pintado; en cuanto llega (o cambia
+// el rol de la sesión), el carrito se reconcilia con los precios vigentes.
+if (Bus && Bus.on) {
+  Bus.on("catalogo:real", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("user:login", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("user:logout", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("store:changed", (e) => { if (e && (e.key === "combos")) { try { Cart.reconciliar(); } catch (_) {} } });
+}
 
 /* ────────────────────────────  MONEDA  ──────────────────────────── */
 export const Moneda = {

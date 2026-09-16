@@ -297,15 +297,18 @@
             <div style="display:flex;align-items:center;gap:5px;">
               <div style="font-size:11px;color:rgba(200,215,255,0.35);">/mes</div>
             </div>
-            <button style="width:26px;height:26px;border-radius:6px;background:rgba(255,62,108,0.07);border:1px solid rgba(255,62,108,0.16);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(255,62,108,0.16);border-color:rgba(255,62,108,0.3);">
+            <button data-nv-cart-remove="{{ citem._id }}" data-nv-cart-tipo="{{ citem._tipo }}" title="Quitar del carrito" style="width:26px;height:26px;border-radius:6px;background:rgba(255,62,108,0.07);border:1px solid rgba(255,62,108,0.16);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" style-hover="background:rgba(255,62,108,0.16);border-color:rgba(255,62,108,0.3);">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FF3E6C" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
             </button>
           </div>
         </div>
       </sc-for>
 
+      <sc-if value="{{ cartVacio }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:28px 12px;text-align:center;color:rgba(200,215,255,0.45);font-size:13px;line-height:1.5;">Tu carrito está vacío.<br>Añade un servicio o un combo desde el catálogo.</div>
+      </sc-if>
       <!-- Add more services suggestion -->
-      <div style="margin-top:16px;padding:14px;background:rgba(0,207,255,0.04);border:1px dashed rgba(0,207,255,0.18);border-radius:12px;display:flex;align-items:center;gap:11px;cursor:pointer;" style-hover="background:rgba(0,207,255,0.07);border-color:rgba(0,207,255,0.3);">
+      <div data-nv-goto="catalogo.html" style="margin-top:16px;padding:14px;background:rgba(0,207,255,0.04);border:1px dashed rgba(0,207,255,0.18);border-radius:12px;display:flex;align-items:center;gap:11px;cursor:pointer;" style-hover="background:rgba(0,207,255,0.07);border-color:rgba(0,207,255,0.3);">
         <div style="width:36px;height:36px;border-radius:9px;background:rgba(0,207,255,0.08);border:1px solid rgba(0,207,255,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00CFFF" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </div>
@@ -320,8 +323,8 @@
     <div style="padding:16px 22px;border-top:1px solid rgba(80,100,200,0.12);flex-shrink:0;">
       <!-- Discount code -->
       <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <input type="text" placeholder="Código de descuento..." style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;padding:9px 13px;font-family:'DM Sans',sans-serif;font-size:13px;color:#EEF2FF;" />
-        <button style="padding:9px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(80,100,200,0.2);border-radius:9px;color:rgba(200,215,255,0.7);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;" style-hover="background:rgba(0,207,255,0.08);border-color:rgba(0,207,255,0.22);color:#00CFFF;">Aplicar</button>
+        <input type="text" data-nv-cupon placeholder="Código de descuento..." style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(80,100,200,0.18);border-radius:9px;padding:9px 13px;font-family:'DM Sans',sans-serif;font-size:13px;color:#EEF2FF;" />
+        <button data-nv-cupon-aplicar style="padding:9px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(80,100,200,0.2);border-radius:9px;color:rgba(200,215,255,0.7);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;" style-hover="background:rgba(0,207,255,0.08);border-color:rgba(0,207,255,0.22);color:#00CFFF;">Aplicar</button>
       </div>
       <!-- Totals -->
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;padding:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:11px;">
@@ -329,10 +332,12 @@
           <span style="font-size:13px;color:rgba(200,215,255,0.5);">Subtotal ({{ cartCount }} servicios)</span>
           <span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;color:rgba(200,215,255,0.75);">{{ cartSubtotal }}</span>
         </div>
+        <sc-if value="{{ cartHasDiscount }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:13px;color:#00D4A0;">Descuento NV20</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;color:#00D4A0;">{{ cartDiscount }}</span>
+          <span style="font-size:13px;color:#00D4A0;">{{ cartDiscountLabel }}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;color:#00D4A0;">-{{ cartDiscount }}</span>
         </div>
+        </sc-if>
         <div style="height:1px;background:rgba(80,100,200,0.12);"></div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:14px;font-weight:600;color:#EEF2FF;">Total / mes</span>
@@ -352,7 +357,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </a>
       <!-- Checkout button -->
-      <button style="width:100%;padding:14px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:11px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 24px rgba(0,100,255,0.38);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;" style-hover="box-shadow:0 8px 32px rgba(0,100,255,0.5);transform:translateY(-1px);">
+      <button data-nv-checkout style="width:100%;padding:14px;background:linear-gradient(135deg,#0A3AAE,#1A8FFF);color:white;border:none;border-radius:11px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 24px rgba(0,100,255,0.38);transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;" style-hover="box-shadow:0 8px 32px rgba(0,100,255,0.5);transform:translateY(-1px);">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         Ir al Checkout · {{ cartTotal }}
       </button>
@@ -466,65 +471,66 @@
       <div style="max-width:1280px;margin:0 auto;padding:32px 36px 28px;">
         <div style="display:grid;grid-template-columns:260px 1fr 220px;gap:32px;">
 
-          <!-- LEFT: Featured service -->
-          <div>
-            <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,207,255,0.5);font-weight:500;margin-bottom:14px;font-family:'JetBrains Mono',monospace;">Destcado del mes</div>
-            <div style="background:linear-gradient(135deg,#07071A,#0A1240);border:1px solid rgba(0,207,255,0.2);border-radius:14px;padding:20px;position:relative;overflow:hidden;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.4);box-shadow:0 8px 28px rgba(0,100,255,0.12);">
+          <!-- LEFT: Featured service (REAL: primer destacado de la categoría) -->
+          <div data-nv-mega="{{ megaKey }}">
+            <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,207,255,0.5);font-weight:500;margin-bottom:14px;font-family:'JetBrains Mono',monospace;">Destacado</div>
+            <sc-if value="{{ megaHasFeatured }}" hint-placeholder-val="{{ false }}">
+            <div data-nv-id="{{ megaFeatured.id }}" style="background:linear-gradient(135deg,#07071A,#0A1240);border:1px solid rgba(0,207,255,0.2);border-radius:14px;padding:20px;position:relative;overflow:hidden;cursor:pointer;" style-hover="border-color:rgba(0,207,255,0.4);box-shadow:0 8px 28px rgba(0,100,255,0.12);">
               <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle,rgba(0,100,255,0.2) 0%,transparent 70%);pointer-events:none;"></div>
-              <div style="width:52px;height:52px;background:linear-gradient(135deg,#1a0a2e,#6a1a8a);border-radius:13px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;margin-bottom:14px;box-shadow:0 4px 16px rgba(106,26,138,0.4);">N</div>
-              <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;margin-bottom:4px;">Netflix Premium</div>
-              <div style="font-size:12px;color:rgba(200,215,255,0.5);margin-bottom:12px;">4K · 4 pantallas · Sin anuncios</div>
+              <div style="width:52px;height:52px;background:{{ megaFeatured.bg }};border-radius:13px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:white;margin-bottom:14px;box-shadow:0 4px 16px rgba(106,26,138,0.4);">{{ megaFeatured.icon }}</div>
+              <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#EEF2FF;margin-bottom:4px;">{{ megaFeatured.name }}</div>
+              <div style="font-size:12px;color:rgba(200,215,255,0.5);margin-bottom:12px;">{{ megaFeatured.desc }}</div>
               <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-family:'JetBrains Mono',monospace;font-size:18px;color:#00CFFF;font-weight:500;text-shadow:0 0 14px rgba(0,207,255,0.4);">$9.99</span>
-                <span style="padding:3px 8px;background:rgba(0,212,160,0.1);border:1px solid rgba(0,212,160,0.22);border-radius:5px;font-size:10.5px;color:#00D4A0;font-weight:500;">Disponible</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:18px;color:#00CFFF;font-weight:500;text-shadow:0 0 14px rgba(0,207,255,0.4);">{{ megaFeatured.price }}</span>
+                <span style="padding:3px 8px;background:{{ megaFeatured.stockBg }};border:1px solid {{ megaFeatured.stockBorder }};border-radius:5px;font-size:10.5px;color:{{ megaFeatured.stockColor }};font-weight:500;">{{ megaFeatured.stockLabel }}</span>
               </div>
             </div>
-            <!-- Quick stats in mega menu -->
+            </sc-if>
+            <!-- Conteo REAL de la categoría -->
             <div style="margin-top:14px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.14);border-radius:9px;">
-              <div style="font-size:11px;color:rgba(200,215,255,0.4);margin-bottom:7px;">Streaming · 8 servicios disponibles</div>
+              <div style="font-size:11px;color:rgba(200,215,255,0.4);margin-bottom:7px;">{{ megaStats }}</div>
               <div style="height:3px;background:rgba(80,100,200,0.2);border-radius:2px;overflow:hidden;">
-                <div style="width:72%;height:100%;background:linear-gradient(90deg,#00CFFF,#9B3FFF);border-radius:2px;"></div>
+                <div style="width:{{ megaStatsPct }};height:100%;background:linear-gradient(90deg,#00CFFF,#9B3FFF);border-radius:2px;"></div>
               </div>
             </div>
           </div>
 
-          <!-- CENTER: Service grid -->
+          <!-- CENTER: Service grid (REAL) -->
           <div>
             <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,207,255,0.5);font-weight:500;margin-bottom:14px;font-family:'JetBrains Mono',monospace;">{{ megaMenuTitle }} — Todas las plataformas</div>
+            <sc-if value="{{ megaVacio }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 16px;margin-bottom:16px;text-align:center;border:1px dashed rgba(80,100,200,0.25);border-radius:10px;color:rgba(200,215,255,0.45);font-size:13px;line-height:1.5;">{{ megaVacioTxt }}</div>
+            </sc-if>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
-              <sc-for list="{{ megaItems }}" as="item">
-                <div style="padding:14px 12px;background:{{ item.active ? 'rgba(0,207,255,0.06)' : 'rgba(255,255,255,0.03)' }};border:1px solid {{ item.active ? 'rgba(0,207,255,0.22)' : 'rgba(80,100,200,0.14)' }};border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:9px;transition:all 0.15s;text-align:center;" style-hover="background:rgba(0,207,255,0.06);border-color:rgba(0,207,255,0.22);">
+              <sc-for list="{{ megaItems }}" as="item" hint-placeholder-count="0">
+                <a href="{{ item.href }}" data-nv-id="{{ item.id }}" style="padding:14px 12px;background:{{ item.active ? 'rgba(0,207,255,0.06)' : 'rgba(255,255,255,0.03)' }};border:1px solid {{ item.active ? 'rgba(0,207,255,0.22)' : 'rgba(80,100,200,0.14)' }};border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:9px;transition:all 0.15s;text-align:center;text-decoration:none;" style-hover="background:rgba(0,207,255,0.06);border-color:rgba(0,207,255,0.22);">
                   <div style="width:38px;height:38px;border-radius:9px;background:{{ item.bg }};display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:white;box-shadow:0 3px 10px rgba(0,0,0,0.3);">{{ item.icon }}</div>
                   <div>
-                    <div style="font-size:12.5px;font-weight:500;color:#EEF2FF;white-space:nowrap;">{{ item.name }}</div>
+                    <div style="font-size:12.5px;font-weight:500;color:#EEF2FF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;">{{ item.name }}</div>
                     <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#00CFFF;margin-top:2px;">{{ item.price }}</div>
                   </div>
-                </div>
+                </a>
               </sc-for>
             </div>
             <!-- View all CTA -->
-            <a style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:rgba(0,207,255,0.06);border:1px solid rgba(0,207,255,0.18);border-radius:9px;cursor:pointer;font-size:13px;color:#00CFFF;font-weight:500;transition:all 0.15s;text-decoration:none;" style-hover="background:rgba(0,207,255,0.12);">
-              Ver todos los {{ megaMenuTitle }}
+            <a href="{{ megaVerTodosHref }}" style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;background:rgba(0,207,255,0.06);border:1px solid rgba(0,207,255,0.18);border-radius:9px;cursor:pointer;font-size:13px;color:#00CFFF;font-weight:500;transition:all 0.15s;text-decoration:none;" style-hover="background:rgba(0,207,255,0.12);">
+              Ver todo: {{ megaMenuTitle }}
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m5 12h14M12 5l7 7-7 7"/></svg>
             </a>
           </div>
 
-          <!-- RIGHT: Trending + New -->
+          <!-- RIGHT: Destacados (REAL) -->
           <div>
-            <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,207,255,0.5);font-weight:500;margin-bottom:14px;font-family:'JetBrains Mono',monospace;">Populares ahora</div>
+            <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,207,255,0.5);font-weight:500;margin-bottom:14px;font-family:'JetBrains Mono',monospace;">{{ megaTrendingLabel }}</div>
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
-              <sc-for list="{{ megaTrending }}" as="t">
-                <div style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:8px;cursor:pointer;" style-hover="background:rgba(0,207,255,0.05);border-color:rgba(0,207,255,0.16);">
+              <sc-for list="{{ megaTrending }}" as="t" hint-placeholder-count="0">
+                <a href="{{ t.href }}" data-nv-id="{{ t.id }}" style="display:flex;align-items:center;gap:9px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(80,100,200,0.12);border-radius:8px;cursor:pointer;text-decoration:none;" style-hover="background:rgba(0,207,255,0.05);border-color:rgba(0,207,255,0.16);">
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(0,207,255,0.5);min-width:16px;font-weight:500;">{{ t.rank }}</span>
                   <div style="width:24px;height:24px;border-radius:6px;background:{{ t.bg }};display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:9px;font-weight:800;color:white;flex-shrink:0;">{{ t.icon }}</div>
                   <span style="font-size:12.5px;color:rgba(200,215,255,0.75);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ t.name }}</span>
                   <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#00CFFF;font-weight:500;flex-shrink:0;">{{ t.price }}</span>
-                </div>
+                </a>
               </sc-for>
-            </div>
-            <div style="padding:12px;background:linear-gradient(135deg,rgba(155,63,255,0.08),rgba(0,207,255,0.04));border:1px solid rgba(155,63,255,0.18);border-radius:10px;">
-              <div style="font-size:11.5px;font-weight:600;color:#9B3FFF;margin-bottom:4px;">🆕 Nuevo en el catálogo</div>
-              <div style="font-size:11.5px;color:rgba(200,215,255,0.55);line-height:1.5;">Claude Pro, Sora AI y Gemini Ultra ya disponibles.</div>
             </div>
           </div>
         </div>
@@ -1434,76 +1440,13 @@ class Component extends DCLogic {
   toggleCart() { this.setState(s => ({ cartOpen: !s.cartOpen, mobileMenuOpen: false, openMenu: null })); }
   closeCart() { this.setState({ cartOpen: false }); }
 
+  // El CONTENIDO del megamenú (destacado, servicios, destacados, conteos) lo
+  // pone bridge.js desde el catálogo real de PostgreSQL según `megaKey`. Aquí
+  // solo queda el título por categoría; sin listas ni precios inventados.
   get megaMenuData() {
-    const menus = {
-      ofertas: {
-        title: 'Ofertas',
-        items: [
-          { icon:'N', name:'Netflix -30%',  price:'$6.99',  bg:'linear-gradient(135deg,#1a0a2e,#6a1a8a)', active:true },
-          { icon:'D', name:'Disney+ -25%',  price:'$6.75',  bg:'linear-gradient(135deg,#0a0a2e,#2a2a8a)', active:false },
-          { icon:'S', name:'Spotify -20%',  price:'$4.79',  bg:'linear-gradient(135deg,#0a1e0a,#1a7a1a)', active:false },
-          { icon:'H', name:'Max HBO -30%',  price:'$7.69',  bg:'linear-gradient(135deg,#1e0a2e,#5a0a7a)', active:false },
-          { icon:'G', name:'ChatGPT -15%',  price:'$16.99', bg:'linear-gradient(135deg,#0a1a1a,#0a5a4a)', active:false },
-          { icon:'A', name:'Adobe -20%',    price:'$15.19', bg:'linear-gradient(135deg,#2e0a0a,#8a1a1a)', active:false },
-          { icon:'P', name:'Prime -25%',    price:'$5.24',  bg:'linear-gradient(135deg,#001a2e,#003a6e)', active:false },
-          { icon:'★', name:'Combo x3',      price:'$14.99', bg:'linear-gradient(135deg,#0A3AAE,#1A8FFF)', active:false },
-        ],
-        trending: [
-          { rank:'01', icon:'★', name:'Pack Entretenimiento', price:'$14.99', bg:'linear-gradient(135deg,#0A3AAE,#1A8FFF)' },
-          { rank:'02', icon:'N', name:'Netflix Premium -30%', price:'$6.99',  bg:'linear-gradient(135deg,#1a0a2e,#6a1a8a)' },
-          { rank:'03', icon:'✦', name:'Pack IA Completo',     price:'$39.99', bg:'linear-gradient(135deg,#5510BB,#9B3FFF)' },
-        ]
-      },
-      streaming: {
-        title: 'Streaming',
-        items: [
-          { icon:'N', name:'Netflix',     price:'$9.99',  bg:'linear-gradient(135deg,#1a0a2e,#6a1a8a)', active:true },
-          { icon:'D', name:'Disney+',     price:'$8.99',  bg:'linear-gradient(135deg,#0a0a2e,#2a2a8a)', active:false },
-          { icon:'H', name:'Max HBO',     price:'$10.99', bg:'linear-gradient(135deg,#1e0a2e,#5a0a7a)', active:false },
-          { icon:'P', name:'Prime Video', price:'$6.99',  bg:'linear-gradient(135deg,#001a2e,#003a6e)', active:false },
-          { icon:'A', name:'Apple TV+',   price:'$8.99',  bg:'linear-gradient(135deg,#1a1a1a,#3a3a3a)', active:false },
-          { icon:'C', name:'Crunchyroll', price:'$7.99',  bg:'linear-gradient(135deg,#2e1000,#7a3000)', active:false },
-          { icon:'M', name:'Mubi',        price:'$9.99',  bg:'linear-gradient(135deg,#1a0a0a,#4a1a0a)', active:false },
-          { icon:'P', name:'Paramount+',  price:'$5.99',  bg:'linear-gradient(135deg,#000a2e,#0a1a6e)', active:false },
-        ],
-        trending: [
-          { rank:'01', icon:'N', name:'Netflix Premium',  price:'$9.99',  bg:'linear-gradient(135deg,#1a0a2e,#6a1a8a)' },
-          { rank:'02', icon:'D', name:'Disney+',          price:'$8.99',  bg:'linear-gradient(135deg,#0a0a2e,#2a2a8a)' },
-          { rank:'03', icon:'P', name:'Prime Video',      price:'$6.99',  bg:'linear-gradient(135deg,#001a2e,#003a6e)' },
-        ]
-      },
-      musica: {
-        title: 'Música',
-        items: [
-          { icon:'S', name:'Spotify',      price:'$5.99',  bg:'linear-gradient(135deg,#0a1e0a,#1a7a1a)', active:true },
-          { icon:'A', name:'Apple Music',  price:'$6.99',  bg:'linear-gradient(135deg,#2e0a0a,#6e1a1a)', active:false },
-          { icon:'Y', name:'YT Music',     price:'$4.99',  bg:'linear-gradient(135deg,#2e0a0a,#9e2020)', active:false },
-          { icon:'T', name:'Tidal HiFi',   price:'$7.99',  bg:'linear-gradient(135deg,#0a0a2e,#2a2a6e)', active:false },
-        ],
-        trending: [
-          { rank:'01', icon:'S', name:'Spotify Premium', price:'$5.99', bg:'linear-gradient(135deg,#0a1e0a,#1a7a1a)' },
-          { rank:'02', icon:'A', name:'Apple Music',     price:'$6.99', bg:'linear-gradient(135deg,#2e0a0a,#6e1a1a)' },
-          { rank:'03', icon:'T', name:'Tidal HiFi',      price:'$7.99', bg:'linear-gradient(135deg,#0a0a2e,#2a2a6e)' },
-        ]
-      },
-      ia: {
-        title: 'Inteligencia Artificial',
-        items: [
-          { icon:'G', name:'ChatGPT Pro',  price:'$19.99', bg:'linear-gradient(135deg,#0a1a1a,#0a5a4a)', active:true },
-          { icon:'C', name:'Claude Pro',   price:'$17.99', bg:'linear-gradient(135deg,#1a0a1a,#5a2a0a)', active:false },
-          { icon:'M', name:'Midjourney',   price:'$24.99', bg:'linear-gradient(135deg,#0a0a2e,#2a0a4a)', active:false },
-          { icon:'Co', name:'Copilot',     price:'$10.00', bg:'linear-gradient(135deg,#001e10,#003a20)', active:false },
-          { icon:'Ge', name:'Gemini Ultra',price:'$19.99', bg:'linear-gradient(135deg,#0a0a2e,#1a1060)', active:false },
-          { icon:'So', name:'Sora AI',     price:'$29.99', bg:'linear-gradient(135deg,#1a0a0a,#4a1010)', active:false },
-        ],
-        trending: [
-          { rank:'01', icon:'G', name:'ChatGPT Pro',   price:'$19.99', bg:'linear-gradient(135deg,#0a1a1a,#0a5a4a)' },
-          { rank:'02', icon:'C', name:'Claude Pro',    price:'$17.99', bg:'linear-gradient(135deg,#1a0a1a,#5a2a0a)' },
-          { rank:'03', icon:'M', name:'Midjourney Pro',price:'$24.99', bg:'linear-gradient(135deg,#0a0a2e,#2a0a4a)' },
-        ]
-      },
-    };
-    return menus[this.state.openMenu] || menus.streaming;
+    const titulos = { categorias: 'Categorías', ofertas: 'Ofertas', streaming: 'Streaming', musica: 'Música', ia: 'Inteligencia Artificial', juegos: 'Juegos', software: 'Software', cloud: 'Cloud' };
+    const key = this.state.openMenu || 'streaming';
+    return { key, title: titulos[key] || 'Catálogo', items: [], trending: [] };
   }
 
   toggleCategorias() {
@@ -1542,21 +1485,16 @@ class Component extends DCLogic {
       toggleCart: () => this.toggleCart(),
       closeCart: () => this.closeCart(),
       cartOpen: this.state.cartOpen,
-      cartCount: 3,
-      cartSubtotal: '$34.97',
-      cartDiscount: '-$7.00',
-      cartTotal: '$27.97',
-      cartItems: [
-        { icon:'N', name:'Netflix Premium',  plan:'4K · 4 pantallas · 1 mes', price:'$9.99',  gradient:'linear-gradient(135deg,#1a0a2e,#6a1a8a)', tags:['4K','4 pantallas'] },
-        { icon:'S', name:'Spotify Premium',  plan:'Individual · Sin anuncios', price:'$5.99',  gradient:'linear-gradient(135deg,#0a1e0a,#1a7a1a)', tags:['Offline','Sin ads'] },
-        { icon:'G', name:'ChatGPT Pro',       plan:'GPT-4o · 1 mes completo',  price:'$19.99', gradient:'linear-gradient(135deg,#0a1a1a,#0a5a4a)', tags:['GPT-4o','DALL·E 3'] },
-      ],
-      quickPayMethods: [
-        { label:'💵 Zelle',    active: true  },
-        { label:'🔶 Binance', active: false },
-        { label:'🅿 PayPal',  active: false },
-        { label:'📱 Pago Móvil', active: false },
-      ],
+      // Carrito REAL: bridge.js lo rellena desde el Store (localStorage + catálogo).
+      cartCount: 0,
+      cartSubtotal: '$0.00',
+      cartDiscount: '$0.00',
+      cartDiscountLabel: 'Descuento',
+      cartHasDiscount: false,
+      cartTotal: '$0.00',
+      cartItems: [],
+      cartVacio: true,
+      quickPayMethods: [],
       mobileNavItems: [
         { emoji:'▶', label:'Streaming',        sub:'Netflix, Disney+, HBO y más',  iconBg:'rgba(155,63,255,0.1)',  iconBorder:'rgba(155,63,255,0.2)'  },
         { emoji:'♪', label:'Música',           sub:'Spotify, Apple Music, Tidal',  iconBg:'rgba(0,212,160,0.1)',   iconBorder:'rgba(0,212,160,0.2)'   },
@@ -1567,17 +1505,19 @@ class Component extends DCLogic {
         { emoji:'🔥', label:'Combos',           sub:'Packs con hasta 40% ahorro',   iconBg:'rgba(255,100,0,0.1)',  iconBorder:'rgba(255,100,0,0.2)'   },
       ],
       mobileUserLinks: [
-        { label:'Mis servicios',     icon:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',                                          color:'#00CFFF', badge:'3',       badgeBg:'rgba(0,207,255,0.12)', badgeColor:'#00CFFF' },
+        { label:'Mis servicios',     icon:'<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',                                          color:'#00CFFF', badge:'',       badgeBg:'rgba(0,207,255,0.12)', badgeColor:'#00CFFF' },
         { label:'Billetera',         icon:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01"/>',              color:'#9B3FFF', badge:'',    badgeBg:'rgba(155,63,255,0.1)', badgeColor:'#9B3FFF' },
         { label:'Mis pedidos',       icon:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>',  color:'#00D4A0', badge:'',       badgeBg:'', badgeColor:'' },
-        { label:'Notificaciones',    icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',        color:'#FFB020', badge:'4 nuevas', badgeBg:'rgba(255,62,108,0.1)', badgeColor:'#FF3E6C' },
+        { label:'Notificaciones',    icon:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',        color:'#FFB020', badge:'', badgeBg:'rgba(255,62,108,0.1)', badgeColor:'#FF3E6C' },
         { label:'Configuración',     icon:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>', color:'rgba(200,215,255,0.5)', badge:'', badgeBg:'', badgeColor:'' },
       ],
       // Mega menu
       showMegaMenu: this.showMegaMenu,
+      megaKey: menuData.key,
       megaMenuTitle: menuData.title,
       megaItems: menuData.items || [],
       megaTrending: menuData.trending || [],
+      megaFeatured: null, megaHasFeatured: false, megaStats: '', megaStatsPct: '0%', megaVacio: false, megaVacioTxt: '', megaVerTodosHref: 'catalogo.html', megaTrendingLabel: 'Destacados',
       closeMegaMenu: () => this.setState({ openMenu: null }),
       // Support center
       supportOpen: this.state.supportOpen,

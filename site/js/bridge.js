@@ -195,9 +195,87 @@ function decorateIndex(vals, svc) {
   const items = Cart.items();
   vals.cartItems = items.map(toCartItem);
   vals.cartCount = Cart.count();
+  vals.cartVacio = items.length === 0;
   vals.cartSubtotal = fmtUSD(Cart.subtotalUSD());
+  const cup = Cart.cupon();
+  vals.cartHasDiscount = !!cup && Cart.descuentoUSD() > 0;
+  vals.cartDiscountLabel = cup ? `Descuento ${cup.codigo} (-${Math.round(cup.pct * 100)}%)` : "Descuento";
   vals.cartDiscount = fmtUSD(Cart.descuentoUSD());
   vals.cartTotal = fmtUSD(Cart.totalUSD());
+  // Métodos de pago rápidos del cajón: los REALES del titular (antes fijos).
+  vals.quickPayMethods = mp.slice(0, 5).map((m, i) => ({ label: m.tipo_banco || m.id_pago, active: i === 0 }));
+  // Menú móvil: subtítulos con servicios REALES de cada categoría.
+  if (Array.isArray(vals.mobileNavItems)) {
+    const SUBCAT = { "Streaming": ["STREAMING"], "Música": ["MUSICA"], "Inteligencia IA": ["IA"], "Juegos": ["JUEGOS"], "Software": ["SOFTWARE"], "Cloud & VPN": ["CLOUD"] };
+    vals.mobileNavItems = vals.mobileNavItems.map((it) => {
+      if (it.label === "Combos") return Object.assign({}, it, { sub: combos.length ? `${combos.length} combos disponibles` : "Próximamente" });
+      const cats = SUBCAT[it.label]; if (!cats) return it;
+      const nombres = svc.filter((s) => cats.includes(s.categoria)).slice(0, 3).map((s) => s.nombre_display);
+      return Object.assign({}, it, { sub: nombres.length ? nombres.join(", ") + (svc.filter((s) => cats.includes(s.categoria)).length > 3 ? " y más" : "") : "Próximamente" });
+    });
+  }
+  decorateMegaMenu(vals, svc, combos);
+}
+
+/* ───────────────────  MEGAMENÚ DE CATEGORÍAS (catálogo real)  ───────────────────
+ * Antes el megamenú tenía listas y precios fijos en el HTML (Netflix $9.99, Mubi…)
+ * y Juegos/Software mostraban el panel de Streaming. Ahora cada panel sale del
+ * catálogo real: servicios de esa categoría (precio según rol), destacado real,
+ * conteo real y estado vacío honesto si la categoría aún no tiene servicios. */
+const MEGA_CAT = { streaming: ["STREAMING"], musica: ["MUSICA"], ia: ["IA"], juegos: ["JUEGOS"], software: ["SOFTWARE"], cloud: ["CLOUD"] };
+const MEGA_HREF = { streaming: "catalogo.html?cat=streaming", musica: "catalogo.html?cat=musica", ia: "catalogo.html?cat=ia", juegos: "catalogo.html?cat=juegos", software: "catalogo.html?cat=software", cloud: "catalogo.html?cat=cloud", ofertas: "catalogo.html#combos", categorias: "catalogo.html" };
+function decorateMegaMenu(vals, svc, combos) {
+  const key = vals.megaKey || "streaming";
+  const precio = (s) => fmtUSD(Catalogo.precioFinalUSD(s));
+  const item = (s) => ({ id: s.id_servicio, icon: short(s.nombre_display).slice(0, 1), name: s.nombre_display, price: precio(s), bg: grad(s.id_servicio), active: !!s.destacado, href: "detalles.html?id=" + encodeURIComponent(s.id_servicio) });
+  const stock = (s) => (s.en_stock === false || (typeof s.stock === "number" && s.stock <= 0))
+    ? { stockLabel: "Agotado", stockColor: "#FF3E6C", stockBg: "rgba(255,62,108,0.1)", stockBorder: "rgba(255,62,108,0.25)" }
+    : { stockLabel: "Disponible", stockColor: "#00D4A0", stockBg: "rgba(0,212,160,0.1)", stockBorder: "rgba(0,212,160,0.22)" };
+  const featured = (s, desc) => s ? Object.assign(item(s), { desc: desc || s.descripcion || catLabel(s.categoria) }, stock(s)) : null;
+  const total = svc.length;
+  let lista = [], destacado = null, stats = "", vacioTxt = "", trending = [], label = "Destacados";
+
+  if (MEGA_CAT[key]) {
+    lista = svc.filter((s) => MEGA_CAT[key].includes(s.categoria));
+    destacado = lista.find((s) => s.destacado) || lista[0] || null;
+    stats = `${vals.megaMenuTitle} · ${lista.length} ${lista.length === 1 ? "servicio disponible" : "servicios disponibles"}`;
+    vacioTxt = `Aún no hay servicios en ${vals.megaMenuTitle}. Se añaden desde el panel de administración.`;
+    trending = lista.filter((s) => s.destacado).concat(lista.filter((s) => !s.destacado)).slice(0, 3);
+    vals.megaItems = lista.slice(0, 8).map(item);
+    vals.megaTrending = trending.map((s, i) => Object.assign(item(s), { rank: String(i + 1).padStart(2, "0") }));
+    vals.megaStatsPct = total ? Math.round((lista.length / total) * 100) + "%" : "0%";
+  } else if (key === "ofertas") {
+    const ofertas = (Store.get("ofertas") || []).filter((o) => o.activo !== false);
+    const items = ofertas.map((o) => { const s = Catalogo.porId(o.id_servicio); return { id: o.id_servicio || "", icon: short(o.nombre).slice(0, 1), name: o.nombre + (o.descuento_pct ? ` -${o.descuento_pct}%` : ""), price: o.precio_oferta ? fmtUSD(o.precio_oferta) : (s ? precio(s) : ""), bg: grad(o.id_servicio), active: true, href: s ? "detalles.html?id=" + encodeURIComponent(s.id_servicio) : "catalogo.html" }; });
+    vals.megaItems = items.slice(0, 8);
+    label = "Combos";
+    vals.megaTrending = combos.slice(0, 3).map((c, i) => ({ id: "", rank: String(i + 1).padStart(2, "0"), icon: "★", name: c.nombre_combo, price: fmtUSD(Catalogo.precioComboUSD(c)), bg: "linear-gradient(135deg,#0A3AAE,#1A8FFF)", href: "catalogo.html#combos" }));
+    const o0 = ofertas[0]; const s0 = o0 && Catalogo.porId(o0.id_servicio);
+    destacado = s0 || null;
+    stats = `${ofertas.length} ${ofertas.length === 1 ? "oferta activa" : "ofertas activas"} · ${combos.length} combos`;
+    vacioTxt = "No hay ofertas activas ahora mismo. Revisa los combos: ahorras frente a contratar por separado.";
+    lista = items;
+    vals.megaStatsPct = ofertas.length ? "100%" : "0%";
+  } else { // categorias: resumen real por categoría
+    const CATS = [["Streaming", "STREAMING", "streaming"], ["Música", "MUSICA", "musica"], ["Inteligencia IA", "IA", "ia"], ["Juegos", "JUEGOS", "juegos"], ["Software", "SOFTWARE", "software"], ["Cloud", "CLOUD", "cloud"]];
+    const cuenta = {}; for (const s of svc) cuenta[s.categoria] = (cuenta[s.categoria] || 0) + 1;
+    vals.megaItems = CATS.map(([nombre, cat, slug]) => ({ id: "", icon: nombre.slice(0, 1), name: nombre, price: `${cuenta[cat] || 0} ${cuenta[cat] === 1 ? "servicio" : "servicios"}`, bg: grad(slug), active: (cuenta[cat] || 0) > 0, href: "catalogo.html?cat=" + slug }));
+    const dest = svc.filter((s) => s.destacado);
+    destacado = dest[0] || svc[0] || null;
+    trending = dest.length ? dest.slice(0, 3) : svc.slice(0, 3);
+    vals.megaTrending = trending.map((s, i) => Object.assign(item(s), { rank: String(i + 1).padStart(2, "0") }));
+    stats = `${total} ${total === 1 ? "servicio" : "servicios"} en ${CATS.filter(([, c]) => cuenta[c]).length} categorías`;
+    vacioTxt = "El catálogo está vacío. Añade servicios desde el panel de administración.";
+    lista = svc;
+    vals.megaStatsPct = total ? "100%" : "0%";
+  }
+  vals.megaFeatured = featured(destacado);
+  vals.megaHasFeatured = !!vals.megaFeatured;
+  vals.megaStats = stats;
+  vals.megaVacio = lista.length === 0;
+  vals.megaVacioTxt = vacioTxt;
+  vals.megaTrendingLabel = label;
+  vals.megaVerTodosHref = MEGA_HREF[key] || "catalogo.html";
 }
 
 function decorateCatalogo(vals, svc) {
@@ -856,6 +934,37 @@ function onGlobalClick(ev) {
   if (window.NVSound) window.NVSound.reproducir("notify");
 }
 
+/* Cajón del carrito: quitar, cupón, checkout, ir al catálogo (antes decorativos). */
+function onCartDrawerClick(ev) {
+  const t = ev.target;
+  const rm = t.closest("[data-nv-cart-remove]");
+  if (rm) {
+    ev.preventDefault(); ev.stopPropagation();
+    Cart.remove(rm.getAttribute("data-nv-cart-remove"), rm.getAttribute("data-nv-cart-tipo") || "servicio");
+    toast("Quitado del carrito", "rgba(255,62,108,0.45)");
+    return;
+  }
+  const ap = t.closest("[data-nv-cupon-aplicar]");
+  if (ap) {
+    ev.preventDefault(); ev.stopPropagation();
+    const inp = document.querySelector("[data-nv-cupon]");
+    const code = inp ? inp.value.trim() : "";
+    if (!code) { Cart.quitarCupon(); return; }
+    if (Cart.aplicarCupon(code)) toast(`Cupón ${code.toUpperCase()} aplicado`, "rgba(0,212,160,0.5)");
+    else toast("Ese código no existe o no está activo", "rgba(255,176,32,0.5)");
+    return;
+  }
+  const co = t.closest("[data-nv-checkout]");
+  if (co) {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!Cart.items().length) { toast("Tu carrito está vacío", "rgba(255,176,32,0.5)"); return; }
+    location.href = "pagos.html";
+    return;
+  }
+  const go = t.closest("[data-nv-goto]");
+  if (go) { ev.preventDefault(); ev.stopPropagation(); location.href = go.getAttribute("data-nv-goto"); }
+}
+
 /* ──────────────────────────  API GLOBAL NV  ───────────────────────── */
 function rerenderSoon() {
   if (rerenderSoon._q) return; rerenderSoon._q = true;
@@ -875,6 +984,7 @@ export function instalarBridge() {
   Bus.on("cart:updated", rerenderSoon);
   Bus.on("currency:changed", rerenderSoon);
   document.addEventListener("click", onGlobalClick, true);
+  document.addEventListener("click", onCartDrawerClick, true);
 }
 
 export default { instalarBridge, decorate };

@@ -71,7 +71,13 @@ export const NVApi = {
   /** ¿El backend responde? (para decidir modo online/seed). */
   async health() {
     if (!host()) return false;
-    try { const r = await fetch(host() + "/health", { method: "GET" }); return r.ok; } catch (_) { return false; }
+    // Con presupuesto de tiempo: si el backend acepta la conexión pero no
+    // responde (colgado), NO puede bloquear el arranque de la página.
+    const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 4000) : null;
+    try { const r = await fetch(host() + "/health", { method: "GET", signal: ctrl ? ctrl.signal : undefined }); return r.ok; }
+    catch (_) { return false; }
+    finally { if (timer) clearTimeout(timer); }
   },
 
   // ── CMS / contenido ──
