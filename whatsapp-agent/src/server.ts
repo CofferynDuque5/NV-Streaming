@@ -19,6 +19,7 @@ import { userdocsRouter } from './modules/userdocs/userdocs.routes.js';
 import { inventoryRouter } from './modules/inventory/inventory.routes.js';
 import { resellerRouter } from './modules/reseller/reseller.routes.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
+import { mediaRouter } from './modules/media/media.routes.js';
 import { otpRouter } from './modules/otp/otp.routes.js';
 import type { RawBodyRequest } from './modules/webhook/webhook.controller.js';
 
@@ -63,6 +64,11 @@ export function createApp() {
     next();
   });
 
+  // Biblioteca de medios: la imagen viaja en base64 dentro del JSON, así que esta
+  // ruta admite cuerpos mayores (12 MB ≈ 8 MB de imagen). Va ANTES del parser
+  // global de 1 MB; express.json no vuelve a parsear un cuerpo ya leído.
+  app.use('/api/admin/medios', express.json({ limit: '12mb' }));
+
   // Body JSON conservando el cuerpo CRUDO (necesario para validar la firma HMAC).
   app.use(
     express.json({
@@ -99,6 +105,7 @@ export function createApp() {
   app.use('/api', inventoryRouter);
   app.use('/api', resellerRouter);
   app.use('/api', adminRouter);
+  app.use('/api', mediaRouter);   // biblioteca de medios (ImgBB vía servidor)
 
   // OTP: webhooks de Telegram/WhatsApp + lectura (portado de Cloud Functions).
   app.use('/', otpRouter);

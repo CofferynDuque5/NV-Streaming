@@ -83,9 +83,11 @@
     },
 
     /* ── ImgBB (persistencia de imágenes · plan gratuito sin caducidad) ── */
-    // Pega aquí tu API key de https://api.imgbb.com/ para habilitar las subidas.
+    // La API key NO va aquí (este archivo es público). Ponla en el backend:
+    //   whatsapp-agent/.env  →  IMGBB_API_KEY=...   (o en el .env raíz con Docker)
+    // El navegador sube a /api/admin/medios y el servidor reenvía a ImgBB.
     imgbb: {
-      apiKey: "",                      // ← configúrala en el panel; NO se hardcodea.
+      viaBackend: true,
     },
 
     /* ── WhatsApp (asistente → soporte humano) ── */

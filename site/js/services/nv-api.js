@@ -138,6 +138,14 @@ export const NVApi = {
   async adminAlertas() { const r = await req("GET", "/admin/alertas"); return (r && r.alertas) || []; },
   async adminMarcarAlerta(id) { return req("POST", "/admin/alertas/" + encodeURIComponent(id) + "/leida"); },
   async adminMarcarTodasAlertas() { return req("POST", "/admin/alertas/leer-todas"); },
+
+  // Biblioteca de medios (imágenes en ImgBB, subidas por el SERVIDOR con su clave).
+  // → { configurado:boolean, medios:[{id,nombre,uso,url,thumb_url,delete_url,…}] }
+  async medios() { const r = await req("GET", "/admin/medios"); return r && typeof r === "object" ? r : { configurado: false, medios: [] }; },
+  // body: { imagen: dataURL|base64, nombre, uso } → medio creado (201).
+  async subirMedio(body) { const r = await req("POST", "/admin/medios", body || {}); return (r && r.medio) || null; },
+  // Quita de la biblioteca; devuelve { ok, medio, delete_url, nota }.
+  async borrarMedio(id) { return req("DELETE", "/admin/medios/" + encodeURIComponent(id)); },
 };
 
 export default NVApi;

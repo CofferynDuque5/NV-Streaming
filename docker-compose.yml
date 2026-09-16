@@ -11,6 +11,7 @@
 # Claves OPCIONALES (agente de estrenos con IA, WhatsApp, ImgBB): crea un
 # archivo `.env` JUNTO A ESTE (raíz del proyecto, ya está en .gitignore) con:
 #   OPENAI_API_KEY=sk-...      OPENAI_MODEL=gpt-4o-mini      ADMIN_WHATSAPP=58412...
+#   IMGBB_API_KEY=...          (biblioteca de imágenes del editor/admin)
 # El compose las inyecta al backend automáticamente; si faltan, el agente usa
 # una plantilla de reserva (todo lo demás funciona igual).
 #
@@ -55,6 +56,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ADMIN_WHATSAPP: ${ADMIN_WHATSAPP:-}
+      IMGBB_API_KEY: ${IMGBB_API_KEY:-}
     ports:
       - "3000:3000"
 

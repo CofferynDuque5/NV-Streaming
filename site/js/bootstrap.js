@@ -18,6 +18,7 @@ import { instalarSubidaImagenes } from "./modules/image-upload.js";
 import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarResellerApp } from "./modules/reseller-app.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
+import { instalarBibliotecaMedios } from "./modules/media-library.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
 import { instalarToasts } from "./modules/nv-toast.js";
 import { instalarForms } from "./modules/nv-forms.js";
@@ -79,6 +80,7 @@ async function boot() {
   instalarChat();                 // Asistente NV con procesamiento real (/api/chat)
   instalarResellerApp();          // Panel de Revendedor REAL: navegación lateral + /api/reseller/*
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
+  instalarBibliotecaMedios();     // editor: pestaña Medios real (ImgBB vía backend + tabla medios)
   wireAcciones();                 // captura de comprobante + checkout + recarga
 
   // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
