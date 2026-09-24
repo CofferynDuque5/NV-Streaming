@@ -23,9 +23,11 @@ try {
   await cliente.query('BEGIN');
   // El registro de auditoría bloquea TRUNCATE: solo aquí, en pruebas, se desactiva un momento.
   await cliente.query('ALTER TABLE auditoria DISABLE TRIGGER USER');
-  await cliente.query(
-    'TRUNCATE codigos_respaldo, tokens_un_uso, sesiones, auditoria, limites_uso, correos_salientes, usuarios CASCADE',
+  const { rows } = await cliente.query<{ tablename: string }>(
+    "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'",
   );
+  const tablas = rows.map((r) => `"${r.tablename}"`).join(', ');
+  await cliente.query(`TRUNCATE ${tablas} RESTART IDENTITY CASCADE`);
   await cliente.query('ALTER TABLE auditoria ENABLE TRIGGER USER');
   await cliente.query('COMMIT');
   console.log(`Base de pruebas "${nombre}" vaciada.`);

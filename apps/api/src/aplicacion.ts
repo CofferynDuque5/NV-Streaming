@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
+import fastifyMultipart from '@fastify/multipart';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -29,6 +30,17 @@ export async function crearAplicacion(entorno: Entorno, opciones: { registros?: 
   });
 
   await app.register(fastifyCookie);
+  // Formularios con archivo (comprobantes). Un solo archivo y pocos campos por petición.
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: entorno.COMPROBANTE_MAX_MB * 1024 * 1024,
+      files: 1,
+      fields: 12,
+      fieldSize: 4096,
+      parts: 14,
+    },
+    throwFileSizeLimit: true,
+  });
   await app.register(fastifyHelmet, {
     // La API solo devuelve JSON; la documentación necesita estilos y scripts propios.
     contentSecurityPolicy: {

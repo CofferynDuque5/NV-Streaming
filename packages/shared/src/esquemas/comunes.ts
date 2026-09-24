@@ -72,3 +72,17 @@ export const paginacionSchema = z.object({
   pagina: z.coerce.number().int().min(1).default(1),
   porPagina: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+/**
+ * Versión parcial de un esquema de objeto para actualizaciones: quita los
+ * valores por defecto, que de otro modo sobrescribirían lo que no se envía.
+ */
+export function parcialSinDefectos<T extends z.ZodRawShape>(esquema: z.ZodObject<T>) {
+  const forma = Object.fromEntries(
+    Object.entries(esquema.shape).map(([k, v]) => [
+      k,
+      v instanceof z.ZodDefault ? (v.unwrap() as z.ZodType) : (v as z.ZodType),
+    ]),
+  ) as unknown as { [K in keyof T]: T[K] extends z.ZodDefault<infer I> ? I : T[K] };
+  return z.object(forma).partial();
+}

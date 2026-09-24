@@ -1,4 +1,6 @@
-// Esquema de NV Streaming — Fase 0: identidad, acceso y auditoría.
+// Esquema de NV Streaming.
+// Fase 0: identidad, acceso y auditoría. Fase 1: clientes, catálogo, suscripciones,
+// facturas, pagos manuales, cupones y soporte.
 // Cada fase añade sus modelos con una migración nueva y revisable.
 
 generator client {
@@ -63,6 +65,24 @@ model Usuario {
   tokens          TokenUnUso[]
   codigosRespaldo CodigoRespaldo[]
   auditoria       Auditoria[]
+
+  clientePropio        Cliente?            @relation("ClienteUsuario")
+  clientesAsignados    Cliente[]           @relation("ClienteAsignado")
+  clientesCreados      Cliente[]           @relation("ClienteCreador")
+  notasInternas        NotaInterna[]
+  tasasCambio          TasaCambio[]
+  historialPrecios     HistorialPrecio[]
+  eventosSuscripcion   EventoSuscripcion[]
+  suscripcionesCreadas Suscripcion[]
+  facturasCreadas      Factura[]           @relation("FacturaCreador")
+  facturasAnuladas     Factura[]           @relation("FacturaAnulador")
+  cuponesCreados       Cupon[]
+  pagosCreados         Pago[]              @relation("PagoCreador")
+  pagosRevisados       Pago[]              @relation("PagoRevisor")
+  archivosSubidos      Archivo[]
+  ticketsCreados       Ticket[]            @relation("TicketCreador")
+  ticketsAsignados     Ticket[]            @relation("TicketAsignado")
+  mensajesTicket       MensajeTicket[]
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -163,4 +183,581 @@ model CorreoSaliente {
 
   @@index([para, creadoEn(sort: Desc)])
   @@map("correos_salientes")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Monedas
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Monedas de cobro. Los precios del catálogo se fijan en USD.
+enum Moneda {
+  USD
+  VES
+  ARS
+  COP
+  PEN
+  EUR
+}
+
+/// Tasas de cambio: unidades de la moneda por 1 USD. Nunca se editan: una tasa
+/// nueva sustituye a la anterior desde su fecha y queda el historial.
+model TasaCambio {
+  id           String   @id @default(uuid()) @db.Uuid
+  moneda       Moneda
+  valor        Decimal  @db.Decimal(18, 6)
+  vigenteDesde DateTime @default(now()) @map("vigente_desde") @db.Timestamptz(3)
+  autorId      String?  @map("autor_id") @db.Uuid
+  creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  autor Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([moneda, vigenteDesde(sort: Desc)])
+  @@map("tasas_cambio")
+}
+
+/// Cuentas donde el cliente paga a mano (Pago Móvil, transferencia, Zelle...).
+model MetodoCobro {
+  id                 String   @id @default(uuid()) @db.Uuid
+  nombre             String   @db.VarChar(80)
+  moneda             Moneda
+  /// Texto que ve el cliente al pagar (titular, banco, número...). Sin secretos.
+  instrucciones      String   @db.VarChar(2000)
+  requiereReferencia Boolean  @default(true) @map("requiere_referencia")
+  activo             Boolean  @default(true)
+  orden              Int      @default(0)
+  creadoEn           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  pagos Pago[]
+
+  @@index([moneda, activo])
+  @@map("metodos_cobro")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Clientes
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoCliente {
+  activo
+  archivado
+}
+
+enum TipoContacto {
+  correo
+  whatsapp
+  telefono
+}
+
+model Cliente {
+  id              String        @id @default(uuid()) @db.Uuid
+  /// Cuenta con la que el cliente entra a su panel (puede no tenerla todavía).
+  usuarioId       String?       @unique @map("usuario_id") @db.Uuid
+  nombre          String        @db.VarChar(120)
+  correo          String?       @db.VarChar(254)
+  documento       String?       @db.VarChar(40)
+  /// Código ISO 3166-1 alfa-2.
+  pais            String?       @db.Char(2)
+  monedaPreferida Moneda        @default(USD) @map("moneda_preferida")
+  estado          EstadoCliente @default(activo)
+  /// Vendedor responsable de la cuenta.
+  asignadoAId     String?       @map("asignado_a_id") @db.Uuid
+  origen          String        @default("equipo") @db.VarChar(30)
+  creadoPorId     String?       @map("creado_por_id") @db.Uuid
+  creadoEn        DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario       Usuario?          @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA     Usuario?          @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor     Usuario?          @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  contactos     ContactoCliente[]
+  notas         NotaInterna[]
+  suscripciones Suscripcion[]
+  facturas      Factura[]
+  pagos         Pago[]
+  tickets       Ticket[]
+  canjesCupon   CanjeCupon[]
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@index([asignadoAId])
+  @@index([correo])
+  @@map("clientes")
+}
+
+model ContactoCliente {
+  id               String       @id @default(uuid()) @db.Uuid
+  clienteId        String       @map("cliente_id") @db.Uuid
+  tipo             TipoContacto
+  valor            String       @db.VarChar(254)
+  /// Fecha en que el cliente aceptó recibir mensajes por este canal.
+  consentimientoEn DateTime?    @map("consentimiento_en") @db.Timestamptz(3)
+  creadoEn         DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  @@unique([clienteId, tipo, valor])
+  @@map("contactos_cliente")
+}
+
+/// Notas del equipo sobre un cliente. El cliente nunca las ve.
+model NotaInterna {
+  id        String   @id @default(uuid()) @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  autorId   String   @map("autor_id") @db.Uuid
+  texto     String   @db.VarChar(2000)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("notas_internas")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Catálogo (genérico: servicio propio y distribuidor oficial)
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum TipoProveedor {
+  propio
+  distribuidor
+}
+
+enum UnidadDuracion {
+  dia
+  mes
+}
+
+model Proveedor {
+  id             String        @id @default(uuid()) @db.Uuid
+  nombre         String        @unique @db.VarChar(80)
+  tipo           TipoProveedor
+  /// Adaptador de entrega. En la fase 1 todos son "manual".
+  adaptador      String        @default("manual") @db.VarChar(40)
+  /// Si el acuerdo prohíbe revender, sus planes no se ofrecen a revendedores.
+  permiteReventa Boolean       @default(false) @map("permite_reventa")
+  notasAcuerdo   String?       @map("notas_acuerdo") @db.VarChar(2000)
+  activo         Boolean       @default(true)
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  servicios Servicio[]
+
+  @@map("proveedores")
+}
+
+model Servicio {
+  id            String   @id @default(uuid()) @db.Uuid
+  proveedorId   String   @map("proveedor_id") @db.Uuid
+  nombre        String   @db.VarChar(80)
+  slug          String   @unique @db.VarChar(80)
+  descripcion   String?  @db.VarChar(1000)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  planes    Plan[]
+
+  @@map("servicios")
+}
+
+model Plan {
+  id               String         @id @default(uuid()) @db.Uuid
+  servicioId       String         @map("servicio_id") @db.Uuid
+  nombre           String         @db.VarChar(80)
+  descripcion      String?        @db.VarChar(1000)
+  /// Precio base. El resto de monedas se calcula con la tasa vigente salvo precio fijo.
+  precioUsd        Decimal        @map("precio_usd") @db.Decimal(14, 2)
+  duracionCantidad Int            @map("duracion_cantidad")
+  duracionUnidad   UnidadDuracion @map("duracion_unidad")
+  beneficios       String[]       @default([])
+  activo           Boolean        @default(true)
+  /// Aparece en el sitio público y en el panel del cliente.
+  visible          Boolean        @default(true)
+  renovable        Boolean        @default(true)
+  /// Se podrá vender a revendedores (fase 2).
+  revendible       Boolean        @default(false)
+  orden            Int            @default(0)
+  creadoEn         DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  servicio      Servicio          @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  preciosFijos  PrecioFijo[]
+  historial     HistorialPrecio[]
+  suscripciones Suscripcion[]
+  lineas        LineaFactura[]
+  cupones       CuponPlan[]
+
+  @@index([activo, visible, orden])
+  @@map("planes")
+}
+
+/// Precio fijado a mano en una moneda: ignora la tasa de cambio.
+model PrecioFijo {
+  id            String   @id @default(uuid()) @db.Uuid
+  planId        String   @map("plan_id") @db.Uuid
+  moneda        Moneda
+  precio        Decimal  @db.Decimal(14, 2)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, moneda])
+  @@map("precios_fijos")
+}
+
+model HistorialPrecio {
+  id       String   @id @default(uuid()) @db.Uuid
+  planId   String   @map("plan_id") @db.Uuid
+  moneda   Moneda
+  /// Nulo cuando antes no había precio fijo en esa moneda.
+  anterior Decimal? @db.Decimal(14, 2)
+  /// Nulo cuando se quita el precio fijo y vuelve a seguir la tasa.
+  nuevo    Decimal? @db.Decimal(14, 2)
+  autorId  String?  @map("autor_id") @db.Uuid
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  plan  Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  autor Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([planId, creadoEn(sort: Desc)])
+  @@map("historial_precios")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Suscripciones
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoSuscripcion {
+  pendiente_pago
+  activa
+  en_gracia
+  pausada
+  suspendida
+  vencida
+  cancelada
+}
+
+enum TipoEventoSuscripcion {
+  alta
+  activacion
+  renovacion
+  pausa
+  reanudacion
+  cancelacion
+  cancelacion_programada
+  cancelacion_revertida
+  vencimiento
+  suspension
+  recuperacion
+}
+
+model Suscripcion {
+  id                String            @id @default(uuid()) @db.Uuid
+  clienteId         String            @map("cliente_id") @db.Uuid
+  planId            String            @map("plan_id") @db.Uuid
+  estado            EstadoSuscripcion @default(pendiente_pago)
+  moneda            Moneda
+  inicioEn          DateTime?         @map("inicio_en") @db.Timestamptz(3)
+  venceEn           DateTime?         @map("vence_en") @db.Timestamptz(3)
+  pausadaEn         DateTime?         @map("pausada_en") @db.Timestamptz(3)
+  /// Tiempo que le quedaba al pausarla; se devuelve al reanudar.
+  segundosRestantes Int?              @map("segundos_restantes")
+  /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
+  cancelarAlVencer  Boolean           @default(false) @map("cancelar_al_vencer")
+  canceladaEn       DateTime?         @map("cancelada_en") @db.Timestamptz(3)
+  creadoPorId       String?           @map("creado_por_id") @db.Uuid
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  plan      Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadoPor Usuario?            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  eventos   EventoSuscripcion[]
+  facturas  Factura[]
+  tickets   Ticket[]
+
+  @@index([clienteId, estado])
+  @@index([estado, venceEn])
+  @@map("suscripciones")
+}
+
+model EventoSuscripcion {
+  id            String                @id @default(uuid()) @db.Uuid
+  suscripcionId String                @map("suscripcion_id") @db.Uuid
+  tipo          TipoEventoSuscripcion
+  actorId       String?               @map("actor_id") @db.Uuid
+  motivo        String?               @db.VarChar(500)
+  datos         Json?
+  creadoEn      DateTime              @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  suscripcion Suscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  actor       Usuario?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([suscripcionId, creadoEn(sort: Desc)])
+  @@map("eventos_suscripcion")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Facturas, cupones y pagos manuales
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoFactura {
+  emitida
+  pagada
+  anulada
+}
+
+enum ConceptoFactura {
+  alta
+  renovacion
+}
+
+model Factura {
+  id              String          @id @default(uuid()) @db.Uuid
+  /// Correlativo que genera la base de datos. Se muestra como NV-000123.
+  numero          Int             @unique @default(autoincrement())
+  clienteId       String          @map("cliente_id") @db.Uuid
+  suscripcionId   String?         @map("suscripcion_id") @db.Uuid
+  concepto        ConceptoFactura
+  estado          EstadoFactura   @default(emitida)
+  moneda          Moneda
+  subtotal        Decimal         @db.Decimal(14, 2)
+  descuento       Decimal         @default(0) @db.Decimal(14, 2)
+  total           Decimal         @db.Decimal(14, 2)
+  /// Unidades de `moneda` por 1 USD al emitir o recotizar.
+  tasa            Decimal         @db.Decimal(18, 6)
+  totalUsd        Decimal         @map("total_usd") @db.Decimal(14, 2)
+  cuponId         String?         @map("cupon_id") @db.Uuid
+  venceEn         DateTime        @map("vence_en") @db.Timestamptz(3)
+  pagadaEn        DateTime?       @map("pagada_en") @db.Timestamptz(3)
+  anuladaEn       DateTime?       @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion String?         @map("motivo_anulacion") @db.VarChar(500)
+  anuladaPorId    String?         @map("anulada_por_id") @db.Uuid
+  creadoPorId     String?         @map("creado_por_id") @db.Uuid
+  creadoEn        DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente     Cliente        @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion?   @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  cupon       Cupon?         @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  anuladaPor  Usuario?       @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  creadoPor   Usuario?       @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  lineas      LineaFactura[]
+  pagos       Pago[]
+  canje       CanjeCupon?
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([estado, venceEn])
+  @@index([suscripcionId])
+  @@map("facturas")
+}
+
+model LineaFactura {
+  id             String  @id @default(uuid()) @db.Uuid
+  facturaId      String  @map("factura_id") @db.Uuid
+  planId         String? @map("plan_id") @db.Uuid
+  descripcion    String  @db.VarChar(200)
+  cantidad       Int
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(14, 2)
+  total          Decimal @db.Decimal(14, 2)
+
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  plan    Plan?   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([facturaId])
+  @@map("lineas_factura")
+}
+
+enum TipoCupon {
+  porcentaje
+  monto
+}
+
+model Cupon {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// Siempre en mayúsculas.
+  codigo        String    @unique @db.VarChar(40)
+  tipo          TipoCupon
+  /// Porcentaje (1–100) o monto en USD.
+  valor         Decimal   @db.Decimal(14, 2)
+  validoDesde   DateTime? @map("valido_desde") @db.Timestamptz(3)
+  validoHasta   DateTime? @map("valido_hasta") @db.Timestamptz(3)
+  usosMaximos   Int?      @map("usos_maximos")
+  usos          Int       @default(0)
+  /// Solo en altas: no descuenta renovaciones.
+  soloAltas     Boolean   @default(true) @map("solo_altas")
+  activo        Boolean   @default(true)
+  creadoPorId   String    @map("creado_por_id") @db.Uuid
+  creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  creadoPor Usuario      @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  /// Si no tiene planes, vale para todos.
+  planes    CuponPlan[]
+  canjes    CanjeCupon[]
+  facturas  Factura[]
+
+  @@map("cupones")
+}
+
+model CuponPlan {
+  cuponId String @map("cupon_id") @db.Uuid
+  planId  String @map("plan_id") @db.Uuid
+
+  cupon Cupon @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@id([cuponId, planId])
+  @@map("cupones_planes")
+}
+
+/// Un canje por factura y, como mucho, uno por cliente y cupón.
+model CanjeCupon {
+  id        String   @id @default(uuid()) @db.Uuid
+  cuponId   String   @map("cupon_id") @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  facturaId String   @unique @map("factura_id") @db.Uuid
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cupon   Cupon   @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+
+  @@unique([cuponId, clienteId])
+  @@map("canjes_cupon")
+}
+
+/// Archivo subido (por ahora, comprobantes de pago). El tipo se verifica por su contenido.
+model Archivo {
+  id             String   @id @default(uuid()) @db.Uuid
+  nombreOriginal String   @map("nombre_original") @db.VarChar(200)
+  tipoMime       String   @map("tipo_mime") @db.VarChar(60)
+  tamano         Int
+  sha256         String   @db.Char(64)
+  /// Clave dentro del almacén (nunca una ruta que venga del usuario).
+  clave          String   @unique @db.VarChar(200)
+  subidoPorId    String?  @map("subido_por_id") @db.Uuid
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  pagos     Pago[]
+
+  @@map("archivos")
+}
+
+enum EstadoPago {
+  en_revision
+  confirmado
+  rechazado
+}
+
+model Pago {
+  id                String     @id @default(uuid()) @db.Uuid
+  /// Referencia que genera el servidor (única). La ve el cliente y el equipo.
+  referencia        String     @unique @db.VarChar(20)
+  facturaId         String     @map("factura_id") @db.Uuid
+  clienteId         String     @map("cliente_id") @db.Uuid
+  metodoCobroId     String     @map("metodo_cobro_id") @db.Uuid
+  moneda            Moneda
+  montoDeclarado    Decimal    @map("monto_declarado") @db.Decimal(14, 2)
+  montoRecibido     Decimal?   @map("monto_recibido") @db.Decimal(14, 2)
+  /// Número de operación del banco o de la billetera, según el cliente.
+  referenciaExterna String?    @map("referencia_externa") @db.VarChar(80)
+  fechaPago         DateTime   @map("fecha_pago") @db.Timestamptz(3)
+  comprobanteId     String?    @map("comprobante_id") @db.Uuid
+  estado            EstadoPago @default(en_revision)
+  motivoRechazo     String?    @map("motivo_rechazo") @db.VarChar(500)
+  notasConciliacion String?    @map("notas_conciliacion") @db.VarChar(500)
+  revisadoPorId     String?    @map("revisado_por_id") @db.Uuid
+  revisadoEn        DateTime?  @map("revisado_en") @db.Timestamptz(3)
+  creadoPorId       String?    @map("creado_por_id") @db.Uuid
+  creadoEn          DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime   @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante Archivo?    @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor Usuario?    @relation("PagoRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  creadoPor   Usuario?    @relation("PagoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([estado, creadoEn])
+  @@index([facturaId])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("pagos")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Soporte
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoTicket {
+  abierto
+  en_progreso
+  esperando_cliente
+  resuelto
+  cerrado
+}
+
+enum PrioridadTicket {
+  baja
+  normal
+  alta
+  urgente
+}
+
+enum CategoriaTicket {
+  pagos
+  acceso
+  suscripcion
+  cuenta
+  otro
+}
+
+model Ticket {
+  id                  String          @id @default(uuid()) @db.Uuid
+  numero              Int             @unique @default(autoincrement())
+  clienteId           String          @map("cliente_id") @db.Uuid
+  suscripcionId       String?         @map("suscripcion_id") @db.Uuid
+  asunto              String          @db.VarChar(160)
+  categoria           CategoriaTicket
+  prioridad           PrioridadTicket @default(normal)
+  estado              EstadoTicket    @default(abierto)
+  asignadoAId         String?         @map("asignado_a_id") @db.Uuid
+  /// Plazo de la primera respuesta según la prioridad.
+  slaPrimeraRespuesta DateTime        @map("sla_primera_respuesta") @db.Timestamptz(3)
+  primeraRespuestaEn  DateTime?       @map("primera_respuesta_en") @db.Timestamptz(3)
+  resueltoEn          DateTime?       @map("resuelto_en") @db.Timestamptz(3)
+  creadoPorId         String          @map("creado_por_id") @db.Uuid
+  creadoEn            DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn       DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente     Cliente         @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion?    @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  asignadoA   Usuario?        @relation("TicketAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor   Usuario         @relation("TicketCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  mensajes    MensajeTicket[]
+
+  @@index([estado, prioridad, creadoEn])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([asignadoAId, estado])
+  @@map("tickets")
+}
+
+model MensajeTicket {
+  id       String   @id @default(uuid()) @db.Uuid
+  ticketId String   @map("ticket_id") @db.Uuid
+  autorId  String   @map("autor_id") @db.Uuid
+  texto    String   @db.VarChar(5000)
+  /// Nota interna del equipo: el cliente no la ve.
+  interno  Boolean  @default(false)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  ticket Ticket  @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  autor  Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, creadoEn])
+  @@map("mensajes_ticket")
 }

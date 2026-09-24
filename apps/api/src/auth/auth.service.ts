@@ -67,6 +67,24 @@ export class AuthService {
           rol: 'cliente',
         },
       });
+      // Ficha de cliente: si el equipo ya lo tenía registrado sin acceso, se enlaza.
+      // Es seguro porque no podrá entrar hasta confirmar que el correo es suyo.
+      const previo = await tx.cliente.findFirst({
+        where: { correo: usuario.correo, usuarioId: null },
+        orderBy: { creadoEn: 'asc' },
+      });
+      if (previo) {
+        await tx.cliente.update({ where: { id: previo.id }, data: { usuarioId: usuario.id } });
+      } else {
+        await tx.cliente.create({
+          data: {
+            usuarioId: usuario.id,
+            nombre: usuario.nombre,
+            correo: usuario.correo,
+            origen: 'registro_web',
+          },
+        });
+      }
       const token = await this.tokens.emitir(usuario.id, 'verificar_correo', tx);
       await this.auditoria.registrar(
         {

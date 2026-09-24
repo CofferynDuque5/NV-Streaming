@@ -1,7 +1,32 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditoriaController } from './auditoria/auditoria.controller.js';
+import { AlmacenService } from './almacen/almacen.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { AutoservicioController } from './autoservicio/autoservicio.controller.js';
+import { CatalogoController } from './catalogo/catalogo.controller.js';
+import { CatalogoService } from './catalogo/catalogo.service.js';
+import { ClientesController } from './clientes/clientes.controller.js';
+import { ClientesService } from './clientes/clientes.service.js';
+import {
+  CuponesController,
+  FacturasController,
+  PagosController,
+} from './cobros/cobros.controller.js';
+import { CuponesService } from './cobros/cupones.service.js';
+import { FacturacionService } from './cobros/facturacion.service.js';
+import { FacturasService } from './cobros/facturas.service.js';
+import { PagosService } from './cobros/pagos.service.js';
+import { FinanzasController } from './dinero/finanzas.controller.js';
+import { MetodosCobroService } from './dinero/metodos-cobro.service.js';
+import { TasasService } from './dinero/tasas.service.js';
+import { MetricasController } from './metricas/metricas.controller.js';
+import { MetricasService } from './metricas/metricas.service.js';
+import { TicketsController } from './soporte/tickets.controller.js';
+import { TicketsService } from './soporte/tickets.service.js';
+import { SuscripcionesController } from './suscripciones/suscripciones.controller.js';
+import { SuscripcionesService } from './suscripciones/suscripciones.service.js';
+import { VencimientosService } from './suscripciones/vencimientos.service.js';
 import { FiltroErrores } from './comun/errores.js';
 import type { Entorno } from './config/entorno.js';
 import { CuentaController } from './cuenta/cuenta.controller.js';
@@ -20,10 +45,38 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [NucleoModule.con(entorno), AuthModule],
-      controllers: [SaludController, CuentaController, UsuariosController, AuditoriaController],
+      controllers: [
+        SaludController,
+        CuentaController,
+        UsuariosController,
+        AuditoriaController,
+        FinanzasController,
+        CatalogoController,
+        ClientesController,
+        SuscripcionesController,
+        FacturasController,
+        PagosController,
+        CuponesController,
+        TicketsController,
+        MetricasController,
+        AutoservicioController,
+      ],
       providers: [
         CuentaService,
         UsuariosService,
+        AlmacenService,
+        TasasService,
+        MetodosCobroService,
+        CatalogoService,
+        ClientesService,
+        FacturacionService,
+        SuscripcionesService,
+        VencimientosService,
+        FacturasService,
+        PagosService,
+        CuponesService,
+        TicketsService,
+        MetricasService,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },

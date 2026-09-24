@@ -78,6 +78,54 @@ export const Plantillas = {
       html: envolver('Tienes una invitación', p, { texto: 'Aceptar invitación', url }),
     };
   },
+  invitacionCliente(nombre: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      'Creamos tu acceso al panel de cliente de NV Streaming. Desde allí verás tus servicios, pagarás tus facturas y hablarás con soporte.',
+      'Acepta la invitación para crear tu contraseña. El enlace vence en 72 horas.',
+    ];
+    return {
+      asunto: 'Tu acceso a NV Streaming',
+      texto: texto(p, url),
+      html: envolver('Tu acceso a NV Streaming', p, { texto: 'Crear mi contraseña', url }),
+    };
+  },
+  pagoConfirmado(nombre: string, factura: string, monto: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Confirmamos tu pago de ${monto} de la factura ${factura}. Gracias.`,
+    ];
+    return {
+      asunto: `Pago confirmado: ${factura}`,
+      texto: texto(p, url),
+      html: envolver('Pago confirmado', p, { texto: 'Ver mis servicios', url }),
+    };
+  },
+  pagoRechazado(nombre: string, factura: string, motivo: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `No pudimos confirmar el pago que reportaste para la factura ${factura}.`,
+      `Motivo: ${motivo}`,
+      'Puedes reportarlo de nuevo con el comprobante correcto o escribir a soporte.',
+    ];
+    return {
+      asunto: `Revisa tu pago: ${factura}`,
+      texto: texto(p, url),
+      html: envolver('Revisa tu pago', p, { texto: 'Ver la factura', url }),
+    };
+  },
+  ticketRespondido(nombre: string, numero: number, asunto: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Respondimos a tu solicitud #${numero}: "${asunto}".`,
+      'Por seguridad, lee la respuesta en tu panel.',
+    ];
+    return {
+      asunto: `Respuesta a tu solicitud #${numero}`,
+      texto: texto(p, url),
+      html: envolver('Tienes una respuesta', p, { texto: 'Ver la respuesta', url }),
+    };
+  },
   dosPasosDesactivados(nombre: string): CorreoRenderizado {
     const p = [
       `Hola, ${nombre}.`,

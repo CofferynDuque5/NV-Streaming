@@ -29,6 +29,11 @@ const EntornoSchema = z
       .min(5)
       .max(24 * 60)
       .default(120),
+    /** Carpeta donde se guardan los comprobantes. Fuera de la carpeta pública de la web. */
+    ALMACEN_DIR: z.string().min(1).default('almacen'),
+    COMPROBANTE_MAX_MB: z.coerce.number().int().min(1).max(20).default(5),
+    /** Cada cuántos minutos se aplican vencimientos, gracia y suspensiones (0 = nunca). */
+    VENCIMIENTOS_CADA_MINUTOS: z.coerce.number().int().min(0).max(1440).default(10),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
