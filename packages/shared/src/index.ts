@@ -1,6 +1,7 @@
 export * from './roles.js';
 export * from './permisos.js';
 export * from './monedas.js';
+export * from './ubicacion.js';
 export * from './tipos.js';
 export * from './tipos-negocio.js';
 export * from './esquemas/comunes.js';

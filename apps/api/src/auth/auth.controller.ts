@@ -7,6 +7,7 @@ import {
   restablecerContrasenaSchema,
   type SesionActual,
   solicitarCorreoSchema,
+  type Ubicacion,
   verificar2faSchema,
   verificarCorreoSchema,
 } from '@nv/shared';
@@ -19,6 +20,7 @@ import {
   type InfoCliente,
   PermitePendiente,
   Publica,
+  UbicacionVisitante,
 } from '../comun/contexto.js';
 import { borrarCookieSesion, ponerCookieSesion } from '../comun/cookie.js';
 import { DocCuerpo } from '../comun/documentacion.js';
@@ -50,8 +52,9 @@ export class AuthController {
   async registro(
     @Body(validar(registroSchema)) cuerpo: z.output<typeof registroSchema>,
     @Cliente() cliente: InfoCliente,
+    @UbicacionVisitante() ubicacion: Ubicacion,
   ) {
-    await this.auth.registrar(cuerpo, cliente);
+    await this.auth.registrar(cuerpo, cliente, ubicacion);
     return MENSAJE_CORREO_ENVIADO;
   }
 

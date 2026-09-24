@@ -1,4 +1,4 @@
-import type { CatalogoPublico } from '@nv/shared';
+import { type CatalogoPublico, INFO_MONEDA } from '@nv/shared';
 import { ArrowRight, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
 import {
@@ -9,6 +9,8 @@ import {
 } from '@/componentes/planes';
 import { BotonEnlace } from '@/componentes/ui/boton';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
+import { nombrePais } from '@/lib/formato';
+import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = {
   title: 'Planes y precios',
@@ -38,9 +40,18 @@ export default async function Planes({
 }: {
   searchParams: Promise<{ moneda?: string }>;
 }) {
-  const [catalogo, { moneda: pedida }] = await Promise.all([leerCatalogo(), searchParams]);
+  const [catalogo, { moneda: pedida }, ubicacion] = await Promise.all([
+    leerCatalogo(),
+    searchParams,
+    ubicacionVisitante(),
+  ]);
   const monedas = catalogo?.monedas ?? ['USD'];
-  const moneda = monedaValida(pedida, monedas);
+  const moneda = monedaValida(monedas, pedida, ubicacion.moneda);
+  const porUbicacion =
+    !pedida &&
+    moneda === ubicacion.moneda &&
+    (ubicacion.origen === 'conexion' || ubicacion.origen === 'idioma') &&
+    ubicacion.pais !== null;
   const grupos = agruparPorServicio(catalogo?.planes ?? []);
 
   return (
@@ -60,6 +71,12 @@ export default async function Planes({
             en cuanto confirmamos el pago.
           </p>
           <SelectorMoneda monedas={monedas} actual={moneda} ruta="/planes" />
+          {porUbicacion && ubicacion.pais && (
+            <p className="text-sm text-tinta-suave">
+              Te mostramos los precios en {moneda} ({INFO_MONEDA[moneda].nombre}) porque parece que
+              estás en {nombrePais(ubicacion.pais)}. Puedes elegir otra moneda arriba.
+            </p>
+          )}
           {moneda !== 'USD' && (
             <p className="text-xs text-tinta-tenue">
               Los precios en {moneda} se calculan con la tasa del día y pueden cambiar. El importe

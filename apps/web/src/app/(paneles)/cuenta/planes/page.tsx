@@ -14,6 +14,7 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
+import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = { title: 'Contratar' };
 
@@ -23,13 +24,21 @@ export default async function ContratarPlan({
   searchParams: Promise<{ moneda?: string; plan?: string }>;
 }) {
   await requerirSesion({ roles: ['cliente'] });
-  const [{ datos: catalogo }, { datos: resumen }, filtro] = await Promise.all([
+  const [{ datos: catalogo }, { datos: resumen }, filtro, ubicacion] = await Promise.all([
     leerApi<CatalogoPublico>('/catalogo'),
     leerApi<ResumenCliente>('/mi/resumen'),
     searchParams,
+    ubicacionVisitante(),
   ]);
   const monedas = catalogo?.monedas ?? ['USD'];
-  const moneda = monedaValida(filtro.moneda, monedas, resumen?.cliente.monedaPreferida);
+  // La moneda del enlace manda; luego la última que eligió, la de su perfil y la de su país.
+  const moneda = monedaValida(
+    monedas,
+    filtro.moneda,
+    ubicacion.origen === 'eleccion' ? ubicacion.moneda : null,
+    resumen?.cliente.monedaPreferida,
+    ubicacion.moneda,
+  );
   const grupos = agruparPorServicio(catalogo?.planes ?? []);
   const contratados = new Set(
     (resumen?.suscripciones ?? [])

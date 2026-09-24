@@ -112,14 +112,13 @@ export function TarjetaPlan({
   );
 }
 
-/** Elige la moneda pedida si está disponible; si no, la primera disponible. */
+/** Primera moneda candidata que esté disponible; si ninguna lo está, la primera disponible. */
 export function monedaValida(
-  pedida: string | undefined,
   disponibles: readonly Moneda[],
-  preferida?: Moneda,
+  ...candidatas: (string | null | undefined)[]
 ): Moneda {
-  const candidatas = [pedida, preferida, 'USD'];
-  for (const c of candidatas)
+  for (const c of [...candidatas, 'USD']) {
     if (c && (disponibles as readonly string[]).includes(c)) return c as Moneda;
+  }
   return disponibles[0] ?? 'USD';
 }

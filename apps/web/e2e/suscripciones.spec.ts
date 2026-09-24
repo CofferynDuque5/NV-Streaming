@@ -18,6 +18,21 @@ test('la página pública muestra los planes en la moneda elegida', async ({ pag
   await expect(page.getByText(/898,50/).first()).toBeVisible();
 });
 
+test('sin elegir moneda, muestra la del país de la conexión y recuerda la elegida', async ({
+  page,
+}) => {
+  await page.setExtraHTTPHeaders({ 'cf-ipcountry': 'CO' });
+  await page.goto('/planes');
+  await expect(page.getByRole('link', { name: 'COP' })).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByText('parece que estás en Colombia')).toBeVisible();
+
+  await page.getByRole('link', { name: 'EUR' }).click();
+  await expect(page).toHaveURL(/moneda=EUR/);
+  await page.goto('/planes');
+  await expect(page.getByRole('link', { name: 'EUR' })).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByText('parece que estás en')).toHaveCount(0);
+});
+
 test('el cliente contrata un plan, paga en bolívares y el equipo concilia el pago', async ({
   page,
 }) => {

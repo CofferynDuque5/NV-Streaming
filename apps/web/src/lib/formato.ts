@@ -100,3 +100,13 @@ export function diasHasta(iso: string, ahora = Date.now()): number {
 }
 
 export { formatearMonto } from '@nv/shared';
+
+const regiones = new Intl.DisplayNames('es', { type: 'region' });
+/** Nombre del país en español a partir de su código ("VE" → "Venezuela"). */
+export function nombrePais(codigo: string): string {
+  try {
+    return regiones.of(codigo) ?? codigo;
+  } catch {
+    return codigo;
+  }
+}

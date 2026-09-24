@@ -5,6 +5,7 @@ import {
   type InicioSesionEntrada,
   type RegistroEntrada,
   type SesionActual,
+  type Ubicacion,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -43,7 +44,11 @@ export class AuthService {
    * Alta de clientes. La respuesta es la misma exista o no el correo, para no
    * revelar qué correos están registrados.
    */
-  async registrar(entrada: RegistroEntrada, cliente: InfoCliente): Promise<void> {
+  async registrar(
+    entrada: RegistroEntrada,
+    cliente: InfoCliente,
+    ubicacion?: Ubicacion,
+  ): Promise<void> {
     await this.limites.consumir(`registro:ip:${cliente.ip}`, LIMITES.registroIp);
     await this.limites.consumir(`correo:destino:${entrada.correo}`, LIMITES.correoPorDestino);
 
@@ -82,6 +87,9 @@ export class AuthService {
             nombre: usuario.nombre,
             correo: usuario.correo,
             origen: 'registro_web',
+            // Valores iniciales según su conexión; el cliente los cambia en Perfil.
+            pais: ubicacion?.pais ?? null,
+            monedaPreferida: ubicacion?.moneda ?? 'USD',
           },
         });
       }

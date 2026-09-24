@@ -1,5 +1,11 @@
 import { createParamDecorator, type ExecutionContext, SetMetadata } from '@nestjs/common';
-import type { Permiso, PasoPendiente } from '@nv/shared';
+import {
+  COOKIE_MONEDA,
+  detectarUbicacion,
+  type Permiso,
+  type PasoPendiente,
+  type Ubicacion,
+} from '@nv/shared';
 import type { FastifyRequest } from 'fastify';
 import type { Sesion, Usuario } from '@nv/db';
 
@@ -51,3 +57,14 @@ export const Cliente = createParamDecorator((_: unknown, ctx: ExecutionContext):
     idPeticion: String(p.id),
   };
 });
+
+/**
+ * País de la conexión (según la cabecera de la CDN) y moneda sugerida. Solo
+ * sirve para proponer valores por defecto: nunca para decisiones de seguridad.
+ */
+export const UbicacionVisitante = createParamDecorator(
+  (_: unknown, ctx: ExecutionContext): Ubicacion => {
+    const p = ctx.switchToHttp().getRequest<FastifyRequest>();
+    return detectarUbicacion(p.headers, p.cookies?.[COOKIE_MONEDA]);
+  },
+);

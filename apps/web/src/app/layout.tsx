@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   description:
     'Servicios de streaming autorizados, con activación, pagos y soporte en un solo lugar.',
   applicationName: 'NV Streaming',
+  // Las imágenes para compartir (opengraph-image.jpg) necesitan la dirección pública del sitio.
+  metadataBase: new URL(process.env.WEB_ORIGEN ?? 'http://localhost:3000'),
+  openGraph: {
+    type: 'website',
+    locale: 'es',
+    siteName: 'NV Streaming',
+  },
+  twitter: { card: 'summary_large_image' },
 };
 
 export const viewport: Viewport = {

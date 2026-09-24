@@ -77,6 +77,27 @@ describe('registro y verificación de correo', () => {
     expect(r.cuerpo.error.codigo).toBe('DATOS_INVALIDOS');
     expect(r.cuerpo.error.campos.contrasena[0]).toMatch(/correo/);
   });
+  it('propone país y moneda según la conexión, y respeta la moneda que eligió', async () => {
+    const registrar = (correo: string, headers: Record<string, string>) =>
+      ctx.app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/registro',
+        headers: { origin: 'http://localhost:3000', ...headers },
+        payload: { ...datos, correo },
+      });
+    await registrar('desde.venezuela@correo.test', { 'cf-ipcountry': 'VE' });
+    await registrar('desde.colombia@correo.test', { 'accept-language': 'es-CO,es;q=0.9' });
+    await registrar('eligio.euro@correo.test', { 'cf-ipcountry': 'AR', cookie: 'nv_moneda=EUR' });
+    const fichas = await ctx.prisma.cliente.findMany({
+      select: { correo: true, pais: true, monedaPreferida: true },
+      orderBy: { correo: 'asc' },
+    });
+    expect(fichas).toEqual([
+      { correo: 'desde.colombia@correo.test', pais: 'CO', monedaPreferida: 'COP' },
+      { correo: 'desde.venezuela@correo.test', pais: 'VE', monedaPreferida: 'VES' },
+      { correo: 'eligio.euro@correo.test', pais: 'AR', monedaPreferida: 'EUR' },
+    ]);
+  });
 });
 
 describe('inicio de sesión', () => {
