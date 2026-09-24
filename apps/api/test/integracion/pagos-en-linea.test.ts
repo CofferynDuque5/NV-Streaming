@@ -819,7 +819,10 @@ describe('webhooks', () => {
     const cuerpo = s().sandbox.cuerpoWebhook('orden.aprobada', 'sbx_ord_inexistente', 'evt_1');
     expect((await webhook(cuerpo, {})).statusCode).toBe(400);
     const mala = s().sandbox.firmar(cuerpo);
-    mala[CABECERA_FIRMA_SANDBOX] = mala[CABECERA_FIRMA_SANDBOX]!.replace(/v1=./, 'v1=0');
+    mala[CABECERA_FIRMA_SANDBOX] = mala[CABECERA_FIRMA_SANDBOX]!.replace(
+      /v1=(.)/,
+      (_, c: string) => `v1=${c === '0' ? '1' : '0'}`,
+    );
     expect((await webhook(cuerpo, mala)).statusCode).toBe(400);
     const vieja = s().sandbox.firmar(cuerpo, Math.floor(Date.now() / 1000) - 3600);
     expect((await webhook(cuerpo, vieja)).statusCode).toBe(400);

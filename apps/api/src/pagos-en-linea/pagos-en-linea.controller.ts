@@ -156,7 +156,7 @@ export class PasarelasController {
         nombre: INFO_PASARELA[p].nombre,
         configurada: a.configurada(),
         modo: a.modo,
-        monedas: [...INFO_PASARELA[p].monedas],
+        monedas: this.registro.monedas(p),
         admiteCobroRecurrente: INFO_PASARELA[p].admiteCobroRecurrente,
         urlWebhook: this.registro.urlWebhook(p),
       };

@@ -27,7 +27,7 @@ import { D } from '../dinero/dinero.js';
 import type { ResultadoPago } from './adaptador.js';
 import { AvisosEquipoPagosService } from './avisos-equipo.service.js';
 import { MetodosAutorizadosService } from './metodos-autorizados.service.js';
-import { admiteRecurrente, esPasarela, pasarelaAdmiteMoneda } from './pasarelas.js';
+import { admiteRecurrente, esPasarela } from './pasarelas.js';
 import { ABIERTOS, intentoPublico } from './presentacion.js';
 import { RegistroPasarelas } from './registro.service.js';
 
@@ -114,7 +114,10 @@ export class IntentosPagoService implements OnModuleInit {
     const textos: OpcionesPagoEnLinea['textosAutorizacion'] = {};
     for (const m of metodos) {
       if (!esPasarela(m.pasarela)) continue;
-      if (!pasarelaAdmiteMoneda(m.pasarela, f.moneda) || !this.registro.disponible(m.pasarela)) {
+      if (
+        !this.registro.admiteMoneda(m.pasarela, f.moneda) ||
+        !this.registro.disponible(m.pasarela)
+      ) {
         continue;
       }
       const admiteGuardar =
@@ -484,7 +487,7 @@ export class IntentosPagoService implements OnModuleInit {
     }
     if (
       metodo.moneda !== factura.moneda ||
-      !pasarelaAdmiteMoneda(metodo.pasarela, factura.moneda)
+      !this.registro.admiteMoneda(metodo.pasarela, factura.moneda)
     ) {
       throw noValido(`Elige un método que cobre en ${factura.moneda}.`);
     }

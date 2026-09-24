@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Pasarela } from '@nv/shared';
+import { INFO_PASARELA, type Moneda, type Pasarela } from '@nv/shared';
 import { ErrorApp } from '../comun/errores.js';
 import { ENTORNO } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
 import { AdaptadorNoDisponible, type AdaptadorPasarela } from './adaptador.js';
-import { esPasarela } from './pasarelas.js';
+import { esPasarela, pasarelaAdmiteMoneda } from './pasarelas.js';
 import { AdaptadorMercadoPago } from './mercadopago/mercadopago.adaptador.js';
 import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
 import { AdaptadorSandbox } from './sandbox/sandbox.adaptador.js';
@@ -50,6 +50,17 @@ export class RegistroPasarelas {
 
   disponible(pasarela: string): boolean {
     return esPasarela(pasarela) && this.adaptadores[pasarela].configurada();
+  }
+
+  /** Monedas en las que cobra la pasarela con la cuenta configurada. */
+  monedas(pasarela: Pasarela): Moneda[] {
+    const cuenta = this.adaptadores[pasarela].monedasCuenta?.();
+    return INFO_PASARELA[pasarela].monedas.filter((m) => !cuenta || cuenta.includes(m));
+  }
+
+  /** La pasarela admite la moneda y la cuenta configurada puede cobrar en ella. */
+  admiteMoneda(pasarela: Pasarela, moneda: Moneda): boolean {
+    return pasarelaAdmiteMoneda(pasarela, moneda) && this.monedas(pasarela).includes(moneda);
   }
 
   /** URL que hay que registrar en la pasarela para sus webhooks. */

@@ -19,10 +19,16 @@ export interface InfoPasarela {
 
 export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
   paypal: { nombre: 'PayPal', monedas: ['USD', 'EUR'], admiteCobroRecurrente: true },
+  /**
+   * Checkout Pro (pago único). Sin cobros automáticos: Mercado Pago no permite que el
+   * comercio cobre una tarjeta guardada sin que el cliente vuelva a poner el CVV en un
+   * formulario de nuestra web, y sus Suscripciones cobran con su propio calendario.
+   * Una cuenta opera en un solo país: la API solo ofrece la moneda de MERCADOPAGO_MONEDA.
+   */
   mercadopago: {
     nombre: 'Mercado Pago',
     monedas: ['ARS', 'COP', 'PEN'],
-    admiteCobroRecurrente: true,
+    admiteCobroRecurrente: false,
   },
   /** Pasarela de pruebas: solo en desarrollo y pruebas, nunca en producción. */
   sandbox: {

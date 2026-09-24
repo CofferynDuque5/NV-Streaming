@@ -70,9 +70,14 @@ export const AYUDA_PASARELA: Record<Pasarela, { variables: string[]; pasos: stri
       'Crea una aplicación REST en developer.paypal.com, copia su Client ID y su secreto al entorno del servidor, registra la URL de avisos en la aplicación (eventos de pagos y órdenes) y guarda el Webhook ID que te da PayPal. PAYPAL_MODO=produccion cobra de verdad; por defecto usa el entorno de pruebas.',
   },
   mercadopago: {
-    variables: ['MERCADOPAGO_TOKEN_ACCESO', 'MERCADOPAGO_SECRETO_WEBHOOK', 'MERCADOPAGO_MODO'],
+    variables: [
+      'MERCADOPAGO_TOKEN_ACCESO',
+      'MERCADOPAGO_SECRETO_WEBHOOK',
+      'MERCADOPAGO_MONEDA',
+      'MERCADOPAGO_MODO',
+    ],
     pasos:
-      'En «Tus integraciones» de Mercado Pago crea una aplicación, copia el Access Token al entorno del servidor, configura la URL de avisos (Webhooks, eventos de pagos) y copia la clave secreta de la firma. MERCADOPAGO_MODO=produccion cobra de verdad; por defecto usa pruebas.',
+      'En «Tus integraciones» de Mercado Pago crea una aplicación, copia el Access Token al entorno del servidor, configura la URL de avisos (Webhooks, evento «Pagos») y copia la clave secreta de la firma. Cada cuenta opera en un solo país: indica su moneda en MERCADOPAGO_MONEDA (ARS, COP o PEN); para otro país hace falta otra cuenta. Mercado Pago no admite cobros automáticos aquí: el cliente paga cada factura. MERCADOPAGO_MODO=produccion cobra de verdad; por defecto usa pruebas.',
   },
   sandbox: {
     variables: ['PASARELA_SANDBOX_HABILITADA'],

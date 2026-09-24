@@ -107,15 +107,33 @@ const EntornoSchema = z
       (v) => (v === '' ? undefined : v),
       booleano.optional(),
     ),
-    /** PayPal (adaptador pendiente): credenciales de la app REST y id del webhook registrado. */
+    /** PayPal: credenciales de la app REST y id del webhook registrado. */
     PAYPAL_CLIENTE_ID: z.string().trim().default(''),
     PAYPAL_SECRETO: z.string().trim().default(''),
     PAYPAL_WEBHOOK_ID: z.string().trim().default(''),
     PAYPAL_MODO: z.enum(['pruebas', 'produccion']).default('pruebas'),
-    /** Mercado Pago (adaptador pendiente): token de acceso y clave secreta de los webhooks. */
+    /** Mercado Pago (Checkout Pro): token de acceso y clave secreta de la firma de los webhooks. */
     MERCADOPAGO_TOKEN_ACCESO: z.string().trim().default(''),
     MERCADOPAGO_SECRETO_WEBHOOK: z.string().trim().default(''),
     MERCADOPAGO_MODO: z.enum(['pruebas', 'produccion']).default('pruebas'),
+    /**
+     * Moneda de la cuenta de Mercado Pago (una cuenta opera en un solo país y moneda).
+     * Sin ella el adaptador no se ofrece: nunca se crea una preferencia en otra moneda.
+     */
+    MERCADOPAGO_MONEDA: z.preprocess(
+      (v) => (typeof v === 'string' ? v.trim().toUpperCase() || undefined : v),
+      z
+        .enum(['ARS', 'COP', 'PEN'], { error: 'MERCADOPAGO_MONEDA debe ser ARS, COP o PEN.' })
+        .optional(),
+    ),
+    /** Solo pruebas automáticas: otra URL base para la API de Mercado Pago (servidor falso). */
+    MERCADOPAGO_API_URL: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || URL.canParse(v), {
+        error: 'MERCADOPAGO_API_URL debe ser una URL válida.',
+      })
+      .default(''),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
@@ -171,6 +189,13 @@ const EntornoSchema = z
         code: 'custom',
         path: ['WHATSAPP_TOKEN'],
         message: 'WhatsApp Cloud API necesita WHATSAPP_TOKEN y WHATSAPP_TELEFONO_ID.',
+      });
+    }
+    if (e.MERCADOPAGO_API_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MERCADOPAGO_API_URL'],
+        message: 'MERCADOPAGO_API_URL es solo para pruebas: déjala vacía en producción.',
       });
     }
     if (e.CORREO_REMITENTE.includes('example.com')) {

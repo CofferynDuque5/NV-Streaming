@@ -72,6 +72,12 @@ export interface AdaptadorPasarela {
 
   /** Opcional: borra el token en la pasarela cuando el cliente revoca la autorización. */
   revocarMetodo?(token: string): Promise<void>;
+
+  /**
+   * Opcional: monedas en las que cobra la cuenta configurada, si son menos que las
+   * de la pasarela (p. ej. una cuenta de Mercado Pago opera en un solo país).
+   */
+  monedasCuenta?(): readonly Moneda[];
 }
 
 export interface DatosCrearPago {
