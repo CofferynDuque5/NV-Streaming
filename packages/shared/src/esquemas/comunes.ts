@@ -86,3 +86,10 @@ export function parcialSinDefectos<T extends z.ZodRawShape>(esquema: z.ZodObject
   ) as unknown as { [K in keyof T]: T[K] extends z.ZodDefault<infer I> ? I : T[K] };
   return z.object(forma).partial();
 }
+
+/** Texto libre opcional: vacío se guarda como `null` (así se puede borrar al editar). */
+export const textoOpcional = (max: number) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z.string().trim().max(max).nullable().optional(),
+  );

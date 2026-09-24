@@ -42,7 +42,7 @@ export class ClientesService {
     const where: Prisma.ClienteWhereInput = {
       AND: [
         alcanceClientes(auth),
-        filtro.estado ? { estado: filtro.estado } : { estado: 'activo' },
+        filtro.estado === 'todos' ? {} : { estado: filtro.estado ?? 'activo' },
         filtro.asignadoAId ? { asignadoAId: filtro.asignadoAId } : {},
         filtro.busqueda
           ? {
@@ -152,7 +152,7 @@ export class ClientesService {
     return this.prisma.$transaction(async (tx) => {
       const antes = await this.exigirAlcance(auth, id, tx);
       if (entrada.asignadoAId) await this.exigirVendedor(tx, entrada.asignadoAId);
-      if (entrada.correo && entrada.correo !== antes.correo) {
+      if (entrada.correo !== undefined && entrada.correo !== antes.correo) {
         if (antes.usuarioId) {
           throw new ErrorApp(
             409,
@@ -160,7 +160,7 @@ export class ClientesService {
             'Este cliente ya entra con su correo; lo cambia él desde su cuenta.',
           );
         }
-        await this.exigirCorreoLibre(tx, entrada.correo, id);
+        if (entrada.correo) await this.exigirCorreoLibre(tx, entrada.correo, id);
       }
       await tx.cliente.update({
         where: { id },
@@ -175,9 +175,7 @@ export class ClientesService {
           ...(entrada.asignadoAId !== undefined ? { asignadoAId: entrada.asignadoAId } : {}),
         },
       });
-      if (entrada.whatsapp !== undefined) {
-        await this.fijarWhatsapp(tx, id, entrada.whatsapp, entrada.aceptaWhatsapp ?? false);
-      }
+      await this.fijarWhatsapp(tx, id, entrada.whatsapp, entrada.aceptaWhatsapp);
       const c = await tx.cliente.findUniqueOrThrow({ where: { id }, include: INCLUIR_DETALLE });
       await this.auditoria.registrar(
         {
@@ -370,9 +368,7 @@ export class ClientesService {
           ...(entrada.monedaPreferida ? { monedaPreferida: entrada.monedaPreferida } : {}),
         },
       });
-      if (entrada.whatsapp !== undefined) {
-        await this.fijarWhatsapp(tx, propio.id, entrada.whatsapp, entrada.aceptaWhatsapp ?? false);
-      }
+      await this.fijarWhatsapp(tx, propio.id, entrada.whatsapp, entrada.aceptaWhatsapp);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
@@ -388,16 +384,37 @@ export class ClientesService {
     return this.obtener(auth, propio.id);
   }
 
-  private async fijarWhatsapp(tx: Tx, clienteId: string, numero: string | null, acepta: boolean) {
-    await tx.contactoCliente.deleteMany({ where: { clienteId, tipo: 'whatsapp' } });
-    if (numero) {
+  /**
+   * Número de WhatsApp y consentimiento. `undefined` deja cada dato como está;
+   * el consentimiento conserva su fecha original mientras siga dado.
+   */
+  private async fijarWhatsapp(
+    tx: Tx,
+    clienteId: string,
+    numero: string | null | undefined,
+    acepta: boolean | undefined,
+  ) {
+    if (numero === undefined && acepta === undefined) return;
+    const actual = await tx.contactoCliente.findFirst({ where: { clienteId, tipo: 'whatsapp' } });
+    if (numero === null || (numero === undefined && !actual)) {
+      await tx.contactoCliente.deleteMany({ where: { clienteId, tipo: 'whatsapp' } });
+      return;
+    }
+    const valor = numero ?? actual!.valor;
+    const quiere = acepta ?? (valor === actual?.valor && actual.consentimientoEn !== null);
+    const consentimientoEn = !quiere
+      ? null
+      : valor === actual?.valor && actual.consentimientoEn
+        ? actual.consentimientoEn
+        : new Date();
+    if (actual) {
+      await tx.contactoCliente.update({
+        where: { id: actual.id },
+        data: { valor, consentimientoEn },
+      });
+    } else {
       await tx.contactoCliente.create({
-        data: {
-          clienteId,
-          tipo: 'whatsapp',
-          valor: numero,
-          consentimientoEn: acepta ? new Date() : null,
-        },
+        data: { clienteId, tipo: 'whatsapp', valor, consentimientoEn },
       });
     }
   }

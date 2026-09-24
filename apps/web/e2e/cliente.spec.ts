@@ -4,7 +4,7 @@ import { ingresar } from './ayudas';
 test('el cliente entra a su cuenta y no puede abrir la administración', async ({ page }) => {
   await ingresar(page, 'cliente@nv.test');
   await expect(page).toHaveURL(/\/cuenta$/);
-  await expect(page.getByText('Todavía no tienes servicios')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mis servicios' })).toBeVisible();
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/cuenta$/);
   await page.goto('/revendedor');

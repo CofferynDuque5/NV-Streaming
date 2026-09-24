@@ -8,17 +8,19 @@ export type Resultado<T> = { ok: true; datos: T } | { ok: false; error: ErrorLla
  * cookie de sesión viaja sola y el navegador añade la cabecera Origin.
  */
 export async function llamarApi<T = unknown>(
-  metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  metodo: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   ruta: string,
   cuerpo?: unknown,
 ): Promise<Resultado<T>> {
+  const esFormulario = cuerpo instanceof FormData;
   let respuesta: Response;
   try {
     respuesta = await fetch(`/api/v1${ruta}`, {
       method: metodo,
       credentials: 'same-origin',
-      headers: cuerpo === undefined ? {} : { 'content-type': 'application/json' },
-      body: cuerpo === undefined ? null : JSON.stringify(cuerpo),
+      // Con FormData el navegador pone el tipo multipart y su separador.
+      headers: cuerpo === undefined || esFormulario ? {} : { 'content-type': 'application/json' },
+      body: cuerpo === undefined ? null : esFormulario ? cuerpo : JSON.stringify(cuerpo),
     });
   } catch {
     return {

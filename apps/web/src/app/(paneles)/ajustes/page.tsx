@@ -1,5 +1,6 @@
-import type { SesionListada } from '@nv/shared';
+import type { ResumenCliente, SesionListada } from '@nv/shared';
 import type { Metadata } from 'next';
+import { DatosFacturacion } from '@/componentes/cliente/datos-facturacion';
 import {
   FormularioContrasena,
   FormularioPerfil,
@@ -24,6 +25,11 @@ export default async function Ajustes() {
     }>('/cuenta/2fa'),
     leerApi<SesionListada[]>('/cuenta/sesiones'),
   ]);
+  const cliente =
+    sesion.usuario.rol === 'cliente'
+      ? (await leerApi<ResumenCliente>('/mi/resumen')).datos?.cliente
+      : null;
+  const whatsapp = cliente?.contactos.find((c) => c.tipo === 'whatsapp');
 
   return (
     <>
@@ -48,6 +54,25 @@ export default async function Ajustes() {
           </div>
         </Tarjeta>
       </div>
+      {cliente && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Datos de facturación"
+            descripcion="Los usamos en tus facturas y para avisarte de pagos y vencimientos."
+          />
+          <div className="p-5 sm:p-6">
+            <DatosFacturacion
+              inicial={{
+                documento: cliente.documento,
+                pais: cliente.pais,
+                monedaPreferida: cliente.monedaPreferida,
+                whatsapp: whatsapp?.valor ?? null,
+                aceptaWhatsapp: Boolean(whatsapp?.consentimientoEn),
+              }}
+            />
+          </div>
+        </Tarjeta>
+      )}
       <Tarjeta>
         <CabeceraTarjeta titulo="Verificación en dos pasos" />
         <div className="p-5 sm:p-6">

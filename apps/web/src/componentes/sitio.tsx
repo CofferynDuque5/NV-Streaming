@@ -9,6 +9,12 @@ export function CabeceraSitio() {
         <Logo />
         <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-2">
           <Link
+            href="/planes"
+            className="hidden rounded-lg px-3 py-2 text-sm text-tinta-suave hover:text-tinta sm:inline-block"
+          >
+            Planes
+          </Link>
+          <Link
             href="/#como-funciona"
             className="hidden rounded-lg px-3 py-2 text-sm text-tinta-suave hover:text-tinta md:inline-block"
           >
@@ -38,7 +44,7 @@ export function PieSitio() {
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 text-sm text-tinta-tenue sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="grid gap-2">
           <Logo />
-          <p>Solo servicios autorizados, con pagos por pasarelas oficiales.</p>
+          <p>Solo servicios autorizados. Pagas en tu moneda y con comprobante.</p>
         </div>
         <nav aria-label="Legal" className="flex gap-5">
           <Link href="/terminos" className="hover:text-tinta">

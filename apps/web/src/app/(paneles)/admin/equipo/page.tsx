@@ -13,7 +13,7 @@ import { InvitarPersona } from '@/componentes/panel/equipo';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/campo';
+import { clasesEntrada } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Tarjeta } from '@/componentes/ui/tarjeta';

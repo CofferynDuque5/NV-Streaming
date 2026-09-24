@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import {
   Bot,
   CreditCard,
+  Coins,
   FileClock,
   Headset,
   House,
@@ -17,6 +18,7 @@ import {
   Settings,
   ShoppingBag,
   Store,
+  TicketPercent,
   UserRound,
   Users,
   Wallet,
@@ -44,6 +46,8 @@ const ICONOS: Record<NombreIcono, LucideIcon> = {
   catalogo: Package,
   compras: ShoppingBag,
   servicios: Receipt,
+  cupones: TicketPercent,
+  monedas: Coins,
   ajustes: Settings,
 };
 

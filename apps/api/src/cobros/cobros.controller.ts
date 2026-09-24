@@ -14,6 +14,7 @@ import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import {
   confirmarPagoSchema,
   cuponSchema,
+  monedaSchema,
   listarFacturasSchema,
   listarPagosSchema,
   motivoSchema,
@@ -23,7 +24,7 @@ import {
   uuidSchema,
 } from '@nv/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { z } from 'zod';
+import { z } from 'zod';
 import {
   Auth,
   Cliente,
@@ -34,11 +35,13 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { leerFormulario } from '../comun/formulario.js';
 import { validar, ZodPipe } from '../comun/zod.pipe.js';
+import { MetodosCobroService } from '../dinero/metodos-cobro.service.js';
 import { CuponesService } from './cupones.service.js';
 import { FacturasService } from './facturas.service.js';
 import { PagosService } from './pagos.service.js';
 
 const idValido = validar(uuidSchema);
+const filtroMetodos = z.object({ moneda: monedaSchema.optional() });
 
 /** Envía un comprobante sin permitir que el navegador lo interprete como otra cosa. */
 export function enviarComprobante(
@@ -128,7 +131,17 @@ export class FacturasController {
 @ApiTags('Pagos y conciliación')
 @Controller('pagos')
 export class PagosController {
-  constructor(@Inject(PagosService) private readonly pagos: PagosService) {}
+  constructor(
+    @Inject(PagosService) private readonly pagos: PagosService,
+    @Inject(MetodosCobroService) private readonly metodos: MetodosCobroService,
+  ) {}
+
+  /** Métodos de cobro activos, para registrar un pago recibido. */
+  @Get('metodos')
+  @RequierePermiso('pagos.gestionar')
+  metodosActivos(@Query(validar(filtroMetodos)) filtro: z.output<typeof filtroMetodos>) {
+    return this.metodos.listar({ ...filtro, soloActivos: true });
+  }
 
   @Get()
   @RequierePermiso('pagos.gestionar')

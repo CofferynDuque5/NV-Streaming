@@ -6,10 +6,10 @@ test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con c
   page,
 }) => {
   await ingresar(page, 'admin@nv.test');
-  const secreto = await configurarDosPasos(page);
+  const secreto = await configurarDosPasos(page, 'admin@nv.test');
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole('heading', { name: /Hola, Administración/ })).toBeVisible();
-  await expect(page.getByText('Aún no hay datos que medir')).toBeVisible();
+  await expect(page.getByText('Suscripciones por estado')).toBeVisible();
 
   await page.getByRole('link', { name: 'Equipo y usuarios' }).first().click();
   for (const rol of ['admin', 'operador', 'ventas', 'revendedor', 'cliente']) {
@@ -34,7 +34,7 @@ test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con c
 
 test('operador: ve el equipo pero no puede invitar ni ver la auditoría', async ({ page }) => {
   await ingresar(page, 'operador@nv.test');
-  await configurarDosPasos(page);
+  await configurarDosPasos(page, 'operador@nv.test');
   await expect(page).toHaveURL(/\/admin$/);
   await page.getByRole('link', { name: 'Equipo y usuarios' }).first().click();
   await expect(page.getByRole('heading', { name: 'Equipo y usuarios' })).toBeVisible();
@@ -46,14 +46,14 @@ test('operador: ve el equipo pero no puede invitar ni ver la auditoría', async 
 
 test('ventas: panel de administración sin gestión de usuarios', async ({ page }) => {
   await ingresar(page, 'ventas@nv.test');
-  await configurarDosPasos(page);
+  await configurarDosPasos(page, 'ventas@nv.test');
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole('link', { name: 'Equipo y usuarios' })).toHaveCount(0);
 });
 
 test('revendedor: 2FA obligatoria y su propio panel', async ({ page }) => {
   await ingresar(page, 'revendedor@nv.test');
-  await configurarDosPasos(page);
+  await configurarDosPasos(page, 'revendedor@nv.test');
   await expect(page).toHaveURL(/\/revendedor$/);
   await expect(page.getByText('Sin saldo todavía')).toBeVisible();
   await expect(page.getByText('Panel de revendedor').first()).toBeVisible();

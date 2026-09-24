@@ -18,7 +18,8 @@ const PASOS = [
   },
   {
     titulo: 'Paga de forma segura',
-    texto: 'Cobramos solo por pasarelas oficiales. Nunca guardamos los datos de tu tarjeta.',
+    texto:
+      'Paga en dólares, bolívares, pesos, soles o euros y envía tu comprobante. Nunca te pedimos los datos de tu tarjeta.',
   },
   {
     titulo: 'Actívalo y gestiónalo',
@@ -94,8 +95,8 @@ export default function Inicio() {
               <BotonEnlace href="/registro" tamano="lg">
                 Crear mi cuenta <ArrowRight className="size-4" aria-hidden="true" />
               </BotonEnlace>
-              <BotonEnlace href="/ingresar" tamano="lg" variante="secundario">
-                Ya tengo cuenta
+              <BotonEnlace href="/planes" tamano="lg" variante="secundario">
+                Ver planes y precios
               </BotonEnlace>
             </div>
           </div>

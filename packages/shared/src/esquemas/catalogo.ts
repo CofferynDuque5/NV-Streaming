@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { parcialSinDefectos, uuidSchema } from './comunes.js';
+import { parcialSinDefectos, textoOpcional, uuidSchema } from './comunes.js';
 import { monedaConTasaSchema, montoOCeroSchema, montoSchema } from './dinero.js';
 
 export const TIPOS_PROVEEDOR = ['propio', 'distribuidor'] as const;
@@ -11,7 +11,7 @@ export const proveedorSchema = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
   tipo: z.enum(TIPOS_PROVEEDOR, { error: 'Elige el tipo de proveedor.' }),
   permiteReventa: z.boolean().default(false),
-  notasAcuerdo: z.string().trim().max(2000).optional(),
+  notasAcuerdo: textoOpcional(2000),
   activo: z.boolean().default(true),
 });
 export type ProveedorEntrada = z.infer<typeof proveedorSchema>;
@@ -27,7 +27,7 @@ export const servicioSchema = z.object({
   proveedorId: uuidSchema,
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
   slug: slugSchema,
-  descripcion: z.string().trim().max(1000).optional(),
+  descripcion: textoOpcional(1000),
   activo: z.boolean().default(true),
 });
 export type ServicioEntrada = z.infer<typeof servicioSchema>;
@@ -35,7 +35,7 @@ export type ServicioEntrada = z.infer<typeof servicioSchema>;
 export const planSchema = z.object({
   servicioId: uuidSchema,
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
-  descripcion: z.string().trim().max(1000).optional(),
+  descripcion: textoOpcional(1000),
   precioUsd: montoOCeroSchema,
   duracionCantidad: z.coerce.number().int().min(1, 'Mínimo 1.').max(365, 'Máximo 365.'),
   duracionUnidad: z.enum(UNIDADES_DURACION, { error: 'Elige días o meses.' }),

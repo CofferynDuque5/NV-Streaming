@@ -50,7 +50,7 @@ export function Marco({ sesion, children }: { sesion: SesionActual; children: Re
         </header>
         <main
           id="contenido"
-          className="mx-auto grid w-full max-w-6xl content-start gap-8 px-4 py-8 sm:px-8"
+          className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] content-start gap-8 px-4 py-8 sm:px-8"
         >
           {children}
         </main>

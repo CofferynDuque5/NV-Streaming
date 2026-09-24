@@ -16,6 +16,8 @@ export type NombreIcono =
   | 'catalogo'
   | 'compras'
   | 'servicios'
+  | 'cupones'
+  | 'monedas'
   | 'ajustes';
 
 export interface ElementoNavegacion {
@@ -29,6 +31,23 @@ export interface ElementoNavegacion {
 
 const EQUIPO: ElementoNavegacion[] = [
   { etiqueta: 'Resumen', href: '/admin', icono: 'inicio' },
+  { etiqueta: 'Clientes', href: '/admin/clientes', icono: 'clientes', permiso: 'clientes.ver' },
+  {
+    etiqueta: 'Suscripciones',
+    href: '/admin/suscripciones',
+    icono: 'suscripciones',
+    permiso: 'suscripciones.ver',
+  },
+  { etiqueta: 'Cobros', href: '/admin/cobros', icono: 'cobros', permiso: 'facturas.ver' },
+  { etiqueta: 'Soporte', href: '/admin/soporte', icono: 'soporte', permiso: 'tickets.ver' },
+  { etiqueta: 'Catálogo', href: '/admin/catalogo', icono: 'planes', permiso: 'catalogo.ver' },
+  { etiqueta: 'Cupones', href: '/admin/cupones', icono: 'cupones', permiso: 'cupones.ver' },
+  {
+    etiqueta: 'Monedas y cobro',
+    href: '/admin/finanzas',
+    icono: 'monedas',
+    permiso: 'finanzas.configurar',
+  },
   {
     etiqueta: 'Equipo y usuarios',
     href: '/admin/equipo',
@@ -36,11 +55,6 @@ const EQUIPO: ElementoNavegacion[] = [
     permiso: 'usuarios.ver',
   },
   { etiqueta: 'Auditoría', href: '/admin/auditoria', icono: 'auditoria', permiso: 'auditoria.ver' },
-  { etiqueta: 'Clientes', icono: 'clientes', fase: 1 },
-  { etiqueta: 'Planes y catálogo', icono: 'planes', fase: 1 },
-  { etiqueta: 'Suscripciones', icono: 'suscripciones', fase: 1 },
-  { etiqueta: 'Cobros', icono: 'cobros', fase: 1 },
-  { etiqueta: 'Soporte', icono: 'soporte', fase: 1 },
   { etiqueta: 'Revendedores', icono: 'revendedores', fase: 2 },
   { etiqueta: 'Editor visual', icono: 'editor', fase: 2 },
   { etiqueta: 'Asistente IA', icono: 'asistente', fase: 5 },
@@ -55,8 +69,9 @@ const REVENDEDOR: ElementoNavegacion[] = [
 
 const CLIENTE: ElementoNavegacion[] = [
   { etiqueta: 'Mis servicios', href: '/cuenta', icono: 'servicios' },
-  { etiqueta: 'Pagos', icono: 'cobros', fase: 1 },
-  { etiqueta: 'Soporte', icono: 'soporte', fase: 1 },
+  { etiqueta: 'Contratar', href: '/cuenta/planes', icono: 'planes' },
+  { etiqueta: 'Facturas y pagos', href: '/cuenta/facturas', icono: 'cobros' },
+  { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte' },
 ];
 
 const AJUSTES: ElementoNavegacion = {

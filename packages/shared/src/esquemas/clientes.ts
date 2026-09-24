@@ -11,6 +11,13 @@ import { monedaSchema } from './dinero.js';
 const opcional = <T extends z.ZodType>(s: T) =>
   z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), s.optional());
 
+/** Al editar: vacío borra el dato (`null`); sin enviar, no cambia. */
+const borrable = <T extends z.ZodType>(s: T) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    s.nullable().optional(),
+  );
+
 export const paisSchema = z
   .string()
   .trim()
@@ -40,13 +47,18 @@ export const clienteSchema = z.object({
 export type ClienteEntrada = z.infer<typeof clienteSchema>;
 
 export const actualizarClienteSchema = parcialSinDefectos(clienteSchema).extend({
-  asignadoAId: z.preprocess((v) => (v === '' ? null : v), uuidSchema.nullable().optional()),
+  correo: borrable(correoSchema),
+  documento: borrable(z.string().trim().max(40, 'El documento es demasiado largo.')),
+  pais: borrable(paisSchema),
+  whatsapp: borrable(telefonoSchema),
+  asignadoAId: borrable(uuidSchema),
 });
 export type ActualizarClienteEntrada = z.infer<typeof actualizarClienteSchema>;
 
 export const listarClientesSchema = paginacionSchema.extend({
   busqueda: z.string().trim().max(120).optional(),
-  estado: z.enum(ESTADOS_CLIENTE).optional(),
+  /** Sin estado: solo activos. "todos" incluye los archivados. */
+  estado: z.enum([...ESTADOS_CLIENTE, 'todos']).optional(),
   asignadoAId: uuidSchema.optional(),
 });
 export type ListarClientesEntrada = z.infer<typeof listarClientesSchema>;
@@ -61,10 +73,10 @@ export const motivoSchema = z.object({
 
 /** Datos que el propio cliente puede cambiar desde su panel. */
 export const perfilClienteSchema = z.object({
-  documento: opcional(z.string().trim().max(40)),
-  pais: opcional(paisSchema),
+  documento: borrable(z.string().trim().max(40)),
+  pais: borrable(paisSchema),
   monedaPreferida: monedaSchema.optional(),
-  whatsapp: z.preprocess((v) => (v === '' ? null : v), telefonoSchema.nullable().optional()),
+  whatsapp: borrable(telefonoSchema),
   aceptaWhatsapp: z.boolean().optional(),
 });
 export type PerfilClienteEntrada = z.infer<typeof perfilClienteSchema>;

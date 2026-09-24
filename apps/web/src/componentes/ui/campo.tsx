@@ -3,6 +3,9 @@
 import clsx from 'clsx';
 import { Eye, EyeOff } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useId, useState } from 'react';
+import { clasesEntrada } from './clases';
+
+export { clasesEntrada };
 
 interface PropsCampo extends Omit<ComponentProps<'input'>, 'id'> {
   etiqueta: string;
@@ -10,9 +13,6 @@ interface PropsCampo extends Omit<ComponentProps<'input'>, 'id'> {
   ayuda?: ReactNode;
   accesorio?: ReactNode;
 }
-
-export const clasesEntrada =
-  'h-11 w-full rounded-xl border border-borde-fuerte bg-hundida px-3.5 text-[0.95rem] text-tinta placeholder:text-tinta-tenue transition-colors hover:border-tinta-tenue focus:border-marca focus:outline-none focus:ring-3 focus:ring-marca-suave aria-invalid:border-peligro aria-invalid:focus:ring-peligro-suave';
 
 /** Campo de formulario con etiqueta, ayuda y error accesibles. */
 export function Campo({

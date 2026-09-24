@@ -36,7 +36,7 @@ export default async function PanelRevendedor() {
           </EstadoVacio>
         </Tarjeta>
       </div>
-      <HojaDeRuta actual={0} />
+      <HojaDeRuta actual={1} />
     </>
   );
 }
