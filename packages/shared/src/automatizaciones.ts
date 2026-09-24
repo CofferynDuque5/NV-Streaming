@@ -23,6 +23,7 @@ export const TIPOS_AUTOMATIZACION = [
   'tasa_automatica',
   'alerta_sla_tickets',
   'alerta_pagos_pendientes',
+  'cobro_automatico',
 ] as const;
 export type TipoAutomatizacion = (typeof TIPOS_AUTOMATIZACION)[number];
 
@@ -83,6 +84,10 @@ export const PARAMETROS_AUTOMATIZACION = {
   }),
   alerta_pagos_pendientes: z.object({
     horasEspera: entero(1, 72, 'horas'),
+    hora,
+  }),
+  cobro_automatico: z.object({
+    reintentosDias: listaSinRepetir(entero(1, 10, 'días'), 3, 'los días de reintento'),
     hora,
   }),
 } as const satisfies Record<TipoAutomatizacion, z.ZodType>;
@@ -210,6 +215,17 @@ export const AUTOMATIZACIONES: { [T in TipoAutomatizacion]: DefinicionAutomatiza
     canales: ['correo'],
     activaPorDefecto: true,
     parametrosPorDefecto: { horasEspera: 12, hora: 10 },
+  },
+  cobro_automatico: {
+    tipo: 'cobro_automatico',
+    nombre: 'Cobro automático autorizado',
+    descripcion:
+      'El día del vencimiento cobra la renovación con el método que el cliente autorizó; si falla, reintenta y le avisa. Nunca cobra sin autorización.',
+    grupo: 'clientes',
+    disparo: 'programada',
+    canales: ['correo', 'whatsapp'],
+    activaPorDefecto: true,
+    parametrosPorDefecto: { reintentosDias: [1, 3, 5], hora: 7 },
   },
 };
 

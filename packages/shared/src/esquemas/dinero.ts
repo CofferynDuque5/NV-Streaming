@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MONEDAS, MONEDAS_CON_TASA } from '../monedas.js';
+import { PASARELAS, TIPOS_METODO_COBRO } from '../pagos-en-linea.js';
 import { parcialSinDefectos } from './comunes.js';
 
 export const monedaSchema = z.enum(MONEDAS, { error: 'Moneda no válida.' });
@@ -51,6 +52,9 @@ export const metodoCobroSchema = z.object({
     .min(5, 'Explica al cliente cómo pagar.')
     .max(2000, 'Las instrucciones son demasiado largas.'),
   requiereReferencia: z.boolean().default(true),
+  /** "pasarela" = pago en línea con la pasarela indicada (fase 4). */
+  tipo: z.enum(TIPOS_METODO_COBRO).default('manual'),
+  pasarela: z.enum(PASARELAS, { error: 'Elige una pasarela válida.' }).nullable().default(null),
   activo: z.boolean().default(true),
   orden: z.coerce.number().int().min(0).max(999).default(0),
 });

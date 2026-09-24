@@ -5,7 +5,7 @@ import { codigoCuponSchema } from './suscripciones.js';
 
 export const ESTADOS_FACTURA = ['emitida', 'pagada', 'anulada'] as const;
 export type EstadoFactura = (typeof ESTADOS_FACTURA)[number];
-export const ESTADOS_PAGO = ['en_revision', 'confirmado', 'rechazado'] as const;
+export const ESTADOS_PAGO = ['en_revision', 'confirmado', 'rechazado', 'reembolsado'] as const;
 export type EstadoPago = (typeof ESTADOS_PAGO)[number];
 
 export const listarFacturasSchema = paginacionSchema.extend({

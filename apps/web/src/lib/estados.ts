@@ -31,6 +31,7 @@ export const ESTADO_PAGO: Etiquetas<EstadoPago> = {
   en_revision: { texto: 'En revisión', tono: 'aviso' },
   confirmado: { texto: 'Confirmado', tono: 'exito' },
   rechazado: { texto: 'Rechazado', tono: 'peligro' },
+  reembolsado: { texto: 'Devuelto', tono: 'neutro' },
 };
 
 export const ESTADO_TICKET: Etiquetas<EstadoTicket> = {

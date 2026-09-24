@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@nv/db';
-import { REGLAS_COBRO } from '@nv/shared';
+import { REGLAS_COBRO, TIPOS_AUTOMATIZACION } from '@nv/shared';
 import { ConfigAutomatizacionesService } from '../../src/automatizaciones/configuracion.service.js';
 import { EjecutorAutomatizacionesService } from '../../src/automatizaciones/ejecutor.service.js';
 import { inicioDiaCaracas } from '../../src/automatizaciones/horario.js';
@@ -592,7 +592,7 @@ describe('panel de automatizaciones', () => {
     const c = await conectar(ctx, 'cliente');
     const panel = await e.operador.n.get('/automatizaciones');
     expect(panel.estado).toBe(200);
-    expect(panel.cuerpo.automatizaciones).toHaveLength(10);
+    expect(panel.cuerpo.automatizaciones).toHaveLength(TIPOS_AUTOMATIZACION.length);
     const recordatorio = panel.cuerpo.automatizaciones.find(
       (a: { tipo: string }) => a.tipo === 'recordatorio_vencimiento',
     );

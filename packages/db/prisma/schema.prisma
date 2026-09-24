@@ -85,15 +85,17 @@ model Usuario {
   mensajesTicket       MensajeTicket[]
 
   // Fase 2
-  revendedor               Revendedor?        @relation("RevendedorUsuario")
-  revendedoresRevisados    Revendedor[]       @relation("RevendedorRevisor")
+  revendedor               Revendedor?            @relation("RevendedorUsuario")
+  revendedoresRevisados    Revendedor[]           @relation("RevendedorRevisor")
   automatizacionesEditadas Automatizacion[]
+  metodosRevocados         MetodoPagoAutorizado[] @relation("MetodoRevocador")
+  reembolsosSolicitados    Reembolso[]
   notificaciones           Notificacion[]
   preciosMayoristas        PrecioMayorista[]
-  recargasRevisadas        RecargaSaldo[]     @relation("RecargaRevisor")
+  recargasRevisadas        RecargaSaldo[]         @relation("RecargaRevisor")
   movimientosSaldo         MovimientoSaldo[]
-  comprasReembolsadas      CompraRevendedor[] @relation("CompraReembolsador")
-  paginasEditadas          Pagina[]           @relation("PaginaEditor")
+  comprasReembolsadas      CompraRevendedor[]     @relation("CompraReembolsador")
+  paginasEditadas          Pagina[]               @relation("PaginaEditor")
   versionesPublicadas      VersionPagina[]
   mediosSubidos            Medio[]
   temasActualizados        TemaSitio[]
@@ -241,6 +243,10 @@ model MetodoCobro {
   /// Texto que ve el cliente al pagar (titular, banco, número...). Sin secretos.
   instrucciones      String   @db.VarChar(2000)
   requiereReferencia Boolean  @default(true) @map("requiere_referencia")
+  /// "manual" (transferencia, Pago Móvil... con comprobante) o "pasarela" (pago en línea).
+  tipo               String   @default("manual") @db.VarChar(20)
+  /// Pasarela del método en línea: "paypal", "mercadopago" o "sandbox".
+  pasarela           String?  @db.VarChar(30)
   activo             Boolean  @default(true)
   orden              Int      @default(0)
   creadoEn           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
@@ -248,6 +254,7 @@ model MetodoCobro {
 
   recargas RecargaSaldo[]
   pagos    Pago[]
+  intentos IntentoPago[]
 
   @@index([moneda, activo])
   @@map("metodos_cobro")
@@ -290,19 +297,21 @@ model Cliente {
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  usuario           Usuario?           @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
-  asignadoA         Usuario?           @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  creadoPor         Usuario?           @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  revendedor        Revendedor?        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
-  comprasRevendedor CompraRevendedor[]
-  contactos         ContactoCliente[]
-  notas             NotaInterna[]
-  suscripciones     Suscripcion[]
-  facturas          Factura[]
-  pagos             Pago[]
-  tickets           Ticket[]
-  canjesCupon       CanjeCupon[]
-  notificaciones    Notificacion[]
+  usuario            Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA          Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor          Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor         Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  comprasRevendedor  CompraRevendedor[]
+  contactos          ContactoCliente[]
+  notas              NotaInterna[]
+  suscripciones      Suscripcion[]
+  facturas           Factura[]
+  pagos              Pago[]
+  tickets            Ticket[]
+  canjesCupon        CanjeCupon[]
+  notificaciones     Notificacion[]
+  metodosAutorizados MetodoPagoAutorizado[]
+  intentosPago       IntentoPago[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
@@ -485,33 +494,37 @@ enum TipoEventoSuscripcion {
 }
 
 model Suscripcion {
-  id                String            @id @default(uuid()) @db.Uuid
-  clienteId         String            @map("cliente_id") @db.Uuid
-  planId            String            @map("plan_id") @db.Uuid
-  estado            EstadoSuscripcion @default(pendiente_pago)
-  moneda            Moneda
-  inicioEn          DateTime?         @map("inicio_en") @db.Timestamptz(3)
-  venceEn           DateTime?         @map("vence_en") @db.Timestamptz(3)
-  pausadaEn         DateTime?         @map("pausada_en") @db.Timestamptz(3)
+  id                 String            @id @default(uuid()) @db.Uuid
+  clienteId          String            @map("cliente_id") @db.Uuid
+  planId             String            @map("plan_id") @db.Uuid
+  estado             EstadoSuscripcion @default(pendiente_pago)
+  moneda             Moneda
+  inicioEn           DateTime?         @map("inicio_en") @db.Timestamptz(3)
+  venceEn            DateTime?         @map("vence_en") @db.Timestamptz(3)
+  pausadaEn          DateTime?         @map("pausada_en") @db.Timestamptz(3)
   /// Tiempo que le quedaba al pausarla; se devuelve al reanudar.
-  segundosRestantes Int?              @map("segundos_restantes")
+  segundosRestantes  Int?              @map("segundos_restantes")
   /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
-  cancelarAlVencer  Boolean           @default(false) @map("cancelar_al_vencer")
-  canceladaEn       DateTime?         @map("cancelada_en") @db.Timestamptz(3)
+  cancelarAlVencer   Boolean           @default(false) @map("cancelar_al_vencer")
+  /// Método autorizado con el que se cobra sola al vencer. Nulo = pago manual.
+  metodoAutorizadoId String?           @map("metodo_autorizado_id") @db.Uuid
+  canceladaEn        DateTime?         @map("cancelada_en") @db.Timestamptz(3)
   /// Activación comprada por un revendedor con su saldo (no genera facturas al cliente).
-  revendedorId      String?           @map("revendedor_id") @db.Uuid
-  creadoPorId       String?           @map("creado_por_id") @db.Uuid
-  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  revendedorId       String?           @map("revendedor_id") @db.Uuid
+  creadoPorId        String?           @map("creado_por_id") @db.Uuid
+  creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente    Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  plan       Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
-  creadoPor  Usuario?            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
-  revendedor Revendedor?         @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
-  compras    CompraRevendedor[]
-  eventos    EventoSuscripcion[]
-  facturas   Factura[]
-  tickets    Ticket[]
+  cliente           Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  plan              Plan                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadoPor         Usuario?              @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor        Revendedor?           @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  metodoAutorizado  MetodoPagoAutorizado? @relation(fields: [metodoAutorizadoId], references: [id], onDelete: Restrict)
+  cobrosAutomaticos CobroAutomatico[]
+  compras           CompraRevendedor[]
+  eventos           EventoSuscripcion[]
+  facturas          Factura[]
+  tickets           Ticket[]
 
   @@index([clienteId, estado])
   @@index([estado, venceEn])
@@ -575,14 +588,16 @@ model Factura {
   creadoEn        DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente     Cliente        @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  suscripcion Suscripcion?   @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
-  cupon       Cupon?         @relation(fields: [cuponId], references: [id], onDelete: Restrict)
-  anuladaPor  Usuario?       @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
-  creadoPor   Usuario?       @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  lineas      LineaFactura[]
-  pagos       Pago[]
-  canje       CanjeCupon?
+  cliente           Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion       Suscripcion?      @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  anuladaPor        Usuario?          @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  creadoPor         Usuario?          @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  lineas            LineaFactura[]
+  pagos             Pago[]
+  intentosPago      IntentoPago[]
+  cobrosAutomaticos CobroAutomatico[]
+  canje             CanjeCupon?
 
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([estado, venceEn])
@@ -689,6 +704,8 @@ enum EstadoPago {
   en_revision
   confirmado
   rechazado
+  /// Devuelto por completo a través de la pasarela.
+  reembolsado
 }
 
 model Pago {
@@ -705,6 +722,12 @@ model Pago {
   referenciaExterna String?    @map("referencia_externa") @db.VarChar(80)
   fechaPago         DateTime   @map("fecha_pago") @db.Timestamptz(3)
   comprobanteId     String?    @map("comprobante_id") @db.Uuid
+  /// "manual" (con comprobante) o "pasarela" (confirmado por la pasarela).
+  origen            String     @default("manual") @db.VarChar(20)
+  pasarela          String?    @db.VarChar(30)
+  /// Id del cobro en la pasarela (captura, pago). Único por pasarela.
+  idExterno         String?    @map("id_externo") @db.VarChar(120)
+  montoReembolsado  Decimal    @default(0) @map("monto_reembolsado") @db.Decimal(14, 2)
   estado            EstadoPago @default(en_revision)
   motivoRechazo     String?    @map("motivo_rechazo") @db.VarChar(500)
   notasConciliacion String?    @map("notas_conciliacion") @db.VarChar(500)
@@ -714,13 +737,17 @@ model Pago {
   creadoEn          DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn     DateTime   @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
-  cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  metodoCobro MetodoCobro @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
-  comprobante Archivo?    @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
-  revisadoPor Usuario?    @relation("PagoRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
-  creadoPor   Usuario?    @relation("PagoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  factura         Factura          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro     MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante     Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor     Usuario?         @relation("PagoRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  creadoPor       Usuario?         @relation("PagoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  intento         IntentoPago?
+  cobroAutomatico CobroAutomatico?
+  reembolsos      Reembolso[]
 
+  @@unique([pasarela, idExterno])
   @@index([estado, creadoEn])
   @@index([facturaId])
   @@index([clienteId, creadoEn(sort: Desc)])
@@ -1198,4 +1225,183 @@ model LatidoTrabajador {
 
   @@index([ultimoLatidoEn(sort: Desc)])
   @@map("latidos_trabajador")
+}
+
+// ───────────────────────────── Fase 4: pagos en línea ─────────────────────────────
+
+enum EstadoIntentoPago {
+  creado
+  pendiente
+  aprobado
+  rechazado
+  cancelado
+  expirado
+}
+
+/// Un pago en línea que el cliente inicia (ir a la pasarela y volver). Al
+/// aprobarse crea el `Pago` confirmado; nunca guarda datos de tarjeta.
+model IntentoPago {
+  id            String            @id @default(uuid()) @db.Uuid
+  /// Referencia del servidor, p. ej. P-7K2M9QX4; viaja a la pasarela.
+  referencia    String            @unique @db.VarChar(20)
+  facturaId     String            @map("factura_id") @db.Uuid
+  clienteId     String            @map("cliente_id") @db.Uuid
+  metodoCobroId String            @map("metodo_cobro_id") @db.Uuid
+  pasarela      String            @db.VarChar(30)
+  moneda        Moneda
+  monto         Decimal           @db.Decimal(14, 2)
+  estado        EstadoIntentoPago @default(creado)
+  /// Id de la orden o preferencia en la pasarela.
+  idExterno     String?           @map("id_externo") @db.VarChar(120)
+  urlPago       String?           @map("url_pago") @db.VarChar(1000)
+  /// El cliente marcó "guardar para cobros automáticos" y aceptó el texto.
+  guardarMetodo Boolean           @default(false) @map("guardar_metodo")
+  pagoId        String?           @unique @map("pago_id") @db.Uuid
+  error         String?           @db.VarChar(500)
+  expiraEn      DateTime          @map("expira_en") @db.Timestamptz(3)
+  creadoEn      DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  pago        Pago?       @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@unique([pasarela, idExterno])
+  @@index([facturaId, estado])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([estado, expiraEn])
+  @@map("intentos_pago")
+}
+
+enum EstadoMetodoAutorizado {
+  activo
+  revocado
+  /// La pasarela lo invalidó (tarjeta vencida, acuerdo cancelado).
+  invalido
+}
+
+/// Autorización expresa del cliente para cobrarle solo al vencer. Guarda el
+/// token de la pasarela cifrado, nunca datos de tarjeta. Es la base legal de
+/// los cobros automáticos: sin una fila activa, el sistema no cobra solo.
+model MetodoPagoAutorizado {
+  id               String                 @id @default(uuid()) @db.Uuid
+  clienteId        String                 @map("cliente_id") @db.Uuid
+  pasarela         String                 @db.VarChar(30)
+  /// Token de la pasarela (vault id, acuerdo), cifrado con CLAVE_CIFRADO.
+  tokenCifrado     String                 @map("token_cifrado") @db.VarChar(2000)
+  /// Texto para mostrar: "PayPal · ma***@gmail.com", "Visa ···· 4242".
+  descripcion      String                 @db.VarChar(120)
+  moneda           Moneda
+  estado           EstadoMetodoAutorizado @default(activo)
+  /// Texto exacto que el cliente aceptó y su versión.
+  textoAceptado    String                 @map("texto_aceptado") @db.VarChar(2000)
+  versionTexto     String                 @map("version_texto") @db.VarChar(20)
+  autorizadoEn     DateTime               @map("autorizado_en") @db.Timestamptz(3)
+  autorizadoIp     String?                @map("autorizado_ip") @db.VarChar(64)
+  autorizadoAgente String?                @map("autorizado_agente") @db.VarChar(300)
+  revocadoEn       DateTime?              @map("revocado_en") @db.Timestamptz(3)
+  revocadoPorId    String?                @map("revocado_por_id") @db.Uuid
+  motivoEstado     String?                @map("motivo_estado") @db.VarChar(500)
+  creadoEn         DateTime               @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime               @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  revocadoPor   Usuario?          @relation("MetodoRevocador", fields: [revocadoPorId], references: [id], onDelete: Restrict)
+  suscripciones Suscripcion[]
+  cobros        CobroAutomatico[]
+
+  @@index([clienteId, estado])
+  @@map("metodos_pago_autorizados")
+}
+
+enum EstadoCobroAutomatico {
+  programado
+  en_curso
+  exitoso
+  fallido
+  cancelado
+}
+
+/// Cada intento de cobro automático de una factura con un método autorizado.
+/// `claveIdempotencia` (factura + número de intento) evita cobrar dos veces.
+model CobroAutomatico {
+  id                String                @id @default(uuid()) @db.Uuid
+  facturaId         String                @map("factura_id") @db.Uuid
+  suscripcionId     String                @map("suscripcion_id") @db.Uuid
+  metodoId          String                @map("metodo_id") @db.Uuid
+  intento           Int
+  estado            EstadoCobroAutomatico @default(programado)
+  programadoPara    DateTime              @map("programado_para") @db.Timestamptz(3)
+  ejecutadoEn       DateTime?             @map("ejecutado_en") @db.Timestamptz(3)
+  claveIdempotencia String                @unique @map("clave_idempotencia") @db.VarChar(120)
+  idExterno         String?               @map("id_externo") @db.VarChar(120)
+  pagoId            String?               @unique @map("pago_id") @db.Uuid
+  error             String?               @db.VarChar(500)
+  creadoEn          DateTime              @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  factura     Factura              @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  metodo      MetodoPagoAutorizado @relation(fields: [metodoId], references: [id], onDelete: Restrict)
+  pago        Pago?                @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@unique([facturaId, intento])
+  @@index([estado, programadoPara])
+  @@map("cobros_automaticos")
+}
+
+enum EstadoEventoPasarela {
+  recibido
+  procesado
+  ignorado
+  error
+}
+
+/// Bandeja de webhooks de las pasarelas. Se guarda cada evento verificado una
+/// sola vez (pasarela + idEvento) y se procesa de forma idempotente.
+model EventoPasarela {
+  id          String               @id @default(uuid()) @db.Uuid
+  pasarela    String               @db.VarChar(30)
+  idEvento    String               @map("id_evento") @db.VarChar(160)
+  tipo        String               @db.VarChar(120)
+  /// Id del recurso en la pasarela (orden, pago, reembolso).
+  idRecurso   String?              @map("id_recurso") @db.VarChar(160)
+  firmaValida Boolean              @map("firma_valida")
+  /// Cuerpo del evento sin datos personales innecesarios.
+  carga       Json
+  estado      EstadoEventoPasarela @default(recibido)
+  error       String?              @db.VarChar(500)
+  recibidoEn  DateTime             @default(now()) @map("recibido_en") @db.Timestamptz(3)
+  procesadoEn DateTime?            @map("procesado_en") @db.Timestamptz(3)
+
+  @@unique([pasarela, idEvento])
+  @@index([estado, recibidoEn])
+  @@map("eventos_pasarela")
+}
+
+enum EstadoReembolso {
+  solicitado
+  completado
+  fallido
+}
+
+model Reembolso {
+  id                String          @id @default(uuid()) @db.Uuid
+  pagoId            String          @map("pago_id") @db.Uuid
+  monto             Decimal         @db.Decimal(14, 2)
+  moneda            Moneda
+  motivo            String          @db.VarChar(500)
+  estado            EstadoReembolso @default(solicitado)
+  claveIdempotencia String          @unique @map("clave_idempotencia") @db.VarChar(120)
+  idExterno         String?         @map("id_externo") @db.VarChar(120)
+  error             String?         @db.VarChar(500)
+  solicitadoPorId   String          @map("solicitado_por_id") @db.Uuid
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  completadoEn      DateTime?       @map("completado_en") @db.Timestamptz(3)
+
+  pago          Pago    @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  solicitadoPor Usuario @relation(fields: [solicitadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([pagoId])
+  @@map("reembolsos")
 }

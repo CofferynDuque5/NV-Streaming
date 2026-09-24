@@ -40,6 +40,10 @@ import { PermisosGuard } from './guardias/permisos.guard.js';
 import { SesionGuard } from './guardias/sesion.guard.js';
 import { NucleoModule } from './nucleo/nucleo.module.js';
 import {
+  CONTROLADORES_PAGOS_EN_LINEA,
+  PROVEEDORES_PAGOS_EN_LINEA,
+} from './pagos-en-linea/pagos-en-linea.js';
+import {
   CONTROLADORES_REVENDEDORES,
   PROVEEDORES_REVENDEDORES,
 } from './revendedores/revendedores.js';
@@ -72,6 +76,7 @@ export class AppModule {
         ...CONTROLADORES_REVENDEDORES,
         ...CONTROLADORES_SITIO,
         ...CONTROLADORES_AUTOMATIZACIONES,
+        ...CONTROLADORES_PAGOS_EN_LINEA,
       ],
       providers: [
         CuentaService,
@@ -92,6 +97,7 @@ export class AppModule {
         ...PROVEEDORES_REVENDEDORES,
         ...PROVEEDORES_SITIO,
         ...PROVEEDORES_AUTOMATIZACIONES,
+        ...PROVEEDORES_PAGOS_EN_LINEA,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },

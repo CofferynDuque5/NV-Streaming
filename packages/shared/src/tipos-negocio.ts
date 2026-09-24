@@ -30,6 +30,9 @@ export interface MetodoCobroPublico {
   moneda: Moneda;
   instrucciones: string;
   requiereReferencia: boolean;
+  /** "manual" (con comprobante) o "pasarela" (pago en línea). */
+  tipo?: 'manual' | 'pasarela';
+  pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;
   activo: boolean;
   orden: number;
 }
@@ -197,6 +200,10 @@ export interface PagoPublico {
   motivoRechazo: string | null;
   tieneComprobante: boolean;
   creadoEn: string;
+  /** "manual" o "pasarela" (fase 4). */
+  origen?: 'manual' | 'pasarela';
+  pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;
+  montoReembolsado?: Decimal;
   /** Solo para el equipo. */
   notasConciliacion?: string | null;
   revisadoPor?: Referencia | null;

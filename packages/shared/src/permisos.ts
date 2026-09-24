@@ -39,6 +39,9 @@ export const PERMISOS = [
   // Fase 3
   'automatizaciones.ver',
   'automatizaciones.configurar',
+  // Fase 4
+  'pasarelas.configurar',
+  'pagos.reembolsar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -77,6 +80,8 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'automatizaciones.ver': 'Ver automatizaciones, sus ejecuciones y los avisos enviados',
   'automatizaciones.configurar':
     'Activar, pausar y configurar automatizaciones, canales de aviso y la tasa automática',
+  'pasarelas.configurar': 'Ver el estado de las pasarelas de pago y sus eventos, y reprocesarlos',
+  'pagos.reembolsar': 'Devolver pagos en línea a través de la pasarela',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
