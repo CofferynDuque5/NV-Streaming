@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  calidad:
+    name: Lint, tipos y pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  integracion:
+    name: Pruebas de integración (API + PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nv
+          POSTGRES_PASSWORD: nv_ci
+          POSTGRES_DB: nv_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nv" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_PRUEBAS: postgresql://nv:nv_ci@localhost:5432/nv_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test:integration
+
+  e2e:
+    name: Pruebas de extremo a extremo (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nv
+          POSTGRES_PASSWORD: nv_ci
+          POSTGRES_DB: nv_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nv" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_E2E: postgresql://nv:nv_ci@localhost:5432/nv_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter @nv/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: informe-playwright
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  velocidad:
+    name: Velocidad (Lighthouse, móvil)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Medir la portada y las pantallas de acceso
+        working-directory: apps/web
+        run: |
+          pnpm exec next start -p 3100 &
+          npx --yes wait-on@8 http://localhost:3100 --timeout 60000
+          pnpm lighthouse
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-lighthouse
+          path: apps/web/.lighthouseci
+          retention-days: 7

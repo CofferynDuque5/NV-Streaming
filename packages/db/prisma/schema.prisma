@@ -1,0 +1,166 @@
+// Esquema de NV Streaming — Fase 0: identidad, acceso y auditoría.
+// Cada fase añade sus modelos con una migración nueva y revisable.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  admin
+  operador
+  ventas
+  revendedor
+  cliente
+}
+
+enum EstadoUsuario {
+  activo
+  suspendido
+}
+
+enum TipoToken {
+  verificar_correo
+  recuperar_contrasena
+  invitacion
+}
+
+enum TipoActor {
+  usuario
+  ia
+  sistema
+}
+
+model Usuario {
+  id                   String        @id @default(uuid()) @db.Uuid
+  correo               String        @unique @db.VarChar(254)
+  nombre               String        @db.VarChar(120)
+  /// Argon2id. Nulo mientras una invitación no se acepta.
+  hashContrasena       String?       @map("hash_contrasena")
+  rol                  Rol           @default(cliente)
+  estado               EstadoUsuario @default(activo)
+  correoVerificadoEn   DateTime?     @map("correo_verificado_en") @db.Timestamptz(3)
+  /// Secreto TOTP cifrado (AES-256-GCM) una vez confirmado.
+  totpSecreto          String?       @map("totp_secreto")
+  /// Secreto TOTP cifrado mientras el usuario lo está configurando.
+  totpSecretoPendiente String?       @map("totp_secreto_pendiente")
+  totpActivadoEn       DateTime?     @map("totp_activado_en") @db.Timestamptz(3)
+  /// Último paso de tiempo TOTP aceptado, para impedir reutilizar un código.
+  totpUltimoPaso       BigInt?       @map("totp_ultimo_paso")
+  ultimoAccesoEn       DateTime?     @map("ultimo_acceso_en") @db.Timestamptz(3)
+  creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  sesiones        Sesion[]
+  tokens          TokenUnUso[]
+  codigosRespaldo CodigoRespaldo[]
+  auditoria       Auditoria[]
+
+  @@index([rol, estado])
+  @@map("usuarios")
+}
+
+model Sesion {
+  id                String    @id @default(uuid()) @db.Uuid
+  usuarioId         String    @map("usuario_id") @db.Uuid
+  /// SHA-256 del token de la cookie. El token en claro nunca se guarda.
+  tokenHash         String    @unique @map("token_hash") @db.Char(64)
+  /// Falso mientras falte configurar o verificar la verificación en dos pasos.
+  dosPasosCompleto  Boolean   @default(false) @map("dos_pasos_completo")
+  ip                String?   @db.VarChar(64)
+  agenteUsuario     String?   @map("agente_usuario") @db.VarChar(400)
+  creadaEn          DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
+  ultimaActividadEn DateTime  @default(now()) @map("ultima_actividad_en") @db.Timestamptz(3)
+  expiraEn          DateTime  @map("expira_en") @db.Timestamptz(3)
+  revocadaEn        DateTime? @map("revocada_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, revocadaEn])
+  @@map("sesiones")
+}
+
+model TokenUnUso {
+  id        String    @id @default(uuid()) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tipo      TipoToken
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiraEn  DateTime  @map("expira_en") @db.Timestamptz(3)
+  usadoEn   DateTime? @map("usado_en") @db.Timestamptz(3)
+  creadoEn  DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, tipo])
+  @@map("tokens_un_uso")
+}
+
+model CodigoRespaldo {
+  id         String    @id @default(uuid()) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  codigoHash String    @map("codigo_hash") @db.Char(64)
+  usadoEn    DateTime? @map("usado_en") @db.Timestamptz(3)
+  creadoEn   DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@unique([usuarioId, codigoHash])
+  @@map("codigos_respaldo")
+}
+
+/// Registro de auditoría de solo inserción: un disparador impide modificarlo o borrarlo.
+model Auditoria {
+  id         String    @id @default(uuid()) @db.Uuid
+  fecha      DateTime  @default(now()) @db.Timestamptz(3)
+  actorTipo  TipoActor @map("actor_tipo")
+  actorId    String?   @map("actor_id") @db.Uuid
+  accion     String    @db.VarChar(80)
+  entidad    String    @db.VarChar(80)
+  entidadId  String?   @map("entidad_id") @db.VarChar(64)
+  antes      Json?
+  despues    Json?
+  ip         String?   @db.VarChar(64)
+  idPeticion String?   @map("id_peticion") @db.VarChar(64)
+
+  actor Usuario? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([fecha(sort: Desc)])
+  @@index([entidad, entidadId])
+  @@index([actorId])
+  @@index([accion])
+  @@map("auditoria")
+}
+
+/// Contadores de límites de uso (rate limiting) por ventana de tiempo.
+model LimiteUso {
+  clave         String   @id @db.VarChar(200)
+  ventanaInicio DateTime @map("ventana_inicio") @db.Timestamptz(3)
+  conteo        Int
+
+  @@index([ventanaInicio])
+  @@map("limites_uso")
+}
+
+/// Registro de correos enviados. El cuerpo solo se guarda con el proveedor de pruebas (sandbox).
+model CorreoSaliente {
+  id        String   @id @default(uuid()) @db.Uuid
+  para      String   @db.VarChar(254)
+  asunto    String   @db.VarChar(200)
+  plantilla String   @db.VarChar(60)
+  proveedor String   @db.VarChar(30)
+  estado    String   @db.VarChar(20)
+  texto     String?
+  error     String?  @db.VarChar(500)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  @@index([para, creadoEn(sort: Desc)])
+  @@map("correos_salientes")
+}

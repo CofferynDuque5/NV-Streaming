@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - prisma
+  - esbuild
+  - sharp
+  - '@nestjs/core'
+
+# @nestjs/platform-fastify importa rxjs sin declararlo; así usa la misma copia que Nest.
+packageExtensions:
+  '@nestjs/platform-fastify':
+    peerDependencies:
+      rxjs: '^7.1.0'

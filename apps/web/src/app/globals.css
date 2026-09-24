@@ -1,0 +1,124 @@
+@import 'tailwindcss';
+
+/*
+ * Sistema de diseño NV. Toda la interfaz usa estos tokens semánticos:
+ * nunca colores sueltos. El tema sigue la preferencia del sistema.
+ */
+:root {
+  color-scheme: dark;
+  --nv-fondo: #060912;
+  --nv-superficie: #0b1020;
+  --nv-elevada: #111830;
+  --nv-hundida: #080c18;
+  --nv-borde: rgb(148 163 214 / 0.14);
+  --nv-borde-fuerte: rgb(148 163 214 / 0.26);
+  --nv-tinta: #eef2ff;
+  --nv-tinta-suave: #b4bdd8;
+  --nv-tinta-tenue: #7c87a8;
+  --nv-marca: #22c8f5;
+  --nv-marca-fuerte: #5cdcff;
+  --nv-marca-tinta: #041018;
+  --nv-marca-suave: rgb(34 200 245 / 0.12);
+  --nv-acento: #9b6bff;
+  --nv-acento-suave: rgb(155 107 255 / 0.14);
+  --nv-exito: #2fd6a2;
+  --nv-exito-suave: rgb(47 214 162 / 0.12);
+  --nv-aviso: #ffb547;
+  --nv-aviso-suave: rgb(255 181 71 / 0.12);
+  --nv-peligro: #ff5c7a;
+  --nv-peligro-suave: rgb(255 92 122 / 0.12);
+  --nv-foco: #5cdcff;
+  --nv-sombra: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -16px rgb(0 0 0 / 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --nv-fondo: #f5f7fc;
+    --nv-superficie: #ffffff;
+    --nv-elevada: #ffffff;
+    --nv-hundida: #eef1f8;
+    --nv-borde: rgb(15 23 52 / 0.1);
+    --nv-borde-fuerte: rgb(15 23 52 / 0.2);
+    --nv-tinta: #0c1224;
+    --nv-tinta-suave: #3f4a66;
+    --nv-tinta-tenue: #5f6a87;
+    --nv-marca: #0369a1;
+    --nv-marca-fuerte: #075985;
+    --nv-marca-tinta: #ffffff;
+    --nv-marca-suave: rgb(3 105 161 / 0.1);
+    --nv-acento: #6d3fe0;
+    --nv-acento-suave: rgb(109 63 224 / 0.1);
+    --nv-exito: #047857;
+    --nv-exito-suave: rgb(4 120 87 / 0.1);
+    --nv-aviso: #a15c00;
+    --nv-aviso-suave: rgb(161 92 0 / 0.1);
+    --nv-peligro: #c81e45;
+    --nv-peligro-suave: rgb(200 30 69 / 0.08);
+    --nv-foco: #0369a1;
+    --nv-sombra: 0 1px 2px rgb(15 23 52 / 0.06), 0 12px 32px -18px rgb(15 23 52 / 0.25);
+  }
+}
+
+@theme inline {
+  --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
+  --font-titulo: var(--fuente-titulo), var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
+
+  --color-fondo: var(--nv-fondo);
+  --color-superficie: var(--nv-superficie);
+  --color-elevada: var(--nv-elevada);
+  --color-hundida: var(--nv-hundida);
+  --color-borde: var(--nv-borde);
+  --color-borde-fuerte: var(--nv-borde-fuerte);
+  --color-tinta: var(--nv-tinta);
+  --color-tinta-suave: var(--nv-tinta-suave);
+  --color-tinta-tenue: var(--nv-tinta-tenue);
+  --color-marca: var(--nv-marca);
+  --color-marca-fuerte: var(--nv-marca-fuerte);
+  --color-marca-tinta: var(--nv-marca-tinta);
+  --color-marca-suave: var(--nv-marca-suave);
+  --color-acento: var(--nv-acento);
+  --color-acento-suave: var(--nv-acento-suave);
+  --color-exito: var(--nv-exito);
+  --color-exito-suave: var(--nv-exito-suave);
+  --color-aviso: var(--nv-aviso);
+  --color-aviso-suave: var(--nv-aviso-suave);
+  --color-peligro: var(--nv-peligro);
+  --color-peligro-suave: var(--nv-peligro-suave);
+  --color-foco: var(--nv-foco);
+
+  --shadow-nv: var(--nv-sombra);
+  --radius-nv: 0.875rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-fondo text-tinta font-sans antialiased;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-titulo tracking-tight text-balance;
+  }
+  :focus-visible {
+    outline: 2px solid var(--nv-foco);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--nv-marca-suave);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

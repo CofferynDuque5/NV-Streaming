@@ -1,0 +1,16 @@
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { entornoE2e } from './entorno';
+
+/** Deja la base de pruebas limpia y sembrada con un usuario por rol. */
+export default function preparar(): void {
+  const { url } = entornoE2e();
+  const opciones = {
+    cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
+    env: { ...process.env, DATABASE_URL: url, NODE_ENV: 'test' as const },
+    stdio: 'inherit' as const,
+  };
+  execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], opciones);
+  execFileSync('pnpm', ['exec', 'tsx', 'scripts/vaciar-pruebas.ts'], opciones);
+  execFileSync('pnpm', ['exec', 'tsx', 'prisma/seed.ts'], opciones);
+}
