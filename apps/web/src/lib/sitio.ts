@@ -8,6 +8,8 @@ import {
 import type { Metadata } from 'next';
 import type { ContextoBloques } from '@/componentes/bloques/bloques';
 import { monedaValida } from '@/componentes/planes';
+import { monedaMayorista } from '@/componentes/planes-mayoristas';
+import { vistaMayorista } from './revendedor-publico';
 import { ubicacionVisitante } from './ubicacion';
 
 const API = process.env.API_URL_INTERNA ?? 'http://localhost:4000';
@@ -64,9 +66,17 @@ export async function contextoPublico(
   if (!pagina.bloques.some((b) => b.tipo === 'planes')) {
     return { ruta: pagina.ruta, catalogo: null, moneda: 'USD' };
   }
-  const [catalogo, ubicacion] = await Promise.all([leerCatalogo(), ubicacionVisitante()]);
+  const [catalogo, ubicacion, vista] = await Promise.all([
+    leerCatalogo(),
+    ubicacionVisitante(),
+    vistaMayorista(),
+  ]);
   const moneda = monedaValida(catalogo?.monedas ?? ['USD'], monedaPedida, ubicacion.moneda);
-  return { ruta: pagina.ruta, catalogo, moneda };
+  // Revendedor con sesión: sus precios, calculados para esta petición (nunca en caché).
+  const mayorista = vista
+    ? { vista, moneda: monedaMayorista(vista, monedaPedida, ubicacion.moneda) }
+    : null;
+  return { ruta: pagina.ruta, catalogo, moneda, mayorista };
 }
 
 /** Título y descripción para buscadores y redes a partir de la página publicada. */

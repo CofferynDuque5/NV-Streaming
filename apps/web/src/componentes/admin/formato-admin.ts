@@ -1,4 +1,4 @@
-import { type CuponPublico, INFO_MONEDA, type Moneda } from '@nv/shared';
+import { type CuponPublico, INFO_MONEDA, type Moneda, type TasaVigente } from '@nv/shared';
 
 /**
  * Valor de una tasa ("1 USD = X") con el formato de su moneda. Conserva hasta
@@ -40,4 +40,11 @@ export function esDeHoy(iso: string, ahora = new Date()): boolean {
     d.getMonth() === ahora.getMonth() &&
     d.getDate() === ahora.getDate()
   );
+}
+
+/** "Automática (BCV)" si la registró la automatización de tasa; si no, null. */
+export function origenAutomatico(t: Pick<TasaVigente, 'origen' | 'fuente'>): string | null {
+  if (t.origen !== 'automatica') return null;
+  const fuente = t.fuente === 'bcv' ? 'BCV' : t.fuente === 'json' ? 'fuente externa' : t.fuente;
+  return fuente ? `Automática (${fuente})` : 'Automática';
 }

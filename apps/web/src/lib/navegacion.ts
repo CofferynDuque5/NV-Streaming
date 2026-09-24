@@ -18,6 +18,7 @@ export type NombreIcono =
   | 'servicios'
   | 'cupones'
   | 'monedas'
+  | 'automatizaciones'
   | 'ajustes';
 
 export interface ElementoNavegacion {
@@ -53,6 +54,12 @@ const EQUIPO: ElementoNavegacion[] = [
     href: '/admin/equipo',
     icono: 'equipo',
     permiso: 'usuarios.ver',
+  },
+  {
+    etiqueta: 'Automatizaciones',
+    href: '/admin/automatizaciones',
+    icono: 'automatizaciones',
+    permiso: 'automatizaciones.ver',
   },
   { etiqueta: 'Auditoría', href: '/admin/auditoria', icono: 'auditoria', permiso: 'auditoria.ver' },
   {

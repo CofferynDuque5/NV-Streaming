@@ -11,6 +11,7 @@ import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoTicketInsignia } from '@/componentes/ui/estado';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { autorMensaje } from '@/lib/automatizaciones';
 import { CATEGORIA_TICKET } from '@/lib/estados';
 import { formatearFechaHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
@@ -46,7 +47,8 @@ export default async function Solicitud({ params }: { params: Promise<{ id: stri
       <Tarjeta className="max-w-3xl">
         <ol className="grid gap-4 px-5 py-5 sm:px-6" aria-label="Conversación">
           {t.mensajes.map((m) => {
-            const propio = m.autor.id === sesion.usuario.id;
+            const autor = autorMensaje(m);
+            const propio = autor.id === sesion.usuario.id;
             return (
               <li
                 key={m.id}
@@ -55,9 +57,9 @@ export default async function Solicitud({ params }: { params: Promise<{ id: stri
                 <p className={clsx('text-xs text-tinta-tenue', propio && 'text-right')}>
                   {propio
                     ? 'Tú'
-                    : m.autor.esEquipo
-                      ? `${m.autor.nombre} · Equipo NV`
-                      : m.autor.nombre}{' '}
+                    : autor.esEquipo && !autor.sistema
+                      ? `${autor.nombre} · Equipo NV`
+                      : autor.nombre}{' '}
                   · {formatearFechaHora(m.creadoEn)}
                 </p>
                 <p

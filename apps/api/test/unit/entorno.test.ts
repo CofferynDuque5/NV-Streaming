@@ -45,4 +45,40 @@ describe('cargarEntorno', () => {
     });
     expect(e.NODE_ENV).toBe('production');
   });
+
+  it('WhatsApp y las fuentes de la tasa: valores por defecto y validación', () => {
+    const e = cargarEntorno(base);
+    expect(e.WHATSAPP_PROVEEDOR).toBe('desactivado');
+    expect(e.WHATSAPP_IDIOMA).toBe('es');
+    expect(e.TASA_BCV_URL).toBe('https://www.bcv.org.ve/');
+    expect(e.VENCIMIENTOS_EN_API).toBe(false);
+    expect(() => cargarEntorno({ ...base, TASA_JSON_URL: 'http://tasas.example/usd' })).toThrow(
+      /TASA_JSON_URL/,
+    );
+    expect(() => cargarEntorno({ ...base, TASA_JSON_CAMPO: 'datos..usd' })).toThrow(
+      /TASA_JSON_CAMPO/,
+    );
+    const produccion = {
+      ...base,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://nv:Xk29-larga@db:5432/nv',
+      WEB_ORIGEN: 'https://nvstreaming.com',
+      CORREO_PROVEEDOR: 'smtp',
+      CORREO_REMITENTE: 'NV Streaming <hola@nvstreaming.com>',
+    };
+    expect(() => cargarEntorno({ ...produccion, WHATSAPP_PROVEEDOR: 'cloud_api' })).toThrow(
+      /WHATSAPP_TOKEN/,
+    );
+    expect(() => cargarEntorno({ ...produccion, WHATSAPP_PROVEEDOR: 'sandbox' })).toThrow(
+      /WHATSAPP_PROVEEDOR/,
+    );
+    expect(
+      cargarEntorno({
+        ...produccion,
+        WHATSAPP_PROVEEDOR: 'cloud_api',
+        WHATSAPP_TOKEN: 'x',
+        WHATSAPP_TELEFONO_ID: '123',
+      }).WHATSAPP_PROVEEDOR,
+    ).toBe('cloud_api');
+  });
 });

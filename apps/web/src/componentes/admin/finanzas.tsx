@@ -18,7 +18,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { formatearFechaHora } from '@/lib/formato';
-import { formatearTasa } from './formato-admin';
+import { formatearTasa, origenAutomatico } from './formato-admin';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
 // ── Tasas de cambio ──────────────────────────────────────────────────────────
@@ -147,8 +147,13 @@ export function HistorialTasa({ moneda }: { moneda: MonedaConTasa }) {
                   >
                     {formatearTasa(t.valor, moneda)}
                   </span>
-                  <span className="text-right text-tinta-tenue">
-                    {t.autor?.nombre ?? 'Sistema'} · {formatearFechaHora(t.vigenteDesde)}
+                  <span className="grid justify-items-end gap-0.5 text-right text-tinta-tenue">
+                    {origenAutomatico(t) ? (
+                      <Insignia tono="marca">{origenAutomatico(t)}</Insignia>
+                    ) : (
+                      <span>Manual · {t.autor?.nombre ?? 'Sistema'}</span>
+                    )}
+                    <span>{formatearFechaHora(t.vigenteDesde)}</span>
                   </span>
                 </li>
               ))}

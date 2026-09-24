@@ -21,6 +21,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, EnlaceFila, Fila, Tabla } from '@/componentes/ui/tabla';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { esTicketDelSistema } from '@/lib/automatizaciones';
 import { leerFiltro } from '@/lib/consulta';
 import { CATEGORIA_TICKET, ESTADO_TICKET, PRIORIDAD_TICKET } from '@/lib/estados';
 import { formatearFechaHora, haceCuanto } from '@/lib/formato';
@@ -216,6 +217,11 @@ export default async function Soporte({
                     <EnlaceFila href={`/admin/soporte/${t.id}`}>
                       <span className="font-mono text-xs text-tinta-tenue">#{t.numero}</span>
                       <span className="truncate font-medium">{t.asunto}</span>
+                      {esTicketDelSistema(t) && (
+                        <Insignia tono="acento" className="w-fit">
+                          Automático
+                        </Insignia>
+                      )}
                     </EnlaceFila>
                   </Celda>
                   <Celda className="text-tinta-suave">{t.cliente.nombre}</Celda>

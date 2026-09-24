@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { type CatalogoMayorista, formatearMonto } from '@nv/shared';
+import { type CatalogoMayorista, formatearMonto, type PaginaSitioDetalle } from '@nv/shared';
 import { expect, type Page, test } from '@playwright/test';
-import { generate } from 'otplib';
-import { ARCHIVO_SECRETOS, entrarEquipo } from './ayudas';
+import { entrarEquipo } from './ayudas';
 
 /** PNG mínimo válido de 1×1 píxel, como comprobante de la recarga. */
 const PNG_1X1 = Buffer.from(
@@ -12,28 +10,9 @@ const PNG_1X1 = Buffer.from(
 
 const usd = (v: number) => formatearMonto(v.toFixed(2), 'USD');
 
-/**
- * Entra con verificación en dos pasos ya configurada (por roles.spec.ts). Si el
- * código se rechaza por repetido (otra prueba entró en los últimos 30 s), espera
- * al siguiente periodo y lo intenta de nuevo.
- */
+/** Entra con la verificación en dos pasos que configuró roles.spec.ts. */
 async function entrar(page: Page, correo: string, destino: RegExp) {
   await entrarEquipo(page, correo);
-  for (let intento = 0; intento < 2; intento++) {
-    const llego = await page
-      .waitForURL(destino, { timeout: 5_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (llego) return;
-    const secreto = (JSON.parse(readFileSync(ARCHIVO_SECRETOS, 'utf8')) as Record<string, string>)[
-      correo
-    ]!;
-    await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
-    await page
-      .getByLabel('Código de 6 dígitos')
-      .fill(await generate({ secret: secreto, epoch: Math.floor(Date.now() / 1000) + 30 }));
-    await page.getByRole('button', { name: 'Verificar' }).click();
-  }
   await expect(page).toHaveURL(destino);
 }
 
@@ -111,4 +90,94 @@ test('el revendedor recarga saldo, el equipo lo confirma y compra una activació
   await expect(
     revendedor.getByRole('row').filter({ hasText: 'Cliente de Reventa E2E' }),
   ).toBeVisible();
+});
+
+test('el revendedor ve sus precios mayoristas en el sitio público; el resto, los del público', async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const anonimo = await (await browser.newContext()).newPage();
+  const revendedor = await (await browser.newContext()).newPage();
+  const admin = await (await browser.newContext()).newPage();
+
+  // Una página del editor con el bloque de planes (la portada de la semilla no lo tiene).
+  await entrar(admin, 'admin@nv.test', /\/admin$/);
+  const origen = { origin: new URL(admin.url()).origin };
+  const creada = (await (
+    await admin.request.post('/api/v1/sitio/paginas', {
+      headers: origen,
+      data: { ruta: '/precios-e2e', titulo: 'Precios E2E' },
+    })
+  ).json()) as PaginaSitioDetalle;
+  const guardado = await admin.request.put(`/api/v1/sitio/paginas/${creada.id}/borrador`, {
+    headers: origen,
+    data: {
+      titulo: 'Precios E2E',
+      bloques: [{ id: 'planese2e', tipo: 'planes', titulo: 'Nuestros planes' }],
+      borradorActualizadoEn: creada.borradorActualizadoEn,
+    },
+  });
+  expect(guardado.ok()).toBe(true);
+  const publicada = await admin.request.post(`/api/v1/sitio/paginas/${creada.id}/publicar`, {
+    headers: origen,
+    data: {},
+  });
+  expect(publicada.ok()).toBe(true);
+
+  // Sin sesión: precios al público y el botón de siempre.
+  for (const ruta of ['/planes?moneda=USD', '/precios-e2e?moneda=USD']) {
+    await anonimo.goto(ruta);
+    const mensual = anonimo
+      .getByRole('article')
+      .filter({ has: anonimo.getByRole('heading', { name: 'Mensual', exact: true }) });
+    await expect(mensual.getByText(usd(5.99))).toBeVisible();
+    await expect(mensual.getByRole('link', { name: 'Elegir este plan' })).toBeVisible();
+    await expect(anonimo.getByText('Precio mayorista')).toHaveCount(0);
+  }
+
+  // El revendedor (nivel Plata) ve su precio mayorista, el público de referencia y su margen.
+  await entrar(revendedor, 'revendedor@nv.test', /\/revendedor$/);
+  const catalogo = (await (
+    await revendedor.request.get('/api/v1/revendedor/catalogo')
+  ).json()) as CatalogoMayorista;
+  const plan = catalogo.planes.find((p) => p.nombre === 'Mensual')!;
+  const margen = Number(plan.precioPublicoUsd) - Number(plan.precioUsd);
+
+  for (const ruta of ['/planes', '/precios-e2e']) {
+    await revendedor.goto(`${ruta}?moneda=USD`);
+    await expect(revendedor.getByText('Tus precios de revendedor · Nivel Plata')).toBeVisible();
+    await expect(revendedor.getByRole('link', { name: /Elegir este plan/ })).toHaveCount(0);
+    const tarjeta = revendedor
+      .getByRole('article')
+      .filter({ has: revendedor.getByRole('heading', { name: plan.nombre, exact: true }) });
+    await expect(tarjeta.getByText('Precio mayorista')).toBeVisible();
+    await expect(tarjeta.getByText(usd(Number(plan.precioUsd)), { exact: true })).toBeVisible();
+    await expect(
+      tarjeta.getByText(usd(Number(plan.precioPublicoUsd)), { exact: true }),
+    ).toBeVisible();
+    await expect(tarjeta.getByText(usd(margen), { exact: true })).toBeVisible();
+    // Los planes que no se revenden no aparecen.
+    await expect(revendedor.getByRole('heading', { name: 'Anual', exact: true })).toHaveCount(0);
+    await expect(
+      revendedor.getByText('Algunos planes no están disponibles para reventa'),
+    ).toBeVisible();
+  }
+
+  // En bolívares: el equivalente con la tasa de hoy.
+  await revendedor.getByRole('link', { name: 'VES', exact: true }).click();
+  await expect(revendedor).toHaveURL(/moneda=VES/);
+  const tarjetaVes = revendedor
+    .getByRole('article')
+    .filter({ has: revendedor.getByRole('heading', { name: plan.nombre, exact: true }) });
+  await expect(
+    tarjetaVes.getByText(formatearMonto(plan.precioVes!, 'VES'), { exact: true }),
+  ).toBeVisible();
+
+  // "Comprar con saldo" lleva al catálogo mayorista con ese plan listo para comprar.
+  await tarjetaVes.getByRole('link', { name: 'Comprar con saldo' }).click();
+  await expect(revendedor).toHaveURL(new RegExp(`/revendedor/catalogo\\?plan=${plan.id}$`));
+  await expect(
+    revendedor.getByText(`Comprar ${plan.servicio.nombre} · ${plan.nombre}`),
+  ).toBeVisible();
+  await expect(revendedor.getByLabel('Nombre del cliente')).toBeVisible();
 });

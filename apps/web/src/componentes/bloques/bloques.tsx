@@ -43,7 +43,9 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { agruparPorServicio, SelectorMoneda, TarjetaPlan } from '@/componentes/planes';
+import { type MonedaMayorista, PlanesMayoristas } from '@/componentes/planes-mayoristas';
 import { clasesBoton } from '@/componentes/ui/boton';
+import type { VistaMayorista } from '@/lib/revendedor-publico';
 import { EnlaceSitio, TextoEnriquecido } from './texto-enriquecido';
 
 export const ICONOS: Record<IconoSitio, LucideIcon> = {
@@ -73,6 +75,11 @@ export interface ContextoBloques {
   ruta: string;
   catalogo: CatalogoPublico | null;
   moneda: Moneda;
+  /**
+   * Precios de un revendedor con sesión. Se calcula en cada petición y solo
+   * llega aquí por propiedades: el contenido en caché del sitio no lo incluye.
+   */
+  mayorista?: { vista: VistaMayorista; moneda: MonedaMayorista } | null;
 }
 
 const contenedor = 'mx-auto w-full max-w-6xl px-4 @2xl:px-6';
@@ -287,7 +294,25 @@ function VistaPanel() {
 }
 
 function Planes({ b, contexto }: { b: BloqueDe<'planes'>; contexto: ContextoBloques }) {
-  const { catalogo, moneda, ruta } = contexto;
+  const { catalogo, moneda, ruta, mayorista } = contexto;
+  if (mayorista) {
+    return (
+      <Seccion bloque={b}>
+        <div className={clsx(contenedor, 'grid gap-10 py-20')}>
+          <Encabezado etiqueta={b.etiqueta} titulo={b.titulo} subtitulo={b.subtitulo} />
+          <PlanesMayoristas
+            vista={mayorista.vista}
+            moneda={mayorista.moneda}
+            publicos={catalogo?.planes ?? null}
+            servicio={b.servicio}
+            ruta={ruta}
+            conServicios={!b.servicio}
+            claseRejilla="grid gap-5 @2xl:grid-cols-2 @5xl:grid-cols-3"
+          />
+        </div>
+      </Seccion>
+    );
+  }
   const planes = (catalogo?.planes ?? []).filter(
     (p) => !b.servicio || p.servicio.slug === b.servicio,
   );

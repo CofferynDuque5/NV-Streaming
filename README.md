@@ -43,7 +43,7 @@ docker compose up -d        # PostgreSQL (nv y nv_test) y Mailpit
 pnpm build                  # compila paquetes, API y web
 pnpm db:deploy              # aplica las migraciones
 pnpm db:seed                # crea un usuario de demostración por rol
-pnpm dev                    # API en :4000 y web en :3000
+pnpm dev                    # API en :4000, web en :3000 y el trabajador de automatizaciones
 ```
 
 Abre http://localhost:3000. Los correos (verificación, recuperación, invitaciones) se muestran en la consola de la API y se guardan en la tabla `correos_salientes`. Si prefieres verlos como en un buzón, usa `CORREO_PROVEEDOR=smtp` con `SMTP_HOST=localhost` y `SMTP_PUERTO=1025` y abre Mailpit en http://localhost:8025.
@@ -61,6 +61,25 @@ Contraseña de todos: `NvDemo-2026!`
 | cliente@nv.test    | Cliente            | Entra directo a “Mis servicios” (2FA opcional)                |
 
 Para la verificación en dos pasos sirve cualquier aplicación TOTP gratuita (Google Authenticator, Microsoft Authenticator, Aegis, 2FAS…). Los datos de demostración nunca se cargan en producción.
+
+## Automatizaciones y trabajador
+
+Los recordatorios, las facturas de renovación, los avisos de gracia, suspensión y reactivación, el escalado a soporte, el aviso de saldo bajo a revendedores, la tasa del bolívar automática y las alertas al equipo las ejecuta un **proceso trabajador** aparte de la API:
+
+```bash
+pnpm start:trabajador       # node apps/api/dist/trabajador.js (en desarrollo lo arranca `pnpm dev`)
+```
+
+- **Cola en PostgreSQL** (tabla `trabajos`, sin Redis): los trabajos se reservan con `FOR UPDATE SKIP LOCKED` y un plazo de reserva; si un trabajador se cae, otro los retoma. Reintentos con espera exponencial y estado `fallido` al agotar los intentos. Puedes ejecutar varios trabajadores: las claves únicas impiden duplicados.
+- **Programador**: cada automatización programada corre a sus horas de Venezuela (UTC−4, sin horario de verano). Cada ejecución queda registrada con sus contadores y un resumen, visible en el panel de administración.
+- **Avisos por evento** (gracia, suspensión, reactivación y saldo bajo) se encolan en la misma transacción que el cambio que los origina.
+- **Avisos**: cada aviso deja una fila en `notificaciones` por canal (enviada, fallida u omitida con su motivo) y nunca se envía dos veces. WhatsApp solo se usa con clientes que dieron su consentimiento; los clientes de un revendedor no reciben avisos de cobro de NV, y el cliente puede apagar los recordatorios (los avisos de pago y suspensión siguen llegando).
+- El trabajador también **pasa los vencimientos** cada `VENCIMIENTOS_CADA_MINUTOS`. Si no puedes ejecutarlo, `VENCIMIENTOS_EN_API=true` deja que la API lo haga (los avisos esperarán en cola).
+- El panel muestra si el trabajador está en marcha (latido cada 30 s en `latidos_trabajador`). Se detiene limpio con `SIGTERM`.
+
+**WhatsApp** (`WHATSAPP_PROVEEDOR=cloud_api`): usa la WhatsApp Cloud API oficial de Meta. Meta exige **plantillas aprobadas** para los mensajes que inicia la empresa; los nombres y parámetros están en `apps/api/src/avisos/whatsapp.ts`. En producción la API no arranca con `cloud_api` sin `WHATSAPP_TOKEN` y `WHATSAPP_TELEFONO_ID`.
+
+**Tasa automática**: lee el dólar de la página oficial del BCV (`TASA_BCV_URL`) o de un JSON propio (`TASA_JSON_URL` + `TASA_JSON_CAMPO`), siempre por https, con tiempo y tamaño máximos y sin seguir redirecciones a otro sitio. Si el valor cambia más del porcentaje configurado respecto de la tasa vigente, no se aplica y se avisa a administración. Viene desactivada: actívala en el panel tras probar la fuente con el botón «Probar».
 
 ## Pruebas
 

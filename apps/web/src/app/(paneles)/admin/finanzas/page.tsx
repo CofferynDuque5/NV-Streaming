@@ -7,7 +7,7 @@ import {
 import clsx from 'clsx';
 import type { Metadata } from 'next';
 import { HistorialTasa, ListaMetodos, RegistrarTasa } from '@/componentes/admin/finanzas';
-import { esDeHoy, formatearTasa } from '@/componentes/admin/formato-admin';
+import { esDeHoy, formatearTasa, origenAutomatico } from '@/componentes/admin/formato-admin';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { Insignia } from '@/componentes/ui/insignia';
@@ -95,7 +95,7 @@ export default async function Finanzas() {
                         {formatearTasa(t.valor, m)}
                       </p>
                       <p className="text-xs text-tinta-tenue">
-                        {t.autor?.nombre ?? 'Sistema'} ·{' '}
+                        {origenAutomatico(t) ?? `Manual · ${t.autor?.nombre ?? 'Sistema'}`} ·{' '}
                         <time dateTime={t.vigenteDesde}>{haceCuanto(t.vigenteDesde)}</time>
                       </p>
                     </>

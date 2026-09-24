@@ -1,13 +1,14 @@
 import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { ARCHIVO_SECRETOS } from './ayudas';
+import { ARCHIVO_PASOS, ARCHIVO_SECRETOS } from './ayudas';
 import { entornoE2e } from './entorno';
 
 /** Deja la base de pruebas limpia y sembrada con un usuario por rol. */
 export default function preparar(): void {
   const { url } = entornoE2e();
   rmSync(ARCHIVO_SECRETOS, { force: true });
+  rmSync(ARCHIVO_PASOS, { force: true });
   const opciones = {
     cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
     env: { ...process.env, DATABASE_URL: url, NODE_ENV: 'test' as const },

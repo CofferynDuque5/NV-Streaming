@@ -8,9 +8,11 @@ import {
   SelectorMoneda,
   TarjetaPlan,
 } from '@/componentes/planes';
+import { monedaMayorista, PlanesMayoristas } from '@/componentes/planes-mayoristas';
 import { BotonEnlace } from '@/componentes/ui/boton';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { nombrePais } from '@/lib/formato';
+import { vistaMayorista } from '@/lib/revendedor-publico';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = {
@@ -41,11 +43,41 @@ export default async function Planes({
 }: {
   searchParams: Promise<{ moneda?: string }>;
 }) {
-  const [catalogo, { moneda: pedida }, ubicacion] = await Promise.all([
+  const [catalogo, { moneda: pedida }, ubicacion, mayorista] = await Promise.all([
     leerCatalogo(),
     searchParams,
     ubicacionVisitante(),
+    vistaMayorista(),
   ]);
+  // Un revendedor con sesión ve sus precios mayoristas (por petición, sin caché).
+  if (mayorista) {
+    return (
+      <section className="relative overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 -top-40 h-[28rem] bg-[radial-gradient(60%_60%_at_50%_0%,var(--nv-acento-suave),transparent_70%)]"
+        />
+        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 pt-14 pb-20 sm:px-6 lg:pt-20">
+          <header className="grid max-w-2xl gap-4">
+            <p className="text-sm font-semibold text-acento">Precios de revendedor</p>
+            <h1 className="text-4xl leading-tight font-semibold sm:text-5xl">
+              Tu catálogo mayorista
+            </h1>
+            <p className="text-lg text-tinta-suave">
+              Lo que pagas tú por cada activación, con el precio al público como referencia para
+              calcular tu margen.
+            </p>
+          </header>
+          <PlanesMayoristas
+            vista={mayorista}
+            moneda={monedaMayorista(mayorista, pedida, ubicacion.moneda)}
+            publicos={catalogo?.planes ?? null}
+            ruta="/planes"
+          />
+        </div>
+      </section>
+    );
+  }
   const monedas = catalogo?.monedas ?? ['USD'];
   const moneda = monedaValida(monedas, pedida, ubicacion.moneda);
   const porUbicacion =

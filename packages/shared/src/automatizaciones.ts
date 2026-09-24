@@ -35,6 +35,14 @@ const hora = z.coerce
   .min(0, 'Escribe una hora entre 0 y 23.')
   .max(23, 'Escribe una hora entre 0 y 23.');
 
+/** Entero entre `min` y `max` con el mensaje de error en español. */
+const entero = (min: number, max: number, unidad: string) => {
+  const m = `Escribe un número entero entre ${min} y ${max} ${unidad}.`;
+  return z.coerce.number({ error: m }).int(m).min(min, m).max(max, m);
+};
+
+const DIAS_AVISO = 'Escribe días entre 1 y 30, separados por comas.';
+
 const listaSinRepetir = <T extends z.ZodType>(item: T, max: number, nombre: string) =>
   z
     .array(item)
@@ -46,31 +54,35 @@ const listaSinRepetir = <T extends z.ZodType>(item: T, max: number, nombre: stri
 
 export const PARAMETROS_AUTOMATIZACION = {
   recordatorio_vencimiento: z.object({
-    diasAntes: listaSinRepetir(z.coerce.number().int().min(1).max(30), 5, 'los días de aviso'),
+    diasAntes: listaSinRepetir(
+      z.coerce.number({ error: DIAS_AVISO }).int(DIAS_AVISO).min(1, DIAS_AVISO).max(30, DIAS_AVISO),
+      5,
+      'los días de aviso',
+    ),
     hora,
   }),
   factura_renovacion: z.object({
-    diasAntes: z.coerce.number().int().min(1).max(15),
+    diasAntes: entero(1, 15, 'días'),
     hora,
   }),
   aviso_gracia: z.object({}),
   aviso_suspension: z.object({}),
   escalado_suspension: z.object({
-    diasSuspendida: z.coerce.number().int().min(1).max(30),
-    prioridad: z.enum(PRIORIDADES_TICKET),
+    diasSuspendida: entero(1, 30, 'días'),
+    prioridad: z.enum(PRIORIDADES_TICKET, { error: 'Elige una prioridad válida.' }),
   }),
   aviso_recuperacion: z.object({}),
   saldo_bajo_revendedor: z.object({ umbralUsd: montoSchema }),
   tasa_automatica: z.object({
-    fuente: z.enum(FUENTES_TASA),
+    fuente: z.enum(FUENTES_TASA, { error: 'Elige una fuente válida.' }),
     horas: listaSinRepetir(hora, 6, 'las horas'),
-    variacionMaximaPct: z.coerce.number().int().min(1).max(50),
+    variacionMaximaPct: entero(1, 50, '%'),
   }),
   alerta_sla_tickets: z.object({
-    cadaMinutos: z.coerce.number().int().min(15).max(1440),
+    cadaMinutos: entero(15, 1440, 'minutos'),
   }),
   alerta_pagos_pendientes: z.object({
-    horasEspera: z.coerce.number().int().min(1).max(72),
+    horasEspera: entero(1, 72, 'horas'),
     hora,
   }),
 } as const satisfies Record<TipoAutomatizacion, z.ZodType>;
@@ -230,6 +242,11 @@ export const avisoPruebaSchema = z.object({
   canal: z.enum(CANALES_AVISO),
   /** Correo o teléfono en formato internacional (+58...). */
   destino: z.string().trim().min(5).max(254),
+});
+
+/** Consulta de prueba de la tasa automática (sin guardar). Sin fuente usa la configurada. */
+export const probarTasaSchema = z.object({
+  fuente: z.enum(FUENTES_TASA).optional(),
 });
 
 export const preferenciasAvisosSchema = z.object({

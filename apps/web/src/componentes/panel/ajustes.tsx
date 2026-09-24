@@ -9,10 +9,11 @@ import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { Insignia } from '@/componentes/ui/insignia';
+import { Interruptor } from '@/componentes/ui/interruptor';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { haceCuanto } from '@/lib/formato';
 
-type Metodo = 'POST' | 'PATCH' | 'DELETE';
+type Metodo = 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 /** Estado común de un formulario de ajustes. */
 function useAccion() {
@@ -304,6 +305,50 @@ export function ListaSesiones({ sesiones }: { sesiones: SesionListada[] }) {
           Cerrar las demás sesiones
         </Boton>
       )}
+    </div>
+  );
+}
+
+/** Preferencia del cliente sobre los recordatorios de vencimiento. */
+export function PreferenciaRecordatorios({ recibir }: { recibir: boolean }) {
+  const { ejecutar, error, cargando, exito } = useAccion();
+  const [valor, setValor] = useState(recibir);
+
+  async function cambiar(nuevo: boolean) {
+    setValor(nuevo);
+    const r = await ejecutar<{ recibirRecordatorios: boolean }>(
+      'PUT',
+      '/autoservicio/preferencias',
+      { recibirRecordatorios: nuevo },
+      nuevo
+        ? 'Listo: te avisaremos antes de que venza tu suscripción.'
+        : 'Listo: ya no te enviaremos recordatorios de vencimiento.',
+    );
+    setValor(r ? r.recibirRecordatorios : !nuevo);
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid gap-1">
+          <p id="preferencia-recordatorios" className="text-sm font-medium">
+            Recibir recordatorios de vencimiento
+          </p>
+          <p id="preferencia-recordatorios-ayuda" className="text-sm text-tinta-suave">
+            Te escribimos unos días antes de que venza tu suscripción. Aunque los desactives,
+            seguirás recibiendo las facturas, los avisos de pago y los de suspensión del servicio.
+          </p>
+        </div>
+        <Interruptor
+          activo={valor}
+          cargando={cargando}
+          onCambiar={(v) => void cambiar(v)}
+          aria-labelledby="preferencia-recordatorios"
+          aria-describedby="preferencia-recordatorios-ayuda"
+          className="mt-0.5"
+        />
+      </div>
+      <Mensajes error={error} exito={exito} />
     </div>
   );
 }

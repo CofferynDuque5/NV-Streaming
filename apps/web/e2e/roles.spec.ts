@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { generate } from 'otplib';
-import { configurarDosPasos, ingresar } from './ayudas';
+import { codigoSinUsar, configurarDosPasos, ingresar } from './ayudas';
 
 test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con código', async ({
   page,
@@ -27,7 +26,7 @@ test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con c
   await expect(page).toHaveURL(/\/verificacion-2fa/);
   await page
     .getByLabel('Código de 6 dígitos')
-    .fill(await generate({ secret: secreto, epoch: Math.floor(Date.now() / 1000) + 30 }));
+    .fill(await codigoSinUsar(page, 'admin@nv.test', secreto));
   await page.getByRole('button', { name: 'Verificar' }).click();
   await expect(page).toHaveURL(/\/admin$/);
 });

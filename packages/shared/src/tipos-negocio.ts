@@ -18,6 +18,10 @@ export interface TasaVigente {
   valor: Decimal;
   vigenteDesde: string;
   autor: Referencia | null;
+  /** "manual" (la registró una persona) o "automatica" (la trajo la automatización de tasa). */
+  origen?: 'manual' | 'automatica';
+  /** Fuente consultada cuando es automática (p. ej. "bcv"). */
+  fuente?: string | null;
 }
 
 export interface MetodoCobroPublico {
@@ -232,6 +236,8 @@ export interface TicketResumen {
   estado: EstadoTicket;
   cliente: Referencia;
   asignadoA: Referencia | null;
+  /** Quién lo abrió: el cliente, el equipo o el sistema (escalado automático). */
+  origen?: 'cliente' | 'equipo' | 'sistema';
   slaPrimeraRespuesta: string;
   primeraRespuestaEn: string | null;
   /** Sin respuesta del equipo y con el plazo vencido. */

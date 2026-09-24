@@ -51,6 +51,7 @@ function resumen(t: TicketBase, ahora = new Date()): TicketResumen {
     estado: t.estado,
     cliente: t.cliente,
     asignadoA: t.asignadoA,
+    origen: t.origen as 'cliente' | 'equipo' | 'sistema',
     slaPrimeraRespuesta: iso(t.slaPrimeraRespuesta)!,
     primeraRespuestaEn: iso(t.primeraRespuestaEn),
     slaIncumplido:
@@ -63,7 +64,7 @@ function resumen(t: TicketBase, ahora = new Date()): TicketResumen {
 }
 
 /** Autor de los mensajes que escribe el sistema (escalado automático). */
-const AUTOR_SISTEMA = { id: 'sistema', nombre: 'NV (automático)', esEquipo: true };
+export const AUTOR_SISTEMA = { id: 'sistema', nombre: 'NV (automático)', esEquipo: true };
 
 @Injectable()
 export class TicketsService {
@@ -307,6 +308,68 @@ export class TicketsService {
       return t.id;
     });
     return this.obtener(auth, id);
+  }
+
+  /**
+   * Ticket que abre el sistema (escalado automático): sin creador, con origen
+   * "sistema", un mensaje para el cliente y una nota interna para el equipo.
+   */
+  async abrirTicketSistema(
+    tx: Tx,
+    e: {
+      clienteId: string;
+      suscripcionId: string | null;
+      asunto: string;
+      prioridad: PrioridadTicket;
+      mensaje: string;
+      notaInterna: string;
+      ahora?: Date;
+    },
+  ): Promise<Ticket> {
+    const ahora = e.ahora ?? new Date();
+    const escrito = new Date();
+    const t = await tx.ticket.create({
+      data: {
+        clienteId: e.clienteId,
+        suscripcionId: e.suscripcionId,
+        asunto: e.asunto.slice(0, 160),
+        categoria: 'pagos',
+        prioridad: e.prioridad,
+        slaPrimeraRespuesta: slaDesde(ahora, e.prioridad),
+        creadoPorId: null,
+        origen: 'sistema',
+        mensajes: {
+          create: [
+            { autorId: null, texto: e.mensaje.slice(0, 5000), interno: false, creadoEn: escrito },
+            {
+              autorId: null,
+              texto: e.notaInterna.slice(0, 5000),
+              interno: true,
+              // Después del mensaje al cliente, para que se lean en orden.
+              creadoEn: new Date(escrito.getTime() + 1),
+            },
+          ],
+        },
+      },
+    });
+    await this.auditoria.registrar(
+      {
+        actorTipo: 'sistema',
+        accion: 'ticket.abierto',
+        entidad: 'ticket',
+        entidadId: t.id,
+        despues: {
+          numero: t.numero,
+          clienteId: e.clienteId,
+          categoria: 'pagos',
+          prioridad: e.prioridad,
+          origen: 'sistema',
+          suscripcionId: e.suscripcionId,
+        },
+      },
+      tx,
+    );
+    return t;
   }
 
   private async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Ticket> {

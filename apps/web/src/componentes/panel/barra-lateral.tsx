@@ -22,6 +22,7 @@ import {
   UserRound,
   Users,
   Wallet,
+  Workflow,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -48,6 +49,7 @@ const ICONOS: Record<NombreIcono, LucideIcon> = {
   servicios: Receipt,
   cupones: TicketPercent,
   monedas: Coins,
+  automatizaciones: Workflow,
   ajustes: Settings,
 };
 

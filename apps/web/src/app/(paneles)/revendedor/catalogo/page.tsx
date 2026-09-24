@@ -5,6 +5,7 @@ import {
   type Pagina,
   type ResumenRevendedor,
 } from '@nv/shared';
+import clsx from 'clsx';
 import { Check, Package } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -20,8 +21,13 @@ import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Catálogo mayorista' };
 
-export default async function Catalogo() {
+export default async function Catalogo({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string | string[] }>;
+}) {
   await requerirSesion({ roles: ['revendedor'] });
+  const { plan: planPedido } = await searchParams;
   const [{ estado, datos: resumen }, { datos: catalogo }, { datos: cartera }] = await Promise.all([
     leerApi<ResumenRevendedor>('/revendedor/resumen'),
     leerApi<CatalogoMayorista>('/revendedor/catalogo'),
@@ -52,6 +58,12 @@ export default async function Catalogo() {
   const r = resumen.revendedor;
   const bloqueo = motivoBloqueo(r);
   const clientes = (cartera?.elementos ?? []).map((c) => ({ id: c.id, nombre: c.nombre }));
+  // ?plan= (desde "Comprar con saldo" en el sitio): ese plan va primero y con la compra abierta.
+  const elegido =
+    typeof planPedido === 'string' ? catalogo.planes.find((p) => p.id === planPedido) : undefined;
+  const planes = elegido
+    ? [elegido, ...catalogo.planes.filter((p) => p !== elegido)]
+    : catalogo.planes;
 
   return (
     <>
@@ -71,6 +83,15 @@ export default async function Catalogo() {
         </Link>
       </div>
 
+      {typeof planPedido === 'string' &&
+        (elegido ? (
+          <Alerta tono="info" titulo={`Comprar ${elegido.servicio.nombre} · ${elegido.nombre}`}>
+            Indica para quién es y confirma: se cobra de tu saldo al precio de tu nivel.
+          </Alerta>
+        ) : (
+          <Alerta tono="aviso">Ese plan no está disponible para tu nivel. Elige otro.</Alerta>
+        ))}
+
       {catalogo.planes.length === 0 ? (
         <Tarjeta>
           <EstadoVacio icono={Package} titulo="No hay planes disponibles para tu nivel">
@@ -81,11 +102,17 @@ export default async function Catalogo() {
         </Tarjeta>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {catalogo.planes.map((p) => {
+          {planes.map((p) => {
             const margen = Number(p.precioPublicoUsd) - Number(p.precioUsd);
             return (
               <li key={p.id} className="min-w-0">
-                <Tarjeta className="flex h-full flex-col" aria-labelledby={`plan-${p.id}`}>
+                <Tarjeta
+                  className={clsx(
+                    'flex h-full flex-col',
+                    p === elegido && 'border-marca/50 ring-2 ring-marca/30',
+                  )}
+                  aria-labelledby={`plan-${p.id}`}
+                >
                   <div className="grid flex-1 content-start gap-3 px-5 py-5 sm:px-6">
                     <div className="grid gap-0.5">
                       <p className="text-xs font-medium text-tinta-tenue">{p.servicio.nombre}</p>
@@ -128,6 +155,7 @@ export default async function Catalogo() {
                       clientes={clientes}
                       saldoUsd={r.saldoUsd}
                       bloqueado={bloqueo}
+                      abiertoInicial={p === elegido}
                     />
                   </div>
                 </Tarjeta>

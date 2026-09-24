@@ -39,7 +39,12 @@ export class CorreoService {
     return url.toString();
   }
 
-  async enviar(para: string, plantilla: NombrePlantilla, correo: CorreoRenderizado): Promise<void> {
+  /** Envía (o simula con el sandbox) y lo registra. Nunca lanza: devuelve si salió y el error. */
+  async enviar(
+    para: string,
+    plantilla: NombrePlantilla,
+    correo: CorreoRenderizado,
+  ): Promise<{ enviado: boolean; error: string | null }> {
     const proveedor = this.entorno.CORREO_PROVEEDOR;
     let estado = 'enviado';
     let error: string | null = null;
@@ -72,5 +77,6 @@ export class CorreoService {
         texto: proveedor === 'sandbox' ? correo.texto : null,
       },
     });
+    return { enviado: estado === 'enviado', error };
   }
 }

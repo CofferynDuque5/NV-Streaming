@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 const booleano = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
 
+/** URL https (las fuentes de la tasa nunca se consultan sin cifrar). Vacía = sin configurar. */
+const urlHttps = (nombre: string, defecto = '') =>
+  z
+    .string()
+    .trim()
+    .refine((v) => v === '' || (/^https:\/\/\S+$/i.test(v) && URL.canParse(v)), {
+      error: `${nombre} debe ser una URL https válida.`,
+    })
+    .default(defecto);
+
 const EntornoSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -32,8 +42,51 @@ const EntornoSchema = z
     /** Carpeta donde se guardan los comprobantes. Fuera de la carpeta pública de la web. */
     ALMACEN_DIR: z.string().min(1).default('almacen'),
     COMPROBANTE_MAX_MB: z.coerce.number().int().min(1).max(20).default(5),
-    /** Cada cuántos minutos se aplican vencimientos, gracia y suspensiones (0 = nunca). */
+    /**
+     * Cada cuántos minutos el trabajador aplica vencimientos, gracia y suspensiones
+     * (0 = nunca). Lo hace el proceso trabajador (`dist/trabajador.js`).
+     */
     VENCIMIENTOS_CADA_MINUTOS: z.coerce.number().int().min(0).max(1440).default(10),
+    /**
+     * Respaldo para instalaciones sin trabajador: la API también pasa los
+     * vencimientos con su propio temporizador. Los avisos quedan en cola hasta
+     * que arranque un trabajador.
+     */
+    VENCIMIENTOS_EN_API: booleano.default(false),
+    /** Cada cuántos segundos el trabajador busca trabajos pendientes cuando la cola está vacía. */
+    TRABAJADOR_ESPERA_SEGUNDOS: z.coerce.number().int().min(1).max(300).default(5),
+    /** WhatsApp: "desactivado", "sandbox" (solo registra) o "cloud_api" (WhatsApp Cloud API de Meta). */
+    WHATSAPP_PROVEEDOR: z.enum(['desactivado', 'sandbox', 'cloud_api']).default('desactivado'),
+    WHATSAPP_TOKEN: z.string().trim().default(''),
+    WHATSAPP_TELEFONO_ID: z
+      .string()
+      .trim()
+      .regex(/^\d*$/, 'WHATSAPP_TELEFONO_ID es el id numérico del número en Meta.')
+      .default(''),
+    /** Código de idioma de las plantillas aprobadas en Meta (p. ej. "es" o "es_MX"). */
+    WHATSAPP_IDIOMA: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, 'WHATSAPP_IDIOMA debe ser un código como "es" o "es_MX".')
+      .default('es'),
+    /** Versión de la Graph API de Meta. */
+    WHATSAPP_API_VERSION: z
+      .string()
+      .trim()
+      .regex(/^v\d{1,3}\.\d$/, 'WHATSAPP_API_VERSION debe tener la forma v23.0.')
+      .default('v23.0'),
+    /** Página oficial del BCV de la que se lee la tasa del dólar. */
+    TASA_BCV_URL: urlHttps('TASA_BCV_URL', 'https://www.bcv.org.ve/'),
+    /** Fuente JSON alternativa (https) y ruta del campo con el valor, p. ej. "monitors.bcv.price". */
+    TASA_JSON_URL: urlHttps('TASA_JSON_URL'),
+    TASA_JSON_CAMPO: z
+      .string()
+      .trim()
+      .regex(
+        /^([A-Za-z0-9_-]+)(\.[A-Za-z0-9_-]+)*$|^$/,
+        'TASA_JSON_CAMPO es una ruta como "datos.usd.valor".',
+      )
+      .default(''),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
@@ -64,6 +117,20 @@ const EntornoSchema = z
         code: 'custom',
         path: ['CORREO_PROVEEDOR'],
         message: 'En producción el correo debe enviarse por SMTP.',
+      });
+    }
+    if (e.WHATSAPP_PROVEEDOR === 'sandbox') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['WHATSAPP_PROVEEDOR'],
+        message: 'En producción WhatsApp debe estar desactivado o usar cloud_api.',
+      });
+    }
+    if (e.WHATSAPP_PROVEEDOR === 'cloud_api' && (!e.WHATSAPP_TOKEN || !e.WHATSAPP_TELEFONO_ID)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['WHATSAPP_TOKEN'],
+        message: 'WhatsApp Cloud API necesita WHATSAPP_TOKEN y WHATSAPP_TELEFONO_ID.',
       });
     }
     if (e.CORREO_REMITENTE.includes('example.com')) {

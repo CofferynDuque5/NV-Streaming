@@ -46,6 +46,7 @@ import {
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { esTicketDelSistema } from '@/lib/automatizaciones';
 import { CATEGORIA_TICKET } from '@/lib/estados';
 import { formatearFecha, formatearFechaHora, formatearMonto, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
@@ -298,7 +299,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
                           <span className="font-mono text-tinta-tenue">#{t.numero}</span> {t.asunto}
                         </>
                       }
-                      detalle={`${CATEGORIA_TICKET[t.categoria]} · actividad ${haceCuanto(t.actualizadoEn)}`}
+                      detalle={`${esTicketDelSistema(t) ? 'Automático · ' : ''}${CATEGORIA_TICKET[t.categoria]} · actividad ${haceCuanto(t.actualizadoEn)}`}
                       lateral={<EstadoTicketInsignia estado={t.estado} />}
                     />
                   ))}

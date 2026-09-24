@@ -1185,3 +1185,17 @@ model Notificacion {
   @@index([estado, creadoEn])
   @@map("notificaciones")
 }
+
+/// Latido de cada proceso trabajador. El panel de automatizaciones lo usa para
+/// saber si el trabajador está en marcha; las filas viejas se borran solas.
+model LatidoTrabajador {
+  /// host:pid:aleatorio de cada arranque.
+  id             String   @id @db.VarChar(120)
+  host           String   @db.VarChar(120)
+  pid            Int
+  iniciadoEn     DateTime @map("iniciado_en") @db.Timestamptz(3)
+  ultimoLatidoEn DateTime @map("ultimo_latido_en") @db.Timestamptz(3)
+
+  @@index([ultimoLatidoEn(sort: Desc)])
+  @@map("latidos_trabajador")
+}

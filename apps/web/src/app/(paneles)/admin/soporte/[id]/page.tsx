@@ -13,6 +13,7 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { AUTOR_SISTEMA, autorMensaje, esTicketDelSistema } from '@/lib/automatizaciones';
 import { CATEGORIA_TICKET, ESTADO_TICKET, PRIORIDAD_TICKET } from '@/lib/estados';
 import { formatearFechaHora, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
@@ -20,11 +21,12 @@ import { requerirSesion } from '@/lib/sesion';
 export const metadata: Metadata = { title: 'Ticket de soporte' };
 
 function Mensaje({ m }: { m: MensajeTicketPublico }) {
-  const delEquipo = m.autor.esEquipo;
+  const autor = autorMensaje(m);
+  const delEquipo = autor.esEquipo;
   return (
     <li className={clsx('flex items-end gap-2.5', delEquipo ? 'flex-row-reverse' : 'flex-row')}>
       <Iniciales
-        nombre={m.autor.nombre}
+        nombre={autor.sistema ? 'N V' : autor.nombre}
         tono={m.interno ? 'aviso' : delEquipo ? 'marca' : 'neutro'}
         tamano="sm"
       />
@@ -35,8 +37,8 @@ function Mensaje({ m }: { m: MensajeTicketPublico }) {
         )}
       >
         <p className="flex flex-wrap items-baseline gap-x-2 px-1 text-xs text-tinta-tenue">
-          <span className="font-medium text-tinta-suave">{m.autor.nombre}</span>
-          <span>{delEquipo ? 'Equipo NV' : 'Cliente'}</span>
+          <span className="font-medium text-tinta-suave">{autor.nombre}</span>
+          <span>{autor.sistema ? 'Automatización' : delEquipo ? 'Equipo NV' : 'Cliente'}</span>
           <time dateTime={m.creadoEn} title={formatearFechaHora(m.creadoEn)}>
             {haceCuanto(m.creadoEn)}
           </time>
@@ -143,7 +145,13 @@ export default async function DetalleTicket({ params }: { params: Promise<{ id: 
           <PrioridadInsignia prioridad={t.prioridad} />
           <Insignia>{CATEGORIA_TICKET[t.categoria]}</Insignia>
           {t.slaIncumplido && <Insignia tono="peligro">Plazo vencido</Insignia>}
+          {esTicketDelSistema(t) && <Insignia tono="acento">Automático</Insignia>}
         </div>
+        {esTicketDelSistema(t) && (
+          <p className="text-sm text-tinta-suave">
+            Lo abrió {AUTOR_SISTEMA} por una automatización. Revísalo como cualquier otro ticket.
+          </p>
+        )}
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">

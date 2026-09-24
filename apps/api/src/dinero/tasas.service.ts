@@ -53,6 +53,8 @@ export class TasasService {
       valor: f.valor.toFixed(6),
       vigenteDesde: iso(f.vigenteDesde)!,
       autor: f.autor,
+      origen: f.origen === 'automatica' ? 'automatica' : 'manual',
+      fuente: f.fuente,
     }));
   }
 
@@ -68,6 +70,8 @@ export class TasasService {
       valor: f.valor.toFixed(6),
       vigenteDesde: iso(f.vigenteDesde)!,
       autor: f.autor,
+      origen: f.origen === 'automatica' ? 'automatica' : 'manual',
+      fuente: f.fuente,
     }));
   }
 
@@ -103,6 +107,8 @@ export class TasasService {
         valor: fila.valor.toFixed(6),
         vigenteDesde: iso(fila.vigenteDesde)!,
         autor: { id: auth.usuario.id, nombre: auth.usuario.nombre },
+        origen: 'manual',
+        fuente: null,
       };
     });
   }

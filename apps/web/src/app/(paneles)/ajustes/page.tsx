@@ -5,8 +5,10 @@ import {
   FormularioContrasena,
   FormularioPerfil,
   ListaSesiones,
+  PreferenciaRecordatorios,
   SeccionDosPasos,
 } from '@/componentes/panel/ajustes';
+import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
@@ -25,10 +27,15 @@ export default async function Ajustes() {
     }>('/cuenta/2fa'),
     leerApi<SesionListada[]>('/cuenta/sesiones'),
   ]);
-  const cliente =
-    sesion.usuario.rol === 'cliente'
-      ? (await leerApi<ResumenCliente>('/mi/resumen')).datos?.cliente
-      : null;
+  const esCliente = sesion.usuario.rol === 'cliente';
+  const [cliente, preferencias] = esCliente
+    ? await Promise.all([
+        leerApi<ResumenCliente>('/mi/resumen').then((r) => r.datos?.cliente),
+        leerApi<{ recibirRecordatorios: boolean }>('/autoservicio/preferencias').then(
+          (r) => r.datos,
+        ),
+      ])
+    : [null, null];
   const whatsapp = cliente?.contactos.find((c) => c.tipo === 'whatsapp');
 
   return (
@@ -70,6 +77,23 @@ export default async function Ajustes() {
                 aceptaWhatsapp: Boolean(whatsapp?.consentimientoEn),
               }}
             />
+          </div>
+        </Tarjeta>
+      )}
+      {esCliente && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Avisos"
+            descripcion="Por correo y, si lo aceptaste en tus datos de facturación, por WhatsApp."
+          />
+          <div className="p-5 sm:p-6">
+            {preferencias ? (
+              <PreferenciaRecordatorios recibir={preferencias.recibirRecordatorios} />
+            ) : (
+              <Alerta tono="peligro">
+                No pudimos cargar tus preferencias de avisos. Recarga la página.
+              </Alerta>
+            )}
           </div>
         </Tarjeta>
       )}

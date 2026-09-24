@@ -297,14 +297,19 @@ export function ComprarPlan({
   clientes,
   saldoUsd,
   bloqueado,
+  abiertoInicial = false,
 }: {
   plan: Pick<PlanMayorista, 'id' | 'nombre' | 'precioUsd'> & { servicio: { nombre: string } };
   clientes: ClienteElegible[];
   saldoUsd: string;
   /** Motivo por el que no se puede comprar (cuenta suspendida...). */
   bloqueado: string | null;
+  /** Empieza con el formulario de compra abierto (plan elegido desde el sitio). */
+  abiertoInicial?: boolean;
 }) {
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(
+    () => abiertoInicial && !bloqueado && Number(saldoUsd) >= Number(plan.precioUsd),
+  );
   const [modo, setModo] = useState<'nuevo' | 'cartera'>('nuevo');
   const [clave, setClave] = useState(nuevaClave);
   const [hecha, setHecha] = useState<ResultadoCompra | null>(null);

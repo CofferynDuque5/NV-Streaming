@@ -10,9 +10,10 @@ import type { Entorno } from '../config/entorno.js';
 import { SuscripcionesService } from './suscripciones.service.js';
 
 /**
- * Pasa periódicamente los vencimientos (activa → en gracia → suspendida →
- * vencida). Es un temporizador dentro de la API; en la fase 3 lo sustituye el
- * trabajador con colas, que además envía los avisos.
+ * Respaldo opcional (VENCIMIENTOS_EN_API=true) para instalaciones sin proceso
+ * trabajador: la API pasa los vencimientos (activa → en gracia → suspendida →
+ * vencida) con su propio temporizador. Normalmente lo hace el trabajador
+ * (`dist/trabajador.js`), que además envía los avisos que quedan en cola.
  */
 @Injectable()
 export class VencimientosService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -26,7 +27,9 @@ export class VencimientosService implements OnApplicationBootstrap, OnApplicatio
 
   onApplicationBootstrap(): void {
     const minutos = this.entorno.VENCIMIENTOS_CADA_MINUTOS;
-    if (minutos === 0 || this.entorno.NODE_ENV === 'test') return;
+    if (!this.entorno.VENCIMIENTOS_EN_API || minutos === 0 || this.entorno.NODE_ENV === 'test') {
+      return;
+    }
     this.temporizador = setInterval(() => void this.ejecutar(), minutos * 60_000);
     this.temporizador.unref();
     void this.ejecutar();

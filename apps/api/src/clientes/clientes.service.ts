@@ -353,6 +353,29 @@ export class ClientesService {
     });
   }
 
+  /** El cliente activa o apaga los recordatorios (los avisos de pago y suspensión siguen llegando). */
+  async guardarPreferenciasAvisos(
+    clienteId: string,
+    recibirRecordatorios: boolean,
+    e: { actorId: string; antes: boolean; cliente: InfoCliente },
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.cliente.update({ where: { id: clienteId }, data: { recibirRecordatorios } });
+      await this.auditoria.registrar(
+        {
+          actorId: e.actorId,
+          accion: 'cliente.preferencias_avisos',
+          entidad: 'cliente',
+          entidadId: clienteId,
+          antes: { recibirRecordatorios: e.antes },
+          despues: { recibirRecordatorios },
+          cliente: e.cliente,
+        },
+        tx,
+      );
+    });
+  }
+
   async actualizarPerfil(
     auth: ContextoAuth,
     entrada: PerfilClienteEntrada,

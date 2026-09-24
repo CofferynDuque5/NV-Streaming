@@ -8,7 +8,9 @@ import type {
 import { formatearMonto } from '@nv/shared';
 import type { ContextoAuth } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
-import type { Dec } from '../dinero/dinero.js';
+import { interpretar } from '../automatizaciones/configuracion.service.js';
+import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
+import { D, type Dec } from '../dinero/dinero.js';
 
 export type Tx = Prisma.TransactionClient;
 
@@ -95,7 +97,38 @@ export async function moverSaldo(
       autorId: e.autorId,
     },
   });
+  const antes = revendedor.saldoUsd;
   // El objeto bloqueado queda al día por si la transacción mueve más saldo.
   revendedor.saldoUsd = saldo;
+  if (e.montoUsd.isNegative())
+    await avisarSiCruzaUmbral(tx, revendedor.id, antes, saldo, movimiento.id);
   return { movimiento, saldo };
+}
+
+/**
+ * Si el movimiento deja el saldo por debajo del umbral configurado (cruzándolo
+ * hacia abajo), encola el aviso de saldo bajo en la misma transacción. No se
+ * repite mientras el saldo siga por debajo: solo avisa el movimiento que cruza.
+ */
+async function avisarSiCruzaUmbral(
+  tx: Tx,
+  revendedorId: string,
+  antes: Dec,
+  despues: Dec,
+  movimientoId: string,
+): Promise<void> {
+  const fila = await tx.automatizacion.findUnique({ where: { tipo: 'saldo_bajo_revendedor' } });
+  if (!fila?.activa) return;
+  const umbral = D(interpretar('saldo_bajo_revendedor', fila).parametros.umbralUsd);
+  if (antes.lt(umbral) || despues.gte(umbral)) return;
+  await encolarTrabajo(tx, {
+    tipo: TRABAJO.avisoSaldoBajo,
+    carga: {
+      revendedorId,
+      movimientoId,
+      saldoUsd: despues.toFixed(2),
+      umbralUsd: umbral.toFixed(2),
+    },
+    claveUnica: `saldo_bajo:${movimientoId}`,
+  });
 }

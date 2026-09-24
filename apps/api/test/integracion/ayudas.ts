@@ -20,7 +20,7 @@ export interface Contexto {
   entorno: Entorno;
 }
 
-export async function crearContexto(): Promise<Contexto> {
+export async function crearContexto(variables: Record<string, string> = {}): Promise<Contexto> {
   const entorno = cargarEntorno({
     NODE_ENV: 'test',
     DATABASE_URL: cargarVariables(),
@@ -29,6 +29,7 @@ export async function crearContexto(): Promise<Contexto> {
     PROXIES_DE_CONFIANZA: '0',
     DOCS_API_HABILITADA: 'false',
     ALMACEN_DIR: mkdtempSync(join(tmpdir(), 'nv-almacen-')),
+    ...variables,
   });
   const app = await crearAplicacion(entorno, { registros: false });
   await app.init();

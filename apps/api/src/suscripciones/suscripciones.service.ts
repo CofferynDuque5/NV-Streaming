@@ -27,6 +27,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { sumarDuracion } from '../dinero/dinero.js';
+import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
 
 type Tx = Prisma.TransactionClient;
@@ -222,52 +223,13 @@ export class SuscripcionesService {
   ): Promise<ResultadoAlta> {
     return this.prisma.$transaction(async (tx) => {
       const s = await this.bloquear(tx, auth, id);
-      if (!['activa', 'en_gracia', 'suspendida', 'vencida'].includes(s.estado)) {
-        throw transicionInvalida(
-          s.estado === 'pausada'
-            ? 'Reanuda la suscripción antes de renovarla.'
-            : 'Solo se renuevan suscripciones activas, en gracia, suspendidas o vencidas.',
-        );
-      }
-      if (s.cancelarAlVencer) {
-        throw transicionInvalida('Tiene una cancelación programada: reviértela antes de renovar.');
-      }
-      const plan = await tx.plan.findUnique({ where: { id: s.planId }, include: INCLUIR_PLAN });
-      if (!plan || !plan.renovable || !plan.activo) {
-        throw new ErrorApp(
-          409,
-          'PLAN_NO_RENOVABLE',
-          'Este plan ya no se puede renovar. Contrata otro plan.',
-        );
-      }
-      const monedaFactura = moneda ?? s.moneda;
-      const factura = await this.facturacion.emitir(tx, {
-        clienteId: s.clienteId,
-        suscripcionId: s.id,
-        plan,
-        moneda: monedaFactura,
-        concepto: 'renovacion',
-        actorId: auth.usuario.id,
-      });
-      if (monedaFactura !== s.moneda) {
-        await tx.suscripcion.update({ where: { id }, data: { moneda: monedaFactura } });
-      }
-      await this.auditoria.registrar(
-        {
-          actorId: auth.usuario.id,
-          accion: 'suscripcion.renovacion_facturada',
-          entidad: 'suscripcion',
-          entidadId: id,
-          despues: {
-            facturaId: factura.id,
-            total: factura.total.toFixed(2),
-            moneda: monedaFactura,
-          },
-          cliente,
-        },
+      const factura = await this.facturarRenovacion(
         tx,
+        s,
+        moneda ?? s.moneda,
+        auth.usuario.id,
+        cliente,
       );
-      if (factura.estado === 'pagada') await this.aplicarPago(tx, factura, auth.usuario.id);
       return {
         suscripcion: suscripcionPublica(await this.cargar(tx, id)),
         factura: {
@@ -277,6 +239,67 @@ export class SuscripcionesService {
         },
       };
     });
+  }
+
+  /**
+   * Reglas de una renovación (manual o automática): comprueba el estado y el
+   * plan, emite la factura y la audita. Exige la fila de la suscripción
+   * bloqueada en la misma transacción. `actorId` nulo = la emite el sistema.
+   */
+  async facturarRenovacion(
+    tx: Tx,
+    s: Suscripcion,
+    monedaFactura: Moneda,
+    actorId: string | null,
+    cliente?: InfoCliente,
+  ): Promise<Factura> {
+    if (!['activa', 'en_gracia', 'suspendida', 'vencida'].includes(s.estado)) {
+      throw transicionInvalida(
+        s.estado === 'pausada'
+          ? 'Reanuda la suscripción antes de renovarla.'
+          : 'Solo se renuevan suscripciones activas, en gracia, suspendidas o vencidas.',
+      );
+    }
+    if (s.cancelarAlVencer) {
+      throw transicionInvalida('Tiene una cancelación programada: reviértela antes de renovar.');
+    }
+    const plan = await tx.plan.findUnique({ where: { id: s.planId }, include: INCLUIR_PLAN });
+    if (!plan || !plan.renovable || !plan.activo) {
+      throw new ErrorApp(
+        409,
+        'PLAN_NO_RENOVABLE',
+        'Este plan ya no se puede renovar. Contrata otro plan.',
+      );
+    }
+    const factura = await this.facturacion.emitir(tx, {
+      clienteId: s.clienteId,
+      suscripcionId: s.id,
+      plan,
+      moneda: monedaFactura,
+      concepto: 'renovacion',
+      actorId,
+    });
+    if (monedaFactura !== s.moneda) {
+      await tx.suscripcion.update({ where: { id: s.id }, data: { moneda: monedaFactura } });
+    }
+    await this.auditoria.registrar(
+      {
+        actorId,
+        accion: 'suscripcion.renovacion_facturada',
+        entidad: 'suscripcion',
+        entidadId: s.id,
+        despues: {
+          facturaId: factura.id,
+          total: factura.total.toFixed(2),
+          moneda: monedaFactura,
+          ...(actorId ? {} : { automatica: true }),
+        },
+        ...(cliente ? { cliente } : {}),
+      },
+      tx,
+    );
+    if (factura.estado === 'pagada') await this.aplicarPago(tx, factura, actorId);
+    return factura;
   }
 
   async pausar(auth: ContextoAuth, id: string, motivo: string, cliente: InfoCliente) {
@@ -431,11 +454,25 @@ export class SuscripcionesService {
     }
     await tx.suscripcion.update({ where: { id: actual.id }, data });
     await this.evento(tx, actual.id, tipo, actorId, null, datos);
+    // Vuelve a estar activa tras la gracia o una suspensión: aviso de reactivación
+    // (bandeja de salida: se encola en la misma transacción que el pago).
+    if (
+      ['en_gracia', 'suspendida', 'vencida'].includes(actual.estado) &&
+      actual.revendedorId === null &&
+      data.venceEn instanceof Date
+    ) {
+      await encolarTrabajo(tx, {
+        tipo: TRABAJO.avisoSuscripcion,
+        carga: { automatizacion: 'aviso_recuperacion', suscripcionId: actual.id },
+        claveUnica: `aviso_recuperacion:${actual.id}:${data.venceEn.toISOString()}`,
+      });
+    }
     return tipo;
   }
 
   /**
-   * Vencimientos, gracia y suspensión (sin avisos: llegan en la fase 3).
+   * Vencimientos, gracia y suspensión. Los avisos de gracia y suspensión se
+   * encolan en la misma transacción y los envía el trabajador.
    * Devuelve cuántas suscripciones cambiaron de estado.
    */
   async aplicarVencimientos(ahora = new Date()): Promise<number> {
@@ -488,7 +525,7 @@ export class SuscripcionesService {
         for (const paso of pasos) {
           const filas = await tx.suscripcion.findMany({
             where: paso.where,
-            select: { id: true, estado: true },
+            select: { id: true, estado: true, venceEn: true, revendedorId: true },
             take: 500,
           });
           for (const f of filas) {
@@ -503,6 +540,20 @@ export class SuscripcionesService {
               await this.anularFacturasAbiertas(tx, f.id, paso.motivo, null);
             }
             await this.evento(tx, f.id, paso.tipo, null, paso.motivo, { de: f.estado, a: paso.a });
+            // Avisos de gracia y suspensión: se encolan en la misma transacción que el cambio.
+            const aviso =
+              paso.a === 'en_gracia'
+                ? 'aviso_gracia'
+                : paso.a === 'suspendida'
+                  ? 'aviso_suspension'
+                  : null;
+            if (aviso && f.revendedorId === null) {
+              await encolarTrabajo(tx, {
+                tipo: TRABAJO.avisoSuscripcion,
+                carga: { automatizacion: aviso, suscripcionId: f.id },
+                claveUnica: `${aviso}:${f.id}:${f.venceEn?.toISOString() ?? 'sin-fecha'}`,
+              });
+            }
             await this.auditoria.registrar(
               {
                 actorTipo: 'sistema',

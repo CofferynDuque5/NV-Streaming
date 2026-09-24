@@ -31,7 +31,7 @@ export default defineConfig({
     {
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /editor\.spec|revendedores\.spec/,
+      testIgnore: /editor\.spec|revendedores\.spec|automatizaciones\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -43,6 +43,12 @@ export default defineConfig({
       name: 'revendedores',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /revendedores\.spec/,
+    },
+    // Automatizaciones entra con administración y operación ya configuradas por roles.spec.ts.
+    {
+      name: 'automatizaciones',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /automatizaciones\.spec/,
     },
   ],
   webServer: [

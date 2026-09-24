@@ -143,3 +143,13 @@ Object.assign(ACCIONES_AUDITORIA, {
   'medio.subido': 'Imagen del sitio subida',
   'tema_sitio.cambiado': 'Paleta del sitio cambiada',
 });
+
+// Automatizaciones (fase 3).
+Object.assign(ACCIONES_AUDITORIA, {
+  'automatizacion.actualizada': 'Automatización configurada',
+  'automatizacion.ejecucion_manual': 'Automatización ejecutada a mano',
+  'aviso.prueba': 'Aviso de prueba enviado',
+  'cliente.preferencias_avisos': 'Preferencias de avisos cambiadas',
+  'tasa.automatica': 'Tasa registrada automáticamente',
+  'ticket.escalado': 'Ticket abierto por escalado automático',
+});
