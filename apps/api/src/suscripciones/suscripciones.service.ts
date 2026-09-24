@@ -383,19 +383,37 @@ export class SuscripcionesService {
    */
   async aplicarPago(tx: Tx, factura: Factura, actorId: string | null): Promise<void> {
     if (!factura.suscripcionId) return;
+    await this.aplicarPeriodo(tx, factura.suscripcionId, factura.concepto, actorId, {
+      facturaId: factura.id,
+    });
+  }
+
+  /**
+   * Activa un alta (el periodo empieza hoy) o extiende el periodo de una
+   * renovación, y deja el evento. La usan los pagos de facturas y las compras
+   * de revendedores con saldo (que no generan factura). Devuelve el evento o
+   * null si la suscripción no existe.
+   */
+  async aplicarPeriodo(
+    tx: Tx,
+    suscripcionId: string,
+    concepto: 'alta' | 'renovacion',
+    actorId: string | null,
+    datos: Prisma.InputJsonObject,
+  ): Promise<TipoEventoSuscripcion | null> {
     const [s] = await tx.$queryRaw<
       Suscripcion[]
-    >`SELECT id FROM suscripciones WHERE id = ${factura.suscripcionId}::uuid FOR UPDATE`;
-    if (!s) return;
+    >`SELECT id FROM suscripciones WHERE id = ${suscripcionId}::uuid FOR UPDATE`;
+    if (!s) return null;
     const actual = await tx.suscripcion.findUniqueOrThrow({
-      where: { id: factura.suscripcionId },
+      where: { id: suscripcionId },
       include: { plan: true },
     });
     const ahora = new Date();
     const { duracionCantidad: n, duracionUnidad: u } = actual.plan;
     let tipo: TipoEventoSuscripcion;
     let data: Prisma.SuscripcionUpdateInput;
-    if (factura.concepto === 'alta') {
+    if (concepto === 'alta') {
       if (actual.estado !== 'pendiente_pago') {
         throw transicionInvalida('La suscripción de esta factura ya no espera el pago del alta.');
       }
@@ -412,7 +430,8 @@ export class SuscripcionesService {
       throw transicionInvalida('La suscripción no admite una renovación en su estado actual.');
     }
     await tx.suscripcion.update({ where: { id: actual.id }, data });
-    await this.evento(tx, actual.id, tipo, actorId, null, { facturaId: factura.id });
+    await this.evento(tx, actual.id, tipo, actorId, null, datos);
+    return tipo;
   }
 
   /**

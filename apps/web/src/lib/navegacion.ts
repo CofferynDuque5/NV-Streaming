@@ -78,6 +78,12 @@ const CLIENTE: ElementoNavegacion[] = [
   { etiqueta: 'Contratar', href: '/cuenta/planes', icono: 'planes' },
   { etiqueta: 'Facturas y pagos', href: '/cuenta/facturas', icono: 'cobros' },
   { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte' },
+  {
+    etiqueta: 'Ser revendedor',
+    href: '/cuenta/revendedor',
+    icono: 'revendedores',
+    permiso: 'revendedor.solicitar',
+  },
 ];
 
 const AJUSTES: ElementoNavegacion = {

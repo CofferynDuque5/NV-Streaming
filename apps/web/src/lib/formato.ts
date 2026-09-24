@@ -88,6 +88,28 @@ Object.assign(ACCIONES_AUDITORIA, {
   'ticket.cerrado_por_cliente': 'Ticket cerrado por el cliente',
 });
 
+// Programa de revendedores (fase 2).
+Object.assign(ACCIONES_AUDITORIA, {
+  'revendedor.solicitado': 'Solicitud de revendedor enviada',
+  'revendedor.solicitud_reenviada': 'Solicitud de revendedor reenviada',
+  'revendedor.aprobado': 'Revendedor aprobado',
+  'revendedor.rechazado': 'Solicitud de revendedor rechazada',
+  'revendedor.suspendido': 'Revendedor suspendido',
+  'revendedor.reactivado': 'Revendedor reactivado',
+  'revendedor.actualizado': 'Condiciones de revendedor cambiadas',
+  'revendedor.saldo_ajustado': 'Saldo de revendedor ajustado',
+  'revendedor.semilla': 'Revendedor de demostración creado',
+  'recarga.reportada': 'Recarga de saldo reportada',
+  'recarga.confirmada': 'Recarga de saldo confirmada',
+  'recarga.rechazada': 'Recarga de saldo rechazada',
+  'recarga.comprobante_consultado': 'Comprobante de recarga consultado',
+  'compra_revendedor.realizada': 'Compra de revendedor',
+  'compra_revendedor.reembolsada': 'Compra de revendedor reembolsada',
+  'nivel_revendedor.creado': 'Nivel de revendedor creado',
+  'nivel_revendedor.actualizado': 'Nivel de revendedor actualizado',
+  'precio_mayorista.fijado': 'Precio mayorista cambiado',
+});
+
 /** "1 mes", "3 meses", "7 días". */
 export function formatearDuracion(cantidad: number, unidad: 'dia' | 'mes'): string {
   if (unidad === 'mes') return `${cantidad} ${cantidad === 1 ? 'mes' : 'meses'}`;
@@ -110,3 +132,14 @@ export function nombrePais(codigo: string): string {
     return codigo;
   }
 }
+
+Object.assign(ACCIONES_AUDITORIA, {
+  'pagina.creada': 'Página del sitio creada',
+  'pagina.borrador_guardado': 'Borrador de página guardado',
+  'pagina.publicada': 'Página del sitio publicada',
+  'pagina.version_restaurada': 'Versión de página copiada al borrador',
+  'pagina.archivada': 'Página del sitio archivada',
+  'pagina.desarchivada': 'Página del sitio desarchivada',
+  'medio.subido': 'Imagen del sitio subida',
+  'tema_sitio.cambiado': 'Paleta del sitio cambiada',
+});

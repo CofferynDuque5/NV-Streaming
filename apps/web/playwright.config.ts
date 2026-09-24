@@ -28,8 +28,22 @@ export default defineConfig({
       : {}),
   },
   projects: [
-    { name: 'escritorio', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'escritorio',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /editor\.spec|revendedores\.spec/,
+    },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
+    // El editor publica la portada: se declara al final para que corra (con un solo worker)
+    // después de roles.spec.ts, que deja configurada la verificación en dos pasos del equipo.
+    { name: 'editor', use: { ...devices['Desktop Chrome'] }, testMatch: /editor\.spec/ },
+    // Revendedores entra con el revendedor y la administración ya configurados por roles.spec.ts
+    // (el orden alfabético lo pondría antes): va en un proyecto propio, declarado después.
+    {
+      name: 'revendedores',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /revendedores\.spec/,
+    },
   ],
   webServer: [
     {

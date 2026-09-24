@@ -491,7 +491,7 @@ function CamposPlan({
         ayuda="Una frase que el cliente verá junto al plan."
         error={campos.descripcion}
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Campo
           etiqueta="Precio en USD"
           name="precioUsd"
@@ -500,6 +500,15 @@ function CamposPlan({
           defaultValue={plan?.precioUsd}
           placeholder="0.00"
           error={campos.precioUsd}
+        />
+        <Campo
+          etiqueta="Costo en USD"
+          name="costoUsd"
+          inputMode="decimal"
+          defaultValue={plan?.costoUsd ?? ''}
+          placeholder="Opcional"
+          ayuda="Mínimo para revendedores."
+          error={campos.costoUsd}
         />
         <Campo
           etiqueta="Duración"
@@ -557,7 +566,7 @@ function CamposPlan({
         <Casilla
           name="revendible"
           etiqueta="Revendible"
-          ayuda="Se usará en la fase 2, con los revendedores."
+          ayuda="Se puede vender a revendedores con precio mayorista."
           defaultChecked={plan?.revendible ?? false}
         />
         {plan && (
@@ -579,6 +588,8 @@ function leerPlan(d: FormData, editando: boolean) {
     nombre: textoDe(d, 'nombre') ?? '',
     descripcion: editando ? descripcion : descripcion || undefined,
     precioUsd: textoDe(d, 'precioUsd') ?? '',
+    // Vacío al editar quita el costo; al crear, simplemente no se envía.
+    costoUsd: textoDe(d, 'costoUsd') ?? (editando ? null : undefined),
     duracionCantidad: textoDe(d, 'duracionCantidad') ?? '',
     duracionUnidad: d.get('duracionUnidad'),
     beneficios: String(d.get('beneficios') ?? '')

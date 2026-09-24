@@ -47,6 +47,11 @@ export const planSchema = z.object({
   visible: z.boolean().default(true),
   renovable: z.boolean().default(true),
   revendible: z.boolean().default(false),
+  /** Costo para NV en USD: ningún precio mayorista puede quedar por debajo. Vacío lo quita. */
+  costoUsd: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    montoOCeroSchema.nullable().optional(),
+  ),
   orden: z.coerce.number().int().min(0).max(999).default(0),
 });
 export type PlanEntrada = z.infer<typeof planSchema>;

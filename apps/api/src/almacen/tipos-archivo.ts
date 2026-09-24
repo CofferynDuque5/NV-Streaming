@@ -21,7 +21,11 @@ export function detectarTipo(b: Buffer): TipoComprobante | null {
 }
 
 /** Nombre seguro para mostrar y descargar: sin rutas ni caracteres de control. */
-export function nombreSeguro(nombre: string | undefined, tipo: TipoComprobante): string {
+export function nombreSeguro(
+  nombre: string | undefined,
+  tipo: TipoComprobante,
+  porDefecto = 'comprobante',
+): string {
   const base = (nombre ?? '')
     .split(/[\\/]/)
     .pop()!
@@ -29,5 +33,5 @@ export function nombreSeguro(nombre: string | undefined, tipo: TipoComprobante):
     .replace(/\.[^.]*$/, '')
     .trim()
     .slice(0, 80);
-  return `${base || 'comprobante'}.${TIPOS_COMPROBANTE[tipo]}`;
+  return `${base || porDefecto}.${TIPOS_COMPROBANTE[tipo]}`;
 }

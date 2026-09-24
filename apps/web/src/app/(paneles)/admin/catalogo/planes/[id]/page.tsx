@@ -57,6 +57,7 @@ export default async function DetallePlan({ params }: { params: Promise<{ id: st
     ['Servicio', plan.servicio.nombre],
     ['Duración', formatearDuracion(plan.duracionCantidad, plan.duracionUnidad)],
     ['Precio base', formatearMonto(plan.precioUsd, 'USD')],
+    ['Costo', plan.costoUsd ? formatearMonto(plan.costoUsd, 'USD') : 'Sin definir'],
     ['Renovable', plan.renovable ? 'Sí' : 'No'],
   ];
 
@@ -84,9 +85,12 @@ export default async function DetallePlan({ params }: { params: Promise<{ id: st
         {plan.descripcion && <p className="max-w-2xl text-tinta-suave">{plan.descripcion}</p>}
       </div>
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-nv border border-borde bg-borde shadow-nv sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-nv border border-borde bg-borde shadow-nv lg:grid-cols-5">
         {ficha.map(([k, v]) => (
-          <div key={k} className="grid gap-0.5 bg-superficie px-5 py-4">
+          <div
+            key={k}
+            className="grid gap-0.5 bg-superficie px-5 py-4 last:col-span-2 lg:last:col-span-1"
+          >
             <dt className="text-xs text-tinta-tenue">{k}</dt>
             <dd className="font-medium tabular-nums">{v}</dd>
           </div>

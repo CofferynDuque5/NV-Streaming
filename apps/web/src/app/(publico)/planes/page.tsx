@@ -1,6 +1,7 @@
 import { type CatalogoPublico, INFO_MONEDA } from '@nv/shared';
 import { ArrowRight, Layers } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   agruparPorServicio,
   monedaValida,
@@ -117,12 +118,12 @@ export default async function Planes({
         )}
         <p className="text-sm text-tinta-tenue">
           ¿Ya tienes cuenta?{' '}
-          <a
+          <Link
             href="/ingresar?siguiente=/cuenta/planes"
             className="font-medium text-marca hover:underline"
           >
             Entra y contrata desde tu panel
-          </a>
+          </Link>
           .
         </p>
       </div>

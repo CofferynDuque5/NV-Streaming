@@ -46,7 +46,8 @@ export const planVendible: Prisma.PlanWhereInput = {
   servicio: { activo: true, proveedor: { activo: true } },
 };
 
-export function planPublico(p: PlanCompleto, tasas: MapaTasas): PlanPublico {
+/** `equipo` añade el costo para NV, que nunca se publica. */
+export function planPublico(p: PlanCompleto, tasas: MapaTasas, equipo = false): PlanPublico {
   return {
     id: p.id,
     servicio: { id: p.servicio.id, nombre: p.servicio.nombre, slug: p.servicio.slug },
@@ -60,6 +61,7 @@ export function planPublico(p: PlanCompleto, tasas: MapaTasas): PlanPublico {
     visible: p.visible,
     renovable: p.renovable,
     revendible: p.revendible,
+    ...(equipo ? { costoUsd: p.costoUsd?.toFixed(2) ?? null } : {}),
     orden: p.orden,
     precios: preciosPorMoneda(p, tasas),
   };
@@ -86,6 +88,29 @@ const proveedorPublico = (p: Proveedor & { _count: { servicios: number } }): Pro
   activo: p.activo,
   servicios: p._count.servicios,
 });
+
+/** Subir el costo por encima de un precio mayorista dejaría a NV vendiendo a pérdida. */
+async function exigirCostoBajoMayoristas(
+  tx: Prisma.TransactionClient,
+  planId: string,
+  costo: Prisma.Decimal,
+) {
+  // Serializa con quien fija precios mayoristas de este plan.
+  await tx.$queryRaw`SELECT id FROM planes WHERE id = ${planId}::uuid FOR UPDATE`;
+  const debajo = await tx.precioMayorista.findFirst({
+    where: { planId, precioUsd: { lt: costo } },
+    include: { nivel: { select: { nombre: true } } },
+    orderBy: { precioUsd: 'asc' },
+  });
+  if (debajo) {
+    throw new ErrorApp(
+      409,
+      'PRECIO_BAJO_COSTO',
+      `El precio mayorista del nivel ${debajo.nivel.nombre} (${debajo.precioUsd.toFixed(2)} USD) quedaría por debajo del costo. Súbelo primero.`,
+      { costoUsd: ['Hay precios mayoristas por debajo de este costo.'] },
+    );
+  }
+}
 
 @Injectable()
 export class CatalogoService {
@@ -206,7 +231,7 @@ export class CatalogoService {
       }),
       this.tasas.mapa(),
     ]);
-    return filas.map((p) => planPublico(p, tasas));
+    return filas.map((p) => planPublico(p, tasas, true));
   }
 
   async plan(id: string): Promise<PlanPublico & { historial: unknown[] }> {
@@ -222,7 +247,7 @@ export class CatalogoService {
     ]);
     if (!p) throw Errores.noEncontrado('El plan');
     return {
-      ...planPublico(p, tasas),
+      ...planPublico(p, tasas, true),
       historial: historial.map((h) => ({
         id: h.id,
         moneda: h.moneda,
@@ -240,7 +265,12 @@ export class CatalogoService {
         throw Errores.noEncontrado('El servicio');
       }
       const p = await tx.plan.create({
-        data: { ...e, descripcion: e.descripcion ?? null, precioUsd: D(e.precioUsd) },
+        data: {
+          ...e,
+          descripcion: e.descripcion ?? null,
+          precioUsd: D(e.precioUsd),
+          costoUsd: e.costoUsd ? D(e.costoUsd) : null,
+        },
         include: INCLUIR_PLAN,
       });
       await tx.historialPrecio.create({
@@ -252,7 +282,11 @@ export class CatalogoService {
           autorId: auth.usuario.id,
         },
       });
-      return { id: p.id, antes: undefined, resultado: planPublico(p, await this.tasas.mapa(tx)) };
+      return {
+        id: p.id,
+        antes: undefined,
+        resultado: planPublico(p, await this.tasas.mapa(tx), true),
+      };
     });
   }
 
@@ -265,10 +299,15 @@ export class CatalogoService {
     return this.guardar(auth, cliente, 'plan', id, async (tx) => {
       const antes = await tx.plan.findUnique({ where: { id } });
       if (!antes) throw Errores.noEncontrado('El plan');
-      const { precioUsd, ...resto } = e;
+      const { precioUsd, costoUsd, ...resto } = e;
+      if (costoUsd) await exigirCostoBajoMayoristas(tx, id, D(costoUsd));
       const p = await tx.plan.update({
         where: { id },
-        data: { ...resto, ...(precioUsd !== undefined ? { precioUsd: D(precioUsd) } : {}) },
+        data: {
+          ...resto,
+          ...(precioUsd !== undefined ? { precioUsd: D(precioUsd) } : {}),
+          ...(costoUsd !== undefined ? { costoUsd: costoUsd === null ? null : D(costoUsd) } : {}),
+        },
         include: INCLUIR_PLAN,
       });
       if (precioUsd !== undefined && !antes.precioUsd.eq(p.precioUsd)) {
@@ -284,8 +323,12 @@ export class CatalogoService {
       }
       return {
         id,
-        antes: { ...antes, precioUsd: antes.precioUsd.toFixed(2) },
-        resultado: planPublico(p, await this.tasas.mapa(tx)),
+        antes: {
+          ...antes,
+          precioUsd: antes.precioUsd.toFixed(2),
+          costoUsd: antes.costoUsd?.toFixed(2) ?? null,
+        },
+        resultado: planPublico(p, await this.tasas.mapa(tx), true),
       };
     });
   }
@@ -330,7 +373,7 @@ export class CatalogoService {
       return {
         id,
         antes: { moneda: e.moneda, precio: actual?.precio.toFixed(2) ?? null },
-        resultado: planPublico(p, await this.tasas.mapa(tx)),
+        resultado: planPublico(p, await this.tasas.mapa(tx), true),
         accion: 'plan.precio_fijado',
         despues: { moneda: e.moneda, precio: e.precio },
       };

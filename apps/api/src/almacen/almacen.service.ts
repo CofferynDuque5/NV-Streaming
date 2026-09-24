@@ -6,7 +6,7 @@ import type { Archivo, Prisma } from '@nv/db';
 import { ErrorApp } from '../comun/errores.js';
 import { ENTORNO } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
-import { detectarTipo, nombreSeguro } from './tipos-archivo.js';
+import { detectarTipo, nombreSeguro, type TipoComprobante } from './tipos-archivo.js';
 
 export interface ArchivoRecibido {
   buffer: Buffer;
@@ -51,12 +51,50 @@ export class AlmacenService {
         `El comprobante no puede superar ${this.entorno.COMPROBANTE_MAX_MB} MB.`,
       );
     }
-    const clave = `comprobantes/${randomUUID()}`;
-    await mkdir(join(this.raiz, 'comprobantes'), { recursive: true, mode: 0o700 });
+    return this.escribir(tx, 'comprobantes', tipo, archivo, subidoPorId);
+  }
+
+  /**
+   * Guarda una imagen del sitio (JPG, PNG o WebP, detectada por su contenido).
+   * Nunca SVG ni PDF: se sirven públicamente.
+   */
+  async guardarImagen(
+    tx: Prisma.TransactionClient,
+    archivo: ArchivoRecibido,
+    subidoPorId: string,
+    maximoMb: number,
+  ): Promise<Archivo> {
+    const tipo = detectarTipo(archivo.buffer);
+    if (!tipo || !tipo.startsWith('image/')) {
+      throw new ErrorApp(415, 'TIPO_NO_ADMITIDO', 'Sube la imagen en JPG, PNG o WebP.', {
+        archivo: ['Sube la imagen en JPG, PNG o WebP.'],
+      });
+    }
+    const maximo = Math.min(maximoMb * 1024 * 1024, this.tamanoMaximo);
+    if (archivo.buffer.length === 0 || archivo.buffer.length > maximo) {
+      throw new ErrorApp(
+        413,
+        'CONTENIDO_DEMASIADO_GRANDE',
+        `La imagen no puede superar ${Math.floor(maximo / 1024 / 1024)} MB.`,
+      );
+    }
+    return this.escribir(tx, 'medios', tipo, archivo, subidoPorId, 'imagen');
+  }
+
+  private async escribir(
+    tx: Prisma.TransactionClient,
+    carpeta: 'comprobantes' | 'medios',
+    tipo: TipoComprobante,
+    archivo: ArchivoRecibido,
+    subidoPorId: string,
+    nombrePorDefecto?: string,
+  ): Promise<Archivo> {
+    const clave = `${carpeta}/${randomUUID()}`;
+    await mkdir(join(this.raiz, carpeta), { recursive: true, mode: 0o700 });
     await writeFile(join(this.raiz, clave), archivo.buffer, { mode: 0o600, flag: 'wx' });
     return tx.archivo.create({
       data: {
-        nombreOriginal: nombreSeguro(archivo.nombre, tipo),
+        nombreOriginal: nombreSeguro(archivo.nombre, tipo, nombrePorDefecto),
         tipoMime: tipo,
         tamano: archivo.buffer.length,
         sha256: createHash('sha256').update(archivo.buffer).digest('hex'),
@@ -67,7 +105,7 @@ export class AlmacenService {
   }
 
   async leer(archivo: Pick<Archivo, 'clave'>): Promise<Buffer> {
-    if (!/^comprobantes\/[0-9a-f-]{36}$/.test(archivo.clave)) {
+    if (!/^(comprobantes|medios)\/[0-9a-f-]{36}$/.test(archivo.clave)) {
       throw new ErrorApp(404, 'NO_ENCONTRADO', 'El archivo no existe.');
     }
     try {

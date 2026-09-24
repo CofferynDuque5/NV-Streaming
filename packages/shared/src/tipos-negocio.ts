@@ -101,6 +101,8 @@ export interface PlanPublico {
   visible: boolean;
   renovable: boolean;
   revendible: boolean;
+  /** Costo para NV en USD. Solo lo recibe el equipo. */
+  costoUsd?: Decimal | null;
   orden: number;
   precios: PreciosPorMoneda;
 }
