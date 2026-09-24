@@ -73,7 +73,11 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'sitio.publicar': 'Publicar páginas, volver a versiones anteriores y cambiar el tema del sitio',
 };
 
-const SOLO_CLIENTES: readonly Permiso[] = ['autoservicio.usar', 'revendedor.solicitar', 'reventa.usar'];
+const SOLO_CLIENTES: readonly Permiso[] = [
+  'autoservicio.usar',
+  'revendedor.solicitar',
+  'reventa.usar',
+];
 
 const MATRIZ: Record<Rol, readonly Permiso[]> = {
   admin: PERMISOS.filter((p) => !SOLO_CLIENTES.includes(p)),
