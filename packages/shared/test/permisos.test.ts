@@ -18,6 +18,11 @@ describe('matriz de permisos', () => {
     expect(ROLES.filter((r) => tienePermiso(r, 'revendedores.gestionar'))).toEqual(['admin']);
     expect(ROLES.filter((r) => tienePermiso(r, 'sitio.publicar'))).toEqual(['admin']);
     expect(ROLES.filter((r) => tienePermiso(r, 'sitio.editar'))).toEqual(['admin', 'operador']);
+    expect(ROLES.filter((r) => tienePermiso(r, 'automatizaciones.configurar'))).toEqual(['admin']);
+    expect(ROLES.filter((r) => tienePermiso(r, 'automatizaciones.ver'))).toEqual([
+      'admin',
+      'operador',
+    ]);
   });
 
   it('solo el cliente usa el autoservicio', () => {

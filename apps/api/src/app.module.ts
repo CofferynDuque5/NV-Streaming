@@ -3,6 +3,10 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditoriaController } from './auditoria/auditoria.controller.js';
 import { AlmacenService } from './almacen/almacen.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import {
+  CONTROLADORES_AUTOMATIZACIONES,
+  PROVEEDORES_AUTOMATIZACIONES,
+} from './automatizaciones/automatizaciones.js';
 import { AutoservicioController } from './autoservicio/autoservicio.controller.js';
 import { CatalogoController } from './catalogo/catalogo.controller.js';
 import { CatalogoService } from './catalogo/catalogo.service.js';
@@ -67,6 +71,7 @@ export class AppModule {
         AutoservicioController,
         ...CONTROLADORES_REVENDEDORES,
         ...CONTROLADORES_SITIO,
+        ...CONTROLADORES_AUTOMATIZACIONES,
       ],
       providers: [
         CuentaService,
@@ -86,6 +91,7 @@ export class AppModule {
         MetricasService,
         ...PROVEEDORES_REVENDEDORES,
         ...PROVEEDORES_SITIO,
+        ...PROVEEDORES_AUTOMATIZACIONES,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },

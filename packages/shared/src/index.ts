@@ -18,3 +18,5 @@ export * from './esquemas/revendedores.js';
 export * from './tipos-revendedores.js';
 export * from './esquemas/sitio.js';
 export * from './tipos-sitio.js';
+export * from './automatizaciones.js';
+export * from './tipos-automatizaciones.js';

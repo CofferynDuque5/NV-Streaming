@@ -85,16 +85,18 @@ model Usuario {
   mensajesTicket       MensajeTicket[]
 
   // Fase 2
-  revendedor            Revendedor?        @relation("RevendedorUsuario")
-  revendedoresRevisados Revendedor[]       @relation("RevendedorRevisor")
-  preciosMayoristas     PrecioMayorista[]
-  recargasRevisadas     RecargaSaldo[]     @relation("RecargaRevisor")
-  movimientosSaldo      MovimientoSaldo[]
-  comprasReembolsadas   CompraRevendedor[] @relation("CompraReembolsador")
-  paginasEditadas       Pagina[]           @relation("PaginaEditor")
-  versionesPublicadas   VersionPagina[]
-  mediosSubidos         Medio[]
-  temasActualizados     TemaSitio[]
+  revendedor               Revendedor?        @relation("RevendedorUsuario")
+  revendedoresRevisados    Revendedor[]       @relation("RevendedorRevisor")
+  automatizacionesEditadas Automatizacion[]
+  notificaciones           Notificacion[]
+  preciosMayoristas        PrecioMayorista[]
+  recargasRevisadas        RecargaSaldo[]     @relation("RecargaRevisor")
+  movimientosSaldo         MovimientoSaldo[]
+  comprasReembolsadas      CompraRevendedor[] @relation("CompraReembolsador")
+  paginasEditadas          Pagina[]           @relation("PaginaEditor")
+  versionesPublicadas      VersionPagina[]
+  mediosSubidos            Medio[]
+  temasActualizados        TemaSitio[]
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -217,6 +219,10 @@ model TasaCambio {
   id           String   @id @default(uuid()) @db.Uuid
   moneda       Moneda
   valor        Decimal  @db.Decimal(18, 6)
+  /// "manual" (la registra una persona) o "automatica" (la trae la automatización de tasa).
+  origen       String   @default("manual") @db.VarChar(20)
+  /// Fuente consultada cuando es automática (p. ej. "bcv").
+  fuente       String?  @db.VarChar(60)
   vigenteDesde DateTime @default(now()) @map("vigente_desde") @db.Timestamptz(3)
   autorId      String?  @map("autor_id") @db.Uuid
   creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
@@ -263,24 +269,26 @@ enum TipoContacto {
 }
 
 model Cliente {
-  id              String        @id @default(uuid()) @db.Uuid
+  id                   String        @id @default(uuid()) @db.Uuid
   /// Cuenta con la que el cliente entra a su panel (puede no tenerla todavía).
-  usuarioId       String?       @unique @map("usuario_id") @db.Uuid
-  nombre          String        @db.VarChar(120)
-  correo          String?       @db.VarChar(254)
-  documento       String?       @db.VarChar(40)
+  usuarioId            String?       @unique @map("usuario_id") @db.Uuid
+  nombre               String        @db.VarChar(120)
+  correo               String?       @db.VarChar(254)
+  documento            String?       @db.VarChar(40)
   /// Código ISO 3166-1 alfa-2.
-  pais            String?       @db.Char(2)
-  monedaPreferida Moneda        @default(VES) @map("moneda_preferida")
-  estado          EstadoCliente @default(activo)
+  pais                 String?       @db.Char(2)
+  monedaPreferida      Moneda        @default(VES) @map("moneda_preferida")
+  estado               EstadoCliente @default(activo)
   /// Vendedor responsable de la cuenta.
-  asignadoAId     String?       @map("asignado_a_id") @db.Uuid
-  origen          String        @default("equipo") @db.VarChar(30)
+  asignadoAId          String?       @map("asignado_a_id") @db.Uuid
+  origen               String        @default("equipo") @db.VarChar(30)
+  /// El cliente puede dejar de recibir recordatorios (los avisos de pago y suspensión siguen llegando).
+  recibirRecordatorios Boolean       @default(true) @map("recibir_recordatorios")
   /// Cliente final de un revendedor (su cartera). NV no le cobra: le cobra el revendedor.
-  revendedorId    String?       @map("revendedor_id") @db.Uuid
-  creadoPorId     String?       @map("creado_por_id") @db.Uuid
-  creadoEn        DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn   DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  revendedorId         String?       @map("revendedor_id") @db.Uuid
+  creadoPorId          String?       @map("creado_por_id") @db.Uuid
+  creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   usuario           Usuario?           @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
   asignadoA         Usuario?           @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
@@ -294,6 +302,7 @@ model Cliente {
   pagos             Pago[]
   tickets           Ticket[]
   canjesCupon       CanjeCupon[]
+  notificaciones    Notificacion[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
@@ -759,14 +768,17 @@ model Ticket {
   slaPrimeraRespuesta DateTime        @map("sla_primera_respuesta") @db.Timestamptz(3)
   primeraRespuestaEn  DateTime?       @map("primera_respuesta_en") @db.Timestamptz(3)
   resueltoEn          DateTime?       @map("resuelto_en") @db.Timestamptz(3)
-  creadoPorId         String          @map("creado_por_id") @db.Uuid
+  /// Nulo cuando lo abre el sistema (escalado automático).
+  creadoPorId         String?         @map("creado_por_id") @db.Uuid
+  /// "cliente", "equipo" o "sistema".
+  origen              String          @default("cliente") @db.VarChar(20)
   creadoEn            DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn       DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cliente     Cliente         @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   suscripcion Suscripcion?    @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
   asignadoA   Usuario?        @relation("TicketAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  creadoPor   Usuario         @relation("TicketCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  creadoPor   Usuario?        @relation("TicketCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
   mensajes    MensajeTicket[]
 
   @@index([estado, prioridad, creadoEn])
@@ -778,14 +790,15 @@ model Ticket {
 model MensajeTicket {
   id       String   @id @default(uuid()) @db.Uuid
   ticketId String   @map("ticket_id") @db.Uuid
-  autorId  String   @map("autor_id") @db.Uuid
+  /// Nulo en los mensajes que escribe el sistema (escalado automático).
+  autorId  String?  @map("autor_id") @db.Uuid
   texto    String   @db.VarChar(5000)
   /// Nota interna del equipo: el cliente no la ve.
   interno  Boolean  @default(false)
   creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  ticket Ticket  @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  autor  Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  ticket Ticket   @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  autor  Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, creadoEn])
   @@map("mensajes_ticket")
@@ -1051,4 +1064,124 @@ model TemaSitio {
   actualizadoPor Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
 
   @@map("tema_sitio")
+}
+
+// ───────────────────────────── Fase 3: automatizaciones ─────────────────────────────
+
+enum EstadoTrabajo {
+  pendiente
+  en_curso
+  completado
+  fallido
+  cancelado
+}
+
+/// Cola de trabajos sobre PostgreSQL (sin Redis). El trabajador toma filas con
+/// FOR UPDATE SKIP LOCKED; `claveUnica` evita encolar dos veces lo mismo.
+model Trabajo {
+  id             String        @id @default(uuid()) @db.Uuid
+  tipo           String        @db.VarChar(60)
+  carga          Json          @default("{}")
+  estado         EstadoTrabajo @default(pendiente)
+  ejecutarEn     DateTime      @default(now()) @map("ejecutar_en") @db.Timestamptz(3)
+  intentos       Int           @default(0)
+  maxIntentos    Int           @default(5) @map("max_intentos")
+  /// Hasta cuándo lo tiene reservado un trabajador; si se cae, otro lo retoma.
+  bloqueadoHasta DateTime?     @map("bloqueado_hasta") @db.Timestamptz(3)
+  ultimoError    String?       @map("ultimo_error") @db.VarChar(1000)
+  claveUnica     String?       @unique @map("clave_unica") @db.VarChar(200)
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  completadoEn   DateTime?     @map("completado_en") @db.Timestamptz(3)
+
+  @@index([estado, ejecutarEn])
+  @@index([tipo, creadoEn(sort: Desc)])
+  @@map("trabajos")
+}
+
+enum CanalAviso {
+  correo
+  whatsapp
+}
+
+/// Una fila por tipo de automatización (catálogo en @nv/shared). Los parámetros
+/// se validan con el esquema zod de su tipo.
+model Automatizacion {
+  tipo              String       @id @db.VarChar(60)
+  activa            Boolean      @default(false)
+  parametros        Json         @default("{}")
+  canales           CanalAviso[] @default([correo])
+  ultimaEjecucionEn DateTime?    @map("ultima_ejecucion_en") @db.Timestamptz(3)
+  actualizadoPorId  String?      @map("actualizado_por_id") @db.Uuid
+  actualizadoEn     DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario?                  @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+  ejecuciones    EjecucionAutomatizacion[]
+
+  @@map("automatizaciones")
+}
+
+enum EstadoEjecucion {
+  en_curso
+  completada
+  con_errores
+  fallida
+}
+
+model EjecucionAutomatizacion {
+  id          String          @id @default(uuid()) @db.Uuid
+  tipo        String          @db.VarChar(60)
+  estado      EstadoEjecucion @default(en_curso)
+  /// "programada" o "manual" (alguien pulsó "Ejecutar ahora").
+  disparo     String          @default("programada") @db.VarChar(20)
+  procesados  Int             @default(0)
+  omitidos    Int             @default(0)
+  errores     Int             @default(0)
+  resumen     String?         @db.VarChar(1000)
+  detalle     Json?
+  iniciadaEn  DateTime        @default(now()) @map("iniciada_en") @db.Timestamptz(3)
+  terminadaEn DateTime?       @map("terminada_en") @db.Timestamptz(3)
+
+  automatizacion Automatizacion @relation(fields: [tipo], references: [tipo], onDelete: Restrict)
+
+  @@index([tipo, iniciadaEn(sort: Desc)])
+  @@map("ejecuciones_automatizacion")
+}
+
+enum EstadoNotificacion {
+  pendiente
+  enviada
+  fallida
+  omitida
+}
+
+/// Cada aviso a un cliente, revendedor o miembro del equipo, por canal. La
+/// `claveUnica` impide mandar dos veces el mismo aviso (p. ej. el recordatorio
+/// de 3 días de un mismo vencimiento).
+model Notificacion {
+  id                String             @id @default(uuid()) @db.Uuid
+  canal             CanalAviso
+  plantilla         String             @db.VarChar(60)
+  destino           String             @db.VarChar(254)
+  clienteId         String?            @map("cliente_id") @db.Uuid
+  usuarioId         String?            @map("usuario_id") @db.Uuid
+  automatizacion    String?            @db.VarChar(60)
+  entidad           String?            @db.VarChar(40)
+  entidadId         String?            @map("entidad_id") @db.Uuid
+  estado            EstadoNotificacion @default(pendiente)
+  motivo            String?            @db.VarChar(300)
+  error             String?            @db.VarChar(500)
+  proveedor         String?            @db.VarChar(30)
+  referenciaExterna String?            @map("referencia_externa") @db.VarChar(120)
+  claveUnica        String             @unique @map("clave_unica") @db.VarChar(200)
+  creadoEn          DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
+  enviadaEn         DateTime?          @map("enviada_en") @db.Timestamptz(3)
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([creadoEn(sort: Desc)])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([automatizacion, creadoEn(sort: Desc)])
+  @@index([estado, creadoEn])
+  @@map("notificaciones")
 }

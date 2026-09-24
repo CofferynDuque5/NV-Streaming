@@ -36,6 +36,9 @@ export const PERMISOS = [
   'reventa.usar',
   'sitio.editar',
   'sitio.publicar',
+  // Fase 3
+  'automatizaciones.ver',
+  'automatizaciones.configurar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -71,6 +74,9 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'reventa.usar': 'Recargar saldo, comprar activaciones y gestionar su cartera de clientes',
   'sitio.editar': 'Editar borradores de las páginas del sitio',
   'sitio.publicar': 'Publicar páginas, volver a versiones anteriores y cambiar el tema del sitio',
+  'automatizaciones.ver': 'Ver automatizaciones, sus ejecuciones y los avisos enviados',
+  'automatizaciones.configurar':
+    'Activar, pausar y configurar automatizaciones, canales de aviso y la tasa automática',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -99,6 +105,7 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'tickets.gestionar',
     'revendedores.ver',
     'sitio.editar',
+    'automatizaciones.ver',
   ],
   ventas: [
     'panel.ver',

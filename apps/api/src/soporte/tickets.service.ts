@@ -62,6 +62,9 @@ function resumen(t: TicketBase, ahora = new Date()): TicketResumen {
   };
 }
 
+/** Autor de los mensajes que escribe el sistema (escalado automático). */
+const AUTOR_SISTEMA = { id: 'sistema', nombre: 'NV (automático)', esEquipo: true };
+
 @Injectable()
 export class TicketsService {
   private readonly logger = new Logger('Soporte');
@@ -122,7 +125,9 @@ export class TicketsService {
         id: m.id,
         texto: m.texto,
         interno: m.interno,
-        autor: { id: m.autor.id, nombre: m.autor.nombre, esEquipo: esEquipo(m.autor.rol) },
+        autor: m.autor
+          ? { id: m.autor.id, nombre: m.autor.nombre, esEquipo: esEquipo(m.autor.rol) }
+          : AUTOR_SISTEMA,
         creadoEn: iso(m.creadoEn)!,
       })),
     };
@@ -284,6 +289,7 @@ export class TicketsService {
           prioridad: e.prioridad,
           slaPrimeraRespuesta: slaDesde(ahora, e.prioridad),
           creadoPorId: auth.usuario.id,
+          origen: esEquipo(auth.usuario.rol) ? 'equipo' : 'cliente',
           mensajes: { create: { autorId: auth.usuario.id, texto: e.mensaje } },
         },
       });
