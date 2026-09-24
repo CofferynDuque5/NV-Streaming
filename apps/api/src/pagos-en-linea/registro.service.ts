@@ -5,12 +5,13 @@ import { ENTORNO } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
 import { AdaptadorNoDisponible, type AdaptadorPasarela } from './adaptador.js';
 import { esPasarela } from './pasarelas.js';
+import { AdaptadorMercadoPago } from './mercadopago/mercadopago.adaptador.js';
+import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
 import { AdaptadorSandbox } from './sandbox/sandbox.adaptador.js';
 
 /**
- * Elige el adaptador de cada pasarela. Para añadir PayPal o Mercado Pago:
- * implementa `AdaptadorPasarela`, regístralo como proveedor en
- * `pagos-en-linea.ts` e inyéctalo aquí en lugar de `AdaptadorNoDisponible`.
+ * Elige el adaptador de cada pasarela. Cada adaptador dice si está
+ * configurado (tiene sus credenciales en el entorno).
  */
 @Injectable()
 export class RegistroPasarelas {
@@ -19,10 +20,12 @@ export class RegistroPasarelas {
   constructor(
     @Inject(ENTORNO) private readonly entorno: Entorno,
     @Inject(AdaptadorSandbox) sandbox: AdaptadorSandbox,
+    @Inject(AdaptadorPaypal) paypal: AdaptadorPaypal,
+    @Inject(AdaptadorMercadoPago) mercadopago: AdaptadorMercadoPago,
   ) {
     this.adaptadores = {
-      paypal: new AdaptadorNoDisponible('paypal', entorno.PAYPAL_MODO),
-      mercadopago: new AdaptadorNoDisponible('mercadopago', entorno.MERCADOPAGO_MODO),
+      paypal,
+      mercadopago,
       sandbox: entorno.PASARELA_SANDBOX_HABILITADA ? sandbox : new AdaptadorNoDisponible('sandbox'),
     };
   }
