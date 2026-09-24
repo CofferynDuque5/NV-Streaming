@@ -7,6 +7,7 @@ import {
   Navegador,
   tokenDelUltimoCorreo,
 } from './ayudas.js';
+import { UsuariosService } from '../../src/usuarios/usuarios.service.js';
 
 let ctx: Contexto;
 beforeAll(async () => {
@@ -120,11 +121,47 @@ describe('gestión del equipo', () => {
       na.patch(`/usuarios/${b.id}/rol`, { rol: 'ventas' }),
       nb.patch(`/usuarios/${a.id}/rol`, { rol: 'ventas' }),
     ]);
-    expect([ra.estado, rb.estado].sort()).toEqual([200, 409]);
-    expect([ra, rb].find((r) => r.estado === 409)!.cuerpo.error.codigo).toBe(
-      'ULTIMO_ADMINISTRADOR',
-    );
+    // Gana una petición. La otra, según cuándo llegue, choca con el bloqueo (409), ya no
+    // tiene permiso (403) o su sesión ya se cerró (401). Lo importante: queda un admin.
+    const [ganadora, perdedora] = [ra, rb].sort((x, y) => x.estado - y.estado);
+    expect(ganadora!.estado).toBe(200);
+    expect([401, 403, 409]).toContain(perdedora!.estado);
     expect(await ctx.prisma.usuario.count({ where: { rol: 'admin', estado: 'activo' } })).toBe(1);
+  });
+
+  it('rechaza quitar al último administrador activo aunque la petición ya haya pasado los permisos', async () => {
+    // Simula la carrera de forma determinista: quien actúa dejó de ser admin después
+    // de que su petición superara los guardias, y el objetivo es el único admin activo.
+    const actor = await crearUsuario(ctx.prisma, { rol: 'ventas' });
+    const unico = await crearUsuario(ctx.prisma, { rol: 'admin' });
+    const sesion = await ctx.prisma.sesion.create({
+      data: {
+        usuarioId: actor.id,
+        tokenHash: 'x'.repeat(64),
+        expiraEn: new Date(Date.now() + 60_000),
+      },
+    });
+    const usuarios = ctx.app.get(UsuariosService);
+    const cliente = { ip: '127.0.0.1', agenteUsuario: null, idPeticion: 'prueba-ultimo-admin' };
+    await expect(
+      usuarios.cambiarRol(
+        { usuario: actor, sesion, pendiente: null },
+        unico.id,
+        'cliente',
+        cliente,
+      ),
+    ).rejects.toMatchObject({ codigo: 'ULTIMO_ADMINISTRADOR' });
+    await expect(
+      usuarios.cambiarEstado(
+        { usuario: actor, sesion, pendiente: null },
+        unico.id,
+        { estado: 'suspendido', motivo: 'Prueba' },
+        cliente,
+      ),
+    ).rejects.toMatchObject({ codigo: 'ULTIMO_ADMINISTRADOR' });
+    expect((await ctx.prisma.usuario.findUniqueOrThrow({ where: { id: unico.id } })).rol).toBe(
+      'admin',
+    );
   });
 });
 
