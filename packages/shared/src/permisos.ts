@@ -42,6 +42,9 @@ export const PERMISOS = [
   // Fase 4
   'pasarelas.configurar',
   'pagos.reembolsar',
+  // Fase 5
+  'asistente.usar',
+  'asistente.configurar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -82,6 +85,10 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
     'Activar, pausar y configurar automatizaciones, canales de aviso y la tasa automática',
   'pasarelas.configurar': 'Ver el estado de las pasarelas de pago y sus eventos, y reprocesarlos',
   'pagos.reembolsar': 'Devolver pagos en línea a través de la pasarela',
+  'asistente.usar':
+    'Usar el asistente de IA (consulta con sus propios permisos; las acciones se confirman)',
+  'asistente.configurar':
+    'Activar el asistente de IA, elegir su motor, fijar el tope de gasto y ver su uso',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -111,6 +118,7 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'revendedores.ver',
     'sitio.editar',
     'automatizaciones.ver',
+    'asistente.usar',
   ],
   ventas: [
     'panel.ver',
@@ -126,6 +134,7 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'cupones.ver',
     'cupones.gestionar',
     'tickets.ver',
+    'asistente.usar',
   ],
   revendedor: ['panel.ver', 'cuenta.gestionar', 'reventa.usar'],
   cliente: ['panel.ver', 'cuenta.gestionar', 'autoservicio.usar', 'revendedor.solicitar'],

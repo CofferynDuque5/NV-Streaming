@@ -22,3 +22,5 @@ export * from './automatizaciones.js';
 export * from './tipos-automatizaciones.js';
 export * from './pagos-en-linea.js';
 export * from './tipos-pagos-en-linea.js';
+export * from './asistente.js';
+export * from './tipos-asistente.js';

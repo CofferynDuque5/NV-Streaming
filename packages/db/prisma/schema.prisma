@@ -85,19 +85,24 @@ model Usuario {
   mensajesTicket       MensajeTicket[]
 
   // Fase 2
-  revendedor               Revendedor?            @relation("RevendedorUsuario")
-  revendedoresRevisados    Revendedor[]           @relation("RevendedorRevisor")
+  revendedor               Revendedor?              @relation("RevendedorUsuario")
+  revendedoresRevisados    Revendedor[]             @relation("RevendedorRevisor")
   automatizacionesEditadas Automatizacion[]
-  metodosRevocados         MetodoPagoAutorizado[] @relation("MetodoRevocador")
+  metodosRevocados         MetodoPagoAutorizado[]   @relation("MetodoRevocador")
   reembolsosSolicitados    Reembolso[]
   notificaciones           Notificacion[]
   preciosMayoristas        PrecioMayorista[]
-  recargasRevisadas        RecargaSaldo[]         @relation("RecargaRevisor")
+  recargasRevisadas        RecargaSaldo[]           @relation("RecargaRevisor")
   movimientosSaldo         MovimientoSaldo[]
-  comprasReembolsadas      CompraRevendedor[]     @relation("CompraReembolsador")
-  paginasEditadas          Pagina[]               @relation("PaginaEditor")
+  comprasReembolsadas      CompraRevendedor[]       @relation("CompraReembolsador")
+  paginasEditadas          Pagina[]                 @relation("PaginaEditor")
   versionesPublicadas      VersionPagina[]
   mediosSubidos            Medio[]
+  // Fase 5
+  conversacionesAsistente  ConversacionAsistente[]
+  accionesSolicitadas      AccionPropuesta[]        @relation("AccionSolicitante")
+  accionesDecididas        AccionPropuesta[]        @relation("AccionDecisor")
+  asistenteEditado         ConfiguracionAsistente[]
   temasActualizados        TemaSitio[]
 
   @@index([rol, estado])
@@ -1442,4 +1447,120 @@ model OperacionSandbox {
   @@index([idInterno])
   @@index([relacionadoId])
   @@map("operaciones_sandbox")
+}
+
+// ── Fase 5: asistente de IA ──────────────────────────────────────────────────
+
+/// Conversación de una persona del equipo con el asistente. Solo la ve su dueño.
+model ConversacionAsistente {
+  id            String   @id @default(uuid()) @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  titulo        String   @db.VarChar(120)
+  archivada     Boolean  @default(false)
+  creadaEn      DateTime @default(now()) @map("creada_en") @db.Timestamptz(3)
+  actualizadaEn DateTime @updatedAt @map("actualizada_en") @db.Timestamptz(3)
+
+  usuario  Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  mensajes MensajeAsistente[]
+  acciones AccionPropuesta[]
+
+  @@index([usuarioId, actualizadaEn(sort: Desc)])
+  @@map("conversaciones_asistente")
+}
+
+enum RolMensajeAsistente {
+  usuario
+  asistente
+}
+
+/// Un turno de la conversación. Lo que devolvieron las herramientas no se guarda:
+/// solo qué herramienta se usó y si funcionó. El texto del asistente ya va redactado.
+model MensajeAsistente {
+  id             String              @id @default(uuid()) @db.Uuid
+  conversacionId String              @map("conversacion_id") @db.Uuid
+  orden          Int
+  rol            RolMensajeAsistente
+  texto          String              @db.Text
+  /// [{ herramienta, ok, error }]
+  herramientas   Json                @default("[]")
+  proveedor      String?             @db.VarChar(20)
+  modelo         String?             @db.VarChar(80)
+  tokensEntrada  Int                 @default(0) @map("tokens_entrada")
+  tokensSalida   Int                 @default(0) @map("tokens_salida")
+  creadoEn       DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  conversacion ConversacionAsistente @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  acciones     AccionPropuesta[]
+
+  @@unique([conversacionId, orden])
+  @@map("mensajes_asistente")
+}
+
+enum EstadoAccionPropuesta {
+  propuesta
+  ejecutada
+  rechazada
+  fallida
+  expirada
+}
+
+/// Algo con efecto que el asistente propuso. Solo se ejecuta cuando una persona
+/// con el permiso de la herramienta la confirma; ejecución y decisión se auditan.
+model AccionPropuesta {
+  id              String                @id @default(uuid()) @db.Uuid
+  conversacionId  String                @map("conversacion_id") @db.Uuid
+  mensajeId       String?               @map("mensaje_id") @db.Uuid
+  solicitadaPorId String                @map("solicitada_por_id") @db.Uuid
+  herramienta     String                @db.VarChar(60)
+  permiso         String                @db.VarChar(60)
+  parametros      Json
+  resumen         String                @db.VarChar(500)
+  estado          EstadoAccionPropuesta @default(propuesta)
+  expiraEn        DateTime              @map("expira_en") @db.Timestamptz(3)
+  decididaPorId   String?               @map("decidida_por_id") @db.Uuid
+  decididaEn      DateTime?             @map("decidida_en") @db.Timestamptz(3)
+  motivoRechazo   String?               @map("motivo_rechazo") @db.VarChar(500)
+  resultado       String?               @db.VarChar(500)
+  error           String?               @db.VarChar(500)
+  creadaEn        DateTime              @default(now()) @map("creada_en") @db.Timestamptz(3)
+
+  conversacion  ConversacionAsistente @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  mensaje       MensajeAsistente?     @relation(fields: [mensajeId], references: [id], onDelete: SetNull)
+  solicitadaPor Usuario               @relation("AccionSolicitante", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
+  decididaPor   Usuario?              @relation("AccionDecisor", fields: [decididaPorId], references: [id], onDelete: Restrict)
+
+  @@index([estado, expiraEn])
+  @@index([conversacionId])
+  @@index([solicitadaPorId, creadaEn(sort: Desc)])
+  @@map("acciones_propuestas")
+}
+
+/// Configuración del asistente (una sola fila, id = 1). Las claves van en el entorno.
+model ConfiguracionAsistente {
+  id                        Int      @id @default(1)
+  activo                    Boolean  @default(false)
+  proveedor                 String   @default("local") @db.VarChar(20)
+  modelo                    String?  @db.VarChar(80)
+  topeMensualUsd            Decimal  @default(10) @map("tope_mensual_usd") @db.Decimal(10, 2)
+  mensajesDiariosPorUsuario Int      @default(100) @map("mensajes_diarios_por_usuario")
+  actualizadoPorId          String?  @map("actualizado_por_id") @db.Uuid
+  actualizadoEn             DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@map("configuracion_asistente")
+}
+
+/// Consumo por mes (hora de Venezuela) y motor, para el tope de gasto.
+model UsoAsistente {
+  mes           String   @db.VarChar(7)
+  proveedor     String   @db.VarChar(20)
+  peticiones    Int      @default(0)
+  tokensEntrada BigInt   @default(0) @map("tokens_entrada")
+  tokensSalida  BigInt   @default(0) @map("tokens_salida")
+  costoUsd      Decimal  @default(0) @map("costo_usd") @db.Decimal(12, 4)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@id([mes, proveedor])
+  @@map("uso_asistente")
 }
