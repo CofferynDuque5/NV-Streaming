@@ -5,6 +5,7 @@ import {
   type InicioSesionEntrada,
   type RegistroEntrada,
   type SesionActual,
+  MONEDA_PRINCIPAL,
   type Ubicacion,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -89,7 +90,7 @@ export class AuthService {
             origen: 'registro_web',
             // Valores iniciales según su conexión; el cliente los cambia en Perfil.
             pais: ubicacion?.pais ?? null,
-            monedaPreferida: ubicacion?.moneda ?? 'USD',
+            monedaPreferida: ubicacion?.moneda ?? MONEDA_PRINCIPAL,
           },
         });
       }

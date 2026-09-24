@@ -68,7 +68,7 @@ describe('catálogo y monedas', () => {
     expect(plan.precios.USD).toEqual({ precio: '5.00', fijo: false });
     expect(plan.precios.VES).toEqual({ precio: '200.00', fijo: false });
     expect(plan.precios.ARS).toBeNull();
-    expect(r.cuerpo.monedas).toEqual(['USD', 'VES']);
+    expect(r.cuerpo.monedas).toEqual(['VES', 'USD']);
   });
 
   it('un precio fijo ignora la tasa y los pesos colombianos se redondean sin decimales', async () => {
@@ -215,6 +215,8 @@ describe('alta, pago manual y conciliación', () => {
       ingresoMensualRecurrenteUsd: '5.00',
       ingresosMes: [{ moneda: 'VES', total: '180.00', pagos: 1 }],
       ingresosMesUsd: '4.50',
+      // Tasa VES = 40: todo se muestra también en bolívares.
+      enBolivares: { tasa: '40.00', ingresoMensualRecurrente: '200.00', ingresosMes: '180.00' },
       pagosEnRevision: 0,
     });
     expect(metricas.cuerpo.suscripcionesPorEstado.activa).toBe(1);

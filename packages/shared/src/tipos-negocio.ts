@@ -267,6 +267,12 @@ export interface MetricasPanel {
   ingresoMensualRecurrenteUsd: Decimal;
   ingresosMes: IngresoPorMoneda[];
   ingresosMesUsd: Decimal;
+  /** Las mismas cifras en bolívares con la tasa vigente; null si no hay tasa registrada. */
+  enBolivares: {
+    tasa: Decimal;
+    ingresoMensualRecurrente: Decimal;
+    ingresosMes: Decimal;
+  } | null;
   pagosEnRevision: number;
   facturasVencidas: number;
   ticketsAbiertos: number;

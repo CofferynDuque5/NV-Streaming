@@ -1,4 +1,4 @@
-import { MONEDAS, type Moneda } from './monedas.js';
+import { MONEDA_PRINCIPAL, MONEDAS, type Moneda } from './monedas.js';
 
 /** Cookie con la moneda que eligió quien visita (se guarda al usar el selector de moneda). */
 export const COOKIE_MONEDA = 'nv_moneda';
@@ -51,9 +51,12 @@ const PAISES_EURO = new Set([
   'XK',
 ]);
 
-/** Moneda con la que cobra NV en ese país; USD en el resto. */
+/**
+ * Moneda con la que cobra NV en ese país. Si no se sabe el país, la del mercado
+ * principal (bolívares); en otros países, dólares.
+ */
 export function monedaDePais(pais: string | null | undefined): Moneda {
-  if (!pais) return 'USD';
+  if (!pais) return MONEDA_PRINCIPAL;
   const codigo = pais.toUpperCase();
   return MONEDA_POR_PAIS[codigo] ?? (PAISES_EURO.has(codigo) ? 'EUR' : 'USD');
 }

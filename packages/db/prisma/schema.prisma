@@ -84,6 +84,18 @@ model Usuario {
   ticketsAsignados     Ticket[]            @relation("TicketAsignado")
   mensajesTicket       MensajeTicket[]
 
+  // Fase 2
+  revendedor            Revendedor?        @relation("RevendedorUsuario")
+  revendedoresRevisados Revendedor[]       @relation("RevendedorRevisor")
+  preciosMayoristas     PrecioMayorista[]
+  recargasRevisadas     RecargaSaldo[]     @relation("RecargaRevisor")
+  movimientosSaldo      MovimientoSaldo[]
+  comprasReembolsadas   CompraRevendedor[] @relation("CompraReembolsador")
+  paginasEditadas       Pagina[]           @relation("PaginaEditor")
+  versionesPublicadas   VersionPagina[]
+  mediosSubidos         Medio[]
+  temasActualizados     TemaSitio[]
+
   @@index([rol, estado])
   @@map("usuarios")
 }
@@ -228,7 +240,8 @@ model MetodoCobro {
   creadoEn           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn      DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  pagos Pago[]
+  recargas RecargaSaldo[]
+  pagos    Pago[]
 
   @@index([moneda, activo])
   @@map("metodos_cobro")
@@ -258,28 +271,33 @@ model Cliente {
   documento       String?       @db.VarChar(40)
   /// Código ISO 3166-1 alfa-2.
   pais            String?       @db.Char(2)
-  monedaPreferida Moneda        @default(USD) @map("moneda_preferida")
+  monedaPreferida Moneda        @default(VES) @map("moneda_preferida")
   estado          EstadoCliente @default(activo)
   /// Vendedor responsable de la cuenta.
   asignadoAId     String?       @map("asignado_a_id") @db.Uuid
   origen          String        @default("equipo") @db.VarChar(30)
+  /// Cliente final de un revendedor (su cartera). NV no le cobra: le cobra el revendedor.
+  revendedorId    String?       @map("revendedor_id") @db.Uuid
   creadoPorId     String?       @map("creado_por_id") @db.Uuid
   creadoEn        DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn   DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  usuario       Usuario?          @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
-  asignadoA     Usuario?          @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  creadoPor     Usuario?          @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  contactos     ContactoCliente[]
-  notas         NotaInterna[]
-  suscripciones Suscripcion[]
-  facturas      Factura[]
-  pagos         Pago[]
-  tickets       Ticket[]
-  canjesCupon   CanjeCupon[]
+  usuario           Usuario?           @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA         Usuario?           @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor         Usuario?           @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor        Revendedor?        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  comprasRevendedor CompraRevendedor[]
+  contactos         ContactoCliente[]
+  notas             NotaInterna[]
+  suscripciones     Suscripcion[]
+  facturas          Factura[]
+  pagos             Pago[]
+  tickets           Ticket[]
+  canjesCupon       CanjeCupon[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
+  @@index([revendedorId])
   @@index([correo])
   @@map("clientes")
 }
@@ -376,18 +394,22 @@ model Plan {
   /// Aparece en el sitio público y en el panel del cliente.
   visible          Boolean        @default(true)
   renovable        Boolean        @default(true)
-  /// Se podrá vender a revendedores (fase 2).
+  /// Se vende a revendedores a precio mayorista.
   revendible       Boolean        @default(false)
+  /// Costo para NV: ningún precio mayorista puede quedar por debajo.
+  costoUsd         Decimal?       @map("costo_usd") @db.Decimal(14, 2)
   orden            Int            @default(0)
   creadoEn         DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn    DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  servicio      Servicio          @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  preciosFijos  PrecioFijo[]
-  historial     HistorialPrecio[]
-  suscripciones Suscripcion[]
-  lineas        LineaFactura[]
-  cupones       CuponPlan[]
+  servicio          Servicio           @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  preciosFijos      PrecioFijo[]
+  historial         HistorialPrecio[]
+  suscripciones     Suscripcion[]
+  lineas            LineaFactura[]
+  cupones           CuponPlan[]
+  preciosMayoristas PrecioMayorista[]
+  comprasRevendedor CompraRevendedor[]
 
   @@index([activo, visible, orden])
   @@map("planes")
@@ -467,19 +489,24 @@ model Suscripcion {
   /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
   cancelarAlVencer  Boolean           @default(false) @map("cancelar_al_vencer")
   canceladaEn       DateTime?         @map("cancelada_en") @db.Timestamptz(3)
+  /// Activación comprada por un revendedor con su saldo (no genera facturas al cliente).
+  revendedorId      String?           @map("revendedor_id") @db.Uuid
   creadoPorId       String?           @map("creado_por_id") @db.Uuid
   creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente   Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  plan      Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
-  creadoPor Usuario?            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
-  eventos   EventoSuscripcion[]
-  facturas  Factura[]
-  tickets   Ticket[]
+  cliente    Cliente             @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  plan       Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadoPor  Usuario?            @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor Revendedor?         @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  compras    CompraRevendedor[]
+  eventos    EventoSuscripcion[]
+  facturas   Factura[]
+  tickets    Ticket[]
 
   @@index([clienteId, estado])
   @@index([estado, venceEn])
+  @@index([revendedorId, estado])
   @@map("suscripciones")
 }
 
@@ -641,8 +668,10 @@ model Archivo {
   subidoPorId    String?  @map("subido_por_id") @db.Uuid
   creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  subidoPor Usuario?       @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
   pagos     Pago[]
+  recargas  RecargaSaldo[]
+  medio     Medio?
 
   @@map("archivos")
 }
@@ -760,4 +789,266 @@ model MensajeTicket {
 
   @@index([ticketId, creadoEn])
   @@map("mensajes_ticket")
+}
+
+// ─── Fase 2: revendedores (precio mayorista con saldo prepagado) ────────────
+
+enum EstadoRevendedor {
+  solicitud
+  aprobado
+  rechazado
+  suspendido
+}
+
+enum EstadoRecarga {
+  en_revision
+  confirmada
+  rechazada
+}
+
+enum TipoMovimientoSaldo {
+  recarga
+  compra
+  reembolso
+  ajuste
+}
+
+enum TipoCompra {
+  alta
+  renovacion
+}
+
+enum EstadoCompra {
+  completada
+  reembolsada
+}
+
+/// Nivel comercial: cada uno tiene su tabla de precios mayoristas.
+model NivelRevendedor {
+  id            String   @id @default(uuid()) @db.Uuid
+  nombre        String   @unique @db.VarChar(60)
+  descripcion   String?  @db.VarChar(300)
+  orden         Int      @default(0)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  revendedores Revendedor[]
+  precios      PrecioMayorista[]
+
+  @@map("niveles_revendedor")
+}
+
+/// Solicitud y ficha de un revendedor. El saldo es un reflejo del libro mayor (`movimientos_saldo`).
+model Revendedor {
+  id                  String           @id @default(uuid()) @db.Uuid
+  usuarioId           String           @unique @map("usuario_id") @db.Uuid
+  estado              EstadoRevendedor @default(solicitud)
+  nivelId             String?          @map("nivel_id") @db.Uuid
+  nombreComercial     String           @map("nombre_comercial") @db.VarChar(120)
+  documento           String?          @db.VarChar(40)
+  telefono            String?          @db.VarChar(20)
+  pais                String?          @db.Char(2)
+  /// Presentación que escribe al solicitar.
+  mensaje             String?          @db.VarChar(1000)
+  /// Motivo del rechazo o de la suspensión.
+  motivoEstado        String?          @map("motivo_estado") @db.VarChar(500)
+  saldoUsd            Decimal          @default(0) @map("saldo_usd") @db.Decimal(14, 2)
+  /// Compras permitidas por día; nulo usa el valor general.
+  limiteDiarioCompras Int?             @map("limite_diario_compras")
+  revisadoPorId       String?          @map("revisado_por_id") @db.Uuid
+  revisadoEn          DateTime?        @map("revisado_en") @db.Timestamptz(3)
+  creadoEn            DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn       DateTime         @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario       Usuario            @relation("RevendedorUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  nivel         NivelRevendedor?   @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  revisadoPor   Usuario?           @relation("RevendedorRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  clientes      Cliente[]
+  suscripciones Suscripcion[]
+  recargas      RecargaSaldo[]
+  movimientos   MovimientoSaldo[]
+  compras       CompraRevendedor[]
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@map("revendedores")
+}
+
+model PrecioMayorista {
+  id               String   @id @default(uuid()) @db.Uuid
+  planId           String   @map("plan_id") @db.Uuid
+  nivelId          String   @map("nivel_id") @db.Uuid
+  precioUsd        Decimal  @map("precio_usd") @db.Decimal(14, 2)
+  actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
+  creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan           Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  nivel          NivelRevendedor @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  actualizadoPor Usuario?        @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, nivelId])
+  @@map("precios_mayoristas")
+}
+
+/// Recarga de saldo: el revendedor paga (manual con comprobante) y el equipo la concilia.
+model RecargaSaldo {
+  id                String        @id @default(uuid()) @db.Uuid
+  /// Referencia del servidor, p. ej. R-7K2M9QX4.
+  referencia        String        @unique @db.VarChar(20)
+  revendedorId      String        @map("revendedor_id") @db.Uuid
+  metodoCobroId     String        @map("metodo_cobro_id") @db.Uuid
+  moneda            Moneda
+  montoDeclarado    Decimal       @map("monto_declarado") @db.Decimal(14, 2)
+  montoRecibido     Decimal?      @map("monto_recibido") @db.Decimal(14, 2)
+  /// Unidades de `moneda` por 1 USD al reportar; fija cuánto saldo se acredita.
+  tasa              Decimal       @db.Decimal(18, 6)
+  /// Saldo acreditado (en USD) al confirmar.
+  montoUsd          Decimal?      @map("monto_usd") @db.Decimal(14, 2)
+  referenciaExterna String?       @map("referencia_externa") @db.VarChar(80)
+  fechaPago         DateTime      @map("fecha_pago") @db.Timestamptz(3)
+  comprobanteId     String?       @map("comprobante_id") @db.Uuid
+  estado            EstadoRecarga @default(en_revision)
+  motivoRechazo     String?       @map("motivo_rechazo") @db.VarChar(500)
+  notas             String?       @db.VarChar(500)
+  revisadoPorId     String?       @map("revisado_por_id") @db.Uuid
+  revisadoEn        DateTime?     @map("revisado_en") @db.Timestamptz(3)
+  creadoEn          DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  revendedor  Revendedor       @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor Usuario?         @relation("RecargaRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  movimiento  MovimientoSaldo?
+
+  @@index([estado, creadoEn])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@map("recargas_saldo")
+}
+
+/// Libro mayor del saldo: solo se insertan filas (un disparador impide editarlas o borrarlas).
+model MovimientoSaldo {
+  id                 String              @id @default(uuid()) @db.Uuid
+  revendedorId       String              @map("revendedor_id") @db.Uuid
+  tipo               TipoMovimientoSaldo
+  /// Positivo suma saldo, negativo lo resta.
+  montoUsd           Decimal             @map("monto_usd") @db.Decimal(14, 2)
+  saldoResultanteUsd Decimal             @map("saldo_resultante_usd") @db.Decimal(14, 2)
+  recargaId          String?             @unique @map("recarga_id") @db.Uuid
+  compraId           String?             @map("compra_id") @db.Uuid
+  motivo             String?             @db.VarChar(500)
+  autorId            String?             @map("autor_id") @db.Uuid
+  creadoEn           DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  revendedor Revendedor        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  recarga    RecargaSaldo?     @relation(fields: [recargaId], references: [id], onDelete: Restrict)
+  compra     CompraRevendedor? @relation(fields: [compraId], references: [id], onDelete: Restrict)
+  autor      Usuario?          @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@index([compraId])
+  @@map("movimientos_saldo")
+}
+
+/// Activación comprada con saldo: débito y suscripción se crean en la misma transacción.
+model CompraRevendedor {
+  id                String       @id @default(uuid()) @db.Uuid
+  revendedorId      String       @map("revendedor_id") @db.Uuid
+  planId            String       @map("plan_id") @db.Uuid
+  clienteId         String       @map("cliente_id") @db.Uuid
+  suscripcionId     String       @map("suscripcion_id") @db.Uuid
+  tipo              TipoCompra
+  precioUsd         Decimal      @map("precio_usd") @db.Decimal(14, 2)
+  estado            EstadoCompra @default(completada)
+  /// La envía el panel para que un doble clic no compre dos veces.
+  claveIdempotencia String       @map("clave_idempotencia") @db.VarChar(64)
+  motivoReembolso   String?      @map("motivo_reembolso") @db.VarChar(500)
+  reembolsadaPorId  String?      @map("reembolsada_por_id") @db.Uuid
+  reembolsadaEn     DateTime?    @map("reembolsada_en") @db.Timestamptz(3)
+  creadoEn          DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  revendedor     Revendedor        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  plan           Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cliente        Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion    Suscripcion       @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  reembolsadaPor Usuario?          @relation("CompraReembolsador", fields: [reembolsadaPorId], references: [id], onDelete: Restrict)
+  movimientos    MovimientoSaldo[]
+
+  @@unique([revendedorId, claveIdempotencia])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@map("compras_revendedor")
+}
+
+// ─── Fase 2: contenido del sitio (editor visual) ─────────────────────────────
+
+/// Página pública editable. El borrador se guarda aquí; cada publicación crea una versión.
+model Pagina {
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// Ruta pública: "/", "/nosotros", "/preguntas-frecuentes"...
+  ruta                  String    @unique @db.VarChar(80)
+  titulo                String    @db.VarChar(120)
+  descripcion           String?   @db.VarChar(300)
+  /// Lista de bloques (validada con el esquema compartido `contenidoPaginaSchema`).
+  borrador              Json      @default("[]")
+  borradorActualizadoEn DateTime? @map("borrador_actualizado_en") @db.Timestamptz(3)
+  borradorPorId         String?   @map("borrador_por_id") @db.Uuid
+  versionPublicadaId    String?   @unique @map("version_publicada_id") @db.Uuid
+  /// Oculta del sitio sin borrar su historial.
+  archivada             Boolean   @default(false)
+  creadoEn              DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn         DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  borradorPor      Usuario?        @relation("PaginaEditor", fields: [borradorPorId], references: [id], onDelete: Restrict)
+  versionPublicada VersionPagina?  @relation("VersionVigente", fields: [versionPublicadaId], references: [id], onDelete: Restrict)
+  versiones        VersionPagina[] @relation("VersionesPagina")
+
+  @@map("paginas")
+}
+
+/// Versión publicada (inmutable). Volver a una anterior publica una nueva con su contenido.
+model VersionPagina {
+  id             String   @id @default(uuid()) @db.Uuid
+  paginaId       String   @map("pagina_id") @db.Uuid
+  numero         Int
+  titulo         String   @db.VarChar(120)
+  descripcion    String?  @db.VarChar(300)
+  contenido      Json
+  nota           String?  @db.VarChar(200)
+  publicadaPorId String?  @map("publicada_por_id") @db.Uuid
+  publicadaEn    DateTime @default(now()) @map("publicada_en") @db.Timestamptz(3)
+
+  pagina       Pagina   @relation("VersionesPagina", fields: [paginaId], references: [id], onDelete: Restrict)
+  vigenteEn    Pagina?  @relation("VersionVigente")
+  publicadaPor Usuario? @relation(fields: [publicadaPorId], references: [id], onDelete: Restrict)
+
+  @@unique([paginaId, numero])
+  @@map("versiones_pagina")
+}
+
+/// Imagen del sitio (se sirve pública). El archivo se valida por su contenido.
+model Medio {
+  id               String   @id @default(uuid()) @db.Uuid
+  archivoId        String   @unique @map("archivo_id") @db.Uuid
+  textoAlternativo String   @map("texto_alternativo") @db.VarChar(200)
+  subidoPorId      String?  @map("subido_por_id") @db.Uuid
+  creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  archivo   Archivo  @relation(fields: [archivoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+
+  @@map("medios")
+}
+
+/// Tema del sitio dentro de los límites de la marca NV (una sola fila, id = 1).
+model TemaSitio {
+  id               Int      @id @default(1)
+  /// Paleta predefinida (ver `PALETAS_SITIO` en @nv/shared).
+  paleta           String   @default("nv") @db.VarChar(30)
+  actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
+  actualizadoEn    DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@map("tema_sitio")
 }

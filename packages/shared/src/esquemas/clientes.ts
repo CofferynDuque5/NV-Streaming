@@ -6,6 +6,7 @@ import {
   parcialSinDefectos,
   uuidSchema,
 } from './comunes.js';
+import { MONEDA_PRINCIPAL } from '../monedas.js';
 import { monedaSchema } from './dinero.js';
 
 const opcional = <T extends z.ZodType>(s: T) =>
@@ -38,7 +39,7 @@ export const clienteSchema = z.object({
   correo: opcional(correoSchema),
   documento: opcional(z.string().trim().max(40, 'El documento es demasiado largo.')),
   pais: opcional(paisSchema),
-  monedaPreferida: monedaSchema.default('USD'),
+  monedaPreferida: monedaSchema.default(MONEDA_PRINCIPAL),
   whatsapp: opcional(telefonoSchema),
   /** Consentimiento del cliente para recibir mensajes por WhatsApp. */
   aceptaWhatsapp: z.boolean().default(false),

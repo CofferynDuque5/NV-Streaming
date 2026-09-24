@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { detectarUbicacion, monedaDePais, paisDeIdioma } from '../src/index.js';
 
 describe('moneda según la ubicación', () => {
-  it('asigna la moneda de cada país donde cobra NV y USD al resto', () => {
+  it('asigna la moneda de cada país, USD a los demás y bolívares si no se sabe', () => {
     expect(monedaDePais('VE')).toBe('VES');
     expect(monedaDePais('ar')).toBe('ARS');
     expect(monedaDePais('CO')).toBe('COP');
@@ -11,7 +11,7 @@ describe('moneda según la ubicación', () => {
     expect(monedaDePais('DE')).toBe('EUR');
     expect(monedaDePais('CL')).toBe('USD');
     expect(monedaDePais('EC')).toBe('USD');
-    expect(monedaDePais(null)).toBe('USD');
+    expect(monedaDePais(null)).toBe('VES');
   });
 
   it('lee la región del idioma del navegador', () => {
@@ -36,7 +36,7 @@ describe('moneda según la ubicación', () => {
     });
     expect(detectarUbicacion({}, 'no-es-moneda')).toEqual({
       pais: null,
-      moneda: 'USD',
+      moneda: 'VES',
       origen: 'predeterminada',
     });
   });

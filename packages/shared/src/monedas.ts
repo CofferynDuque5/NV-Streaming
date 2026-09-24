@@ -1,6 +1,13 @@
-/** Monedas de cobro de NV Streaming. Los precios del catálogo se fijan en USD. */
-export const MONEDAS = ['USD', 'VES', 'ARS', 'COP', 'PEN', 'EUR'] as const;
+/**
+ * Monedas de cobro de NV Streaming, con la principal primero. Los precios del
+ * catálogo se fijan en USD y se convierten con la tasa del día.
+ */
+export const MONEDAS = ['VES', 'USD', 'ARS', 'COP', 'PEN', 'EUR'] as const;
 export type Moneda = (typeof MONEDAS)[number];
+
+/** Mercado principal: Venezuela, cobrando en bolívares. */
+export const PAIS_PRINCIPAL = 'VE';
+export const MONEDA_PRINCIPAL = 'VES' satisfies Moneda;
 
 /** Monedas que se convierten desde USD con una tasa de cambio. */
 export const MONEDAS_CON_TASA = [

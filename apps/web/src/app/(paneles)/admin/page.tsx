@@ -132,15 +132,27 @@ export default async function ResumenAdmin() {
             <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-nv bg-borde sm:grid-cols-2 lg:grid-cols-4">
               <Cifra
                 etiqueta="Ingreso recurrente mensual"
-                valor={formatearMonto(metricas.ingresoMensualRecurrenteUsd, 'USD')}
-                detalle="Estimado de las suscripciones activas"
+                valor={
+                  metricas.enBolivares
+                    ? formatearMonto(metricas.enBolivares.ingresoMensualRecurrente, 'VES')
+                    : formatearMonto(metricas.ingresoMensualRecurrenteUsd, 'USD')
+                }
+                detalle={
+                  metricas.enBolivares
+                    ? `${formatearMonto(metricas.ingresoMensualRecurrenteUsd, 'USD')} a la tasa de hoy (${formatearMonto(metricas.enBolivares.tasa, 'VES')} por dólar)`
+                    : 'Estimado de las suscripciones activas'
+                }
               />
               <Cifra
                 etiqueta="Cobrado este mes"
-                valor={formatearMonto(metricas.ingresosMesUsd, 'USD')}
+                valor={
+                  metricas.enBolivares
+                    ? formatearMonto(metricas.enBolivares.ingresosMes, 'VES')
+                    : formatearMonto(metricas.ingresosMesUsd, 'USD')
+                }
                 detalle={
                   metricas.ingresosMes.length > 0
-                    ? metricas.ingresosMes.map((i) => formatearMonto(i.total, i.moneda)).join(' · ')
+                    ? `Recibido: ${metricas.ingresosMes.map((i) => formatearMonto(i.total, i.moneda)).join(' · ')}`
                     : 'Aún no hay pagos confirmados este mes'
                 }
               />

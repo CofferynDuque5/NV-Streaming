@@ -9,7 +9,7 @@ import {
 import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth } from '../comun/contexto.js';
 import { PRISMA } from '../comun/tokens.js';
-import { CERO, type Dec, mensualUsd } from '../dinero/dinero.js';
+import { CERO, type Dec, mensualUsd, redondear } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { INCLUIR_SUSCRIPCION, suscripcionPublica } from '../suscripciones/presentacion.js';
 
@@ -100,6 +100,7 @@ export class MetricasService {
       totalUsd = totalUsd.add(p.factura.totalUsd);
     }
 
+    const tasaVes = (await this.tasas.mapa()).get('VES');
     return {
       soloCartera: limitadoACartera(auth.usuario.rol),
       clientesActivos,
@@ -112,6 +113,13 @@ export class MetricasService {
         pagos: v.pagos,
       })),
       ingresosMesUsd: totalUsd.toFixed(2),
+      enBolivares: tasaVes
+        ? {
+            tasa: tasaVes.toFixed(2),
+            ingresoMensualRecurrente: redondear(mrr.mul(tasaVes), 'VES').toFixed(2),
+            ingresosMes: redondear(totalUsd.mul(tasaVes), 'VES').toFixed(2),
+          }
+        : null,
       pagosEnRevision,
       facturasVencidas,
       ticketsAbiertos,

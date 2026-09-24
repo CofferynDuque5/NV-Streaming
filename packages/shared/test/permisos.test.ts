@@ -2,10 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { exige2fa, PERMISOS, permisosDe, ROLES, rutaInicio, tienePermiso } from '../src/index.js';
 
 describe('matriz de permisos', () => {
-  it('el administrador tiene todos los permisos salvo el autoservicio del cliente', () => {
+  it('el administrador tiene todos los permisos salvo los de clientes y revendedores', () => {
+    const soloClientes = ['autoservicio.usar', 'revendedor.solicitar', 'reventa.usar'];
     expect([...permisosDe('admin')].sort()).toEqual(
-      PERMISOS.filter((p) => p !== 'autoservicio.usar').sort(),
+      PERMISOS.filter((p) => !soloClientes.includes(p)).sort(),
     );
+  });
+
+  it('solo el revendedor compra con saldo y solo el cliente puede solicitar serlo', () => {
+    expect(ROLES.filter((r) => tienePermiso(r, 'reventa.usar'))).toEqual(['revendedor']);
+    expect(ROLES.filter((r) => tienePermiso(r, 'revendedor.solicitar'))).toEqual(['cliente']);
+  });
+
+  it('solo administración aprueba revendedores y publica el sitio; operación edita borradores', () => {
+    expect(ROLES.filter((r) => tienePermiso(r, 'revendedores.gestionar'))).toEqual(['admin']);
+    expect(ROLES.filter((r) => tienePermiso(r, 'sitio.publicar'))).toEqual(['admin']);
+    expect(ROLES.filter((r) => tienePermiso(r, 'sitio.editar'))).toEqual(['admin', 'operador']);
   });
 
   it('solo el cliente usa el autoservicio', () => {

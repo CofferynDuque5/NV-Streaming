@@ -55,16 +55,22 @@ const EQUIPO: ElementoNavegacion[] = [
     permiso: 'usuarios.ver',
   },
   { etiqueta: 'Auditoría', href: '/admin/auditoria', icono: 'auditoria', permiso: 'auditoria.ver' },
-  { etiqueta: 'Revendedores', icono: 'revendedores', fase: 2 },
-  { etiqueta: 'Editor visual', icono: 'editor', fase: 2 },
+  {
+    etiqueta: 'Revendedores',
+    href: '/admin/revendedores',
+    icono: 'revendedores',
+    permiso: 'revendedores.ver',
+  },
+  { etiqueta: 'Editor visual', href: '/admin/sitio', icono: 'editor', permiso: 'sitio.editar' },
   { etiqueta: 'Asistente IA', icono: 'asistente', fase: 5 },
 ];
 
 const REVENDEDOR: ElementoNavegacion[] = [
   { etiqueta: 'Resumen', href: '/revendedor', icono: 'inicio' },
-  { etiqueta: 'Saldo y recargas', icono: 'saldo', fase: 2 },
-  { etiqueta: 'Catálogo mayorista', icono: 'catalogo', fase: 2 },
-  { etiqueta: 'Mis compras', icono: 'compras', fase: 2 },
+  { etiqueta: 'Saldo y recargas', href: '/revendedor/saldo', icono: 'saldo' },
+  { etiqueta: 'Catálogo mayorista', href: '/revendedor/catalogo', icono: 'catalogo' },
+  { etiqueta: 'Mis clientes', href: '/revendedor/clientes', icono: 'clientes' },
+  { etiqueta: 'Mis compras', href: '/revendedor/compras', icono: 'compras' },
 ];
 
 const CLIENTE: ElementoNavegacion[] = [

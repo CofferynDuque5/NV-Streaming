@@ -29,6 +29,13 @@ export const PERMISOS = [
   'tickets.ver',
   'tickets.gestionar',
   'autoservicio.usar',
+  // Fase 2
+  'revendedores.ver',
+  'revendedores.gestionar',
+  'revendedor.solicitar',
+  'reventa.usar',
+  'sitio.editar',
+  'sitio.publicar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -57,10 +64,19 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'tickets.ver': 'Ver tickets de soporte',
   'tickets.gestionar': 'Responder, asignar y cerrar tickets',
   'autoservicio.usar': 'Contratar, pagar y pedir soporte desde su panel',
+  'revendedores.ver': 'Ver revendedores, su saldo, recargas y compras',
+  'revendedores.gestionar':
+    'Aprobar o suspender revendedores, asignar nivel, fijar precios mayoristas, ajustar saldo y reembolsar compras',
+  'revendedor.solicitar': 'Solicitar ser revendedor',
+  'reventa.usar': 'Recargar saldo, comprar activaciones y gestionar su cartera de clientes',
+  'sitio.editar': 'Editar borradores de las páginas del sitio',
+  'sitio.publicar': 'Publicar páginas, volver a versiones anteriores y cambiar el tema del sitio',
 };
 
+const SOLO_CLIENTES: readonly Permiso[] = ['autoservicio.usar', 'revendedor.solicitar', 'reventa.usar'];
+
 const MATRIZ: Record<Rol, readonly Permiso[]> = {
-  admin: PERMISOS.filter((p) => p !== 'autoservicio.usar'),
+  admin: PERMISOS.filter((p) => !SOLO_CLIENTES.includes(p)),
   operador: [
     'panel.ver',
     'usuarios.ver',
@@ -77,6 +93,8 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'pagos.gestionar',
     'tickets.ver',
     'tickets.gestionar',
+    'revendedores.ver',
+    'sitio.editar',
   ],
   ventas: [
     'panel.ver',
@@ -93,8 +111,8 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'cupones.gestionar',
     'tickets.ver',
   ],
-  revendedor: ['panel.ver', 'cuenta.gestionar'],
-  cliente: ['panel.ver', 'cuenta.gestionar', 'autoservicio.usar'],
+  revendedor: ['panel.ver', 'cuenta.gestionar', 'reventa.usar'],
+  cliente: ['panel.ver', 'cuenta.gestionar', 'autoservicio.usar', 'revendedor.solicitar'],
 };
 
 /** Descuento máximo (en %) que ventas puede dar con un cupón. Solo porcentaje. */

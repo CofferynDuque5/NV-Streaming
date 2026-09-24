@@ -35,6 +35,11 @@ import { OrigenGuard } from './guardias/origen.guard.js';
 import { PermisosGuard } from './guardias/permisos.guard.js';
 import { SesionGuard } from './guardias/sesion.guard.js';
 import { NucleoModule } from './nucleo/nucleo.module.js';
+import {
+  CONTROLADORES_REVENDEDORES,
+  PROVEEDORES_REVENDEDORES,
+} from './revendedores/revendedores.js';
+import { CONTROLADORES_SITIO, PROVEEDORES_SITIO } from './sitio/sitio.js';
 import { SaludController } from './salud/salud.controller.js';
 import { UsuariosController } from './usuarios/usuarios.controller.js';
 import { UsuariosService } from './usuarios/usuarios.service.js';
@@ -60,6 +65,8 @@ export class AppModule {
         TicketsController,
         MetricasController,
         AutoservicioController,
+        ...CONTROLADORES_REVENDEDORES,
+        ...CONTROLADORES_SITIO,
       ],
       providers: [
         CuentaService,
@@ -77,6 +84,8 @@ export class AppModule {
         CuponesService,
         TicketsService,
         MetricasService,
+        ...PROVEEDORES_REVENDEDORES,
+        ...PROVEEDORES_SITIO,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },
