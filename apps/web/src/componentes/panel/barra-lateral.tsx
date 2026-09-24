@@ -6,6 +6,7 @@ import {
   CreditCard,
   Coins,
   FileClock,
+  Globe,
   Headset,
   House,
   Layers,
@@ -22,6 +23,7 @@ import {
   UserRound,
   Users,
   Wallet,
+  WalletCards,
   Workflow,
   X,
 } from 'lucide-react';
@@ -50,6 +52,8 @@ const ICONOS: Record<NombreIcono, LucideIcon> = {
   cupones: TicketPercent,
   monedas: Coins,
   automatizaciones: Workflow,
+  pasarelas: Globe,
+  metodos: WalletCards,
   ajustes: Settings,
 };
 

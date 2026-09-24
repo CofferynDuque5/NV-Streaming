@@ -134,6 +134,8 @@ export interface SuscripcionPublica {
   canceladaEn: string | null;
   creadoEn: string;
   facturaAbierta: { id: string; numero: string } | null;
+  /** Método autorizado con el que se cobra sola al vencer (fase 4); null = pago manual. */
+  cobroAutomatico?: { metodoId: string; descripcion: string } | null;
 }
 
 export interface EventoSuscripcionPublico {

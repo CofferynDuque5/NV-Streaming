@@ -140,7 +140,7 @@ export class PagosController {
   @Get('metodos')
   @RequierePermiso('pagos.gestionar')
   metodosActivos(@Query(validar(filtroMetodos)) filtro: z.output<typeof filtroMetodos>) {
-    return this.metodos.listar({ ...filtro, soloActivos: true });
+    return this.metodos.listar({ ...filtro, soloActivos: true, tipo: 'manual' });
   }
 
   @Get()

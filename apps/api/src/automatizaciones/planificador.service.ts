@@ -46,6 +46,17 @@ export class PlanificadorService {
       });
       if (nuevo) encolados += 1;
     }
+    // Pagos en línea abandonados: se consultan y se vencen cada 15 minutos.
+    const ranuraIntentos = ranuraActual({ tipo: 'intervalo', minutos: 15 }, ahora)!;
+    if (
+      await this.trabajos.encolar({
+        tipo: TRABAJO.expirarIntentosPago,
+        claveUnica: `expirar_intentos_pago:${ranuraIntentos.toISOString()}`,
+        maxIntentos: 3,
+      })
+    ) {
+      encolados += 1;
+    }
     const minutos = this.entorno.VENCIMIENTOS_CADA_MINUTOS;
     if (minutos > 0) {
       const ranura = ranuraActual({ tipo: 'intervalo', minutos }, ahora)!;

@@ -9,6 +9,7 @@ import { hash } from '@node-rs/argon2';
 import { config } from 'dotenv';
 import { crearClientePrisma, type Rol } from '../src/index.js';
 import { sembrarAutomatizaciones } from './semillas/automatizaciones.js';
+import { sembrarPagosEnLinea } from './semillas/pagos-en-linea.js';
 import { sembrarRevendedores } from './semillas/revendedores.js';
 import { sembrarSitio } from './semillas/sitio.js';
 
@@ -68,6 +69,7 @@ async function main() {
   await sembrarRevendedores(prisma);
   await sembrarSitio(prisma);
   await sembrarAutomatizaciones(prisma);
+  await sembrarPagosEnLinea(prisma);
   console.log(`\nContraseña de todos los usuarios de demostración: ${CONTRASENA_DEMO}`);
 }
 

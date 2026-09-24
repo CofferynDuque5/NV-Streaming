@@ -24,9 +24,16 @@ declare module 'fastify' {
 export const META_PUBLICA = 'nv:publica';
 export const META_PERMITE_PENDIENTE = 'nv:permite-pendiente';
 export const META_PERMISO = 'nv:permiso';
+export const META_ORIGEN_EXTERNO = 'nv:origen-externo';
 
 /** La ruta no requiere sesión. */
 export const Publica = () => SetMetadata(META_PUBLICA, true);
+
+/**
+ * La ruta la llama un servidor externo (webhooks de pasarelas), no la web: no
+ * exige la cabecera Origin. Solo para rutas públicas que verifican su propia firma.
+ */
+export const OrigenExterno = () => SetMetadata(META_ORIGEN_EXTERNO, true);
 
 /** La ruta acepta sesiones a las que aún les falta la verificación en dos pasos. */
 export const PermitePendiente = () => SetMetadata(META_PERMITE_PENDIENTE, true);

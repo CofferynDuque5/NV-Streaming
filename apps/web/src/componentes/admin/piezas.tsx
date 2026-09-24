@@ -19,10 +19,15 @@ export function useAccion() {
   const [error, setError] = useState<ErrorLlamada | null>(null);
 
   const ejecutar = useCallback(
-    async <T,>(metodo: Metodo, ruta: string, cuerpo?: unknown): Promise<{ datos: T } | null> => {
+    async <T,>(
+      metodo: Metodo,
+      ruta: string,
+      cuerpo?: unknown,
+      cabeceras?: Record<string, string>,
+    ): Promise<{ datos: T } | null> => {
       setCargando(true);
       setError(null);
-      const r = await llamarApi<T>(metodo, ruta, cuerpo ?? {});
+      const r = await llamarApi<T>(metodo, ruta, cuerpo ?? {}, cabeceras);
       setCargando(false);
       if (!r.ok) {
         setError(r.error);

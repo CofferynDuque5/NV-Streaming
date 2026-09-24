@@ -1,7 +1,13 @@
-import { formatearMonto, type ResumenCliente, type SuscripcionPublica } from '@nv/shared';
+import {
+  formatearMonto,
+  type MetodoAutorizadoPublico,
+  type ResumenCliente,
+  type SuscripcionPublica,
+} from '@nv/shared';
 import { CalendarClock, Clapperboard, LifeBuoy, Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { CobroAutomatico } from '@/componentes/cliente/metodos-pago';
 import { AccionesSuscripcion } from '@/componentes/cliente/suscripcion';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
@@ -11,7 +17,20 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { diasHasta, formatearDuracion, formatearFecha } from '@/lib/formato';
+import { monedaAdmitePagoEnLinea } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
+
+const CON_COBRO_AUTOMATICO = new Set(['activa', 'en_gracia', 'suspendida']);
+
+/** Se ofrece el cobro automático en suscripciones renovables vigentes que se pagan en línea. */
+function admiteCobroAutomatico(s: SuscripcionPublica): boolean {
+  return (
+    s.plan.renovable &&
+    CON_COBRO_AUTOMATICO.has(s.estado) &&
+    !s.cancelarAlVencer &&
+    monedaAdmitePagoEnLinea(s.moneda)
+  );
+}
 
 export const metadata: Metadata = { title: 'Mis servicios' };
 
@@ -40,7 +59,10 @@ function Vigencia({ s }: { s: SuscripcionPublica }) {
 
 export default async function MisServicios() {
   const sesion = await requerirSesion({ roles: ['cliente'] });
-  const { datos } = await leerApi<ResumenCliente>('/mi/resumen');
+  const [{ datos }, { datos: metodos }] = await Promise.all([
+    leerApi<ResumenCliente>('/mi/resumen'),
+    leerApi<MetodoAutorizadoPublico[]>('/mi/metodos-autorizados'),
+  ]);
   const nombre = sesion.usuario.nombre.split(' ')[0];
 
   if (!datos) {
@@ -72,7 +94,7 @@ export default async function MisServicios() {
         <Tarjeta>
           <CabeceraTarjeta
             titulo="Pendiente de pago"
-            descripcion="Paga y envía el comprobante; activamos o renovamos tu servicio al confirmarlo."
+            descripcion="Paga en línea o envía el comprobante; activamos o renovamos tu servicio al confirmarlo."
           />
           <ul className="divide-y divide-borde">
             {facturasPendientes.map((f) => (
@@ -136,6 +158,7 @@ export default async function MisServicios() {
                     {s.moneda}.
                   </span>
                 </p>
+                {admiteCobroAutomatico(s) && metodos && <CobroAutomatico s={s} metodos={metodos} />}
                 <AccionesSuscripcion s={s} />
               </Tarjeta>
             ))}

@@ -19,6 +19,8 @@ export type NombreIcono =
   | 'cupones'
   | 'monedas'
   | 'automatizaciones'
+  | 'pasarelas'
+  | 'metodos'
   | 'ajustes';
 
 export interface ElementoNavegacion {
@@ -48,6 +50,12 @@ const EQUIPO: ElementoNavegacion[] = [
     href: '/admin/finanzas',
     icono: 'monedas',
     permiso: 'finanzas.configurar',
+  },
+  {
+    etiqueta: 'Pagos en línea',
+    href: '/admin/pagos-en-linea',
+    icono: 'pasarelas',
+    permiso: 'pasarelas.configurar',
   },
   {
     etiqueta: 'Equipo y usuarios',
@@ -84,6 +92,7 @@ const CLIENTE: ElementoNavegacion[] = [
   { etiqueta: 'Mis servicios', href: '/cuenta', icono: 'servicios' },
   { etiqueta: 'Contratar', href: '/cuenta/planes', icono: 'planes' },
   { etiqueta: 'Facturas y pagos', href: '/cuenta/facturas', icono: 'cobros' },
+  { etiqueta: 'Mis métodos de pago', href: '/cuenta/metodos-pago', icono: 'metodos' },
   { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte' },
   {
     etiqueta: 'Ser revendedor',

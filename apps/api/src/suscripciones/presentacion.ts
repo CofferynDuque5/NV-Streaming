@@ -15,6 +15,7 @@ export const INCLUIR_SUSCRIPCION = {
     },
   },
   facturas: { where: { estado: 'emitida' }, select: { id: true, numero: true }, take: 1 },
+  metodoAutorizado: { select: { id: true, descripcion: true, estado: true } },
 } as const;
 
 export type SuscripcionBase = Suscripcion & {
@@ -23,6 +24,7 @@ export type SuscripcionBase = Suscripcion & {
     servicio: { nombre: string };
   };
   facturas: { id: string; numero: number }[];
+  metodoAutorizado?: { id: string; descripcion: string; estado: string } | null;
 };
 
 export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
@@ -47,6 +49,10 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
     canceladaEn: iso(s.canceladaEn),
     creadoEn: iso(s.creadoEn)!,
     facturaAbierta: abierta ? { id: abierta.id, numero: numeroFactura(abierta.numero) } : null,
+    cobroAutomatico:
+      s.metodoAutorizado?.estado === 'activo'
+        ? { metodoId: s.metodoAutorizado.id, descripcion: s.metodoAutorizado.descripcion }
+        : null,
   };
 }
 

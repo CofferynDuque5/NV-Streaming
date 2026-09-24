@@ -127,7 +127,7 @@ export function FormularioPago({
         </label>
         <label
           htmlFor="comprobante"
-          className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-borde-fuerte bg-hundida px-4 py-4 text-sm text-tinta-suave hover:border-marca"
+          className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-dashed border-borde-fuerte bg-hundida px-4 py-4 text-sm text-tinta-suave hover:border-marca"
         >
           <Upload className="size-4 shrink-0 text-marca" aria-hidden="true" />
           <input
@@ -138,7 +138,7 @@ export function FormularioPago({
             required
             aria-invalid={errorArchivo || campos.comprobante ? true : undefined}
             aria-describedby="comprobante-ayuda"
-            className="min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-marca-suave file:px-3 file:py-1.5 file:font-medium file:text-marca"
+            className="w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-marca-suave file:px-3 file:py-1.5 file:font-medium file:text-marca"
           />
         </label>
         <p id="comprobante-ayuda" className="text-xs text-tinta-tenue">
@@ -186,7 +186,7 @@ export function CambiarMoneda({
   return (
     <form onSubmit={aplicar} className="grid gap-2">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="grid gap-1.5">
+        <div className="grid min-w-0 flex-1 basis-56 gap-1.5">
           <label htmlFor="moneda-factura" className="text-sm font-medium">
             Moneda de pago
           </label>
@@ -194,7 +194,7 @@ export function CambiarMoneda({
             id="moneda-factura"
             value={moneda}
             onChange={(e) => setMoneda(e.target.value as Moneda)}
-            className="h-10 rounded-xl border border-borde-fuerte bg-hundida px-3 text-sm"
+            className="h-10 w-full min-w-0 rounded-xl border border-borde-fuerte bg-hundida px-3 text-sm"
           >
             {monedas.map((m) => (
               <option key={m} value={m}>

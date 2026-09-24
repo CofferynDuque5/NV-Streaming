@@ -3,18 +3,21 @@ import {
   type FacturaDetalle,
   formatearMonto,
   type MetodoCobroPublico,
+  type OpcionesPagoEnLinea,
 } from '@nv/shared';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Globe } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CambiarMoneda, FormularioPago } from '@/componentes/cliente/pago';
+import { PagarEnLinea } from '@/componentes/cliente/pago-en-linea';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoFacturaInsignia, EstadoPagoInsignia } from '@/componentes/ui/estado';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { formatearFecha, formatearFechaHora } from '@/lib/formato';
+import { monedaAdmitePagoEnLinea, nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Factura' };
@@ -42,12 +45,19 @@ export default async function Factura({ params }: { params: Promise<{ id: string
   }
 
   const porPagar = f.estado === 'emitida' && !f.pagoEnRevision;
-  const [{ datos: metodos }, { datos: catalogo }] = porPagar
+  const enLinea = porPagar && monedaAdmitePagoEnLinea(f.moneda);
+  const [{ datos: todos }, { datos: catalogo }, { datos: opcionesEnLinea }] = porPagar
     ? await Promise.all([
         leerApi<MetodoCobroPublico[]>(`/mi/metodos-cobro?moneda=${f.moneda}`),
         leerApi<CatalogoPublico>('/catalogo'),
+        enLinea
+          ? leerApi<OpcionesPagoEnLinea>(`/mi/facturas/${f.id}/pago-en-linea`)
+          : Promise.resolve({ datos: null }),
       ])
-    : [{ datos: null }, { datos: null }];
+    : [{ datos: null }, { datos: null }, { datos: null }];
+  // Los métodos en línea se ofrecen arriba; aquí solo los manuales (con comprobante).
+  const metodos = todos?.filter((m) => (m.tipo ?? 'manual') === 'manual') ?? null;
+  const opciones = opcionesEnLinea?.opciones.length ? opcionesEnLinea : null;
 
   return (
     <>
@@ -85,17 +95,40 @@ export default async function Factura({ params }: { params: Promise<{ id: string
         </Alerta>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="grid gap-6">
-          {porPagar && (
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
+          {porPagar && catalogo && catalogo.monedas.length > 1 && (
+            <Tarjeta className="px-5 py-5 sm:px-6">
+              <CambiarMoneda facturaId={f.id} actual={f.moneda} monedas={catalogo.monedas} />
+            </Tarjeta>
+          )}
+
+          {opciones && (
             <Tarjeta>
               <CabeceraTarjeta
-                titulo="Pagar esta factura"
+                titulo="Pagar en línea"
+                descripcion="Pagas en la pasarela y la factura queda pagada al momento, sin enviar comprobante."
+                accion={<Globe className="size-5 text-marca" aria-hidden="true" />}
+              />
+              <div className="px-5 py-5 sm:px-6">
+                <PagarEnLinea datos={opciones} />
+              </div>
+            </Tarjeta>
+          )}
+
+          {porPagar && (!opciones || (metodos && metodos.length > 0)) && (
+            <Tarjeta>
+              <CabeceraTarjeta
+                titulo={opciones ? 'O paga por transferencia' : 'Pagar esta factura'}
                 descripcion={`Paga ${formatearMonto(f.total, f.moneda)} antes del ${formatearFecha(f.venceEn)} y envíanos el comprobante.`}
               />
-              <div className="grid gap-6 px-5 py-5 sm:px-6">
-                {catalogo && catalogo.monedas.length > 1 && (
-                  <CambiarMoneda facturaId={f.id} actual={f.moneda} monedas={catalogo.monedas} />
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-6 px-5 py-5 sm:px-6">
+                {f.moneda === 'VES' && (
+                  <Alerta tono="info" titulo="Pagos en bolívares">
+                    Los pagos en bolívares se hacen por Pago Móvil o transferencia y se confirman
+                    con el comprobante. El pago en línea está disponible para facturas en dólares,
+                    euros y pesos o soles; si lo prefieres, cambia la moneda de la factura.
+                  </Alerta>
                 )}
                 {metodos && metodos.length > 0 ? (
                   <FormularioPago
@@ -127,7 +160,9 @@ export default async function Factura({ params }: { params: Promise<{ id: string
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium tabular-nums">
                         {formatearMonto(p.montoRecibido ?? p.montoDeclarado, p.moneda)} ·{' '}
-                        {p.metodo.nombre}
+                        {p.origen === 'pasarela'
+                          ? `Pago en línea (${nombrePasarela(p.pasarela)})`
+                          : p.metodo.nombre}
                       </span>
                       <EstadoPagoInsignia estado={p.estado} />
                     </div>
@@ -136,6 +171,12 @@ export default async function Factura({ params }: { params: Promise<{ id: string
                       {formatearFechaHora(p.creadoEn)} · código {p.referencia}
                       {p.referenciaExterna ? ` · ref. ${p.referenciaExterna}` : ''}
                     </p>
+                    {p.montoReembolsado && Number(p.montoReembolsado) > 0 && (
+                      <p className="text-tinta-suave">
+                        Te devolvimos {formatearMonto(p.montoReembolsado, p.moneda)} a través de{' '}
+                        {nombrePasarela(p.pasarela)}.
+                      </p>
+                    )}
                     {p.estado === 'rechazado' && p.motivoRechazo && (
                       <p className="text-peligro">Motivo: {p.motivoRechazo}</p>
                     )}

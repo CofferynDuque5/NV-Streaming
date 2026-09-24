@@ -252,9 +252,10 @@ model MetodoCobro {
   creadoEn           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn      DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  recargas RecargaSaldo[]
-  pagos    Pago[]
-  intentos IntentoPago[]
+  recargas           RecargaSaldo[]
+  pagos              Pago[]
+  intentos           IntentoPago[]
+  metodosAutorizados MetodoPagoAutorizado[]
 
   @@index([moneda, activo])
   @@map("metodos_cobro")
@@ -1241,26 +1242,33 @@ enum EstadoIntentoPago {
 /// Un pago en línea que el cliente inicia (ir a la pasarela y volver). Al
 /// aprobarse crea el `Pago` confirmado; nunca guarda datos de tarjeta.
 model IntentoPago {
-  id            String            @id @default(uuid()) @db.Uuid
+  id                String            @id @default(uuid()) @db.Uuid
   /// Referencia del servidor, p. ej. P-7K2M9QX4; viaja a la pasarela.
-  referencia    String            @unique @db.VarChar(20)
-  facturaId     String            @map("factura_id") @db.Uuid
-  clienteId     String            @map("cliente_id") @db.Uuid
-  metodoCobroId String            @map("metodo_cobro_id") @db.Uuid
-  pasarela      String            @db.VarChar(30)
-  moneda        Moneda
-  monto         Decimal           @db.Decimal(14, 2)
-  estado        EstadoIntentoPago @default(creado)
+  referencia        String            @unique @db.VarChar(20)
+  facturaId         String            @map("factura_id") @db.Uuid
+  clienteId         String            @map("cliente_id") @db.Uuid
+  metodoCobroId     String            @map("metodo_cobro_id") @db.Uuid
+  pasarela          String            @db.VarChar(30)
+  moneda            Moneda
+  monto             Decimal           @db.Decimal(14, 2)
+  estado            EstadoIntentoPago @default(creado)
   /// Id de la orden o preferencia en la pasarela.
-  idExterno     String?           @map("id_externo") @db.VarChar(120)
-  urlPago       String?           @map("url_pago") @db.VarChar(1000)
+  idExterno         String?           @map("id_externo") @db.VarChar(120)
+  urlPago           String?           @map("url_pago") @db.VarChar(1000)
   /// El cliente marcó "guardar para cobros automáticos" y aceptó el texto.
-  guardarMetodo Boolean           @default(false) @map("guardar_metodo")
-  pagoId        String?           @unique @map("pago_id") @db.Uuid
-  error         String?           @db.VarChar(500)
-  expiraEn      DateTime          @map("expira_en") @db.Timestamptz(3)
-  creadoEn      DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  guardarMetodo     Boolean           @default(false) @map("guardar_metodo")
+  /// Evidencia de la autorización (si guardarMetodo): texto exacto aceptado, versión, IP y navegador.
+  /// Se copia al método autorizado cuando la pasarela devuelve el token.
+  textoAutorizacion String?           @map("texto_autorizacion") @db.VarChar(2000)
+  versionTexto      String?           @map("version_texto") @db.VarChar(20)
+  autorizadoEn      DateTime?         @map("autorizado_en") @db.Timestamptz(3)
+  autorizadoIp      String?           @map("autorizado_ip") @db.VarChar(64)
+  autorizadoAgente  String?           @map("autorizado_agente") @db.VarChar(300)
+  pagoId            String?           @unique @map("pago_id") @db.Uuid
+  error             String?           @db.VarChar(500)
+  expiraEn          DateTime          @map("expira_en") @db.Timestamptz(3)
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
   cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
@@ -1288,6 +1296,8 @@ model MetodoPagoAutorizado {
   id               String                 @id @default(uuid()) @db.Uuid
   clienteId        String                 @map("cliente_id") @db.Uuid
   pasarela         String                 @db.VarChar(30)
+  /// Método de cobro (tipo pasarela) con el que se guardó; los cobros automáticos se registran con él.
+  metodoCobroId    String?                @map("metodo_cobro_id") @db.Uuid
   /// Token de la pasarela (vault id, acuerdo), cifrado con CLAVE_CIFRADO.
   tokenCifrado     String                 @map("token_cifrado") @db.VarChar(2000)
   /// Texto para mostrar: "PayPal · ma***@gmail.com", "Visa ···· 4242".
@@ -1307,6 +1317,7 @@ model MetodoPagoAutorizado {
   actualizadoEn    DateTime               @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro   MetodoCobro?      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
   revocadoPor   Usuario?          @relation("MetodoRevocador", fields: [revocadoPorId], references: [id], onDelete: Restrict)
   suscripciones Suscripcion[]
   cobros        CobroAutomatico[]
@@ -1404,4 +1415,31 @@ model Reembolso {
 
   @@index([pagoId])
   @@map("reembolsos")
+}
+
+/// Estado interno de la pasarela de pruebas ("sandbox"): lo que guardaría una pasarela real
+/// (órdenes, cobros, tokens y devoluciones). Vive en la base para que la API y el trabajador,
+/// que son procesos distintos, vean lo mismo. Solo se usa en desarrollo y pruebas.
+model OperacionSandbox {
+  id                String   @id @db.VarChar(60)
+  /// "orden", "cobro", "token" o "reembolso".
+  tipo              String   @db.VarChar(20)
+  estado            String   @db.VarChar(20)
+  referencia        String?  @db.VarChar(60)
+  /// Id del intento de pago de NV (las órdenes) para la página de pago de pruebas.
+  idInterno         String?  @map("id_interno") @db.VarChar(64)
+  monto             Decimal? @db.Decimal(14, 2)
+  moneda            Moneda?
+  descripcion       String?  @db.VarChar(200)
+  guardarMetodo     Boolean  @default(false) @map("guardar_metodo")
+  /// Orden → cobro; cobro → token u orden; reembolso → cobro.
+  relacionadoId     String?  @map("relacionado_id") @db.VarChar(60)
+  claveIdempotencia String?  @unique @map("clave_idempotencia") @db.VarChar(160)
+  datos             Json     @default("{}")
+  creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@index([idInterno])
+  @@index([relacionadoId])
+  @@map("operaciones_sandbox")
 }

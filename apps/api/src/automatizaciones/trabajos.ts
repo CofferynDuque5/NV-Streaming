@@ -11,6 +11,10 @@ export const TRABAJO = {
   avisoSuscripcion: 'aviso.suscripcion',
   /** Saldo del revendedor bajo el umbral. Carga: { revendedorId, movimientoId, saldoUsd, umbralUsd }. */
   avisoSaldoBajo: 'aviso.saldo_bajo',
+  /** Consulta y vence los pagos en línea abandonados. */
+  expirarIntentosPago: 'pagos_en_linea.expirar_intentos',
+  /** Procesa un webhook de pasarela ya guardado. Carga: { eventoId }. */
+  eventoPasarela: 'pasarela.evento',
 } as const;
 
 export interface NuevoTrabajo {

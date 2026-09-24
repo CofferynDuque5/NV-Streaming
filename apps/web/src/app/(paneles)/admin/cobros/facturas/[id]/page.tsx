@@ -1,11 +1,12 @@
-import type { FacturaDetalle, MetodoCobroPublico, PagoPublico } from '@nv/shared';
-import { ArrowLeft, ArrowUpRight, Paperclip, Wallet } from 'lucide-react';
+import type { FacturaDetalle, MetodoCobroPublico, PagoPublico, ReembolsoResumen } from '@nv/shared';
+import { ArrowLeft, ArrowUpRight, Globe, Paperclip, Wallet } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AnularFactura, ConciliarPago, Recotizar, RegistrarPago } from '@/componentes/admin/cobros';
 import { formatearTasa, mismoImporte } from '@/componentes/admin/formato-admin';
+import { DevolverPago } from '@/componentes/admin/pagos-en-linea';
 import { Isotipo } from '@/componentes/logo';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoFacturaInsignia, EstadoPagoInsignia } from '@/componentes/ui/estado';
@@ -15,6 +16,7 @@ import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { formatearFecha, formatearFechaHora, formatearMonto, haceCuanto } from '@/lib/formato';
+import { ESTADO_REEMBOLSO, nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Detalle de la factura' };
@@ -52,6 +54,18 @@ export default async function DetalleFactura({ params }: { params: Promise<{ id:
     puedeConciliar && emitida && !f.pagoEnRevision
       ? ((await leerApi<MetodoCobroPublico[]>(`/pagos/metodos?moneda=${f.moneda}`)).datos ?? [])
       : [];
+  const puedeReembolsar = sesion.permisos.includes('pagos.reembolsar');
+  // Devoluciones de los pagos en línea (los manuales no se devuelven por la pasarela).
+  const reembolsos = new Map(
+    await Promise.all(
+      f.pagos
+        .filter((p) => p.origen === 'pasarela')
+        .map(
+          async (p) =>
+            [p.id, (await leerApi<ReembolsoResumen[]>(`/pagos/${p.id}/reembolsos`)).datos] as const,
+        ),
+    ),
+  );
   const hayDescuento = !mismoImporte(f.descuento, '0');
   const acciones = emitida && (puedeConciliar || puedeAnular);
 
@@ -217,7 +231,7 @@ export default async function DetalleFactura({ params }: { params: Promise<{ id:
           <Tarjeta>
             <CabeceraTarjeta
               titulo="Pagos"
-              descripcion="Reportados por el cliente o registrados por el equipo."
+              descripcion="Pagados en línea, reportados por el cliente o registrados por el equipo."
             />
             {f.pagos.length === 0 ? (
               <EstadoVacio icono={Wallet} titulo="Todavía no hay pagos">
@@ -233,6 +247,8 @@ export default async function DetalleFactura({ params }: { params: Promise<{ id:
                     pago={p}
                     total={f.total}
                     puedeConciliar={puedeConciliar}
+                    puedeReembolsar={puedeReembolsar}
+                    reembolsos={reembolsos.get(p.id)}
                   />
                 ))}
               </ul>
@@ -302,23 +318,39 @@ export default async function DetalleFactura({ params }: { params: Promise<{ id:
   );
 }
 
+/** Resta de importes decimales en centésimas, para no arrastrar errores de coma flotante. */
+function restar(a: string, b: string): string {
+  const c = (v: string) => Math.round(Number(v) * 100);
+  return (Math.max(0, c(a) - c(b)) / 100).toFixed(2);
+}
+
 function PagoDeFactura({
   pago: p,
   total,
   puedeConciliar,
+  puedeReembolsar,
+  reembolsos,
 }: {
   pago: PagoPublico;
   total: string;
   puedeConciliar: boolean;
+  puedeReembolsar: boolean;
+  /** undefined: pago manual; null: no se pudieron cargar. */
+  reembolsos: ReembolsoResumen[] | null | undefined;
 }) {
+  const enLinea = p.origen === 'pasarela';
+  const devuelto = p.montoReembolsado ?? '0';
+  const disponible = restar(p.montoRecibido ?? p.montoDeclarado, devuelto);
+  const enCurso = reembolsos?.some((r) => r.estado === 'solicitado') ?? false;
   const datos: [string, ReactNode][] = [
     ['Método', p.metodo.nombre],
+    ...(enLinea ? [['Pasarela', nombrePasarela(p.pasarela)] as [string, ReactNode]] : []),
     ['Declarado', formatearMonto(p.montoDeclarado, p.moneda)],
     ...(p.montoRecibido !== null
       ? [['Recibido', formatearMonto(p.montoRecibido, p.moneda)] as [string, ReactNode]]
       : []),
     [
-      'Referencia del banco',
+      enLinea ? 'Id en la pasarela' : 'Referencia del banco',
       p.referenciaExterna ? (
         <span className="font-mono text-[0.8rem] break-all">{p.referenciaExterna}</span>
       ) : (
@@ -326,6 +358,9 @@ function PagoDeFactura({
       ),
     ],
     ['Fecha del pago', formatearFecha(p.fechaPago)],
+    ...(enLinea && Number(devuelto) > 0
+      ? [['Devuelto', formatearMonto(devuelto, p.moneda)] as [string, ReactNode]]
+      : []),
   ];
 
   return (
@@ -333,6 +368,13 @@ function PagoDeFactura({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-mono text-sm font-medium">{p.referencia}</span>
         <EstadoPagoInsignia estado={p.estado} />
+        {enLinea ? (
+          <Insignia tono="acento">
+            <Globe className="size-3" aria-hidden="true" /> Pago en línea
+          </Insignia>
+        ) : (
+          <Insignia>Manual</Insignia>
+        )}
         <span className="text-xs text-tinta-tenue">
           <time dateTime={p.creadoEn}>{formatearFechaHora(p.creadoEn)}</time>
         </span>
@@ -376,6 +418,51 @@ function PagoDeFactura({
       )}
       {p.estado === 'en_revision' && puedeConciliar && (
         <ConciliarPago pago={p} totalFactura={total} />
+      )}
+      {enLinea && (
+        <section aria-label={`Devoluciones del pago ${p.referencia}`} className="grid gap-3">
+          <h4 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+            Devoluciones
+          </h4>
+          {reembolsos === null ? (
+            <p className="text-sm text-peligro">No pudimos cargar las devoluciones.</p>
+          ) : !reembolsos || reembolsos.length === 0 ? (
+            <p className="text-sm text-tinta-suave">Sin devoluciones.</p>
+          ) : (
+            <ul className="grid gap-2">
+              {reembolsos.map((r) => (
+                <li
+                  key={r.id}
+                  className="grid gap-1 rounded-xl border border-borde bg-hundida px-4 py-3 text-sm"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium tabular-nums">
+                      {formatearMonto(r.monto, r.moneda)}
+                    </span>
+                    <Insignia tono={ESTADO_REEMBOLSO[r.estado].tono}>
+                      {ESTADO_REEMBOLSO[r.estado].texto}
+                    </Insignia>
+                    <span className="text-xs text-tinta-tenue">
+                      {r.solicitadoPor.nombre} · {formatearFechaHora(r.creadoEn)}
+                    </span>
+                  </div>
+                  <p className="break-words text-tinta-suave">{r.motivo}</p>
+                  {r.error && <p className="text-peligro">{r.error}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {puedeReembolsar &&
+            (p.estado === 'confirmado' || p.estado === 'reembolsado') &&
+            Number(disponible) > 0 &&
+            (enCurso ? (
+              <p className="text-sm text-tinta-suave">
+                Hay una devolución en curso. Espera a que termine para pedir otra.
+              </p>
+            ) : (
+              <DevolverPago pagoId={p.id} moneda={p.moneda} disponible={disponible} />
+            ))}
+        </section>
       )}
     </li>
   );

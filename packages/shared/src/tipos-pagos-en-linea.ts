@@ -113,3 +113,23 @@ export interface ReembolsoResumen {
   creadoEn: string;
   completadoEn: string | null;
 }
+
+/** Lo que muestra la página de la pasarela de pruebas (sandbox). */
+export interface IntentoSandboxPublico {
+  referencia: string;
+  monto: Decimal;
+  moneda: Moneda;
+  descripcion: string;
+  guardarMetodo: boolean;
+  estado: EstadoIntentoPago;
+}
+
+/** Respuesta al simular un resultado en la pasarela de pruebas: a dónde volver. */
+export interface ResultadoSimulacionSandbox {
+  urlRetorno: string;
+}
+
+/** Respuesta al activar o desactivar el cobro automático de una suscripción. */
+export interface CobroAutomaticoSuscripcion {
+  metodoAutorizadoId: string | null;
+}

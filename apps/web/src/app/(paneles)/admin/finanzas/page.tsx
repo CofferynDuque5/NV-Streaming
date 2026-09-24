@@ -118,7 +118,7 @@ export default async function Finanzas() {
       <Tarjeta>
         <CabeceraTarjeta
           titulo="Métodos de cobro"
-          descripcion="Cuentas y billeteras donde los clientes pagan, agrupadas por moneda. Solo los activos se ofrecen al pagar."
+          descripcion="Cuentas y billeteras donde los clientes pagan, y pasarelas de pago en línea, agrupadas por moneda. Solo los activos se ofrecen al pagar. Los bolívares se cobran siempre de forma manual."
         />
         <div className="px-5 pt-4 sm:px-6">
           <Alerta tono="aviso">

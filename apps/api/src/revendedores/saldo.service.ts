@@ -81,7 +81,7 @@ export class SaldoService {
       const r = await revendedorPropio(auth, tx);
       exigirOperativo(r);
       const metodo = await tx.metodoCobro.findUnique({ where: { id: e.metodoCobroId } });
-      if (!metodo || !metodo.activo) {
+      if (!metodo || !metodo.activo || metodo.tipo !== 'manual') {
         throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Elige un método de pago disponible.', {
           metodoCobroId: ['Elige un método de pago disponible.'],
         });

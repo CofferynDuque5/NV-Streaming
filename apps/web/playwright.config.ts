@@ -31,7 +31,7 @@ export default defineConfig({
     {
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /editor\.spec|revendedores\.spec|automatizaciones\.spec/,
+      testIgnore: /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -49,6 +49,13 @@ export default defineConfig({
       name: 'automatizaciones',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /automatizaciones\.spec/,
+    },
+    // Pagos en línea: administración (ya con 2FA por roles.spec.ts) crea el método de la
+    // pasarela de pruebas y el cliente paga con ella.
+    {
+      name: 'pagos-en-linea',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /pagos-en-linea\.spec/,
     },
   ],
   webServer: [

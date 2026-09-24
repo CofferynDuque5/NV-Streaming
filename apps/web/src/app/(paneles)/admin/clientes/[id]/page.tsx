@@ -1,6 +1,7 @@
 import type {
   ClienteDetalle,
   FacturaPublica,
+  MetodoAutorizadoPublico,
   NotaPublica,
   Pagina,
   PlanPublico,
@@ -29,6 +30,7 @@ import {
   NuevaSuscripcion,
 } from '@/componentes/admin/clientes';
 import { cargarEquipo } from '@/componentes/admin/equipo-servidor';
+import { RevocarMetodo } from '@/componentes/cliente/metodos-pago';
 import {
   Iniciales,
   nombrePais,
@@ -49,6 +51,7 @@ import { leerApi } from '@/lib/api-servidor';
 import { esTicketDelSistema } from '@/lib/automatizaciones';
 import { CATEGORIA_TICKET } from '@/lib/estados';
 import { formatearFecha, formatearFechaHora, formatearMonto, haceCuanto } from '@/lib/formato';
+import { ESTADO_METODO_AUTORIZADO, nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Ficha del cliente' };
@@ -96,7 +99,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
   const puedeGestionar = puede('clientes.gestionar');
   const puedeReasignar = puedeGestionar && puede('usuarios.ver');
 
-  const [clienteR, suscripcionesR, facturasR, ticketsR, notasR, planesR, responsables] =
+  const [clienteR, suscripcionesR, facturasR, ticketsR, notasR, planesR, responsables, metodosR] =
     await Promise.all([
       leerApi<ClienteDetalle>(`/clientes/${ruta}`),
       puede('suscripciones.ver')
@@ -111,6 +114,7 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
       puede('clientes.notas') ? leerApi<NotaPublica[]>(`/clientes/${ruta}/notas`) : null,
       puede('suscripciones.crear') ? leerApi<PlanPublico[]>('/catalogo/planes') : null,
       puedeReasignar ? cargarEquipo(['ventas', 'operador', 'admin']) : Promise.resolve(null),
+      leerApi<MetodoAutorizadoPublico[]>(`/clientes/${ruta}/metodos-autorizados`),
     ]);
 
   const c = clienteR.datos;
@@ -388,6 +392,12 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
             )}
           </Tarjeta>
 
+          <MetodosAutorizados
+            clienteId={c.id}
+            metodos={metodosR.datos}
+            puedeRevocar={puedeGestionar}
+          />
+
           <Tarjeta>
             <CabeceraTarjeta titulo="Acceso al panel" />
             <div className="grid gap-3 px-5 py-5 sm:px-6">
@@ -428,5 +438,73 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
         </div>
       </div>
     </>
+  );
+}
+
+/** Métodos que el cliente autorizó para cobros automáticos, con el texto que aceptó. */
+function MetodosAutorizados({
+  clienteId,
+  metodos,
+  puedeRevocar,
+}: {
+  clienteId: string;
+  metodos: MetodoAutorizadoPublico[] | null;
+  puedeRevocar: boolean;
+}) {
+  return (
+    <Tarjeta>
+      <CabeceraTarjeta
+        titulo="Cobro automático autorizado"
+        descripcion="Métodos de pago en línea que el cliente autorizó para cobrar sus renovaciones."
+      />
+      {!metodos ? (
+        <VacioCompacto>No pudimos cargar sus métodos autorizados.</VacioCompacto>
+      ) : metodos.length === 0 ? (
+        <VacioCompacto>No ha autorizado ningún método de cobro automático.</VacioCompacto>
+      ) : (
+        <ul className="divide-y divide-borde">
+          {metodos.map((m) => {
+            const e = ESTADO_METODO_AUTORIZADO[m.estado];
+            return (
+              <li key={m.id} className="grid gap-2 px-5 py-4 sm:px-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-0 text-sm font-medium break-words">{m.descripcion}</span>
+                  <Insignia tono={e.tono}>{e.texto}</Insignia>
+                </div>
+                <p className="text-xs text-tinta-tenue">
+                  {nombrePasarela(m.pasarela)} · {m.moneda} · autorizado el{' '}
+                  {formatearFechaHora(m.autorizadoEn)}
+                  {m.revocadoEn ? ` · revocado el ${formatearFecha(m.revocadoEn)}` : ''}
+                </p>
+                {m.suscripciones.length > 0 && (
+                  <p className="text-xs text-tinta-suave">
+                    Cobra: {m.suscripciones.map((s) => s.plan).join(', ')}
+                  </p>
+                )}
+                {m.motivoEstado && <p className="text-xs text-tinta-suave">{m.motivoEstado}</p>}
+                <details className="text-xs">
+                  <summary className="cursor-pointer font-medium text-marca hover:underline">
+                    Texto aceptado (versión {m.versionTexto})
+                  </summary>
+                  <p className="mt-2 rounded-lg bg-hundida px-3 py-2 leading-relaxed break-words text-tinta-suave">
+                    {m.textoAceptado}
+                  </p>
+                </details>
+                {puedeRevocar && m.estado === 'activo' && (
+                  <div>
+                    <RevocarMetodo
+                      ruta={`/clientes/${clienteId}/metodos-autorizados/${m.id}/revocar`}
+                      descripcion={m.descripcion}
+                      suscripciones={m.suscripciones.length}
+                      delEquipo
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Tarjeta>
   );
 }

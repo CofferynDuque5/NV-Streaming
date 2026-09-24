@@ -87,6 +87,35 @@ const EntornoSchema = z
         'TASA_JSON_CAMPO es una ruta como "datos.usd.valor".',
       )
       .default(''),
+    /**
+     * URL pública de la API (sin /api/v1) para las URL de webhook que se registran en las
+     * pasarelas. Vacía = WEB_ORIGEN (la web reenvía /api a la API).
+     */
+    API_URL_PUBLICA: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || URL.canParse(v), {
+        error: 'API_URL_PUBLICA debe ser una URL válida.',
+      })
+      .transform((v) => (v ? new URL(v).origin : ''))
+      .default(''),
+    /**
+     * Pasarela de pruebas (sandbox): cobra de mentira y simula aprobaciones, rechazos y
+     * tokens. Por defecto activa fuera de producción; en producción no se permite.
+     */
+    PASARELA_SANDBOX_HABILITADA: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      booleano.optional(),
+    ),
+    /** PayPal (adaptador pendiente): credenciales de la app REST y id del webhook registrado. */
+    PAYPAL_CLIENTE_ID: z.string().trim().default(''),
+    PAYPAL_SECRETO: z.string().trim().default(''),
+    PAYPAL_WEBHOOK_ID: z.string().trim().default(''),
+    PAYPAL_MODO: z.enum(['pruebas', 'produccion']).default('pruebas'),
+    /** Mercado Pago (adaptador pendiente): token de acceso y clave secreta de los webhooks. */
+    MERCADOPAGO_TOKEN_ACCESO: z.string().trim().default(''),
+    MERCADOPAGO_SECRETO_WEBHOOK: z.string().trim().default(''),
+    MERCADOPAGO_MODO: z.enum(['pruebas', 'produccion']).default('pruebas'),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
@@ -95,8 +124,19 @@ const EntornoSchema = z
     SMTP_USUARIO: z.string().default(''),
     SMTP_CONTRASENA: z.string().default(''),
   })
+  .transform((e) => ({
+    ...e,
+    PASARELA_SANDBOX_HABILITADA: e.PASARELA_SANDBOX_HABILITADA ?? e.NODE_ENV !== 'production',
+  }))
   .superRefine((e, ctx) => {
     if (e.NODE_ENV !== 'production') return;
+    if (e.PASARELA_SANDBOX_HABILITADA) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PASARELA_SANDBOX_HABILITADA'],
+        message: 'En producción la pasarela de pruebas debe estar desactivada.',
+      });
+    }
     // En producción no se permiten valores de desarrollo o de ejemplo.
     if (!e.WEB_ORIGEN.startsWith('https://')) {
       ctx.addIssue({
@@ -142,7 +182,7 @@ const EntornoSchema = z
     }
   });
 
-export type Entorno = z.infer<typeof EntornoSchema>;
+export type Entorno = z.output<typeof EntornoSchema>;
 
 /** Valida las variables de entorno al arrancar y falla con un mensaje claro. */
 export function cargarEntorno(fuente: NodeJS.ProcessEnv = process.env): Entorno {

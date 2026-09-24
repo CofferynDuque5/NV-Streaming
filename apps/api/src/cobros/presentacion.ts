@@ -1,6 +1,7 @@
 import type { Archivo, Cupon, Factura, LineaFactura, MetodoCobro, Pago, Usuario } from '@nv/db';
 import type { FacturaDetalle, FacturaPublica, PagoPublico } from '@nv/shared';
 import { dec, dec2, iso, numeroFactura } from '../comun/formato.js';
+import { esPasarela } from '../pagos-en-linea/pasarelas.js';
 
 export const INCLUIR_FACTURA = {
   cliente: { select: { id: true, nombre: true } },
@@ -76,6 +77,9 @@ export function pagoPublico(p: PagoBase, equipo: boolean): PagoPublico {
     motivoRechazo: p.motivoRechazo,
     tieneComprobante: p.comprobanteId !== null,
     creadoEn: iso(p.creadoEn)!,
+    origen: p.origen === 'pasarela' ? 'pasarela' : 'manual',
+    pasarela: esPasarela(p.pasarela) ? p.pasarela : null,
+    montoReembolsado: dec2(p.montoReembolsado),
     ...(equipo
       ? {
           notasConciliacion: p.notasConciliacion,

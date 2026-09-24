@@ -11,6 +11,7 @@ export async function llamarApi<T = unknown>(
   metodo: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   ruta: string,
   cuerpo?: unknown,
+  cabeceras: Record<string, string> = {},
 ): Promise<Resultado<T>> {
   const esFormulario = cuerpo instanceof FormData;
   let respuesta: Response;
@@ -19,7 +20,10 @@ export async function llamarApi<T = unknown>(
       method: metodo,
       credentials: 'same-origin',
       // Con FormData el navegador pone el tipo multipart y su separador.
-      headers: cuerpo === undefined || esFormulario ? {} : { 'content-type': 'application/json' },
+      headers: {
+        ...(cuerpo === undefined || esFormulario ? {} : { 'content-type': 'application/json' }),
+        ...cabeceras,
+      },
       body: cuerpo === undefined ? null : esFormulario ? cuerpo : JSON.stringify(cuerpo),
     });
   } catch {

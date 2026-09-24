@@ -153,3 +153,25 @@ Object.assign(ACCIONES_AUDITORIA, {
   'tasa.automatica': 'Tasa registrada automáticamente',
   'ticket.escalado': 'Ticket abierto por escalado automático',
 });
+
+// Pagos en línea y cobros autorizados (fase 4).
+Object.assign(ACCIONES_AUDITORIA, {
+  'pago_en_linea.iniciado': 'Pago en línea iniciado',
+  'pago_en_linea.aprobado': 'Pago en línea aprobado',
+  'pago_en_linea.rechazado': 'Pago en línea rechazado',
+  'pago_en_linea.cancelado': 'Pago en línea cancelado',
+  'pago_en_linea.expirado': 'Pago en línea expirado',
+  'pago_en_linea.revision': 'Pago en línea enviado a revisión',
+  'metodo_autorizado.creado': 'Cobro automático autorizado por el cliente',
+  'metodo_autorizado.revocado': 'Autorización de cobro revocada',
+  'metodo_autorizado.invalidado': 'Método autorizado marcado como no válido',
+  'suscripcion.cobro_automatico_activado': 'Cobro automático activado',
+  'suscripcion.cobro_automatico_desactivado': 'Cobro automático desactivado',
+  'cobro_automatico.exitoso': 'Cobro automático realizado',
+  'cobro_automatico.fallido': 'Cobro automático fallido',
+  'cobro_automatico.cancelado': 'Cobro automático cancelado',
+  'reembolso.solicitado': 'Devolución solicitada',
+  'reembolso.completado': 'Devolución completada',
+  'reembolso.fallido': 'Devolución fallida',
+  'evento_pasarela.reprocesado': 'Aviso de pasarela reprocesado',
+});

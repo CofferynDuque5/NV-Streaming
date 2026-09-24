@@ -220,7 +220,7 @@ export class AutoservicioController {
   @Get('metodos-cobro')
   @RequierePermiso('autoservicio.usar')
   metodosCobro(@Query(validar(filtroMetodos)) filtro: z.output<typeof filtroMetodos>) {
-    return this.metodos.listar({ moneda: filtro.moneda, soloActivos: true });
+    return this.metodos.listar({ moneda: filtro.moneda, soloActivos: true, tipo: 'manual' });
   }
 
   /** Reporta un pago con su comprobante (multipart: campos + archivo "comprobante"). */

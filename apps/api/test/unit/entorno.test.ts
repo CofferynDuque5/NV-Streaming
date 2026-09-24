@@ -82,3 +82,38 @@ describe('cargarEntorno', () => {
     ).toBe('cloud_api');
   });
 });
+
+describe('pasarela de pruebas', () => {
+  it('activa por defecto fuera de producción (también con la variable vacía)', () => {
+    expect(cargarEntorno(base).PASARELA_SANDBOX_HABILITADA).toBe(true);
+    expect(
+      cargarEntorno({ ...base, PASARELA_SANDBOX_HABILITADA: '' }).PASARELA_SANDBOX_HABILITADA,
+    ).toBe(true);
+    expect(
+      cargarEntorno({ ...base, PASARELA_SANDBOX_HABILITADA: 'false' }).PASARELA_SANDBOX_HABILITADA,
+    ).toBe(false);
+  });
+
+  it('en producción viene desactivada y no se puede activar', () => {
+    const produccion = {
+      ...base,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://nv:Xk29-larga@db:5432/nv',
+      WEB_ORIGEN: 'https://nvstreaming.com',
+      CORREO_PROVEEDOR: 'smtp',
+      CORREO_REMITENTE: 'NV Streaming <hola@nvstreaming.com>',
+      SMTP_HOST: 'smtp.ejemplo.net',
+    };
+    expect(cargarEntorno(produccion).PASARELA_SANDBOX_HABILITADA).toBe(false);
+    expect(() => cargarEntorno({ ...produccion, PASARELA_SANDBOX_HABILITADA: 'true' })).toThrow(
+      /PASARELA_SANDBOX_HABILITADA/,
+    );
+  });
+
+  it('API_URL_PUBLICA se normaliza a su origen', () => {
+    expect(cargarEntorno(base).API_URL_PUBLICA).toBe('');
+    expect(
+      cargarEntorno({ ...base, API_URL_PUBLICA: 'https://api.nvstreaming.com/' }).API_URL_PUBLICA,
+    ).toBe('https://api.nvstreaming.com');
+  });
+});

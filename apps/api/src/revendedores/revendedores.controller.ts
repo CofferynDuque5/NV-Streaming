@@ -113,7 +113,7 @@ export class PanelRevendedorController {
   @Get('metodos-cobro')
   @RequierePermiso('reventa.usar')
   metodosCobro(@Query(validar(filtroMetodos)) filtro: z.output<typeof filtroMetodos>) {
-    return this.metodos.listar({ ...filtro, soloActivos: true });
+    return this.metodos.listar({ ...filtro, soloActivos: true, tipo: 'manual' });
   }
 
   @Get('recargas')

@@ -357,6 +357,154 @@ export const Plantillas = {
       html: envolver('Tasa sin aplicar', p, { texto: 'Ir a Finanzas', url }, PIE_EQUIPO),
     };
   },
+  // ── Fase 4: pagos en línea y cobros autorizados ───────────────────────────
+
+  cobroAutomaticoProximo(
+    nombre: string,
+    servicio: string,
+    monto: string,
+    metodo: string,
+    fecha: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Mañana, ${fecha}, cobraremos ${monto} con ${metodo} para renovar tu servicio ${servicio}, como autorizaste.`,
+      'No tienes que hacer nada. Si prefieres pagar de otra forma, desactiva el cobro automático o revoca la autorización desde tu cuenta antes del cobro.',
+    ];
+    return {
+      asunto: `Mañana cobraremos ${monto} con ${metodo}`,
+      texto: texto(p, url),
+      html: envolver(
+        'Cobro automático programado',
+        p,
+        { texto: 'Ver mis métodos de pago', url },
+        PIE_SERVICIO,
+      ),
+    };
+  },
+  cobroAutomaticoRealizado(
+    nombre: string,
+    servicio: string,
+    factura: string,
+    monto: string,
+    metodo: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Cobramos ${monto} con ${metodo} y pagamos la factura ${factura}: tu servicio ${servicio} quedó renovado. Gracias.`,
+      'Puedes revocar la autorización cuando quieras desde "Mis métodos de pago".',
+    ];
+    return {
+      asunto: `Renovamos tu servicio ${servicio}`,
+      texto: texto(p, url),
+      html: envolver('Servicio renovado', p, { texto: 'Ver mis servicios', url }, PIE_SERVICIO),
+    };
+  },
+  cobroAutomaticoFallido(
+    nombre: string,
+    servicio: string,
+    monto: string,
+    metodo: string,
+    motivo: string,
+    proximoIntento: string | null,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `No pudimos cobrar ${monto} con ${metodo} para renovar tu servicio ${servicio}.`,
+      `Motivo: ${motivo}`,
+      proximoIntento
+        ? `Lo intentaremos de nuevo el ${proximoIntento}. Para no esperar, puedes pagar la factura ahora.`
+        : 'Ya no lo intentaremos de nuevo. Paga la factura para no perder el servicio.',
+    ];
+    return {
+      asunto: `No pudimos cobrar la renovación de ${servicio}`,
+      texto: texto(p, url),
+      html: envolver(
+        'No pudimos cobrar la renovación',
+        p,
+        { texto: 'Pagar la factura', url },
+        PIE_SERVICIO,
+      ),
+    };
+  },
+  metodoAutorizadoGuardado(nombre: string, metodo: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Guardamos ${metodo} y tu autorización para cobrar solo las renovaciones de los servicios en los que actives el cobro automático.`,
+      'Te avisaremos antes y después de cada cobro. Puedes revocar la autorización cuando quieras desde tu cuenta.',
+    ];
+    return {
+      asunto: 'Autorizaste el cobro automático',
+      texto: texto(p, url),
+      html: envolver('Cobro automático autorizado', p, { texto: 'Ver mis métodos de pago', url }),
+    };
+  },
+  metodoAutorizadoRevocado(nombre: string, metodo: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Revocamos la autorización de cobro con ${metodo}. No haremos más cobros automáticos con ese método.`,
+      'Tus servicios siguen activos: te avisaremos para que pagues cada renovación a mano.',
+    ];
+    return {
+      asunto: 'Revocaste la autorización de cobro',
+      texto: texto(p, url),
+      html: envolver('Autorización revocada', p, { texto: 'Ver mis métodos de pago', url }),
+    };
+  },
+  metodoAutorizadoInvalido(nombre: string, metodo: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `La pasarela nos indicó que ${metodo} ya no se puede usar (por ejemplo, la tarjeta venció o cancelaste el acuerdo). Desactivamos el cobro automático con ese método.`,
+      'Paga tu próxima renovación a mano o guarda un método nuevo al pagar en línea.',
+    ];
+    return {
+      asunto: 'Tu método de pago guardado ya no es válido',
+      texto: texto(p, url),
+      html: envolver(
+        'Método de pago no válido',
+        p,
+        { texto: 'Ver mis servicios', url },
+        PIE_SERVICIO,
+      ),
+    };
+  },
+  reembolsoRealizado(
+    nombre: string,
+    factura: string,
+    monto: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Te devolvimos ${monto} del pago de la factura ${factura}. Según tu banco o billetera, puede tardar unos días en verse.`,
+    ];
+    return {
+      asunto: `Devolución de ${monto}`,
+      texto: texto(p, url),
+      html: envolver('Te devolvimos un pago', p, { texto: 'Ver la factura', url }, PIE_SERVICIO),
+    };
+  },
+  pagoEnLineaEnRevision(
+    nombre: string,
+    cliente: string,
+    factura: string,
+    detalle: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Un pago en línea de ${cliente} (factura ${factura}) no se confirmó solo: ${detalle}`,
+      'Quedó en la cola de conciliación. Confírmalo si corresponde o recházalo y devuélvelo desde el pago.',
+    ];
+    return {
+      asunto: `Pago en línea para revisar: ${factura}`,
+      texto: texto(p, url),
+      html: envolver('Pago en línea para revisar', p, { texto: 'Ir a cobros', url }, PIE_EQUIPO),
+    };
+  },
   avisoPrueba(nombre: string): CorreoRenderizado {
     const p = [
       `Hola, ${nombre}.`,

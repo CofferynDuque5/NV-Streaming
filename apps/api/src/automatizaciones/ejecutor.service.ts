@@ -17,6 +17,12 @@ import { TrabajosService } from './trabajos.service.js';
 
 export type Disparo = 'programada' | 'manual';
 
+/** Tarea de una automatización programada que registra otro módulo (p. ej. pagos en línea). */
+export type TareaAutomatizacion = (
+  config: ConfigAutomatizacion,
+  ahora: Date,
+) => Promise<ResultadoTarea>;
+
 /**
  * Ejecuta las automatizaciones programadas y deja constancia de cada ejecución
  * (procesados, omitidos, errores y un resumen) en `ejecuciones_automatizacion`.
@@ -24,6 +30,7 @@ export type Disparo = 'programada' | 'manual';
 @Injectable()
 export class EjecutorAutomatizacionesService implements OnModuleInit {
   private readonly logger = new Logger('Automatizaciones');
+  private readonly tareasRegistradas = new Map<TipoAutomatizacion, TareaAutomatizacion>();
 
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
@@ -46,6 +53,11 @@ export class EjecutorAutomatizacionesService implements OnModuleInit {
     this.trabajos.registrar(TRABAJO.vencimientos, async () => {
       await this.suscripciones.aplicarVencimientos();
     });
+  }
+
+  /** Otro módulo aporta la tarea de una automatización programada del catálogo. */
+  registrarTarea(tipo: TipoAutomatizacion, tarea: TareaAutomatizacion): void {
+    this.tareasRegistradas.set(tipo, tarea);
   }
 
   /**
@@ -99,6 +111,8 @@ export class EjecutorAutomatizacionesService implements OnModuleInit {
   }
 
   private tarea(config: ConfigAutomatizacion, ahora: Date): Promise<ResultadoTarea> {
+    const registrada = this.tareasRegistradas.get(config.tipo);
+    if (registrada) return registrada(config, ahora);
     switch (config.tipo) {
       case 'recordatorio_vencimiento':
         return this.clientes.recordatorios(

@@ -186,7 +186,7 @@ export class TareasClientesService implements OnModuleInit {
     canales: ConfigAutomatizacion['canales'],
   ): Promise<ResultadoAviso> {
     const metodos = await this.prisma.metodoCobro.findMany({
-      where: { moneda: f.moneda, activo: true },
+      where: { moneda: f.moneda, activo: true, tipo: 'manual' },
       orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
       select: { nombre: true, instrucciones: true },
     });

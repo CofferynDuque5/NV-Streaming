@@ -12,14 +12,17 @@ import {
   CircleCheckBig,
   FileSearch,
   FileText,
+  Globe,
   Paperclip,
   ReceiptText,
+  Repeat,
   TriangleAlert,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ConciliarPago } from '@/componentes/admin/cobros';
+import { TablaCobrosAutomaticos } from '@/componentes/admin/cobros-automaticos';
 import { mismoImporte } from '@/componentes/admin/formato-admin';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -34,11 +37,12 @@ import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { leerFiltro } from '@/lib/consulta';
 import { formatearFecha, formatearMonto, haceCuanto } from '@/lib/formato';
+import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Cobros' };
 
-type Vista = 'conciliar' | 'facturas';
+type Vista = 'conciliar' | 'facturas' | 'automaticos';
 type Crudo = Record<string, string | string[] | undefined>;
 
 const FILTRO_ESTADO: Record<EstadoFactura, string> = {
@@ -51,9 +55,16 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
   const sesion = await requerirSesion({ permiso: 'facturas.ver' });
   const puedeConciliar = sesion.permisos.includes('pagos.gestionar');
   const crudo = await searchParams;
-  const pedida = crudo.vista === 'facturas' || crudo.vista === 'conciliar' ? crudo.vista : null;
+  const pedida =
+    crudo.vista === 'facturas' || crudo.vista === 'conciliar' || crudo.vista === 'automaticos'
+      ? crudo.vista
+      : null;
   const vista: Vista =
-    pedida === 'facturas' || !puedeConciliar ? 'facturas' : (pedida ?? 'conciliar');
+    pedida === 'automaticos'
+      ? 'automaticos'
+      : pedida === 'facturas' || !puedeConciliar
+        ? 'facturas'
+        : (pedida ?? 'conciliar');
 
   // El total de la cola se muestra en la pestaña aunque se esté viendo la otra.
   const enRevision = puedeConciliar
@@ -73,19 +84,38 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
             : 'Facturas de tu cartera de clientes y su estado de pago.'
         }
       />
-      {puedeConciliar && <Pestanas vista={vista} enRevision={enRevision} />}
-      {vista === 'conciliar' ? <ColaConciliacion crudo={crudo} /> : <Facturas crudo={crudo} />}
+      <Pestanas vista={vista} enRevision={enRevision} puedeConciliar={puedeConciliar} />
+      {vista === 'conciliar' && <ColaConciliacion crudo={crudo} />}
+      {vista === 'facturas' && <Facturas crudo={crudo} />}
+      {vista === 'automaticos' && (
+        <TablaCobrosAutomaticos
+          crudo={crudo}
+          ruta="/admin/cobros"
+          fijos={{ vista: 'automaticos' }}
+        />
+      )}
     </>
   );
 }
 
-function Pestanas({ vista, enRevision }: { vista: Vista; enRevision: number | null }) {
+function Pestanas({
+  vista,
+  enRevision,
+  puedeConciliar,
+}: {
+  vista: Vista;
+  enRevision: number | null;
+  puedeConciliar: boolean;
+}) {
   const pestanas: { id: Vista; texto: string; icono: typeof FileSearch }[] = [
-    { id: 'conciliar', texto: 'Por conciliar', icono: FileSearch },
+    ...(puedeConciliar
+      ? [{ id: 'conciliar' as const, texto: 'Por conciliar', icono: FileSearch }]
+      : []),
     { id: 'facturas', texto: 'Facturas', icono: ReceiptText },
+    { id: 'automaticos', texto: 'Cobros automáticos', icono: Repeat },
   ];
   return (
-    <nav aria-label="Vistas de cobros" className="-mt-2">
+    <nav aria-label="Vistas de cobros" className="-mt-2 max-w-full overflow-x-auto">
       <ul className="inline-flex gap-1 rounded-xl border border-borde bg-hundida p-1">
         {pestanas.map(({ id, texto, icono: Icono }) => {
           const activa = vista === id;
@@ -95,7 +125,7 @@ function Pestanas({ vista, enRevision }: { vista: Vista; enRevision: number | nu
                 href={`/admin/cobros?vista=${id}`}
                 aria-current={activa ? 'page' : undefined}
                 className={clsx(
-                  'inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors',
+                  'inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium whitespace-nowrap transition-colors',
                   activa
                     ? 'bg-superficie text-tinta shadow-nv'
                     : 'text-tinta-suave hover:bg-superficie/60 hover:text-tinta',
@@ -199,6 +229,12 @@ function PagoEnCola({ pago: p }: { pago: PagoPublico }) {
             <FileText className="size-3.5" aria-hidden="true" />
             {p.factura.numero}
           </Link>
+          {p.origen === 'pasarela' && (
+            <Insignia tono="acento">
+              <Globe className="size-3" aria-hidden="true" /> En línea ·{' '}
+              {nombrePasarela(p.pasarela)}
+            </Insignia>
+          )}
           <span className="text-xs text-tinta-tenue">
             Reportado <time dateTime={p.creadoEn}>{haceCuanto(p.creadoEn)}</time>
           </span>

@@ -9,6 +9,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import type { Entorno } from './config/entorno.js';
+import { instalarCuerpoCrudo } from './pagos-en-linea/cuerpo-crudo.js';
 
 const ID_PETICION_VALIDO = /^[A-Za-z0-9._-]{8,64}$/;
 
@@ -53,6 +54,8 @@ export async function crearAplicacion(entorno: Entorno, opciones: { registros?: 
     },
     crossOriginResourcePolicy: { policy: 'same-origin' },
   });
+  // Webhooks de pasarelas: conservan el cuerpo crudo para verificar la firma.
+  instalarCuerpoCrudo(app.getHttpAdapter().getInstance());
   app
     .getHttpAdapter()
     .getInstance()

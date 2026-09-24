@@ -2,14 +2,27 @@
 
 import {
   INFO_MONEDA,
+  INFO_PASARELA,
   type MetodoCobroPublico,
   type Moneda,
   MONEDAS,
   type MonedaConTasa,
+  type Pasarela,
+  PASARELAS,
   type TasaVigente,
+  type TipoMetodoCobro,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { ChevronDown, CreditCard, LoaderCircle, Pencil, Plus, Power, PowerOff } from 'lucide-react';
+import {
+  ChevronDown,
+  CreditCard,
+  Globe,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Power,
+  PowerOff,
+} from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -18,6 +31,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { formatearFechaHora } from '@/lib/formato';
+import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { formatearTasa, origenAutomatico } from './formato-admin';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -174,15 +188,29 @@ function FormularioMetodo({
   onListo: () => void;
 }) {
   const { cargando, error, campos, ejecutar } = useAccion();
+  const [tipo, setTipo] = useState<TipoMetodoCobro>(metodo?.tipo ?? 'manual');
+  const [pasarela, setPasarela] = useState<Pasarela>(metodo?.pasarela ?? 'paypal');
+  const [moneda, setMoneda] = useState<Moneda>(metodo?.moneda ?? 'USD');
+  const enLinea = tipo === 'pasarela';
+  // Con pasarela solo se ofrecen las monedas en las que esa pasarela cobra (nunca bolívares).
+  const monedas: readonly Moneda[] = enLinea ? INFO_PASARELA[pasarela].monedas : MONEDAS;
+  const monedaValida = monedas.includes(moneda) ? moneda : (monedas[0] ?? 'USD');
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
+    const instrucciones =
+      textoDe(d, 'instrucciones') ??
+      (enLinea
+        ? `Pagas en la página segura de ${INFO_PASARELA[pasarela].nombre}. Tus datos de pago nunca pasan por NV Streaming.`
+        : '');
     const cuerpo = {
       nombre: textoDe(d, 'nombre') ?? '',
-      moneda: d.get('moneda'),
-      instrucciones: textoDe(d, 'instrucciones') ?? '',
-      requiereReferencia: d.get('requiereReferencia') === 'on',
+      moneda: monedaValida,
+      instrucciones,
+      tipo,
+      pasarela: enLinea ? pasarela : null,
+      requiereReferencia: enLinea ? false : d.get('requiereReferencia') === 'on',
       activo: d.get('activo') === 'on',
       orden: textoDe(d, 'orden') ?? '0',
     };
@@ -194,22 +222,84 @@ function FormularioMetodo({
 
   return (
     <form onSubmit={enviar} className="grid gap-4" noValidate>
-      <div className="grid gap-4 sm:grid-cols-[1fr_12rem_8rem]">
+      <fieldset className="grid gap-2">
+        <legend className="mb-1 text-sm font-medium">Tipo</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(
+            [
+              ['manual', 'Manual', 'El cliente paga por su cuenta y envía el comprobante.'],
+              [
+                'pasarela',
+                'Pago en línea',
+                'El cliente paga en la pasarela y la factura se confirma sola.',
+              ],
+            ] as const
+          ).map(([valor, texto, ayuda]) => (
+            <label
+              key={valor}
+              className="flex cursor-pointer items-start gap-3 rounded-xl border border-borde-fuerte bg-hundida px-3.5 py-3 text-sm transition-colors has-checked:border-marca has-checked:bg-marca-suave"
+            >
+              <input
+                type="radio"
+                name="tipo"
+                value={valor}
+                checked={tipo === valor}
+                onChange={() => setTipo(valor)}
+                className="mt-0.5 accent-[var(--nv-marca)]"
+              />
+              <span className="grid gap-0.5">
+                <span className="font-medium">{texto}</span>
+                <span className="text-xs text-tinta-tenue">{ayuda}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {campos.tipo && <p className="text-xs font-medium text-peligro">{campos.tipo}</p>}
+      </fieldset>
+      <div
+        className={clsx(
+          'grid gap-4',
+          enLinea
+            ? 'sm:grid-cols-2 xl:grid-cols-[1fr_12rem_12rem_8rem]'
+            : 'sm:grid-cols-[1fr_12rem_8rem]',
+        )}
+      >
         <Campo
           etiqueta="Nombre"
           name="nombre"
           required
           defaultValue={metodo?.nombre}
-          placeholder="Ej. Pago móvil Banco X"
+          placeholder={enLinea ? 'Ej. Tarjeta o PayPal' : 'Ej. Pago móvil Banco X'}
           error={campos.nombre}
         />
+        {enLinea && (
+          <Selector
+            etiqueta="Pasarela"
+            name="pasarela"
+            value={pasarela}
+            onChange={(e) => setPasarela(e.target.value as Pasarela)}
+            error={campos.pasarela}
+          >
+            {PASARELAS.map((p) => (
+              <option key={p} value={p}>
+                {INFO_PASARELA[p].nombre}
+              </option>
+            ))}
+          </Selector>
+        )}
         <Selector
           etiqueta="Moneda"
           name="moneda"
-          defaultValue={metodo?.moneda ?? 'USD'}
+          value={monedaValida}
+          onChange={(e) => setMoneda(e.target.value as Moneda)}
           error={campos.moneda}
+          ayuda={
+            enLinea
+              ? `${INFO_PASARELA[pasarela].nombre} cobra en ${monedas.join(', ')}.`
+              : undefined
+          }
         >
-          {MONEDAS.map((m) => (
+          {monedas.map((m) => (
             <option key={m} value={m}>
               {m} · {INFO_MONEDA[m].nombre}
             </option>
@@ -226,22 +316,32 @@ function FormularioMetodo({
         />
       </div>
       <AreaTexto
-        etiqueta="Instrucciones para el cliente"
+        etiqueta={enLinea ? 'Nota para el cliente (opcional)' : 'Instrucciones para el cliente'}
         name="instrucciones"
-        rows={5}
-        required
+        rows={enLinea ? 2 : 5}
+        required={!enLinea}
         defaultValue={metodo?.instrucciones}
-        placeholder={'Titular: …\nBanco: …\nCuenta o teléfono: …'}
-        ayuda="Se muestran tal cual al cliente cuando va a pagar."
+        placeholder={
+          enLinea
+            ? 'Ej. Aceptamos tarjetas de crédito y débito.'
+            : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
+        }
+        ayuda={
+          enLinea
+            ? 'Las credenciales de la pasarela nunca se escriben aquí: van en el entorno del servidor.'
+            : 'Se muestran tal cual al cliente cuando va a pagar.'
+        }
         error={campos.instrucciones}
       />
       <div className="flex flex-wrap gap-x-8 gap-y-3">
-        <Casilla
-          name="requiereReferencia"
-          etiqueta="Pide número de referencia"
-          ayuda="El cliente debe escribir la referencia del banco al reportar."
-          defaultChecked={metodo?.requiereReferencia ?? true}
-        />
+        {!enLinea && (
+          <Casilla
+            name="requiereReferencia"
+            etiqueta="Pide número de referencia"
+            ayuda="El cliente debe escribir la referencia del banco al reportar."
+            defaultChecked={metodo?.requiereReferencia ?? true}
+          />
+        )}
         <Casilla
           name="activo"
           etiqueta="Activo"
@@ -351,8 +451,15 @@ export function ListaMetodos({ metodos }: { metodos: MetodoCobroPublico[] }) {
                           ) : (
                             <Insignia>Inactivo</Insignia>
                           )}
-                          {m.requiereReferencia && (
-                            <Insignia tono="marca">Pide referencia</Insignia>
+                          {m.tipo === 'pasarela' ? (
+                            <Insignia tono="acento">
+                              <Globe className="size-3" aria-hidden="true" />
+                              Pago en línea · {nombrePasarela(m.pasarela)}
+                            </Insignia>
+                          ) : (
+                            m.requiereReferencia && (
+                              <Insignia tono="marca">Pide referencia</Insignia>
+                            )
                           )}
                           <span className="text-xs text-tinta-tenue tabular-nums">
                             Orden {m.orden}

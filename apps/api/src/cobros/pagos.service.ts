@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Factura, Prisma, PrismaClient } from '@nv/db';
+import type { Factura, Pago, Prisma, PrismaClient } from '@nv/db';
 import {
   type ConfirmarPagoEntrada,
   formatearMonto,
@@ -121,7 +121,15 @@ export class PagosService {
       const p = await this.bloquearEnRevision(tx, id);
       const factura = await tx.factura.findUniqueOrThrow({ where: { id: p.facturaId } });
       const recibido = D(e.montoRecibido);
-      await this.cerrarFactura(tx, auth, factura, recibido, p.id, e.notas ?? null, cliente);
+      await this.cerrarFactura(
+        tx,
+        auth.usuario.id,
+        factura,
+        recibido,
+        p.id,
+        e.notas ?? null,
+        cliente,
+      );
       return p;
     });
     await this.avisar(pago.id, 'confirmado');
@@ -204,6 +212,15 @@ export class PagosService {
           metodoCobroId: ['Elige un método de pago disponible.'],
         });
       }
+      if (metodo.tipo === 'pasarela') {
+        // Los pagos en línea los registra la pasarela, nunca un reporte manual.
+        throw new ErrorApp(
+          400,
+          'DATOS_INVALIDOS',
+          'Ese método es de pago en línea: paga desde la factura con "Pagar en línea".',
+          { metodoCobroId: ['Elige un método de pago manual.'] },
+        );
+      }
       if (metodo.moneda !== factura.moneda) {
         throw new ErrorApp(
           400,
@@ -263,7 +280,7 @@ export class PagosService {
       );
       if (confirmarYa) {
         const notas = 'notas' in e ? (e.notas ?? null) : null;
-        await this.cerrarFactura(tx, auth, factura, monto, pago.id, notas, cliente);
+        await this.cerrarFactura(tx, auth.usuario.id, factura, monto, pago.id, notas, cliente);
       }
       return pago;
     });
@@ -271,15 +288,81 @@ export class PagosService {
     return this.obtener(auth, creado.id);
   }
 
+  /**
+   * Registra un pago cobrado por una pasarela, dentro de la transacción de quien
+   * llama (que ya bloqueó su intento o cobro). Si `revision` es nulo, lo confirma
+   * con el MISMO camino que una conciliación manual (factura pagada, suscripción
+   * activada o renovada, auditoría); si no, lo deja en revisión con ese motivo
+   * para que el equipo lo concilie o lo devuelva.
+   */
+  async registrarDePasarela(
+    tx: Tx,
+    e: {
+      facturaId: string;
+      metodoCobroId: string;
+      pasarela: string;
+      idCobro: string;
+      moneda: Factura['moneda'];
+      montoDeclarado: Prisma.Decimal;
+      recibido: Prisma.Decimal;
+      revision: string | null;
+      /** Usuario que la originó (el cliente en su pago en línea); nulo = el sistema. */
+      creadoPorId: string | null;
+      cliente?: InfoCliente;
+    },
+  ): Promise<Pago> {
+    await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${e.facturaId}::uuid FOR UPDATE`;
+    const factura = await tx.factura.findUniqueOrThrow({ where: { id: e.facturaId } });
+    const ahora = new Date();
+    const pago = await this.insertarConReferencia(tx, {
+      facturaId: factura.id,
+      clienteId: factura.clienteId,
+      metodoCobroId: e.metodoCobroId,
+      moneda: e.moneda,
+      montoDeclarado: e.montoDeclarado,
+      montoRecibido: e.recibido,
+      referenciaExterna: e.idCobro.slice(0, 80),
+      fechaPago: ahora,
+      origen: 'pasarela',
+      pasarela: e.pasarela,
+      idExterno: e.idCobro,
+      notasConciliacion: e.revision?.slice(0, 500) ?? null,
+      creadoPorId: e.creadoPorId,
+    });
+    await this.auditoria.registrar(
+      {
+        actorTipo: 'sistema',
+        accion: e.revision ? 'pago.en_linea_en_revision' : 'pago.en_linea_recibido',
+        entidad: 'pago',
+        entidadId: pago.id,
+        despues: {
+          referencia: pago.referencia,
+          facturaId: factura.id,
+          pasarela: e.pasarela,
+          idCobro: e.idCobro,
+          recibido: e.recibido.toFixed(2),
+          moneda: e.moneda,
+          ...(e.revision ? { revision: e.revision } : {}),
+        },
+        ...(e.cliente ? { cliente: e.cliente } : {}),
+      },
+      tx,
+    );
+    if (!e.revision) {
+      await this.cerrarFactura(tx, null, factura, e.recibido, pago.id, null, e.cliente);
+    }
+    return tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
+  }
+
   /** Confirma el pago, marca la factura pagada y aplica el pago a la suscripción. */
   private async cerrarFactura(
     tx: Tx,
-    auth: ContextoAuth,
+    actorId: string | null,
     factura: Factura,
     recibido: Prisma.Decimal,
     pagoId: string,
     notas: string | null,
-    cliente: InfoCliente,
+    cliente: InfoCliente | undefined,
   ) {
     await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${factura.id}::uuid FOR UPDATE`;
     const actual = await tx.factura.findUniqueOrThrow({ where: { id: factura.id } });
@@ -302,7 +385,7 @@ export class PagosService {
         estado: 'confirmado',
         montoRecibido: recibido,
         notasConciliacion: notas,
-        revisadoPorId: auth.usuario.id,
+        revisadoPorId: actorId,
         revisadoEn: ahora,
       },
     });
@@ -310,10 +393,10 @@ export class PagosService {
       where: { id: actual.id },
       data: { estado: 'pagada', pagadaEn: ahora },
     });
-    await this.suscripciones.aplicarPago(tx, actual, auth.usuario.id);
+    await this.suscripciones.aplicarPago(tx, actual, actorId);
     await this.auditoria.registrar(
       {
-        actorId: auth.usuario.id,
+        actorId,
         accion: 'pago.confirmado',
         entidad: 'pago',
         entidadId: pagoId,
@@ -325,7 +408,7 @@ export class PagosService {
           moneda: actual.moneda,
           notas,
         },
-        cliente,
+        ...(cliente ? { cliente } : {}),
       },
       tx,
     );
@@ -372,7 +455,8 @@ export class PagosService {
     throw new Error('No se pudo generar una referencia de pago única.');
   }
 
-  private async avisar(pagoId: string, resultado: 'confirmado' | 'rechazado') {
+  /** Aviso al cliente de un pago confirmado o rechazado. Nunca lanza. */
+  async avisar(pagoId: string, resultado: 'confirmado' | 'rechazado') {
     try {
       const p = await this.prisma.pago.findUniqueOrThrow({
         where: { id: pagoId },
