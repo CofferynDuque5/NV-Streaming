@@ -95,6 +95,7 @@ jobs:
   velocidad:
     name: Velocidad (Lighthouse, móvil)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -107,9 +108,15 @@ jobs:
       - name: Medir la portada y las pantallas de acceso
         working-directory: apps/web
         run: |
-          pnpm exec next start -p 3100 &
+          # Salida a un archivo: un proceso en segundo plano con la salida del paso abierta lo deja colgado.
+          pnpm exec next start -p 3100 > "$RUNNER_TEMP/web.log" 2>&1 &
+          WEB_PID=$!
           npx --yes wait-on@8 http://localhost:3100 --timeout 60000
+          set +e
           pnpm lighthouse
+          RESULTADO=$?
+          kill $WEB_PID
+          exit $RESULTADO
       - uses: actions/upload-artifact@v4
         if: always()
         with:
