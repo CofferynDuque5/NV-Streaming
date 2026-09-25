@@ -1,0 +1,2 @@
+# Certificado gratuito de Let's Encrypt, pedido y renovado automáticamente por Caddy.
+tls {$CORREO_ADMIN}

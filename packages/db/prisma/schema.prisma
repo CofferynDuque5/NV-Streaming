@@ -1,0 +1,1725 @@
+// Esquema de NV Streaming.
+// Fase 0: identidad, acceso y auditoría. Fase 1: clientes, catálogo, suscripciones,
+// facturas, pagos manuales, cupones y soporte.
+// Cada fase añade sus modelos con una migración nueva y revisable.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  admin
+  operador
+  ventas
+  revendedor
+  cliente
+}
+
+enum EstadoUsuario {
+  activo
+  suspendido
+}
+
+enum TipoToken {
+  verificar_correo
+  recuperar_contrasena
+  invitacion
+}
+
+enum TipoActor {
+  usuario
+  ia
+  sistema
+}
+
+model Usuario {
+  id                   String        @id @default(uuid()) @db.Uuid
+  correo               String        @unique @db.VarChar(254)
+  nombre               String        @db.VarChar(120)
+  /// Argon2id. Nulo mientras una invitación no se acepta.
+  hashContrasena       String?       @map("hash_contrasena")
+  rol                  Rol           @default(cliente)
+  estado               EstadoUsuario @default(activo)
+  correoVerificadoEn   DateTime?     @map("correo_verificado_en") @db.Timestamptz(3)
+  /// Secreto TOTP cifrado (AES-256-GCM) una vez confirmado.
+  totpSecreto          String?       @map("totp_secreto")
+  /// Secreto TOTP cifrado mientras el usuario lo está configurando.
+  totpSecretoPendiente String?       @map("totp_secreto_pendiente")
+  totpActivadoEn       DateTime?     @map("totp_activado_en") @db.Timestamptz(3)
+  /// Último paso de tiempo TOTP aceptado, para impedir reutilizar un código.
+  totpUltimoPaso       BigInt?       @map("totp_ultimo_paso")
+  ultimoAccesoEn       DateTime?     @map("ultimo_acceso_en") @db.Timestamptz(3)
+  creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  sesiones        Sesion[]
+  tokens          TokenUnUso[]
+  codigosRespaldo CodigoRespaldo[]
+  auditoria       Auditoria[]
+
+  clientePropio        Cliente?            @relation("ClienteUsuario")
+  clientesAsignados    Cliente[]           @relation("ClienteAsignado")
+  clientesCreados      Cliente[]           @relation("ClienteCreador")
+  notasInternas        NotaInterna[]
+  tasasCambio          TasaCambio[]
+  historialPrecios     HistorialPrecio[]
+  eventosSuscripcion   EventoSuscripcion[]
+  suscripcionesCreadas Suscripcion[]
+  facturasCreadas      Factura[]           @relation("FacturaCreador")
+  facturasAnuladas     Factura[]           @relation("FacturaAnulador")
+  cuponesCreados       Cupon[]
+  pagosCreados         Pago[]              @relation("PagoCreador")
+  pagosRevisados       Pago[]              @relation("PagoRevisor")
+  archivosSubidos      Archivo[]
+  ticketsCreados       Ticket[]            @relation("TicketCreador")
+  ticketsAsignados     Ticket[]            @relation("TicketAsignado")
+  mensajesTicket       MensajeTicket[]
+
+  // Fase 2
+  revendedor               Revendedor?              @relation("RevendedorUsuario")
+  revendedoresRevisados    Revendedor[]             @relation("RevendedorRevisor")
+  automatizacionesEditadas Automatizacion[]
+  metodosRevocados         MetodoPagoAutorizado[]   @relation("MetodoRevocador")
+  reembolsosSolicitados    Reembolso[]
+  notificaciones           Notificacion[]
+  preciosMayoristas        PrecioMayorista[]
+  recargasRevisadas        RecargaSaldo[]           @relation("RecargaRevisor")
+  movimientosSaldo         MovimientoSaldo[]
+  comprasReembolsadas      CompraRevendedor[]       @relation("CompraReembolsador")
+  paginasEditadas          Pagina[]                 @relation("PaginaEditor")
+  versionesPublicadas      VersionPagina[]
+  mediosSubidos            Medio[]
+  // Fase 5
+  conversacionesAsistente  ConversacionAsistente[]
+  accionesSolicitadas      AccionPropuesta[]        @relation("AccionSolicitante")
+  accionesDecididas        AccionPropuesta[]        @relation("AccionDecisor")
+  asistenteEditado         ConfiguracionAsistente[]
+  temasActualizados        TemaSitio[]
+  // Fase 6
+  entregasCompletadas      Entrega[]                @relation("EntregaCompletador")
+  lotesSubidos             LoteCodigos[]
+  codigosAnulados          CodigoInventario[]       @relation("CodigoAnulador")
+
+  @@index([rol, estado])
+  @@map("usuarios")
+}
+
+model Sesion {
+  id                String    @id @default(uuid()) @db.Uuid
+  usuarioId         String    @map("usuario_id") @db.Uuid
+  /// SHA-256 del token de la cookie. El token en claro nunca se guarda.
+  tokenHash         String    @unique @map("token_hash") @db.Char(64)
+  /// Falso mientras falte configurar o verificar la verificación en dos pasos.
+  dosPasosCompleto  Boolean   @default(false) @map("dos_pasos_completo")
+  ip                String?   @db.VarChar(64)
+  agenteUsuario     String?   @map("agente_usuario") @db.VarChar(400)
+  creadaEn          DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
+  ultimaActividadEn DateTime  @default(now()) @map("ultima_actividad_en") @db.Timestamptz(3)
+  expiraEn          DateTime  @map("expira_en") @db.Timestamptz(3)
+  revocadaEn        DateTime? @map("revocada_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, revocadaEn])
+  @@map("sesiones")
+}
+
+model TokenUnUso {
+  id        String    @id @default(uuid()) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tipo      TipoToken
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiraEn  DateTime  @map("expira_en") @db.Timestamptz(3)
+  usadoEn   DateTime? @map("usado_en") @db.Timestamptz(3)
+  creadoEn  DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([usuarioId, tipo])
+  @@map("tokens_un_uso")
+}
+
+model CodigoRespaldo {
+  id         String    @id @default(uuid()) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  codigoHash String    @map("codigo_hash") @db.Char(64)
+  usadoEn    DateTime? @map("usado_en") @db.Timestamptz(3)
+  creadoEn   DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@unique([usuarioId, codigoHash])
+  @@map("codigos_respaldo")
+}
+
+/// Registro de auditoría de solo inserción: un disparador impide modificarlo o borrarlo.
+model Auditoria {
+  id         String    @id @default(uuid()) @db.Uuid
+  fecha      DateTime  @default(now()) @db.Timestamptz(3)
+  actorTipo  TipoActor @map("actor_tipo")
+  actorId    String?   @map("actor_id") @db.Uuid
+  accion     String    @db.VarChar(80)
+  entidad    String    @db.VarChar(80)
+  entidadId  String?   @map("entidad_id") @db.VarChar(64)
+  antes      Json?
+  despues    Json?
+  ip         String?   @db.VarChar(64)
+  idPeticion String?   @map("id_peticion") @db.VarChar(64)
+
+  actor Usuario? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([fecha(sort: Desc)])
+  @@index([entidad, entidadId])
+  @@index([actorId])
+  @@index([accion])
+  @@map("auditoria")
+}
+
+/// Contadores de límites de uso (rate limiting) por ventana de tiempo.
+model LimiteUso {
+  clave         String   @id @db.VarChar(200)
+  ventanaInicio DateTime @map("ventana_inicio") @db.Timestamptz(3)
+  conteo        Int
+
+  @@index([ventanaInicio])
+  @@map("limites_uso")
+}
+
+/// Registro de correos enviados. El cuerpo solo se guarda con el proveedor de pruebas (sandbox).
+model CorreoSaliente {
+  id        String   @id @default(uuid()) @db.Uuid
+  para      String   @db.VarChar(254)
+  asunto    String   @db.VarChar(200)
+  plantilla String   @db.VarChar(60)
+  proveedor String   @db.VarChar(30)
+  estado    String   @db.VarChar(20)
+  texto     String?
+  error     String?  @db.VarChar(500)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  @@index([para, creadoEn(sort: Desc)])
+  @@map("correos_salientes")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Monedas
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Monedas de cobro. Los precios del catálogo se fijan en USD.
+enum Moneda {
+  USD
+  VES
+  ARS
+  COP
+  PEN
+  EUR
+}
+
+/// Tasas de cambio: unidades de la moneda por 1 USD. Nunca se editan: una tasa
+/// nueva sustituye a la anterior desde su fecha y queda el historial.
+model TasaCambio {
+  id           String   @id @default(uuid()) @db.Uuid
+  moneda       Moneda
+  valor        Decimal  @db.Decimal(18, 6)
+  /// "manual" (la registra una persona) o "automatica" (la trae la automatización de tasa).
+  origen       String   @default("manual") @db.VarChar(20)
+  /// Fuente consultada cuando es automática (p. ej. "bcv").
+  fuente       String?  @db.VarChar(60)
+  vigenteDesde DateTime @default(now()) @map("vigente_desde") @db.Timestamptz(3)
+  autorId      String?  @map("autor_id") @db.Uuid
+  creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  autor Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([moneda, vigenteDesde(sort: Desc)])
+  @@map("tasas_cambio")
+}
+
+/// Cuentas donde el cliente paga a mano (Pago Móvil, transferencia, Zelle...).
+model MetodoCobro {
+  id                 String   @id @default(uuid()) @db.Uuid
+  nombre             String   @db.VarChar(80)
+  moneda             Moneda
+  /// Texto que ve el cliente al pagar (titular, banco, número...). Sin secretos.
+  instrucciones      String   @db.VarChar(2000)
+  requiereReferencia Boolean  @default(true) @map("requiere_referencia")
+  /// "manual" (transferencia, Pago Móvil... con comprobante) o "pasarela" (pago en línea).
+  tipo               String   @default("manual") @db.VarChar(20)
+  /// Pasarela del método en línea: "paypal", "mercadopago" o "sandbox".
+  pasarela           String?  @db.VarChar(30)
+  activo             Boolean  @default(true)
+  orden              Int      @default(0)
+  creadoEn           DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  recargas           RecargaSaldo[]
+  pagos              Pago[]
+  intentos           IntentoPago[]
+  metodosAutorizados MetodoPagoAutorizado[]
+
+  @@index([moneda, activo])
+  @@map("metodos_cobro")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Clientes
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoCliente {
+  activo
+  archivado
+}
+
+enum TipoContacto {
+  correo
+  whatsapp
+  telefono
+}
+
+model Cliente {
+  id                   String        @id @default(uuid()) @db.Uuid
+  /// Cuenta con la que el cliente entra a su panel (puede no tenerla todavía).
+  usuarioId            String?       @unique @map("usuario_id") @db.Uuid
+  nombre               String        @db.VarChar(120)
+  correo               String?       @db.VarChar(254)
+  documento            String?       @db.VarChar(40)
+  /// Código ISO 3166-1 alfa-2.
+  pais                 String?       @db.Char(2)
+  monedaPreferida      Moneda        @default(VES) @map("moneda_preferida")
+  estado               EstadoCliente @default(activo)
+  /// Vendedor responsable de la cuenta.
+  asignadoAId          String?       @map("asignado_a_id") @db.Uuid
+  origen               String        @default("equipo") @db.VarChar(30)
+  /// El cliente puede dejar de recibir recordatorios (los avisos de pago y suspensión siguen llegando).
+  recibirRecordatorios Boolean       @default(true) @map("recibir_recordatorios")
+  /// Cliente final de un revendedor (su cartera). NV no le cobra: le cobra el revendedor.
+  revendedorId         String?       @map("revendedor_id") @db.Uuid
+  creadoPorId          String?       @map("creado_por_id") @db.Uuid
+  creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario            Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA          Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor          Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor         Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  comprasRevendedor  CompraRevendedor[]
+  contactos          ContactoCliente[]
+  notas              NotaInterna[]
+  suscripciones      Suscripcion[]
+  facturas           Factura[]
+  pagos              Pago[]
+  tickets            Ticket[]
+  canjesCupon        CanjeCupon[]
+  notificaciones     Notificacion[]
+  metodosAutorizados MetodoPagoAutorizado[]
+  intentosPago       IntentoPago[]
+  entregas           Entrega[]
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@index([asignadoAId])
+  @@index([revendedorId])
+  @@index([correo])
+  @@map("clientes")
+}
+
+model ContactoCliente {
+  id               String       @id @default(uuid()) @db.Uuid
+  clienteId        String       @map("cliente_id") @db.Uuid
+  tipo             TipoContacto
+  valor            String       @db.VarChar(254)
+  /// Fecha en que el cliente aceptó recibir mensajes por este canal.
+  consentimientoEn DateTime?    @map("consentimiento_en") @db.Timestamptz(3)
+  creadoEn         DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+
+  @@unique([clienteId, tipo, valor])
+  @@map("contactos_cliente")
+}
+
+/// Notas del equipo sobre un cliente. El cliente nunca las ve.
+model NotaInterna {
+  id        String   @id @default(uuid()) @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  autorId   String   @map("autor_id") @db.Uuid
+  texto     String   @db.VarChar(2000)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("notas_internas")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Catálogo (genérico: servicio propio y distribuidor oficial)
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum TipoProveedor {
+  propio
+  distribuidor
+}
+
+enum UnidadDuracion {
+  dia
+  mes
+}
+
+model Proveedor {
+  id                     String        @id @default(uuid()) @db.Uuid
+  nombre                 String        @unique @db.VarChar(80)
+  tipo                   TipoProveedor
+  /// Adaptador de entrega: "manual", "codigos" o "webhook" (fase 6).
+  adaptador              String        @default("manual") @db.VarChar(40)
+  /// Si el acuerdo prohíbe revender, sus planes no se ofrecen a revendedores.
+  permiteReventa         Boolean       @default(false) @map("permite_reventa")
+  notasAcuerdo           String?       @map("notas_acuerdo") @db.VarChar(2000)
+  activo                 Boolean       @default(true)
+  /// Configuración de entrega sin secretos: { webhookUrl, tiempoLimiteSegundos, incluirCorreo, entregarRenovaciones }.
+  configuracion          Json          @default("{}")
+  /// Clave para firmar los webhooks de entrega, cifrada con CLAVE_CIFRADO. Solo se muestra al rotarla.
+  secretoWebhookCifrado  String?       @map("secreto_webhook_cifrado") @db.VarChar(500)
+  secretoWebhookRotadoEn DateTime?     @map("secreto_webhook_rotado_en") @db.Timestamptz(3)
+  creadoEn               DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn          DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  servicios Servicio[]
+  entregas  Entrega[]
+
+  @@map("proveedores")
+}
+
+model Servicio {
+  id            String   @id @default(uuid()) @db.Uuid
+  proveedorId   String   @map("proveedor_id") @db.Uuid
+  nombre        String   @db.VarChar(80)
+  slug          String   @unique @db.VarChar(80)
+  descripcion   String?  @db.VarChar(1000)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  proveedor Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  planes    Plan[]
+
+  @@map("servicios")
+}
+
+model Plan {
+  id               String         @id @default(uuid()) @db.Uuid
+  servicioId       String         @map("servicio_id") @db.Uuid
+  nombre           String         @db.VarChar(80)
+  descripcion      String?        @db.VarChar(1000)
+  /// Precio base. El resto de monedas se calcula con la tasa vigente salvo precio fijo.
+  precioUsd        Decimal        @map("precio_usd") @db.Decimal(14, 2)
+  duracionCantidad Int            @map("duracion_cantidad")
+  duracionUnidad   UnidadDuracion @map("duracion_unidad")
+  beneficios       String[]       @default([])
+  activo           Boolean        @default(true)
+  /// Aparece en el sitio público y en el panel del cliente.
+  visible          Boolean        @default(true)
+  renovable        Boolean        @default(true)
+  /// Se vende a revendedores a precio mayorista.
+  revendible       Boolean        @default(false)
+  /// Costo para NV: ningún precio mayorista puede quedar por debajo.
+  costoUsd         Decimal?       @map("costo_usd") @db.Decimal(14, 2)
+  /// Referencia del plan en el sistema del proveedor (se envía en el webhook de entrega).
+  skuProveedor     String?        @map("sku_proveedor") @db.VarChar(80)
+  orden            Int            @default(0)
+  creadoEn         DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  servicio          Servicio           @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  preciosFijos      PrecioFijo[]
+  historial         HistorialPrecio[]
+  suscripciones     Suscripcion[]
+  lineas            LineaFactura[]
+  cupones           CuponPlan[]
+  preciosMayoristas PrecioMayorista[]
+  comprasRevendedor CompraRevendedor[]
+  entregas          Entrega[]
+  lotesCodigos      LoteCodigos[]
+  codigos           CodigoInventario[]
+
+  @@index([activo, visible, orden])
+  @@map("planes")
+}
+
+/// Precio fijado a mano en una moneda: ignora la tasa de cambio.
+model PrecioFijo {
+  id            String   @id @default(uuid()) @db.Uuid
+  planId        String   @map("plan_id") @db.Uuid
+  moneda        Moneda
+  precio        Decimal  @db.Decimal(14, 2)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, moneda])
+  @@map("precios_fijos")
+}
+
+model HistorialPrecio {
+  id       String   @id @default(uuid()) @db.Uuid
+  planId   String   @map("plan_id") @db.Uuid
+  moneda   Moneda
+  /// Nulo cuando antes no había precio fijo en esa moneda.
+  anterior Decimal? @db.Decimal(14, 2)
+  /// Nulo cuando se quita el precio fijo y vuelve a seguir la tasa.
+  nuevo    Decimal? @db.Decimal(14, 2)
+  autorId  String?  @map("autor_id") @db.Uuid
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  plan  Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  autor Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([planId, creadoEn(sort: Desc)])
+  @@map("historial_precios")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Suscripciones
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoSuscripcion {
+  pendiente_pago
+  activa
+  en_gracia
+  pausada
+  suspendida
+  vencida
+  cancelada
+}
+
+enum TipoEventoSuscripcion {
+  alta
+  activacion
+  renovacion
+  pausa
+  reanudacion
+  cancelacion
+  cancelacion_programada
+  cancelacion_revertida
+  vencimiento
+  suspension
+  recuperacion
+}
+
+model Suscripcion {
+  id                 String            @id @default(uuid()) @db.Uuid
+  clienteId          String            @map("cliente_id") @db.Uuid
+  planId             String            @map("plan_id") @db.Uuid
+  estado             EstadoSuscripcion @default(pendiente_pago)
+  moneda             Moneda
+  inicioEn           DateTime?         @map("inicio_en") @db.Timestamptz(3)
+  venceEn            DateTime?         @map("vence_en") @db.Timestamptz(3)
+  pausadaEn          DateTime?         @map("pausada_en") @db.Timestamptz(3)
+  /// Tiempo que le quedaba al pausarla; se devuelve al reanudar.
+  segundosRestantes  Int?              @map("segundos_restantes")
+  /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
+  cancelarAlVencer   Boolean           @default(false) @map("cancelar_al_vencer")
+  /// Método autorizado con el que se cobra sola al vencer. Nulo = pago manual.
+  metodoAutorizadoId String?           @map("metodo_autorizado_id") @db.Uuid
+  canceladaEn        DateTime?         @map("cancelada_en") @db.Timestamptz(3)
+  /// Activación comprada por un revendedor con su saldo (no genera facturas al cliente).
+  revendedorId       String?           @map("revendedor_id") @db.Uuid
+  creadoPorId        String?           @map("creado_por_id") @db.Uuid
+  creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente           Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  plan              Plan                  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  creadoPor         Usuario?              @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor        Revendedor?           @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  metodoAutorizado  MetodoPagoAutorizado? @relation(fields: [metodoAutorizadoId], references: [id], onDelete: Restrict)
+  cobrosAutomaticos CobroAutomatico[]
+  compras           CompraRevendedor[]
+  eventos           EventoSuscripcion[]
+  facturas          Factura[]
+  tickets           Ticket[]
+  entregas          Entrega[]
+
+  @@index([clienteId, estado])
+  @@index([estado, venceEn])
+  @@index([revendedorId, estado])
+  @@map("suscripciones")
+}
+
+model EventoSuscripcion {
+  id            String                @id @default(uuid()) @db.Uuid
+  suscripcionId String                @map("suscripcion_id") @db.Uuid
+  tipo          TipoEventoSuscripcion
+  actorId       String?               @map("actor_id") @db.Uuid
+  motivo        String?               @db.VarChar(500)
+  datos         Json?
+  creadoEn      DateTime              @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  suscripcion Suscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  actor       Usuario?    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([suscripcionId, creadoEn(sort: Desc)])
+  @@map("eventos_suscripcion")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Facturas, cupones y pagos manuales
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoFactura {
+  emitida
+  pagada
+  anulada
+}
+
+enum ConceptoFactura {
+  alta
+  renovacion
+}
+
+model Factura {
+  id              String          @id @default(uuid()) @db.Uuid
+  /// Correlativo que genera la base de datos. Se muestra como NV-000123.
+  numero          Int             @unique @default(autoincrement())
+  clienteId       String          @map("cliente_id") @db.Uuid
+  suscripcionId   String?         @map("suscripcion_id") @db.Uuid
+  concepto        ConceptoFactura
+  estado          EstadoFactura   @default(emitida)
+  moneda          Moneda
+  subtotal        Decimal         @db.Decimal(14, 2)
+  descuento       Decimal         @default(0) @db.Decimal(14, 2)
+  total           Decimal         @db.Decimal(14, 2)
+  /// Unidades de `moneda` por 1 USD al emitir o recotizar.
+  tasa            Decimal         @db.Decimal(18, 6)
+  totalUsd        Decimal         @map("total_usd") @db.Decimal(14, 2)
+  cuponId         String?         @map("cupon_id") @db.Uuid
+  venceEn         DateTime        @map("vence_en") @db.Timestamptz(3)
+  pagadaEn        DateTime?       @map("pagada_en") @db.Timestamptz(3)
+  anuladaEn       DateTime?       @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion String?         @map("motivo_anulacion") @db.VarChar(500)
+  anuladaPorId    String?         @map("anulada_por_id") @db.Uuid
+  creadoPorId     String?         @map("creado_por_id") @db.Uuid
+  creadoEn        DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente           Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion       Suscripcion?      @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  anuladaPor        Usuario?          @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  creadoPor         Usuario?          @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  lineas            LineaFactura[]
+  pagos             Pago[]
+  intentosPago      IntentoPago[]
+  cobrosAutomaticos CobroAutomatico[]
+  canje             CanjeCupon?
+  entregas          Entrega[]
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([estado, venceEn])
+  @@index([suscripcionId])
+  @@map("facturas")
+}
+
+model LineaFactura {
+  id             String  @id @default(uuid()) @db.Uuid
+  facturaId      String  @map("factura_id") @db.Uuid
+  planId         String? @map("plan_id") @db.Uuid
+  descripcion    String  @db.VarChar(200)
+  cantidad       Int
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(14, 2)
+  total          Decimal @db.Decimal(14, 2)
+
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  plan    Plan?   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([facturaId])
+  @@map("lineas_factura")
+}
+
+enum TipoCupon {
+  porcentaje
+  monto
+}
+
+model Cupon {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// Siempre en mayúsculas.
+  codigo        String    @unique @db.VarChar(40)
+  tipo          TipoCupon
+  /// Porcentaje (1–100) o monto en USD.
+  valor         Decimal   @db.Decimal(14, 2)
+  validoDesde   DateTime? @map("valido_desde") @db.Timestamptz(3)
+  validoHasta   DateTime? @map("valido_hasta") @db.Timestamptz(3)
+  usosMaximos   Int?      @map("usos_maximos")
+  usos          Int       @default(0)
+  /// Solo en altas: no descuenta renovaciones.
+  soloAltas     Boolean   @default(true) @map("solo_altas")
+  activo        Boolean   @default(true)
+  creadoPorId   String    @map("creado_por_id") @db.Uuid
+  creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  creadoPor Usuario      @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  /// Si no tiene planes, vale para todos.
+  planes    CuponPlan[]
+  canjes    CanjeCupon[]
+  facturas  Factura[]
+
+  @@map("cupones")
+}
+
+model CuponPlan {
+  cuponId String @map("cupon_id") @db.Uuid
+  planId  String @map("plan_id") @db.Uuid
+
+  cupon Cupon @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@id([cuponId, planId])
+  @@map("cupones_planes")
+}
+
+/// Un canje por factura y, como mucho, uno por cliente y cupón.
+model CanjeCupon {
+  id        String   @id @default(uuid()) @db.Uuid
+  cuponId   String   @map("cupon_id") @db.Uuid
+  clienteId String   @map("cliente_id") @db.Uuid
+  facturaId String   @unique @map("factura_id") @db.Uuid
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cupon   Cupon   @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+
+  @@unique([cuponId, clienteId])
+  @@map("canjes_cupon")
+}
+
+/// Archivo subido (por ahora, comprobantes de pago). El tipo se verifica por su contenido.
+model Archivo {
+  id             String   @id @default(uuid()) @db.Uuid
+  nombreOriginal String   @map("nombre_original") @db.VarChar(200)
+  tipoMime       String   @map("tipo_mime") @db.VarChar(60)
+  tamano         Int
+  sha256         String   @db.Char(64)
+  /// Clave dentro del almacén (nunca una ruta que venga del usuario).
+  clave          String   @unique @db.VarChar(200)
+  subidoPorId    String?  @map("subido_por_id") @db.Uuid
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  subidoPor Usuario?       @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  pagos     Pago[]
+  recargas  RecargaSaldo[]
+  medio     Medio?
+
+  @@map("archivos")
+}
+
+enum EstadoPago {
+  en_revision
+  confirmado
+  rechazado
+  /// Devuelto por completo a través de la pasarela.
+  reembolsado
+}
+
+model Pago {
+  id                String     @id @default(uuid()) @db.Uuid
+  /// Referencia que genera el servidor (única). La ve el cliente y el equipo.
+  referencia        String     @unique @db.VarChar(20)
+  facturaId         String     @map("factura_id") @db.Uuid
+  clienteId         String     @map("cliente_id") @db.Uuid
+  metodoCobroId     String     @map("metodo_cobro_id") @db.Uuid
+  moneda            Moneda
+  montoDeclarado    Decimal    @map("monto_declarado") @db.Decimal(14, 2)
+  montoRecibido     Decimal?   @map("monto_recibido") @db.Decimal(14, 2)
+  /// Número de operación del banco o de la billetera, según el cliente.
+  referenciaExterna String?    @map("referencia_externa") @db.VarChar(80)
+  fechaPago         DateTime   @map("fecha_pago") @db.Timestamptz(3)
+  comprobanteId     String?    @map("comprobante_id") @db.Uuid
+  /// "manual" (con comprobante) o "pasarela" (confirmado por la pasarela).
+  origen            String     @default("manual") @db.VarChar(20)
+  pasarela          String?    @db.VarChar(30)
+  /// Id del cobro en la pasarela (captura, pago). Único por pasarela.
+  idExterno         String?    @map("id_externo") @db.VarChar(120)
+  montoReembolsado  Decimal    @default(0) @map("monto_reembolsado") @db.Decimal(14, 2)
+  estado            EstadoPago @default(en_revision)
+  motivoRechazo     String?    @map("motivo_rechazo") @db.VarChar(500)
+  notasConciliacion String?    @map("notas_conciliacion") @db.VarChar(500)
+  revisadoPorId     String?    @map("revisado_por_id") @db.Uuid
+  revisadoEn        DateTime?  @map("revisado_en") @db.Timestamptz(3)
+  creadoPorId       String?    @map("creado_por_id") @db.Uuid
+  creadoEn          DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime   @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  factura         Factura          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro     MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante     Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor     Usuario?         @relation("PagoRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  creadoPor       Usuario?         @relation("PagoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  intento         IntentoPago?
+  cobroAutomatico CobroAutomatico?
+  reembolsos      Reembolso[]
+
+  @@unique([pasarela, idExterno])
+  @@index([estado, creadoEn])
+  @@index([facturaId])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("pagos")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Fase 1 — Soporte
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoTicket {
+  abierto
+  en_progreso
+  esperando_cliente
+  resuelto
+  cerrado
+}
+
+enum PrioridadTicket {
+  baja
+  normal
+  alta
+  urgente
+}
+
+enum CategoriaTicket {
+  pagos
+  acceso
+  suscripcion
+  cuenta
+  otro
+}
+
+model Ticket {
+  id                  String          @id @default(uuid()) @db.Uuid
+  numero              Int             @unique @default(autoincrement())
+  clienteId           String          @map("cliente_id") @db.Uuid
+  suscripcionId       String?         @map("suscripcion_id") @db.Uuid
+  asunto              String          @db.VarChar(160)
+  categoria           CategoriaTicket
+  prioridad           PrioridadTicket @default(normal)
+  estado              EstadoTicket    @default(abierto)
+  asignadoAId         String?         @map("asignado_a_id") @db.Uuid
+  /// Plazo de la primera respuesta según la prioridad.
+  slaPrimeraRespuesta DateTime        @map("sla_primera_respuesta") @db.Timestamptz(3)
+  primeraRespuestaEn  DateTime?       @map("primera_respuesta_en") @db.Timestamptz(3)
+  resueltoEn          DateTime?       @map("resuelto_en") @db.Timestamptz(3)
+  /// Nulo cuando lo abre el sistema (escalado automático).
+  creadoPorId         String?         @map("creado_por_id") @db.Uuid
+  /// "cliente", "equipo" o "sistema".
+  origen              String          @default("cliente") @db.VarChar(20)
+  creadoEn            DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn       DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente     Cliente         @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion?    @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  asignadoA   Usuario?        @relation("TicketAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor   Usuario?        @relation("TicketCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  mensajes    MensajeTicket[]
+
+  @@index([estado, prioridad, creadoEn])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([asignadoAId, estado])
+  @@map("tickets")
+}
+
+model MensajeTicket {
+  id       String   @id @default(uuid()) @db.Uuid
+  ticketId String   @map("ticket_id") @db.Uuid
+  /// Nulo en los mensajes que escribe el sistema (escalado automático).
+  autorId  String?  @map("autor_id") @db.Uuid
+  texto    String   @db.VarChar(5000)
+  /// Nota interna del equipo: el cliente no la ve.
+  interno  Boolean  @default(false)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  ticket Ticket   @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  autor  Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, creadoEn])
+  @@map("mensajes_ticket")
+}
+
+// ─── Fase 2: revendedores (precio mayorista con saldo prepagado) ────────────
+
+enum EstadoRevendedor {
+  solicitud
+  aprobado
+  rechazado
+  suspendido
+}
+
+enum EstadoRecarga {
+  en_revision
+  confirmada
+  rechazada
+}
+
+enum TipoMovimientoSaldo {
+  recarga
+  compra
+  reembolso
+  ajuste
+}
+
+enum TipoCompra {
+  alta
+  renovacion
+}
+
+enum EstadoCompra {
+  completada
+  reembolsada
+}
+
+/// Nivel comercial: cada uno tiene su tabla de precios mayoristas.
+model NivelRevendedor {
+  id            String   @id @default(uuid()) @db.Uuid
+  nombre        String   @unique @db.VarChar(60)
+  descripcion   String?  @db.VarChar(300)
+  orden         Int      @default(0)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  revendedores Revendedor[]
+  precios      PrecioMayorista[]
+
+  @@map("niveles_revendedor")
+}
+
+/// Solicitud y ficha de un revendedor. El saldo es un reflejo del libro mayor (`movimientos_saldo`).
+model Revendedor {
+  id                  String           @id @default(uuid()) @db.Uuid
+  usuarioId           String           @unique @map("usuario_id") @db.Uuid
+  estado              EstadoRevendedor @default(solicitud)
+  nivelId             String?          @map("nivel_id") @db.Uuid
+  nombreComercial     String           @map("nombre_comercial") @db.VarChar(120)
+  documento           String?          @db.VarChar(40)
+  telefono            String?          @db.VarChar(20)
+  pais                String?          @db.Char(2)
+  /// Presentación que escribe al solicitar.
+  mensaje             String?          @db.VarChar(1000)
+  /// Motivo del rechazo o de la suspensión.
+  motivoEstado        String?          @map("motivo_estado") @db.VarChar(500)
+  saldoUsd            Decimal          @default(0) @map("saldo_usd") @db.Decimal(14, 2)
+  /// Compras permitidas por día; nulo usa el valor general.
+  limiteDiarioCompras Int?             @map("limite_diario_compras")
+  revisadoPorId       String?          @map("revisado_por_id") @db.Uuid
+  revisadoEn          DateTime?        @map("revisado_en") @db.Timestamptz(3)
+  creadoEn            DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn       DateTime         @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario       Usuario            @relation("RevendedorUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  nivel         NivelRevendedor?   @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  revisadoPor   Usuario?           @relation("RevendedorRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  clientes      Cliente[]
+  suscripciones Suscripcion[]
+  recargas      RecargaSaldo[]
+  movimientos   MovimientoSaldo[]
+  compras       CompraRevendedor[]
+  entregas      Entrega[]
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@map("revendedores")
+}
+
+model PrecioMayorista {
+  id               String   @id @default(uuid()) @db.Uuid
+  planId           String   @map("plan_id") @db.Uuid
+  nivelId          String   @map("nivel_id") @db.Uuid
+  precioUsd        Decimal  @map("precio_usd") @db.Decimal(14, 2)
+  actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
+  creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan           Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  nivel          NivelRevendedor @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  actualizadoPor Usuario?        @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, nivelId])
+  @@map("precios_mayoristas")
+}
+
+/// Recarga de saldo: el revendedor paga (manual con comprobante) y el equipo la concilia.
+model RecargaSaldo {
+  id                String        @id @default(uuid()) @db.Uuid
+  /// Referencia del servidor, p. ej. R-7K2M9QX4.
+  referencia        String        @unique @db.VarChar(20)
+  revendedorId      String        @map("revendedor_id") @db.Uuid
+  metodoCobroId     String        @map("metodo_cobro_id") @db.Uuid
+  moneda            Moneda
+  montoDeclarado    Decimal       @map("monto_declarado") @db.Decimal(14, 2)
+  montoRecibido     Decimal?      @map("monto_recibido") @db.Decimal(14, 2)
+  /// Unidades de `moneda` por 1 USD al reportar; fija cuánto saldo se acredita.
+  tasa              Decimal       @db.Decimal(18, 6)
+  /// Saldo acreditado (en USD) al confirmar.
+  montoUsd          Decimal?      @map("monto_usd") @db.Decimal(14, 2)
+  referenciaExterna String?       @map("referencia_externa") @db.VarChar(80)
+  fechaPago         DateTime      @map("fecha_pago") @db.Timestamptz(3)
+  comprobanteId     String?       @map("comprobante_id") @db.Uuid
+  estado            EstadoRecarga @default(en_revision)
+  motivoRechazo     String?       @map("motivo_rechazo") @db.VarChar(500)
+  notas             String?       @db.VarChar(500)
+  revisadoPorId     String?       @map("revisado_por_id") @db.Uuid
+  revisadoEn        DateTime?     @map("revisado_en") @db.Timestamptz(3)
+  creadoEn          DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  revendedor  Revendedor       @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor Usuario?         @relation("RecargaRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  movimiento  MovimientoSaldo?
+
+  @@index([estado, creadoEn])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@map("recargas_saldo")
+}
+
+/// Libro mayor del saldo: solo se insertan filas (un disparador impide editarlas o borrarlas).
+model MovimientoSaldo {
+  id                 String              @id @default(uuid()) @db.Uuid
+  revendedorId       String              @map("revendedor_id") @db.Uuid
+  tipo               TipoMovimientoSaldo
+  /// Positivo suma saldo, negativo lo resta.
+  montoUsd           Decimal             @map("monto_usd") @db.Decimal(14, 2)
+  saldoResultanteUsd Decimal             @map("saldo_resultante_usd") @db.Decimal(14, 2)
+  recargaId          String?             @unique @map("recarga_id") @db.Uuid
+  compraId           String?             @map("compra_id") @db.Uuid
+  motivo             String?             @db.VarChar(500)
+  autorId            String?             @map("autor_id") @db.Uuid
+  creadoEn           DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  revendedor Revendedor        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  recarga    RecargaSaldo?     @relation(fields: [recargaId], references: [id], onDelete: Restrict)
+  compra     CompraRevendedor? @relation(fields: [compraId], references: [id], onDelete: Restrict)
+  autor      Usuario?          @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@index([compraId])
+  @@map("movimientos_saldo")
+}
+
+/// Activación comprada con saldo: débito y suscripción se crean en la misma transacción.
+model CompraRevendedor {
+  id                String       @id @default(uuid()) @db.Uuid
+  revendedorId      String       @map("revendedor_id") @db.Uuid
+  planId            String       @map("plan_id") @db.Uuid
+  clienteId         String       @map("cliente_id") @db.Uuid
+  suscripcionId     String       @map("suscripcion_id") @db.Uuid
+  tipo              TipoCompra
+  precioUsd         Decimal      @map("precio_usd") @db.Decimal(14, 2)
+  estado            EstadoCompra @default(completada)
+  /// La envía el panel para que un doble clic no compre dos veces.
+  claveIdempotencia String       @map("clave_idempotencia") @db.VarChar(64)
+  motivoReembolso   String?      @map("motivo_reembolso") @db.VarChar(500)
+  reembolsadaPorId  String?      @map("reembolsada_por_id") @db.Uuid
+  reembolsadaEn     DateTime?    @map("reembolsada_en") @db.Timestamptz(3)
+  creadoEn          DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  revendedor     Revendedor        @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  plan           Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cliente        Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion    Suscripcion       @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  reembolsadaPor Usuario?          @relation("CompraReembolsador", fields: [reembolsadaPorId], references: [id], onDelete: Restrict)
+  movimientos    MovimientoSaldo[]
+  entregas       Entrega[]
+
+  @@unique([revendedorId, claveIdempotencia])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@map("compras_revendedor")
+}
+
+// ─── Fase 2: contenido del sitio (editor visual) ─────────────────────────────
+
+/// Página pública editable. El borrador se guarda aquí; cada publicación crea una versión.
+model Pagina {
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// Ruta pública: "/", "/nosotros", "/preguntas-frecuentes"...
+  ruta                  String    @unique @db.VarChar(80)
+  titulo                String    @db.VarChar(120)
+  descripcion           String?   @db.VarChar(300)
+  /// Lista de bloques (validada con el esquema compartido `contenidoPaginaSchema`).
+  borrador              Json      @default("[]")
+  borradorActualizadoEn DateTime? @map("borrador_actualizado_en") @db.Timestamptz(3)
+  borradorPorId         String?   @map("borrador_por_id") @db.Uuid
+  versionPublicadaId    String?   @unique @map("version_publicada_id") @db.Uuid
+  /// Oculta del sitio sin borrar su historial.
+  archivada             Boolean   @default(false)
+  creadoEn              DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn         DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  borradorPor      Usuario?        @relation("PaginaEditor", fields: [borradorPorId], references: [id], onDelete: Restrict)
+  versionPublicada VersionPagina?  @relation("VersionVigente", fields: [versionPublicadaId], references: [id], onDelete: Restrict)
+  versiones        VersionPagina[] @relation("VersionesPagina")
+
+  @@map("paginas")
+}
+
+/// Versión publicada (inmutable). Volver a una anterior publica una nueva con su contenido.
+model VersionPagina {
+  id             String   @id @default(uuid()) @db.Uuid
+  paginaId       String   @map("pagina_id") @db.Uuid
+  numero         Int
+  titulo         String   @db.VarChar(120)
+  descripcion    String?  @db.VarChar(300)
+  contenido      Json
+  nota           String?  @db.VarChar(200)
+  publicadaPorId String?  @map("publicada_por_id") @db.Uuid
+  publicadaEn    DateTime @default(now()) @map("publicada_en") @db.Timestamptz(3)
+
+  pagina       Pagina   @relation("VersionesPagina", fields: [paginaId], references: [id], onDelete: Restrict)
+  vigenteEn    Pagina?  @relation("VersionVigente")
+  publicadaPor Usuario? @relation(fields: [publicadaPorId], references: [id], onDelete: Restrict)
+
+  @@unique([paginaId, numero])
+  @@map("versiones_pagina")
+}
+
+/// Imagen del sitio (se sirve pública). El archivo se valida por su contenido.
+model Medio {
+  id               String   @id @default(uuid()) @db.Uuid
+  archivoId        String   @unique @map("archivo_id") @db.Uuid
+  textoAlternativo String   @map("texto_alternativo") @db.VarChar(200)
+  subidoPorId      String?  @map("subido_por_id") @db.Uuid
+  creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  archivo   Archivo  @relation(fields: [archivoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+
+  @@map("medios")
+}
+
+/// Tema del sitio dentro de los límites de la marca NV (una sola fila, id = 1).
+model TemaSitio {
+  id               Int      @id @default(1)
+  /// Paleta predefinida (ver `PALETAS_SITIO` en @nv/shared).
+  paleta           String   @default("nv") @db.VarChar(30)
+  actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
+  actualizadoEn    DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@map("tema_sitio")
+}
+
+// ───────────────────────────── Fase 3: automatizaciones ─────────────────────────────
+
+enum EstadoTrabajo {
+  pendiente
+  en_curso
+  completado
+  fallido
+  cancelado
+}
+
+/// Cola de trabajos sobre PostgreSQL (sin Redis). El trabajador toma filas con
+/// FOR UPDATE SKIP LOCKED; `claveUnica` evita encolar dos veces lo mismo.
+model Trabajo {
+  id             String        @id @default(uuid()) @db.Uuid
+  tipo           String        @db.VarChar(60)
+  carga          Json          @default("{}")
+  estado         EstadoTrabajo @default(pendiente)
+  ejecutarEn     DateTime      @default(now()) @map("ejecutar_en") @db.Timestamptz(3)
+  intentos       Int           @default(0)
+  maxIntentos    Int           @default(5) @map("max_intentos")
+  /// Hasta cuándo lo tiene reservado un trabajador; si se cae, otro lo retoma.
+  bloqueadoHasta DateTime?     @map("bloqueado_hasta") @db.Timestamptz(3)
+  ultimoError    String?       @map("ultimo_error") @db.VarChar(1000)
+  claveUnica     String?       @unique @map("clave_unica") @db.VarChar(200)
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  completadoEn   DateTime?     @map("completado_en") @db.Timestamptz(3)
+
+  @@index([estado, ejecutarEn])
+  @@index([tipo, creadoEn(sort: Desc)])
+  @@map("trabajos")
+}
+
+enum CanalAviso {
+  correo
+  whatsapp
+}
+
+/// Una fila por tipo de automatización (catálogo en @nv/shared). Los parámetros
+/// se validan con el esquema zod de su tipo.
+model Automatizacion {
+  tipo              String       @id @db.VarChar(60)
+  activa            Boolean      @default(false)
+  parametros        Json         @default("{}")
+  canales           CanalAviso[] @default([correo])
+  ultimaEjecucionEn DateTime?    @map("ultima_ejecucion_en") @db.Timestamptz(3)
+  actualizadoPorId  String?      @map("actualizado_por_id") @db.Uuid
+  actualizadoEn     DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario?                  @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+  ejecuciones    EjecucionAutomatizacion[]
+
+  @@map("automatizaciones")
+}
+
+enum EstadoEjecucion {
+  en_curso
+  completada
+  con_errores
+  fallida
+}
+
+model EjecucionAutomatizacion {
+  id          String          @id @default(uuid()) @db.Uuid
+  tipo        String          @db.VarChar(60)
+  estado      EstadoEjecucion @default(en_curso)
+  /// "programada" o "manual" (alguien pulsó "Ejecutar ahora").
+  disparo     String          @default("programada") @db.VarChar(20)
+  procesados  Int             @default(0)
+  omitidos    Int             @default(0)
+  errores     Int             @default(0)
+  resumen     String?         @db.VarChar(1000)
+  detalle     Json?
+  iniciadaEn  DateTime        @default(now()) @map("iniciada_en") @db.Timestamptz(3)
+  terminadaEn DateTime?       @map("terminada_en") @db.Timestamptz(3)
+
+  automatizacion Automatizacion @relation(fields: [tipo], references: [tipo], onDelete: Restrict)
+
+  @@index([tipo, iniciadaEn(sort: Desc)])
+  @@map("ejecuciones_automatizacion")
+}
+
+enum EstadoNotificacion {
+  pendiente
+  enviada
+  fallida
+  omitida
+}
+
+/// Cada aviso a un cliente, revendedor o miembro del equipo, por canal. La
+/// `claveUnica` impide mandar dos veces el mismo aviso (p. ej. el recordatorio
+/// de 3 días de un mismo vencimiento).
+model Notificacion {
+  id                String             @id @default(uuid()) @db.Uuid
+  canal             CanalAviso
+  plantilla         String             @db.VarChar(60)
+  destino           String             @db.VarChar(254)
+  clienteId         String?            @map("cliente_id") @db.Uuid
+  usuarioId         String?            @map("usuario_id") @db.Uuid
+  automatizacion    String?            @db.VarChar(60)
+  entidad           String?            @db.VarChar(40)
+  entidadId         String?            @map("entidad_id") @db.Uuid
+  estado            EstadoNotificacion @default(pendiente)
+  motivo            String?            @db.VarChar(300)
+  error             String?            @db.VarChar(500)
+  proveedor         String?            @db.VarChar(30)
+  referenciaExterna String?            @map("referencia_externa") @db.VarChar(120)
+  claveUnica        String             @unique @map("clave_unica") @db.VarChar(200)
+  creadoEn          DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
+  enviadaEn         DateTime?          @map("enviada_en") @db.Timestamptz(3)
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@index([creadoEn(sort: Desc)])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([automatizacion, creadoEn(sort: Desc)])
+  @@index([estado, creadoEn])
+  @@map("notificaciones")
+}
+
+/// Latido de cada proceso trabajador. El panel de automatizaciones lo usa para
+/// saber si el trabajador está en marcha; las filas viejas se borran solas.
+model LatidoTrabajador {
+  /// host:pid:aleatorio de cada arranque.
+  id             String   @id @db.VarChar(120)
+  host           String   @db.VarChar(120)
+  pid            Int
+  iniciadoEn     DateTime @map("iniciado_en") @db.Timestamptz(3)
+  ultimoLatidoEn DateTime @map("ultimo_latido_en") @db.Timestamptz(3)
+
+  @@index([ultimoLatidoEn(sort: Desc)])
+  @@map("latidos_trabajador")
+}
+
+// ───────────────────────────── Fase 4: pagos en línea ─────────────────────────────
+
+enum EstadoIntentoPago {
+  creado
+  pendiente
+  aprobado
+  rechazado
+  cancelado
+  expirado
+}
+
+/// Un pago en línea que el cliente inicia (ir a la pasarela y volver). Al
+/// aprobarse crea el `Pago` confirmado; nunca guarda datos de tarjeta.
+model IntentoPago {
+  id                String            @id @default(uuid()) @db.Uuid
+  /// Referencia del servidor, p. ej. P-7K2M9QX4; viaja a la pasarela.
+  referencia        String            @unique @db.VarChar(20)
+  facturaId         String            @map("factura_id") @db.Uuid
+  clienteId         String            @map("cliente_id") @db.Uuid
+  metodoCobroId     String            @map("metodo_cobro_id") @db.Uuid
+  pasarela          String            @db.VarChar(30)
+  moneda            Moneda
+  monto             Decimal           @db.Decimal(14, 2)
+  estado            EstadoIntentoPago @default(creado)
+  /// Id de la orden o preferencia en la pasarela.
+  idExterno         String?           @map("id_externo") @db.VarChar(120)
+  urlPago           String?           @map("url_pago") @db.VarChar(1000)
+  /// El cliente marcó "guardar para cobros automáticos" y aceptó el texto.
+  guardarMetodo     Boolean           @default(false) @map("guardar_metodo")
+  /// Evidencia de la autorización (si guardarMetodo): texto exacto aceptado, versión, IP y navegador.
+  /// Se copia al método autorizado cuando la pasarela devuelve el token.
+  textoAutorizacion String?           @map("texto_autorizacion") @db.VarChar(2000)
+  versionTexto      String?           @map("version_texto") @db.VarChar(20)
+  autorizadoEn      DateTime?         @map("autorizado_en") @db.Timestamptz(3)
+  autorizadoIp      String?           @map("autorizado_ip") @db.VarChar(64)
+  autorizadoAgente  String?           @map("autorizado_agente") @db.VarChar(300)
+  pagoId            String?           @unique @map("pago_id") @db.Uuid
+  error             String?           @db.VarChar(500)
+  expiraEn          DateTime          @map("expira_en") @db.Timestamptz(3)
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  pago        Pago?       @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@unique([pasarela, idExterno])
+  @@index([facturaId, estado])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([estado, expiraEn])
+  @@map("intentos_pago")
+}
+
+enum EstadoMetodoAutorizado {
+  activo
+  revocado
+  /// La pasarela lo invalidó (tarjeta vencida, acuerdo cancelado).
+  invalido
+}
+
+/// Autorización expresa del cliente para cobrarle solo al vencer. Guarda el
+/// token de la pasarela cifrado, nunca datos de tarjeta. Es la base legal de
+/// los cobros automáticos: sin una fila activa, el sistema no cobra solo.
+model MetodoPagoAutorizado {
+  id               String                 @id @default(uuid()) @db.Uuid
+  clienteId        String                 @map("cliente_id") @db.Uuid
+  pasarela         String                 @db.VarChar(30)
+  /// Método de cobro (tipo pasarela) con el que se guardó; los cobros automáticos se registran con él.
+  metodoCobroId    String?                @map("metodo_cobro_id") @db.Uuid
+  /// Token de la pasarela (vault id, acuerdo), cifrado con CLAVE_CIFRADO.
+  tokenCifrado     String                 @map("token_cifrado") @db.VarChar(2000)
+  /// Texto para mostrar: "PayPal · ma***@gmail.com", "Visa ···· 4242".
+  descripcion      String                 @db.VarChar(120)
+  moneda           Moneda
+  estado           EstadoMetodoAutorizado @default(activo)
+  /// Texto exacto que el cliente aceptó y su versión.
+  textoAceptado    String                 @map("texto_aceptado") @db.VarChar(2000)
+  versionTexto     String                 @map("version_texto") @db.VarChar(20)
+  autorizadoEn     DateTime               @map("autorizado_en") @db.Timestamptz(3)
+  autorizadoIp     String?                @map("autorizado_ip") @db.VarChar(64)
+  autorizadoAgente String?                @map("autorizado_agente") @db.VarChar(300)
+  revocadoEn       DateTime?              @map("revocado_en") @db.Timestamptz(3)
+  revocadoPorId    String?                @map("revocado_por_id") @db.Uuid
+  motivoEstado     String?                @map("motivo_estado") @db.VarChar(500)
+  creadoEn         DateTime               @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn    DateTime               @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente       Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro   MetodoCobro?      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  revocadoPor   Usuario?          @relation("MetodoRevocador", fields: [revocadoPorId], references: [id], onDelete: Restrict)
+  suscripciones Suscripcion[]
+  cobros        CobroAutomatico[]
+
+  @@index([clienteId, estado])
+  @@map("metodos_pago_autorizados")
+}
+
+enum EstadoCobroAutomatico {
+  programado
+  en_curso
+  exitoso
+  fallido
+  cancelado
+}
+
+/// Cada intento de cobro automático de una factura con un método autorizado.
+/// `claveIdempotencia` (factura + número de intento) evita cobrar dos veces.
+model CobroAutomatico {
+  id                String                @id @default(uuid()) @db.Uuid
+  facturaId         String                @map("factura_id") @db.Uuid
+  suscripcionId     String                @map("suscripcion_id") @db.Uuid
+  metodoId          String                @map("metodo_id") @db.Uuid
+  intento           Int
+  estado            EstadoCobroAutomatico @default(programado)
+  programadoPara    DateTime              @map("programado_para") @db.Timestamptz(3)
+  ejecutadoEn       DateTime?             @map("ejecutado_en") @db.Timestamptz(3)
+  claveIdempotencia String                @unique @map("clave_idempotencia") @db.VarChar(120)
+  idExterno         String?               @map("id_externo") @db.VarChar(120)
+  pagoId            String?               @unique @map("pago_id") @db.Uuid
+  error             String?               @db.VarChar(500)
+  creadoEn          DateTime              @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  factura     Factura              @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  metodo      MetodoPagoAutorizado @relation(fields: [metodoId], references: [id], onDelete: Restrict)
+  pago        Pago?                @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@unique([facturaId, intento])
+  @@index([estado, programadoPara])
+  @@map("cobros_automaticos")
+}
+
+enum EstadoEventoPasarela {
+  recibido
+  procesado
+  ignorado
+  error
+}
+
+/// Bandeja de webhooks de las pasarelas. Se guarda cada evento verificado una
+/// sola vez (pasarela + idEvento) y se procesa de forma idempotente.
+model EventoPasarela {
+  id          String               @id @default(uuid()) @db.Uuid
+  pasarela    String               @db.VarChar(30)
+  idEvento    String               @map("id_evento") @db.VarChar(160)
+  tipo        String               @db.VarChar(120)
+  /// Id del recurso en la pasarela (orden, pago, reembolso).
+  idRecurso   String?              @map("id_recurso") @db.VarChar(160)
+  firmaValida Boolean              @map("firma_valida")
+  /// Cuerpo del evento sin datos personales innecesarios.
+  carga       Json
+  estado      EstadoEventoPasarela @default(recibido)
+  error       String?              @db.VarChar(500)
+  recibidoEn  DateTime             @default(now()) @map("recibido_en") @db.Timestamptz(3)
+  procesadoEn DateTime?            @map("procesado_en") @db.Timestamptz(3)
+
+  @@unique([pasarela, idEvento])
+  @@index([estado, recibidoEn])
+  @@map("eventos_pasarela")
+}
+
+enum EstadoReembolso {
+  solicitado
+  completado
+  fallido
+}
+
+model Reembolso {
+  id                String          @id @default(uuid()) @db.Uuid
+  pagoId            String          @map("pago_id") @db.Uuid
+  monto             Decimal         @db.Decimal(14, 2)
+  moneda            Moneda
+  motivo            String          @db.VarChar(500)
+  estado            EstadoReembolso @default(solicitado)
+  claveIdempotencia String          @unique @map("clave_idempotencia") @db.VarChar(120)
+  idExterno         String?         @map("id_externo") @db.VarChar(120)
+  error             String?         @db.VarChar(500)
+  solicitadoPorId   String          @map("solicitado_por_id") @db.Uuid
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  completadoEn      DateTime?       @map("completado_en") @db.Timestamptz(3)
+
+  pago          Pago    @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  solicitadoPor Usuario @relation(fields: [solicitadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([pagoId])
+  @@map("reembolsos")
+}
+
+/// Estado interno de la pasarela de pruebas ("sandbox"): lo que guardaría una pasarela real
+/// (órdenes, cobros, tokens y devoluciones). Vive en la base para que la API y el trabajador,
+/// que son procesos distintos, vean lo mismo. Solo se usa en desarrollo y pruebas.
+model OperacionSandbox {
+  id                String   @id @db.VarChar(60)
+  /// "orden", "cobro", "token" o "reembolso".
+  tipo              String   @db.VarChar(20)
+  estado            String   @db.VarChar(20)
+  referencia        String?  @db.VarChar(60)
+  /// Id del intento de pago de NV (las órdenes) para la página de pago de pruebas.
+  idInterno         String?  @map("id_interno") @db.VarChar(64)
+  monto             Decimal? @db.Decimal(14, 2)
+  moneda            Moneda?
+  descripcion       String?  @db.VarChar(200)
+  guardarMetodo     Boolean  @default(false) @map("guardar_metodo")
+  /// Orden → cobro; cobro → token u orden; reembolso → cobro.
+  relacionadoId     String?  @map("relacionado_id") @db.VarChar(60)
+  claveIdempotencia String?  @unique @map("clave_idempotencia") @db.VarChar(160)
+  datos             Json     @default("{}")
+  creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@index([idInterno])
+  @@index([relacionadoId])
+  @@map("operaciones_sandbox")
+}
+
+// ── Fase 5: asistente de IA ──────────────────────────────────────────────────
+
+/// Conversación de una persona del equipo con el asistente. Solo la ve su dueño.
+model ConversacionAsistente {
+  id            String   @id @default(uuid()) @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  titulo        String   @db.VarChar(120)
+  archivada     Boolean  @default(false)
+  creadaEn      DateTime @default(now()) @map("creada_en") @db.Timestamptz(3)
+  actualizadaEn DateTime @updatedAt @map("actualizada_en") @db.Timestamptz(3)
+
+  usuario  Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  mensajes MensajeAsistente[]
+  acciones AccionPropuesta[]
+
+  @@index([usuarioId, actualizadaEn(sort: Desc)])
+  @@map("conversaciones_asistente")
+}
+
+enum RolMensajeAsistente {
+  usuario
+  asistente
+}
+
+/// Un turno de la conversación. Lo que devolvieron las herramientas no se guarda:
+/// solo qué herramienta se usó y si funcionó. El texto del asistente ya va redactado.
+model MensajeAsistente {
+  id             String              @id @default(uuid()) @db.Uuid
+  conversacionId String              @map("conversacion_id") @db.Uuid
+  orden          Int
+  rol            RolMensajeAsistente
+  texto          String              @db.Text
+  /// [{ herramienta, ok, error }]
+  herramientas   Json                @default("[]")
+  proveedor      String?             @db.VarChar(20)
+  modelo         String?             @db.VarChar(80)
+  tokensEntrada  Int                 @default(0) @map("tokens_entrada")
+  tokensSalida   Int                 @default(0) @map("tokens_salida")
+  creadoEn       DateTime            @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  conversacion ConversacionAsistente @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  acciones     AccionPropuesta[]
+
+  @@unique([conversacionId, orden])
+  @@map("mensajes_asistente")
+}
+
+enum EstadoAccionPropuesta {
+  propuesta
+  ejecutada
+  rechazada
+  fallida
+  expirada
+}
+
+/// Algo con efecto que el asistente propuso. Solo se ejecuta cuando una persona
+/// con el permiso de la herramienta la confirma; ejecución y decisión se auditan.
+model AccionPropuesta {
+  id              String                @id @default(uuid()) @db.Uuid
+  conversacionId  String                @map("conversacion_id") @db.Uuid
+  mensajeId       String?               @map("mensaje_id") @db.Uuid
+  solicitadaPorId String                @map("solicitada_por_id") @db.Uuid
+  herramienta     String                @db.VarChar(60)
+  permiso         String                @db.VarChar(60)
+  parametros      Json
+  resumen         String                @db.VarChar(500)
+  estado          EstadoAccionPropuesta @default(propuesta)
+  expiraEn        DateTime              @map("expira_en") @db.Timestamptz(3)
+  decididaPorId   String?               @map("decidida_por_id") @db.Uuid
+  decididaEn      DateTime?             @map("decidida_en") @db.Timestamptz(3)
+  motivoRechazo   String?               @map("motivo_rechazo") @db.VarChar(500)
+  resultado       String?               @db.VarChar(500)
+  error           String?               @db.VarChar(500)
+  creadaEn        DateTime              @default(now()) @map("creada_en") @db.Timestamptz(3)
+
+  conversacion  ConversacionAsistente @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  mensaje       MensajeAsistente?     @relation(fields: [mensajeId], references: [id], onDelete: SetNull)
+  solicitadaPor Usuario               @relation("AccionSolicitante", fields: [solicitadaPorId], references: [id], onDelete: Restrict)
+  decididaPor   Usuario?              @relation("AccionDecisor", fields: [decididaPorId], references: [id], onDelete: Restrict)
+
+  @@index([estado, expiraEn])
+  @@index([conversacionId])
+  @@index([solicitadaPorId, creadaEn(sort: Desc)])
+  @@map("acciones_propuestas")
+}
+
+/// Configuración del asistente (una sola fila, id = 1). Las claves van en el entorno.
+model ConfiguracionAsistente {
+  id                        Int      @id @default(1)
+  activo                    Boolean  @default(false)
+  proveedor                 String   @default("local") @db.VarChar(20)
+  modelo                    String?  @db.VarChar(80)
+  topeMensualUsd            Decimal  @default(10) @map("tope_mensual_usd") @db.Decimal(10, 2)
+  mensajesDiariosPorUsuario Int      @default(100) @map("mensajes_diarios_por_usuario")
+  actualizadoPorId          String?  @map("actualizado_por_id") @db.Uuid
+  actualizadoEn             DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  actualizadoPor Usuario? @relation(fields: [actualizadoPorId], references: [id], onDelete: Restrict)
+
+  @@map("configuracion_asistente")
+}
+
+/// Consumo por mes (hora de Venezuela) y motor, para el tope de gasto.
+model UsoAsistente {
+  mes           String   @db.VarChar(7)
+  proveedor     String   @db.VarChar(20)
+  peticiones    Int      @default(0)
+  tokensEntrada BigInt   @default(0) @map("tokens_entrada")
+  tokensSalida  BigInt   @default(0) @map("tokens_salida")
+  costoUsd      Decimal  @default(0) @map("costo_usd") @db.Decimal(12, 4)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@id([mes, proveedor])
+  @@map("uso_asistente")
+}
+
+// ── Fase 6: entregas de servicios autorizados ────────────────────────────────
+
+enum EstadoEntrega {
+  pendiente
+  en_curso
+  entregada
+  fallida
+  revocada
+  anulada
+}
+
+enum MotivoEntrega {
+  alta
+  renovacion
+  /// Activación o renovación comprada por un revendedor con su saldo.
+  compra
+}
+
+enum EstadoCodigo {
+  disponible
+  reservado
+  entregado
+  anulado
+}
+
+/// Entrega de un servicio autorizado al cliente: un alta o renovación pagada
+/// (factura) o una compra de revendedor. La hace el adaptador del proveedor
+/// (manual, códigos de inventario o webhook). NUNCA contiene credenciales de
+/// cuentas de terceros: solo códigos o enlaces de activación del distribuidor
+/// oficial o del servicio propio, cifrados, e instrucciones sin secretos.
+model Entrega {
+  id                 String        @id @default(uuid()) @db.Uuid
+  proveedorId        String        @map("proveedor_id") @db.Uuid
+  planId             String        @map("plan_id") @db.Uuid
+  clienteId          String        @map("cliente_id") @db.Uuid
+  /// Revendedor que compró la activación (ve la entrega para su cliente final).
+  revendedorId       String?       @map("revendedor_id") @db.Uuid
+  /// Exactamente una de las dos: suscripción (factura pagada) o compra de revendedor.
+  suscripcionId      String?       @map("suscripcion_id") @db.Uuid
+  compraRevendedorId String?       @map("compra_revendedor_id") @db.Uuid
+  facturaId          String?       @map("factura_id") @db.Uuid
+  /// Adaptador con el que se creó ("manual", "codigos" o "webhook").
+  adaptador          String        @db.VarChar(40)
+  motivo             MotivoEntrega
+  /// "factura:<id>" o "compra:<id>": una entrega por pago, aunque se aplique dos veces.
+  claveIdempotencia  String        @unique @map("clave_idempotencia") @db.VarChar(120)
+  estado             EstadoEntrega @default(pendiente)
+  intentos           Int           @default(0)
+  proximoIntentoEn   DateTime?     @map("proximo_intento_en") @db.Timestamptz(3)
+  /// Id de la activación en el sistema del proveedor.
+  referenciaExterna  String?       @map("referencia_externa") @db.VarChar(200)
+  /// JSON { codigo?, enlace? } cifrado con CLAVE_CIFRADO (contexto "entrega:<id>").
+  datosCifrados      String?       @map("datos_cifrados") @db.VarChar(4000)
+  /// Pasos para activar, sin secretos. Los ve el cliente.
+  instrucciones      String?       @db.VarChar(2000)
+  error              String?       @db.VarChar(500)
+  /// Periodo que cubre (se envía al proveedor).
+  periodoInicio      DateTime?     @map("periodo_inicio") @db.Timestamptz(3)
+  periodoFin         DateTime?     @map("periodo_fin") @db.Timestamptz(3)
+  completadaPorId    String?       @map("completada_por_id") @db.Uuid
+  entregadaEn        DateTime?     @map("entregada_en") @db.Timestamptz(3)
+  /// Primera vez que el cliente (o su revendedor) reveló el código o enlace.
+  vistaEn            DateTime?     @map("vista_en") @db.Timestamptz(3)
+  revocadaEn         DateTime?     @map("revocada_en") @db.Timestamptz(3)
+  anuladaEn          DateTime?     @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion    String?       @map("motivo_anulacion") @db.VarChar(500)
+  creadoEn           DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  proveedor        Proveedor         @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  plan             Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cliente          Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  revendedor       Revendedor?       @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  suscripcion      Suscripcion?      @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  compraRevendedor CompraRevendedor? @relation(fields: [compraRevendedorId], references: [id], onDelete: Restrict)
+  factura          Factura?          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  completadaPor    Usuario?          @relation("EntregaCompletador", fields: [completadaPorId], references: [id], onDelete: Restrict)
+  codigo           CodigoInventario?
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@index([suscripcionId])
+  @@index([compraRevendedorId])
+  @@index([planId, estado])
+  @@map("entregas")
+}
+
+/// Lote de códigos de un plan que sube administración (tarjetas o códigos de
+/// activación del distribuidor oficial).
+model LoteCodigos {
+  id          String    @id @default(uuid()) @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  nombre      String    @db.VarChar(120)
+  subidoPorId String    @map("subido_por_id") @db.Uuid
+  /// Códigos añadidos (sin contar repetidos).
+  cantidad    Int
+  repetidos   Int       @default(0)
+  venceEn     DateTime? @map("vence_en") @db.Timestamptz(3)
+  creadoEn    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  plan      Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subidoPor Usuario            @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  codigos   CodigoInventario[]
+
+  @@index([planId, creadoEn(sort: Desc)])
+  @@map("lotes_codigos")
+}
+
+/// Código de inventario. Se guarda cifrado; `huella` (HMAC del código
+/// normalizado) permite rechazar repetidos sin descifrar. El código nunca
+/// aparece en registros, auditoría ni en el asistente de IA.
+model CodigoInventario {
+  id              String       @id @default(uuid()) @db.Uuid
+  planId          String       @map("plan_id") @db.Uuid
+  loteId          String       @map("lote_id") @db.Uuid
+  /// Cifrado con CLAVE_CIFRADO (contexto "codigo:<id>").
+  codigoCifrado   String       @map("codigo_cifrado") @db.VarChar(1000)
+  huella          String       @unique @db.Char(64)
+  estado          EstadoCodigo @default(disponible)
+  entregaId       String?      @unique @map("entrega_id") @db.Uuid
+  venceEn         DateTime?    @map("vence_en") @db.Timestamptz(3)
+  entregadoEn     DateTime?    @map("entregado_en") @db.Timestamptz(3)
+  anuladoEn       DateTime?    @map("anulado_en") @db.Timestamptz(3)
+  anuladoPorId    String?      @map("anulado_por_id") @db.Uuid
+  motivoAnulacion String?      @map("motivo_anulacion") @db.VarChar(300)
+  creadoEn        DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Restrict)
+  lote       LoteCodigos @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  entrega    Entrega?    @relation(fields: [entregaId], references: [id], onDelete: Restrict)
+  anuladoPor Usuario?    @relation("CodigoAnulador", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+
+  @@index([planId, estado, creadoEn])
+  @@index([loteId])
+  @@map("codigos_inventario")
+}

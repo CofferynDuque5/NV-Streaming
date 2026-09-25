@@ -1,64 +1,27 @@
-# NV Streaming — stack completo sin instalar nada en tu máquina.
-#
-#   docker compose up --build        # levanta BD + backend + frontend
-#   → Frontend: http://localhost:8090
-#   → Backend : http://localhost:3000/health
-#   → Admin   : admin@nv.com / Admin12345
-#
-#   docker compose down              # detiene todo (conserva los datos)
-#   docker compose down -v           # detiene y BORRA la base de datos
-#
+# Servicios locales para desarrollo. Uso: docker compose up -d
 services:
-  # ── PostgreSQL (no necesitas instalarlo) ──
-  db:
+  postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: nv
-      POSTGRES_PASSWORD: nvpass
-      POSTGRES_DB: nv_streaming
+      POSTGRES_PASSWORD: nv_local_dev
+      POSTGRES_DB: nv
+    ports:
+      - '127.0.0.1:5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nv -d nv_streaming"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+      test: ['CMD-SHELL', 'pg_isready -U nv']
+      interval: 5s
+      retries: 10
 
-  # ── Backend Node/Express (al arrancar: migra el esquema, siembra el catálogo
-  #    real y crea el admin desde SEED_ADMIN_*; todo idempotente) ──
-  backend:
-    build: ./whatsapp-agent
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      NODE_ENV: development
-      PORT: "3000"
-      DATABASE_URL: postgres://nv:nvpass@db:5432/nv_streaming
-      # ⚠️ En producción cambia este secreto por uno fuerte (≥ 32 caracteres).
-      JWT_SECRET: cambia-esto-por-un-secreto-fuerte-en-produccion
-      WHATSAPP_VERIFY_TOKEN: dev
-      WHATSAPP_APP_SECRET: dev
-      CRON_ENABLED: "off"
-      CORS_ORIGIN: "*"
-      # Admin inicial que crea el seeder (cámbialo si quieres).
-      SEED_ADMIN_EMAIL: admin@nv.com
-      SEED_ADMIN_PASSWORD: Admin12345
+  # Bandeja de correo local (código abierto): http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
     ports:
-      - "3000:3000"
-
-  # ── Frontend (nginx sirve site/ Y hace proxy de /api y /health al backend,
-  #    para que el front hable con el backend por el MISMO origen) ──
-  frontend:
-    image: nginx:alpine
-    depends_on:
-      - backend
-    volumes:
-      - ./site:/usr/share/nginx/html:ro
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      # 8090 en el host (8080 suele estar ocupado, p. ej. por EnterpriseDB).
-      - "8090:80"
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
 
 volumes:
   pgdata:

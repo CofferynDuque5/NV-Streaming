@@ -1,0 +1,258 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NV Streaming en producción (un solo servidor; pensado para la VM ARM «Always Free»
+# de Oracle Cloud: 4 núcleos y 24 GB de RAM).
+#
+# No lo lances a mano: usa infra/instalar.sh (primera vez) e infra/actualizar.sh.
+# Si necesitas una orden suelta, siempre con el archivo de entorno:
+#   docker compose -f docker-compose.prod.yml --env-file .env.produccion ps
+#
+# Solo Caddy publica puertos (80 y 443). PostgreSQL, la API y la web quedan en la red
+# interna de Docker. Uptime Kuma escucha solo en 127.0.0.1 (se abre con un túnel SSH).
+# ─────────────────────────────────────────────────────────────────────────────
+name: nv
+
+# Rotación de logs: como máximo 5 archivos de 10 MB por servicio.
+x-registros: &registros
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '5'
+
+x-entorno-app: &entorno-app
+  env_file:
+    - path: .env.produccion
+      required: true
+  environment:
+    NODE_ENV: production
+    API_URL_INTERNA: http://api:4000
+    ALMACEN_DIR: /datos/almacen
+    NO_COLOR: '1'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    <<: *registros
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nv}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env.produccion}
+      POSTGRES_DB: ${POSTGRES_DB:-nv}
+    # Ajustes para ~2 GB de memoria; la VM tiene de sobra.
+    command:
+      - postgres
+      # La base trabaja en UTC (como en desarrollo y en CI): el adaptador de Prisma envía
+      # las fechas sin zona horaria y con otra zona quedarían desplazadas 4 horas. La web
+      # y la API ya muestran y programan todo en hora de Venezuela.
+      - -c
+      - timezone=UTC
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=100
+      - -c
+      - log_min_duration_statement=2000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: { cpus: '2', memory: 2g }
+
+  # Tarea de un solo uso: aplica las migraciones pendientes y termina.
+  # La API no arranca hasta que termina bien.
+  migrar:
+    image: ${NV_IMAGEN:-nv-streaming}/migrar:${NV_VERSION:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrar
+    <<: [*registros, *entorno-app]
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: '1', memory: 512m }
+
+  api:
+    image: ${NV_IMAGEN:-nv-streaming}/api:${NV_VERSION:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: api
+    <<: [*registros, *entorno-app]
+    restart: unless-stopped
+    init: true
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrar: { condition: service_completed_successfully }
+    volumes:
+      - almacen:/datos/almacen
+    environment:
+      NODE_ENV: production
+      API_URL_INTERNA: http://api:4000
+      ALMACEN_DIR: /datos/almacen
+      NO_COLOR: '1'
+      NODE_OPTIONS: --max-old-space-size=768
+    deploy:
+      resources:
+        limits: { cpus: '2', memory: 1g }
+
+  # Automatizaciones: recordatorios, avisos, vencimientos, tasa del bolívar…
+  trabajador:
+    image: ${NV_IMAGEN:-nv-streaming}/api:${NV_VERSION:-local}
+    <<: [*registros, *entorno-app]
+    restart: unless-stopped
+    init: true
+    command: ['node', '--enable-source-maps', 'dist/trabajador.js']
+    depends_on:
+      api: { condition: service_healthy }
+    volumes:
+      - almacen:/datos/almacen
+    environment:
+      NODE_ENV: production
+      API_URL_INTERNA: http://api:4000
+      ALMACEN_DIR: /datos/almacen
+      NO_COLOR: '1'
+      NODE_OPTIONS: --max-old-space-size=512
+    healthcheck:
+      # Sano si dejó su latido en la base en los últimos 2 minutos.
+      test: ['CMD', 'node', 'salud-trabajador.mjs']
+      interval: 60s
+      timeout: 15s
+      start_period: 90s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '1', memory: 768m }
+
+  web:
+    image: ${NV_IMAGEN:-nv-streaming}/web:${NV_VERSION:-local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        WEB_ORIGEN: ${WEB_ORIGEN:?Falta WEB_ORIGEN en .env.produccion}
+    <<: *registros
+    restart: unless-stopped
+    init: true
+    depends_on:
+      api: { condition: service_healthy }
+    # La web solo necesita estas variables (nunca las claves del servidor).
+    environment:
+      NODE_ENV: production
+      API_URL_INTERNA: http://api:4000
+      WEB_ORIGEN: ${WEB_ORIGEN:?Falta WEB_ORIGEN en .env.produccion}
+      COMPROBANTE_MAX_MB: ${COMPROBANTE_MAX_MB:-5}
+      NODE_OPTIONS: --max-old-space-size=768
+    deploy:
+      resources:
+        limits: { cpus: '2', memory: 1g }
+
+  caddy:
+    image: caddy:2-alpine
+    <<: *registros
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+    ports:
+      - '${HTTP_PUERTO:-80}:80'
+      - '${HTTPS_PUERTO:-443}:443'
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO en .env.produccion}
+      CORREO_ADMIN: ${CORREO_ADMIN:?Falta CORREO_ADMIN en .env.produccion}
+      CADDY_TLS: ${CADDY_TLS:-acme}
+    volumes:
+      - ./infra/caddy:/etc/caddy:ro
+      - caddy_datos:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:2019/config/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits: { cpus: '1', memory: 256m }
+
+  # Monitor de disponibilidad. Solo en 127.0.0.1: se abre con un túnel SSH
+  # (ssh -L 3001:127.0.0.1:3001 ubuntu@IP) y luego http://localhost:3001.
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    <<: *registros
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${KUMA_PUERTO:-3001}:3001'
+    volumes:
+      - kuma:/app/data
+    deploy:
+      resources:
+        limits: { cpus: '1', memory: 384m }
+
+  # Copias de seguridad cifradas a las horas de RESPALDO_HORAS (y subida opcional con rclone).
+  respaldos:
+    image: ${NV_IMAGEN:-nv-streaming}/respaldos:${NV_VERSION:-local}
+    build:
+      context: .
+      dockerfile: infra/respaldos/Dockerfile
+    <<: *registros
+    restart: unless-stopped
+    # Con el usuario dueño de .env.produccion y de la carpeta de copias (no root).
+    user: '${NV_UID:-1000}:${NV_GID:-1000}'
+    depends_on:
+      postgres: { condition: service_healthy }
+    env_file:
+      - path: .env.produccion
+        required: true
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-nv}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-nv}
+      ALMACEN_DIR: /datos/almacen
+      RESPALDO_DIR: /respaldos
+      TZ: America/Caracas
+    volumes:
+      - almacen:/datos/almacen
+      - ${RESPALDO_DIR_SERVIDOR:-/var/backups/nv-streaming}:/respaldos
+      - ./.env.produccion:/config/entorno:ro
+    deploy:
+      resources:
+        limits: { cpus: '1', memory: 512m }
+
+  # Asistente de IA local (opcional). Se activa con COMPOSE_PROFILES=ia en .env.produccion
+  # y OLLAMA_URL=http://ollama:11434. Sin puertos publicados: solo la API lo usa.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ['ia']
+    <<: *registros
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NUM_PARALLEL: '1'
+    volumes:
+      - ollama:/root/.ollama
+    deploy:
+      resources:
+        limits: { cpus: '3', memory: 12g }
+
+volumes:
+  pgdata:
+  almacen:
+  caddy_datos:
+  caddy_config:
+  kuma:
+  ollama:
