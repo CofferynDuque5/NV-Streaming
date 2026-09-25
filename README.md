@@ -119,6 +119,43 @@ Detalles:
 - Si Mercado Pago aprueba un pago después de que el intento venció o se canceló, NV lo registra igual (el dinero nunca se pierde).
 - `MERCADOPAGO_API_URL` es solo para las pruebas automáticas (servidor falso local); en producción la API no arranca si tiene valor.
 
+## Asistente de IA
+
+Asistente para el equipo (administración, operación y ventas) en `/admin/asistente`. **Viene desactivado**: una persona con rol de administración lo activa, elige el motor y fija los límites en **/admin/asistente** (configuración). Hay dos motores reales y uno de pruebas:
+
+| Motor                  | Costo                       | Dónde corren los datos                                               |
+| ---------------------- | --------------------------- | -------------------------------------------------------------------- |
+| **Local (Ollama)**     | Gratis                      | En tu servidor: nada sale de la máquina                              |
+| **Claude (Anthropic)** | Por token, con tope mensual | En la API de Anthropic                                               |
+| Pruebas (sandbox)      | —                           | Respuestas fijas; solo desarrollo y pruebas, prohibido en producción |
+
+### Qué puede hacer y qué no
+
+- **Consultar** con los permisos y la cartera de quien pregunta: buscar clientes y ver su ficha, suscripciones por vencer, facturas pendientes, pagos por conciliar, tickets abiertos y su conversación, métricas del panel, tasas del día y revendedores con saldo bajo. Ventas solo ve su cartera; una herramienta cuyo permiso no tienes ni siquiera se le ofrece al modelo.
+- **Proponer acciones** (pausar, reanudar o emitir la renovación de una suscripción, responder o cambiar un ticket, guardar una nota interna). Una propuesta **no hace nada**: aparece como tarjeta y solo se ejecuta cuando la confirma quien la pidió (o administración), con su permiso vuelto a comprobar. Caduca a los 60 minutos. Propuesta, ejecución, rechazo y fallo quedan en la auditoría (la propuesta con el actor «IA»).
+- **Nunca** accede a la base de datos ni ejecuta SQL: solo un catálogo cerrado de herramientas que llaman a los mismos servicios que la web. No ve contraseñas, secretos de 2FA, tokens, datos de tarjeta ni de pasarelas, comprobantes ni códigos de inventario; las notas internas solo con el permiso `clientes.notas`. Antes de enviar nada al motor, un filtro redacta lo que parezca una tarjeta, una cuenta bancaria o IBAN, un token o una clave. El texto de clientes (tickets, nombres) se entrega marcado como datos, no como instrucciones.
+- Guarda las conversaciones (solo las ve su dueño) y qué herramientas usó cada respuesta, pero **no** los datos que devolvieron. Los registros del servidor solo llevan ids y recuentos.
+- Límites: mensajes por persona y día (se configura en el panel), 10 mensajes por minuto y, con Claude, el tope de gasto del mes.
+
+### Motor local gratis con Ollama (p. ej. VM ARM Always Free de Oracle Cloud)
+
+La VM Ampere A1 del nivel Always Free (hasta 4 OCPU y 24 GB de RAM) alcanza para un modelo de 7–8 mil millones de parámetros en CPU.
+
+1. Instala Ollama en el mismo servidor que la API: `curl -fsSL https://ollama.com/install.sh | sh`. Queda como servicio systemd escuchando en `127.0.0.1:11434`. **No abras ese puerto** a internet: no tiene autenticación.
+2. Descarga el modelo: `ollama pull qwen2.5:7b-instruct` (unos 4,7 GB). Es el recomendado: buen español y buen uso de herramientas. Alternativas: `llama3.1:8b` (similar, algo más flojo en español) o `qwen2.5:3b-instruct` (más rápido, peor eligiendo herramientas).
+3. En el `.env` de la API: `OLLAMA_URL=http://127.0.0.1:11434` y `OLLAMA_MODELO=qwen2.5:7b-instruct` (son los valores por defecto). El panel comprueba que Ollama responde y que el modelo está descargado.
+4. **Memoria**: calcula unos **8 GB de RAM** libres para el modelo 7B con el contexto de 8k que usa NV (más la API, PostgreSQL y la web).
+5. **Velocidad en CPU**: con 4 núcleos ARM, espera unas pocas palabras por segundo; una respuesta que consulta herramientas puede tardar de 20 a 90 s, y la primera tras un rato sin uso tarda más porque carga el modelo (NV lo mantiene cargado 30 min). Si se queda corto, sube `OLLAMA_TIEMPO_LIMITE_S` (por defecto 120) o usa un modelo más pequeño.
+
+### Cambiar a Claude (de pago)
+
+1. En [console.anthropic.com](https://console.anthropic.com) crea una clave (**API Keys**) y ponla en `ANTHROPIC_API_KEY`.
+2. Elige el modelo en la consola o la documentación de Anthropic y copia su **id exacto** en `ANTHROPIC_MODELO` (NV no trae ningún modelo fijo).
+3. Copia el precio de ese modelo en USD por millón de tokens de la página de precios de Anthropic a `ANTHROPIC_PRECIO_ENTRADA_MTOK` y `ANTHROPIC_PRECIO_SALIDA_MTOK` (p. ej. `3` y `15`). Sin estos cuatro valores Claude no se ofrece. Si cambias de modelo, actualiza también los precios.
+4. Reinicia la API, entra en **/admin/asistente**, elige «Claude (Anthropic)» y fija el **tope de gasto mensual** en USD. NV suma tokens y costo de cada llamada (mes en hora de Venezuela) y, al llegar al tope, el asistente responde «Se alcanzó el tope de gasto del mes» hasta el mes siguiente o hasta que subas el tope. Como un mensaje puede hacer hasta 5 llamadas, el gasto real puede pasar el tope en lo que cuesta un mensaje. Pon también un límite de gasto en la consola de Anthropic como segunda barrera.
+
+`ANTHROPIC_API_URL` es solo para las pruebas automáticas (servidor falso local); en producción la API no arranca si tiene valor, ni con `ASISTENTE_SANDBOX_HABILITADO=true`.
+
 ## Pruebas
 
 ```bash

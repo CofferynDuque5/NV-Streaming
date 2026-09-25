@@ -2,6 +2,7 @@ import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditoriaController } from './auditoria/auditoria.controller.js';
 import { AlmacenService } from './almacen/almacen.service.js';
+import { CONTROLADORES_ASISTENTE, PROVEEDORES_ASISTENTE } from './asistente/asistente.js';
 import { AuthModule } from './auth/auth.module.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
@@ -77,6 +78,7 @@ export class AppModule {
         ...CONTROLADORES_SITIO,
         ...CONTROLADORES_AUTOMATIZACIONES,
         ...CONTROLADORES_PAGOS_EN_LINEA,
+        ...CONTROLADORES_ASISTENTE,
       ],
       providers: [
         CuentaService,
@@ -98,6 +100,7 @@ export class AppModule {
         ...PROVEEDORES_SITIO,
         ...PROVEEDORES_AUTOMATIZACIONES,
         ...PROVEEDORES_PAGOS_EN_LINEA,
+        ...PROVEEDORES_ASISTENTE,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },

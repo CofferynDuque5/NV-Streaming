@@ -12,6 +12,22 @@ const urlHttps = (nombre: string, defecto = '') =>
     })
     .default(defecto);
 
+/** Nombre de un modelo de IA (sin espacios ni comillas). Vacío = sin configurar. */
+const nombreModelo = (nombre: string) =>
+  z
+    .string()
+    .trim()
+    .max(80, `${nombre} es demasiado largo.`)
+    .regex(/^[\w.:/-]*$/, `${nombre} tiene caracteres no válidos.`);
+
+/** Precio en USD por millón de tokens, como texto decimal ("3" o "0.25"). Vacío = sin configurar. */
+const precioMtok = (nombre: string) =>
+  z
+    .string()
+    .trim()
+    .regex(/^(\d{1,6}(\.\d{1,6})?)?$/, `${nombre} debe ser un importe en USD, p. ej. 3 o 0.25.`)
+    .default('');
+
 const EntornoSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -134,6 +150,42 @@ const EntornoSchema = z
         error: 'MERCADOPAGO_API_URL debe ser una URL válida.',
       })
       .default(''),
+    // ── Asistente de IA (fase 5) ──────────────────────────────────────────────
+    /** Ollama (modelo local, gratis). Vacía = motor local no disponible. */
+    OLLAMA_URL: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || (/^https?:\/\/\S+$/i.test(v) && URL.canParse(v)), {
+        error: 'OLLAMA_URL debe ser una URL http(s) válida, p. ej. http://127.0.0.1:11434.',
+      })
+      .default('http://127.0.0.1:11434'),
+    /** Modelo de Ollama por defecto (el panel puede elegir otro ya descargado). */
+    OLLAMA_MODELO: nombreModelo('OLLAMA_MODELO').default('qwen2.5:7b-instruct'),
+    /** Segundos máximos por respuesta del modelo local (en CPU puede tardar). */
+    OLLAMA_TIEMPO_LIMITE_S: z.coerce.number().int().min(10).max(600).default(120),
+    /** Anthropic (Claude, de pago). Sin clave, modelo y precios, no se ofrece. */
+    ANTHROPIC_API_KEY: z.string().trim().default(''),
+    /** Id exacto del modelo, copiado de la consola de Anthropic. */
+    ANTHROPIC_MODELO: nombreModelo('ANTHROPIC_MODELO').default(''),
+    /** Precio en USD por millón de tokens de entrada y de salida de ese modelo (para el tope mensual). */
+    ANTHROPIC_PRECIO_ENTRADA_MTOK: precioMtok('ANTHROPIC_PRECIO_ENTRADA_MTOK'),
+    ANTHROPIC_PRECIO_SALIDA_MTOK: precioMtok('ANTHROPIC_PRECIO_SALIDA_MTOK'),
+    /** Solo pruebas automáticas: otra URL base para la API de Anthropic (servidor falso). */
+    ANTHROPIC_API_URL: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || URL.canParse(v), {
+        error: 'ANTHROPIC_API_URL debe ser una URL válida.',
+      })
+      .default(''),
+    /**
+     * Asistente de pruebas (respuestas fijas, sin modelo). Por defecto activo fuera de
+     * producción; en producción no se permite.
+     */
+    ASISTENTE_SANDBOX_HABILITADO: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      booleano.optional(),
+    ),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
@@ -145,6 +197,7 @@ const EntornoSchema = z
   .transform((e) => ({
     ...e,
     PASARELA_SANDBOX_HABILITADA: e.PASARELA_SANDBOX_HABILITADA ?? e.NODE_ENV !== 'production',
+    ASISTENTE_SANDBOX_HABILITADO: e.ASISTENTE_SANDBOX_HABILITADO ?? e.NODE_ENV !== 'production',
   }))
   .superRefine((e, ctx) => {
     if (e.NODE_ENV !== 'production') return;
@@ -189,6 +242,20 @@ const EntornoSchema = z
         code: 'custom',
         path: ['WHATSAPP_TOKEN'],
         message: 'WhatsApp Cloud API necesita WHATSAPP_TOKEN y WHATSAPP_TELEFONO_ID.',
+      });
+    }
+    if (e.ASISTENTE_SANDBOX_HABILITADO) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ASISTENTE_SANDBOX_HABILITADO'],
+        message: 'En producción el asistente de pruebas debe estar desactivado.',
+      });
+    }
+    if (e.ANTHROPIC_API_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ANTHROPIC_API_URL'],
+        message: 'ANTHROPIC_API_URL es solo para pruebas: déjala vacía en producción.',
       });
     }
     if (e.MERCADOPAGO_API_URL) {

@@ -116,4 +116,34 @@ describe('pasarela de pruebas', () => {
       cargarEntorno({ ...base, API_URL_PUBLICA: 'https://api.nvstreaming.com/' }).API_URL_PUBLICA,
     ).toBe('https://api.nvstreaming.com');
   });
+
+  it('asistente de IA: valores por defecto y reglas de producción', () => {
+    const e = cargarEntorno(base);
+    expect(e.OLLAMA_URL).toBe('http://127.0.0.1:11434');
+    expect(e.OLLAMA_MODELO).toBe('qwen2.5:7b-instruct');
+    expect(e.OLLAMA_TIEMPO_LIMITE_S).toBe(120);
+    expect(e.ANTHROPIC_MODELO).toBe('');
+    expect(e.ASISTENTE_SANDBOX_HABILITADO).toBe(true);
+    expect(() => cargarEntorno({ ...base, ANTHROPIC_PRECIO_ENTRADA_MTOK: '3,5' })).toThrow(
+      /ANTHROPIC_PRECIO_ENTRADA_MTOK/,
+    );
+    expect(() => cargarEntorno({ ...base, ANTHROPIC_MODELO: 'modelo con espacios' })).toThrow(
+      /ANTHROPIC_MODELO/,
+    );
+    const prod = {
+      ...base,
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://nv:Xk29-larga@db:5432/nv',
+      WEB_ORIGEN: 'https://nvstreaming.com',
+      CORREO_PROVEEDOR: 'smtp',
+      CORREO_REMITENTE: 'NV Streaming <hola@nvstreaming.com>',
+    };
+    expect(cargarEntorno(prod).ASISTENTE_SANDBOX_HABILITADO).toBe(false);
+    expect(() => cargarEntorno({ ...prod, ASISTENTE_SANDBOX_HABILITADO: 'true' })).toThrow(
+      /ASISTENTE_SANDBOX_HABILITADO/,
+    );
+    expect(() => cargarEntorno({ ...prod, ANTHROPIC_API_URL: 'http://127.0.0.1:9' })).toThrow(
+      /ANTHROPIC_API_URL/,
+    );
+  });
 });

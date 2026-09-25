@@ -90,9 +90,13 @@ export interface ConfiguracionAsistentePublica {
     nombre: string;
     disponible: boolean;
     modeloPorDefecto: string;
+    /** Por qué no está disponible (o no responde, en el caso del modelo local). */
+    motivo: string | null;
   }[];
+  /** Consumo de los últimos meses (hora de Caracas), por motor. */
   usoMes: {
     mes: string;
+    proveedor: ProveedorIa;
     peticiones: number;
     tokensEntrada: number;
     tokensSalida: number;
