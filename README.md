@@ -9,9 +9,12 @@ Plataforma para vender **servicios de streaming autorizados**: panel de administ
 | Fase                            | Contenido                                                                                                                                                | Estado    |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | 0. Cimientos                    | Monorepo, base de datos y migraciones, acceso completo con 2FA, roles y permisos, auditoría inalterable, sistema de diseño NV, CI con metas de velocidad | ✅        |
-| 1. MVP operativo                | Clientes, planes y catálogo, suscripciones, cobros manuales con conciliación, soporte                                                                    | Pendiente |
-| 2. Revendedores y editor visual | Saldo prepagado, precios mayoristas por nivel, editor de páginas por bloques                                                                             | Pendiente |
-| 3–6                             | Automatizaciones, cobros automáticos autorizados, asistente IA, proveedores y producción                                                                 | Pendiente |
+| 1. MVP operativo                | Clientes, planes y catálogo, suscripciones, cobros manuales con conciliación, soporte                                                                    | ✅        |
+| 2. Revendedores y editor visual | Saldo prepagado, precios mayoristas por nivel, editor de páginas por bloques                                                                             | ✅        |
+| 3. Automatizaciones             | Trabajador con cola en PostgreSQL, recordatorios, avisos, escalados y tasa del bolívar                                                                   | ✅        |
+| 4. Pagos en línea               | PayPal y Mercado Pago, cobro automático con autorización expresa, devoluciones                                                                           | ✅        |
+| 5. Asistente de IA              | Consultas con los permisos de quien pregunta, acciones con confirmación y auditoría                                                                      | ✅        |
+| 6. Proveedores y producción     | Integraciones oficiales de proveedores y puesta en marcha                                                                                                | Pendiente |
 
 Detalle en la [propuesta de arquitectura](docs/arquitectura/PROPUESTA-ARQUITECTURA.md).
 

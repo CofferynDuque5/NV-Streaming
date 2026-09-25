@@ -31,7 +31,8 @@ export default defineConfig({
     {
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec/,
+      testIgnore:
+        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -56,6 +57,13 @@ export default defineConfig({
       name: 'pagos-en-linea',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /pagos-en-linea\.spec/,
+    },
+    // Asistente de IA con el motor de pruebas de la API: administración, operación y ventas
+    // entran con la verificación en dos pasos que dejó configurada roles.spec.ts.
+    {
+      name: 'asistente',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /asistente\.spec/,
     },
   ],
   webServer: [

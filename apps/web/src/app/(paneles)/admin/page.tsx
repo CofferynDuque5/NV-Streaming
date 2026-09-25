@@ -332,7 +332,7 @@ export default async function ResumenAdmin() {
         </Alerta>
       )}
 
-      <HojaDeRuta actual={1} />
+      <HojaDeRuta actual={5} />
     </>
   );
 }

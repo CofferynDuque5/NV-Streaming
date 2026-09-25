@@ -43,6 +43,12 @@ const EQUIPO: ElementoNavegacion[] = [
   },
   { etiqueta: 'Cobros', href: '/admin/cobros', icono: 'cobros', permiso: 'facturas.ver' },
   { etiqueta: 'Soporte', href: '/admin/soporte', icono: 'soporte', permiso: 'tickets.ver' },
+  {
+    etiqueta: 'Asistente',
+    href: '/admin/asistente',
+    icono: 'asistente',
+    permiso: 'asistente.usar',
+  },
   { etiqueta: 'Catálogo', href: '/admin/catalogo', icono: 'planes', permiso: 'catalogo.ver' },
   { etiqueta: 'Cupones', href: '/admin/cupones', icono: 'cupones', permiso: 'cupones.ver' },
   {
@@ -77,7 +83,6 @@ const EQUIPO: ElementoNavegacion[] = [
     permiso: 'revendedores.ver',
   },
   { etiqueta: 'Editor visual', href: '/admin/sitio', icono: 'editor', permiso: 'sitio.editar' },
-  { etiqueta: 'Asistente IA', icono: 'asistente', fase: 5 },
 ];
 
 const REVENDEDOR: ElementoNavegacion[] = [

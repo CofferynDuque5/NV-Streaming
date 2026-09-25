@@ -13,6 +13,11 @@ const cabecerasSeguridad = [
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  experimental: {
+    // Las reescrituras a /api cortan a los 30 s por defecto; el asistente con el modelo
+    // local puede tardar hasta un par de minutos en contestar.
+    proxyTimeout: 150_000,
+  },
   // La web y la API comparten origen: el navegador llama a /api y Next.js lo reenvía.
   // Así la cookie de sesión es de primera parte y no hace falta CORS.
   async rewrites() {

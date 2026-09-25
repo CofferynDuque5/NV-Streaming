@@ -22,7 +22,7 @@ const FASES = [
   {
     n: 4,
     titulo: 'Cobros automáticos autorizados',
-    texto: 'Pasarela oficial con autorización expresa del cliente.',
+    texto: 'PayPal y Mercado Pago con autorización expresa del cliente.',
   },
   {
     n: 5,

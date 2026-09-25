@@ -529,7 +529,13 @@ describe('Mercado Pago: webhooks', () => {
     expect(
       (
         await verificar(
-          { ...buena, 'x-signature': buena['x-signature'].replace(/v1=./, 'v1=0') },
+          {
+            ...buena,
+            'x-signature': buena['x-signature'].replace(
+              /v1=(.)/,
+              (_, c: string) => `v1=${c === '0' ? '1' : '0'}`,
+            ),
+          },
           avisar(340),
         )
       ).valido,
