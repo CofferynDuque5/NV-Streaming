@@ -104,6 +104,10 @@ model Usuario {
   accionesDecididas        AccionPropuesta[]        @relation("AccionDecisor")
   asistenteEditado         ConfiguracionAsistente[]
   temasActualizados        TemaSitio[]
+  // Fase 6
+  entregasCompletadas      Entrega[]                @relation("EntregaCompletador")
+  lotesSubidos             LoteCodigos[]
+  codigosAnulados          CodigoInventario[]       @relation("CodigoAnulador")
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -318,6 +322,7 @@ model Cliente {
   notificaciones     Notificacion[]
   metodosAutorizados MetodoPagoAutorizado[]
   intentosPago       IntentoPago[]
+  entregas           Entrega[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
@@ -371,19 +376,25 @@ enum UnidadDuracion {
 }
 
 model Proveedor {
-  id             String        @id @default(uuid()) @db.Uuid
-  nombre         String        @unique @db.VarChar(80)
-  tipo           TipoProveedor
-  /// Adaptador de entrega. En la fase 1 todos son "manual".
-  adaptador      String        @default("manual") @db.VarChar(40)
+  id                     String        @id @default(uuid()) @db.Uuid
+  nombre                 String        @unique @db.VarChar(80)
+  tipo                   TipoProveedor
+  /// Adaptador de entrega: "manual", "codigos" o "webhook" (fase 6).
+  adaptador              String        @default("manual") @db.VarChar(40)
   /// Si el acuerdo prohíbe revender, sus planes no se ofrecen a revendedores.
-  permiteReventa Boolean       @default(false) @map("permite_reventa")
-  notasAcuerdo   String?       @map("notas_acuerdo") @db.VarChar(2000)
-  activo         Boolean       @default(true)
-  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn  DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  permiteReventa         Boolean       @default(false) @map("permite_reventa")
+  notasAcuerdo           String?       @map("notas_acuerdo") @db.VarChar(2000)
+  activo                 Boolean       @default(true)
+  /// Configuración de entrega sin secretos: { webhookUrl, tiempoLimiteSegundos, incluirCorreo, entregarRenovaciones }.
+  configuracion          Json          @default("{}")
+  /// Clave para firmar los webhooks de entrega, cifrada con CLAVE_CIFRADO. Solo se muestra al rotarla.
+  secretoWebhookCifrado  String?       @map("secreto_webhook_cifrado") @db.VarChar(500)
+  secretoWebhookRotadoEn DateTime?     @map("secreto_webhook_rotado_en") @db.Timestamptz(3)
+  creadoEn               DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn          DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   servicios Servicio[]
+  entregas  Entrega[]
 
   @@map("proveedores")
 }
@@ -422,6 +433,8 @@ model Plan {
   revendible       Boolean        @default(false)
   /// Costo para NV: ningún precio mayorista puede quedar por debajo.
   costoUsd         Decimal?       @map("costo_usd") @db.Decimal(14, 2)
+  /// Referencia del plan en el sistema del proveedor (se envía en el webhook de entrega).
+  skuProveedor     String?        @map("sku_proveedor") @db.VarChar(80)
   orden            Int            @default(0)
   creadoEn         DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn    DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(3)
@@ -434,6 +447,9 @@ model Plan {
   cupones           CuponPlan[]
   preciosMayoristas PrecioMayorista[]
   comprasRevendedor CompraRevendedor[]
+  entregas          Entrega[]
+  lotesCodigos      LoteCodigos[]
+  codigos           CodigoInventario[]
 
   @@index([activo, visible, orden])
   @@map("planes")
@@ -531,6 +547,7 @@ model Suscripcion {
   eventos           EventoSuscripcion[]
   facturas          Factura[]
   tickets           Ticket[]
+  entregas          Entrega[]
 
   @@index([clienteId, estado])
   @@index([estado, venceEn])
@@ -604,6 +621,7 @@ model Factura {
   intentosPago      IntentoPago[]
   cobrosAutomaticos CobroAutomatico[]
   canje             CanjeCupon?
+  entregas          Entrega[]
 
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([estado, venceEn])
@@ -915,6 +933,7 @@ model Revendedor {
   recargas      RecargaSaldo[]
   movimientos   MovimientoSaldo[]
   compras       CompraRevendedor[]
+  entregas      Entrega[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@map("revendedores")
@@ -1020,6 +1039,7 @@ model CompraRevendedor {
   suscripcion    Suscripcion       @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
   reembolsadaPor Usuario?          @relation("CompraReembolsador", fields: [reembolsadaPorId], references: [id], onDelete: Restrict)
   movimientos    MovimientoSaldo[]
+  entregas       Entrega[]
 
   @@unique([revendedorId, claveIdempotencia])
   @@index([revendedorId, creadoEn(sort: Desc)])
@@ -1563,4 +1583,143 @@ model UsoAsistente {
 
   @@id([mes, proveedor])
   @@map("uso_asistente")
+}
+
+// ── Fase 6: entregas de servicios autorizados ────────────────────────────────
+
+enum EstadoEntrega {
+  pendiente
+  en_curso
+  entregada
+  fallida
+  revocada
+  anulada
+}
+
+enum MotivoEntrega {
+  alta
+  renovacion
+  /// Activación o renovación comprada por un revendedor con su saldo.
+  compra
+}
+
+enum EstadoCodigo {
+  disponible
+  reservado
+  entregado
+  anulado
+}
+
+/// Entrega de un servicio autorizado al cliente: un alta o renovación pagada
+/// (factura) o una compra de revendedor. La hace el adaptador del proveedor
+/// (manual, códigos de inventario o webhook). NUNCA contiene credenciales de
+/// cuentas de terceros: solo códigos o enlaces de activación del distribuidor
+/// oficial o del servicio propio, cifrados, e instrucciones sin secretos.
+model Entrega {
+  id                 String        @id @default(uuid()) @db.Uuid
+  proveedorId        String        @map("proveedor_id") @db.Uuid
+  planId             String        @map("plan_id") @db.Uuid
+  clienteId          String        @map("cliente_id") @db.Uuid
+  /// Revendedor que compró la activación (ve la entrega para su cliente final).
+  revendedorId       String?       @map("revendedor_id") @db.Uuid
+  /// Exactamente una de las dos: suscripción (factura pagada) o compra de revendedor.
+  suscripcionId      String?       @map("suscripcion_id") @db.Uuid
+  compraRevendedorId String?       @map("compra_revendedor_id") @db.Uuid
+  facturaId          String?       @map("factura_id") @db.Uuid
+  /// Adaptador con el que se creó ("manual", "codigos" o "webhook").
+  adaptador          String        @db.VarChar(40)
+  motivo             MotivoEntrega
+  /// "factura:<id>" o "compra:<id>": una entrega por pago, aunque se aplique dos veces.
+  claveIdempotencia  String        @unique @map("clave_idempotencia") @db.VarChar(120)
+  estado             EstadoEntrega @default(pendiente)
+  intentos           Int           @default(0)
+  proximoIntentoEn   DateTime?     @map("proximo_intento_en") @db.Timestamptz(3)
+  /// Id de la activación en el sistema del proveedor.
+  referenciaExterna  String?       @map("referencia_externa") @db.VarChar(200)
+  /// JSON { codigo?, enlace? } cifrado con CLAVE_CIFRADO (contexto "entrega:<id>").
+  datosCifrados      String?       @map("datos_cifrados") @db.VarChar(4000)
+  /// Pasos para activar, sin secretos. Los ve el cliente.
+  instrucciones      String?       @db.VarChar(2000)
+  error              String?       @db.VarChar(500)
+  /// Periodo que cubre (se envía al proveedor).
+  periodoInicio      DateTime?     @map("periodo_inicio") @db.Timestamptz(3)
+  periodoFin         DateTime?     @map("periodo_fin") @db.Timestamptz(3)
+  completadaPorId    String?       @map("completada_por_id") @db.Uuid
+  entregadaEn        DateTime?     @map("entregada_en") @db.Timestamptz(3)
+  /// Primera vez que el cliente (o su revendedor) reveló el código o enlace.
+  vistaEn            DateTime?     @map("vista_en") @db.Timestamptz(3)
+  revocadaEn         DateTime?     @map("revocada_en") @db.Timestamptz(3)
+  anuladaEn          DateTime?     @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion    String?       @map("motivo_anulacion") @db.VarChar(500)
+  creadoEn           DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  proveedor        Proveedor         @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  plan             Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  cliente          Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  revendedor       Revendedor?       @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  suscripcion      Suscripcion?      @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  compraRevendedor CompraRevendedor? @relation(fields: [compraRevendedorId], references: [id], onDelete: Restrict)
+  factura          Factura?          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  completadaPor    Usuario?          @relation("EntregaCompletador", fields: [completadaPorId], references: [id], onDelete: Restrict)
+  codigo           CodigoInventario?
+
+  @@index([estado, creadoEn(sort: Desc)])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@index([suscripcionId])
+  @@index([compraRevendedorId])
+  @@index([planId, estado])
+  @@map("entregas")
+}
+
+/// Lote de códigos de un plan que sube administración (tarjetas o códigos de
+/// activación del distribuidor oficial).
+model LoteCodigos {
+  id          String    @id @default(uuid()) @db.Uuid
+  planId      String    @map("plan_id") @db.Uuid
+  nombre      String    @db.VarChar(120)
+  subidoPorId String    @map("subido_por_id") @db.Uuid
+  /// Códigos añadidos (sin contar repetidos).
+  cantidad    Int
+  repetidos   Int       @default(0)
+  venceEn     DateTime? @map("vence_en") @db.Timestamptz(3)
+  creadoEn    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  plan      Plan               @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subidoPor Usuario            @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  codigos   CodigoInventario[]
+
+  @@index([planId, creadoEn(sort: Desc)])
+  @@map("lotes_codigos")
+}
+
+/// Código de inventario. Se guarda cifrado; `huella` (HMAC del código
+/// normalizado) permite rechazar repetidos sin descifrar. El código nunca
+/// aparece en registros, auditoría ni en el asistente de IA.
+model CodigoInventario {
+  id              String       @id @default(uuid()) @db.Uuid
+  planId          String       @map("plan_id") @db.Uuid
+  loteId          String       @map("lote_id") @db.Uuid
+  /// Cifrado con CLAVE_CIFRADO (contexto "codigo:<id>").
+  codigoCifrado   String       @map("codigo_cifrado") @db.VarChar(1000)
+  huella          String       @unique @db.Char(64)
+  estado          EstadoCodigo @default(disponible)
+  entregaId       String?      @unique @map("entrega_id") @db.Uuid
+  venceEn         DateTime?    @map("vence_en") @db.Timestamptz(3)
+  entregadoEn     DateTime?    @map("entregado_en") @db.Timestamptz(3)
+  anuladoEn       DateTime?    @map("anulado_en") @db.Timestamptz(3)
+  anuladoPorId    String?      @map("anulado_por_id") @db.Uuid
+  motivoAnulacion String?      @map("motivo_anulacion") @db.VarChar(300)
+  creadoEn        DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Restrict)
+  lote       LoteCodigos @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  entrega    Entrega?    @relation(fields: [entregaId], references: [id], onDelete: Restrict)
+  anuladoPor Usuario?    @relation("CodigoAnulador", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+
+  @@index([planId, estado, creadoEn])
+  @@index([loteId])
+  @@map("codigos_inventario")
 }

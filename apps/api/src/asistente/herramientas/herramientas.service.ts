@@ -21,6 +21,7 @@ import { TasasService } from '../../dinero/tasas.service.js';
 import { MetricasService } from '../../metricas/metricas.service.js';
 import { TicketsService } from '../../soporte/tickets.service.js';
 import { SuscripcionesService } from '../../suscripciones/suscripciones.service.js';
+import { entregasDeSuscripcion } from '../../entregas/registro.js';
 import { fechaCaracas } from '../fechas.js';
 import type { HerramientaOfrecida } from '../proveedores/proveedor.js';
 import { HERRAMIENTAS_MODELO } from './esquemas.js';
@@ -188,8 +189,17 @@ export class HerramientasAsistenteService {
               .filter((f) => f.suscripcionId === s.id)
               .slice(0, 5)
           : null;
+        // De la entrega solo se da el estado: nunca códigos, enlaces ni instrucciones.
+        const entrega = puede('entregas.ver')
+          ? await this.prisma.entrega.findFirst({
+              where: entregasDeSuscripcion(s.id),
+              select: { estado: true },
+              orderBy: { creadoEn: 'desc' },
+            })
+          : null;
         return {
           ...vistaSuscripcion(s),
+          ...(entrega ? { entrega: entrega.estado } : {}),
           inicioEn: fechaCaracas(s.inicioEn),
           pausadaEn: fechaCaracas(s.pausadaEn),
           canceladaEn: fechaCaracas(s.canceladaEn),

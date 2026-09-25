@@ -108,6 +108,12 @@ const PLANTILLAS: Record<string, string> = {
   tasaNoAplicada: 'Tasa automática no aplicada',
   alertaSla: 'Tickets fuera de plazo',
   pagosPendientes: 'Pagos por conciliar',
+  servicioListo: 'Servicio listo',
+  accesoListoRevendedor: 'Activación lista (revendedor)',
+  entregaPendiente: 'Entrega manual pendiente',
+  entregaSinStock: 'Entrega sin códigos',
+  entregaFallida: 'Entrega fallida',
+  stockBajoCodigos: 'Pocos códigos en inventario',
 };
 
 export function nombrePlantilla(plantilla: string): string {
@@ -244,6 +250,14 @@ const CAMPOS: Record<string, Omit<CampoParametro, 'clave'>> = {
     max: 1440,
     sufijo: 'min',
   },
+  umbral: {
+    tipo: 'numero',
+    etiqueta: 'Mínimo de códigos por plan',
+    ayuda: 'Se avisa cuando un plan con códigos tiene menos disponibles que este número.',
+    min: 1,
+    max: 10000,
+    sufijo: 'códigos',
+  },
   horasEspera: {
     tipo: 'numero',
     etiqueta: 'Horas de espera',
@@ -312,6 +326,8 @@ export function resumenParametros(
       return `Cada ${String(p.cadaMinutos)} minutos`;
     case 'alerta_pagos_pendientes':
       return `Más de ${String(p.horasEspera)} h esperando · ${textoHora(Number(p.hora))}`;
+    case 'stock_bajo_codigos':
+      return `Menos de ${String(p.umbral)} códigos · ${textoHora(Number(p.hora))}`;
     default:
       return null;
   }

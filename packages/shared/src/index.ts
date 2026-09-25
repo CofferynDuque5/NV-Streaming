@@ -24,3 +24,5 @@ export * from './pagos-en-linea.js';
 export * from './tipos-pagos-en-linea.js';
 export * from './asistente.js';
 export * from './tipos-asistente.js';
+export * from './entregas.js';
+export * from './tipos-entregas.js';

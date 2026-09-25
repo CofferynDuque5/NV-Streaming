@@ -24,6 +24,7 @@ export const TIPOS_AUTOMATIZACION = [
   'alerta_sla_tickets',
   'alerta_pagos_pendientes',
   'cobro_automatico',
+  'stock_bajo_codigos',
 ] as const;
 export type TipoAutomatizacion = (typeof TIPOS_AUTOMATIZACION)[number];
 
@@ -88,6 +89,10 @@ export const PARAMETROS_AUTOMATIZACION = {
   }),
   cobro_automatico: z.object({
     reintentosDias: listaSinRepetir(entero(1, 10, 'días'), 3, 'los días de reintento'),
+    hora,
+  }),
+  stock_bajo_codigos: z.object({
+    umbral: entero(1, 10000, 'códigos'),
     hora,
   }),
 } as const satisfies Record<TipoAutomatizacion, z.ZodType>;
@@ -226,6 +231,17 @@ export const AUTOMATIZACIONES: { [T in TipoAutomatizacion]: DefinicionAutomatiza
     canales: ['correo', 'whatsapp'],
     activaPorDefecto: true,
     parametrosPorDefecto: { reintentosDias: [1, 3, 5], hora: 7 },
+  },
+  stock_bajo_codigos: {
+    tipo: 'stock_bajo_codigos',
+    nombre: 'Pocos códigos en inventario',
+    descripcion:
+      'Resumen diario a administración con los planes que entregan códigos y tienen pocos disponibles (o entregas esperando stock).',
+    grupo: 'equipo',
+    disparo: 'programada',
+    canales: ['correo'],
+    activaPorDefecto: true,
+    parametrosPorDefecto: { umbral: 10, hora: 9 },
   },
 };
 

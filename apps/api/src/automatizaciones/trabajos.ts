@@ -15,7 +15,14 @@ export const TRABAJO = {
   expirarIntentosPago: 'pagos_en_linea.expirar_intentos',
   /** Procesa un webhook de pasarela ya guardado. Carga: { eventoId }. */
   eventoPasarela: 'pasarela.evento',
+  /** Entrega un servicio con el adaptador de su proveedor (fase 6). Carga: { entregaId }. */
+  procesarEntrega: 'entrega.procesar',
+  /** Avisa al proveedor (webhook) de que una entrega se revoca. Carga: { entregaId, motivo }. */
+  revocarEntrega: 'entrega.revocar',
 } as const;
+
+/** Prefijo de los trabajos de entregas (los procesa también la API con ENTREGAS_EN_API). */
+export const PREFIJO_TRABAJOS_ENTREGA = 'entrega.';
 
 export interface NuevoTrabajo {
   tipo: string;

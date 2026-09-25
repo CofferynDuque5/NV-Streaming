@@ -110,6 +110,24 @@ Object.assign(ACCIONES_AUDITORIA, {
   'precio_mayorista.fijado': 'Precio mayorista cambiado',
 });
 
+// Entregas de servicios (fase 6). Nunca registran códigos ni enlaces.
+Object.assign(ACCIONES_AUDITORIA, {
+  'entrega.creada': 'Entrega creada',
+  'entrega.entregada': 'Servicio entregado',
+  'entrega.fallida': 'Entrega fallida',
+  'entrega.completada': 'Entrega completada a mano',
+  'entrega.reintentada': 'Entrega reintentada',
+  'entrega.anulada': 'Entrega anulada',
+  'entrega.revocada': 'Entrega revocada',
+  'entrega.revocacion_fallida': 'Revocación fallida',
+  'entrega.revelada': 'Código o enlace mostrado',
+  'inventario.lote_subido': 'Lote de códigos subido',
+  'inventario.codigo_anulado': 'Código anulado',
+  'proveedor.entrega_configurada': 'Entrega del proveedor configurada',
+  'proveedor.secreto_rotado': 'Clave de firma del webhook rotada',
+  'proveedor.webhook_probado': 'Webhook del proveedor probado',
+});
+
 /** "1 mes", "3 meses", "7 días". */
 export function formatearDuracion(cantidad: number, unidad: 'dia' | 'mes'): string {
   if (unidad === 'mes') return `${cantidad} ${cantidad === 1 ? 'mes' : 'meses'}`;

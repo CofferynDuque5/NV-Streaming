@@ -10,9 +10,14 @@ const cabecerasSeguridad = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+// Producción con Docker (apps/web/Dockerfile): servidor autónomo con solo los archivos
+// que usa. En desarrollo y en CI no cambia nada.
+const autonomo = process.env.WEB_SALIDA === 'standalone';
+
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  ...(autonomo ? { output: 'standalone' as const } : {}),
   experimental: {
     // Las reescrituras a /api cortan a los 30 s por defecto; el asistente con el modelo
     // local puede tardar hasta un par de minutos en contestar.

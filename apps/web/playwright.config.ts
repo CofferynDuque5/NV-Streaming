@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec/,
+        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -65,6 +65,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testMatch: /asistente\.spec/,
     },
+    // Entregas: operación completa una entrega manual, administración sube códigos y el
+    // cliente muestra su acceso. El equipo ya tiene la verificación en dos pasos.
+    {
+      name: 'entregas',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /entregas\.spec/,
+    },
   ],
   webServer: [
     {
@@ -81,6 +88,8 @@ export default defineConfig({
         PROXIES_DE_CONFIANZA: '1',
         DOCS_API_HABILITADA: 'false',
         CORREO_PROVEEDOR: 'sandbox',
+        // Sin proceso trabajador en las pruebas: la API procesa las entregas.
+        ENTREGAS_EN_API: 'true',
       },
     },
     {

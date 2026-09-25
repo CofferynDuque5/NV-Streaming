@@ -12,7 +12,7 @@ import { cargarEntorno } from './config/entorno.js';
  * la cola y las claves únicas evitan duplicados. Termina limpio con SIGTERM.
  */
 // El temporizador de respaldo de la API nunca corre aquí: esto ya es el trabajador.
-const entorno = { ...cargarEntorno(), VENCIMIENTOS_EN_API: false };
+const entorno = { ...cargarEntorno(), VENCIMIENTOS_EN_API: false, ENTREGAS_EN_API: false };
 const app = await NestFactory.createApplicationContext(AppModule.con(entorno), {
   logger: ['error', 'warn', 'log'],
 });

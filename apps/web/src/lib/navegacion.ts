@@ -21,6 +21,9 @@ export type NombreIcono =
   | 'automatizaciones'
   | 'pasarelas'
   | 'metodos'
+  | 'entregas'
+  | 'inventario'
+  | 'accesos'
   | 'ajustes';
 
 export interface ElementoNavegacion {
@@ -43,6 +46,13 @@ const EQUIPO: ElementoNavegacion[] = [
   },
   { etiqueta: 'Cobros', href: '/admin/cobros', icono: 'cobros', permiso: 'facturas.ver' },
   { etiqueta: 'Soporte', href: '/admin/soporte', icono: 'soporte', permiso: 'tickets.ver' },
+  { etiqueta: 'Entregas', href: '/admin/entregas', icono: 'entregas', permiso: 'entregas.ver' },
+  {
+    etiqueta: 'Inventario de códigos',
+    href: '/admin/inventario',
+    icono: 'inventario',
+    permiso: 'inventario.gestionar',
+  },
   {
     etiqueta: 'Asistente',
     href: '/admin/asistente',
@@ -91,10 +101,17 @@ const REVENDEDOR: ElementoNavegacion[] = [
   { etiqueta: 'Catálogo mayorista', href: '/revendedor/catalogo', icono: 'catalogo' },
   { etiqueta: 'Mis clientes', href: '/revendedor/clientes', icono: 'clientes' },
   { etiqueta: 'Mis compras', href: '/revendedor/compras', icono: 'compras' },
+  { etiqueta: 'Accesos de clientes', href: '/revendedor/accesos', icono: 'accesos' },
 ];
 
 const CLIENTE: ElementoNavegacion[] = [
   { etiqueta: 'Mis servicios', href: '/cuenta', icono: 'servicios' },
+  {
+    etiqueta: 'Mis accesos',
+    href: '/cuenta/accesos',
+    icono: 'accesos',
+    permiso: 'autoservicio.usar',
+  },
   { etiqueta: 'Contratar', href: '/cuenta/planes', icono: 'planes' },
   { etiqueta: 'Facturas y pagos', href: '/cuenta/facturas', icono: 'cobros' },
   { etiqueta: 'Mis métodos de pago', href: '/cuenta/metodos-pago', icono: 'metodos' },

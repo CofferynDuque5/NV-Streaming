@@ -1,6 +1,9 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
 import { generate } from 'otplib';
+import { entornoE2e } from './entorno';
 
 /** Secretos TOTP que crean las pruebas, para volver a entrar en otra prueba. Se borra al preparar. */
 export const ARCHIVO_SECRETOS = 'test-results/secretos-2fa.json';
@@ -96,4 +99,19 @@ export async function entrarEquipo(page: Page, correo: string) {
     await page.getByLabel('Código de 6 dígitos').fill(await codigoSinUsar(page, correo, secreto));
     await page.getByRole('button', { name: 'Verificar' }).click();
   }
+}
+
+/**
+ * Vacía el límite de inicios de sesión por IP de la base de pruebas. Todos los
+ * navegadores de la suite entran desde localhost y comparten ese límite (30 cada
+ * 15 min): los proyectos que corren al final lo llaman antes de empezar.
+ */
+export function reiniciarLimiteIngreso(): void {
+  const { url } = entornoE2e();
+  execFileSync('pnpm', ['exec', 'prisma', 'db', 'execute', '--stdin'], {
+    cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
+    env: { ...process.env, DATABASE_URL: url },
+    input: "DELETE FROM limites_uso WHERE clave LIKE 'login:ip:%';",
+    stdio: ['pipe', 'ignore', 'inherit'],
+  });
 }

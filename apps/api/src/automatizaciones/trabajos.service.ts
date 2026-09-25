@@ -44,8 +44,13 @@ export class TrabajosService {
     return encolarTrabajo(tx ?? this.prisma, t);
   }
 
-  /** Reserva hasta `limite` trabajos vencidos. */
-  async reclamar(limite = 10, reservaSegundos = RESERVA_SEGUNDOS): Promise<TrabajoReclamado[]> {
+  /** Reserva hasta `limite` trabajos vencidos (solo los de tipo que empiece por `prefijo`, si se indica). */
+  async reclamar(
+    limite = 10,
+    reservaSegundos = RESERVA_SEGUNDOS,
+    prefijo: string | null = null,
+  ): Promise<TrabajoReclamado[]> {
+    const patron = prefijo === null ? '%' : `${prefijo.replace(/[\\%_]/g, '\\$&')}%`;
     return this.prisma.$queryRaw<TrabajoReclamado[]>`
       UPDATE trabajos t
       SET estado = 'en_curso',
@@ -53,7 +58,7 @@ export class TrabajosService {
           bloqueado_hasta = now() + make_interval(secs => ${reservaSegundos}::int)
       FROM (
         SELECT id FROM trabajos
-        WHERE estado = 'pendiente' AND ejecutar_en <= now()
+        WHERE estado = 'pendiente' AND ejecutar_en <= now() AND tipo LIKE ${patron}
         ORDER BY ejecutar_en, creado_en
         LIMIT ${limite}::int
         FOR UPDATE SKIP LOCKED
@@ -116,18 +121,18 @@ export class TrabajosService {
   }
 
   /** Una vuelta de la cola: recupera reservas vencidas, reserva un lote y lo ejecuta. Devuelve cuántos ejecutó. */
-  async procesarLote(limite = 10): Promise<number> {
+  async procesarLote(limite = 10, prefijo: string | null = null): Promise<number> {
     await this.recuperarVencidos();
-    const lote = await this.reclamar(limite);
+    const lote = await this.reclamar(limite, RESERVA_SEGUNDOS, prefijo);
     for (const t of lote) await this.ejecutar(t);
     return lote.length;
   }
 
   /** Procesa hasta vaciar la cola de trabajos vencidos (para pruebas y ejecuciones puntuales). */
-  async procesarTodo(maximo = 200): Promise<number> {
+  async procesarTodo(maximo = 200, prefijo: string | null = null): Promise<number> {
     let total = 0;
     while (total < maximo) {
-      const n = await this.procesarLote(10);
+      const n = await this.procesarLote(10, prefijo);
       if (n === 0) break;
       total += n;
     }

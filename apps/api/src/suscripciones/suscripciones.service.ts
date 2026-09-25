@@ -28,6 +28,7 @@ import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { sumarDuracion } from '../dinero/dinero.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
+import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
 
 type Tx = Prisma.TransactionClient;
@@ -376,6 +377,7 @@ export class SuscripcionesService {
         where: { id },
         data: { estado: 'cancelada', canceladaEn: new Date(), cancelarAlVencer: false },
       });
+      await solicitarRevocacion(tx, id, `Suscripción cancelada: ${e.motivo}`);
       return {
         tipo: 'cancelacion',
         motivo: e.motivo,
@@ -436,24 +438,46 @@ export class SuscripcionesService {
     const { duracionCantidad: n, duracionUnidad: u } = actual.plan;
     let tipo: TipoEventoSuscripcion;
     let data: Prisma.SuscripcionUpdateInput;
+    let inicioPeriodo: Date;
     if (concepto === 'alta') {
       if (actual.estado !== 'pendiente_pago') {
         throw transicionInvalida('La suscripción de esta factura ya no espera el pago del alta.');
       }
       tipo = 'activacion';
+      inicioPeriodo = ahora;
       data = { estado: 'activa', inicioEn: ahora, venceEn: sumarDuracion(ahora, n, u) };
     } else if (actual.estado === 'activa' || actual.estado === 'en_gracia') {
       tipo = 'renovacion';
       const base = actual.venceEn && actual.venceEn > ahora ? actual.venceEn : ahora;
+      inicioPeriodo = base;
       data = { estado: 'activa', venceEn: sumarDuracion(base, n, u) };
     } else if (actual.estado === 'suspendida' || actual.estado === 'vencida') {
       tipo = 'recuperacion';
+      inicioPeriodo = ahora;
       data = { estado: 'activa', venceEn: sumarDuracion(ahora, n, u) };
     } else {
       throw transicionInvalida('La suscripción no admite una renovación en su estado actual.');
     }
     await tx.suscripcion.update({ where: { id: actual.id }, data });
     await this.evento(tx, actual.id, tipo, actorId, null, datos);
+    // Entrega del servicio (fase 6): se crea en esta misma transacción con su trabajo.
+    const origen: OrigenEntrega | null =
+      typeof datos['facturaId'] === 'string'
+        ? { tipo: 'factura', facturaId: datos['facturaId'] }
+        : typeof datos['compraRevendedorId'] === 'string'
+          ? { tipo: 'compra', compraRevendedorId: datos['compraRevendedorId'] }
+          : null;
+    if (origen) {
+      await registrarEntrega(tx, {
+        origen,
+        suscripcionId: actual.id,
+        concepto,
+        periodo: {
+          inicio: inicioPeriodo,
+          fin: data.venceEn instanceof Date ? data.venceEn : null,
+        },
+      });
+    }
     // Vuelve a estar activa tras la gracia o una suspensión: aviso de reactivación
     // (bandeja de salida: se encola en la misma transacción que el pago).
     if (
@@ -538,6 +562,10 @@ export class SuscripcionesService {
             });
             if (paso.a === 'cancelada') {
               await this.anularFacturasAbiertas(tx, f.id, paso.motivo, null);
+            }
+            // Fin del servicio: se anulan las entregas pendientes y se revocan las del proveedor.
+            if (paso.a === 'cancelada' || paso.a === 'vencida') {
+              await solicitarRevocacion(tx, f.id, paso.motivo, ahora);
             }
             await this.evento(tx, f.id, paso.tipo, null, paso.motivo, { de: f.estado, a: paso.a });
             // Avisos de gracia y suspensión: se encolan en la misma transacción que el cambio.

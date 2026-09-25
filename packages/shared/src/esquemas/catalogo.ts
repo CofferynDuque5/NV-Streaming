@@ -52,6 +52,17 @@ export const planSchema = z.object({
     (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
     montoOCeroSchema.nullable().optional(),
   ),
+  /** Referencia del plan en el sistema del proveedor (se envía en el webhook de entrega). Vacío la quita. */
+  skuProveedor: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+    z
+      .string()
+      .trim()
+      .max(80, 'Máximo 80 caracteres.')
+      .regex(/^[\w.:/-]+$/, 'Usa letras, números, guiones, puntos o barras (sin espacios).')
+      .nullable()
+      .optional(),
+  ),
   orden: z.coerce.number().int().min(0).max(999).default(0),
 });
 export type PlanEntrada = z.infer<typeof planSchema>;

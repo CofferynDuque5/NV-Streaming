@@ -10,7 +10,8 @@ import {
   type TipoProveedor,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { Building2, Layers, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { Building2, Layers, PackageCheck, Pencil, Plus, RotateCcw } from 'lucide-react';
+import Link from 'next/link';
 import { type FormEvent, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -188,6 +189,14 @@ export function ListaProveedores({
                     <span className="text-sm text-tinta-tenue tabular-nums">
                       {p.servicios === 1 ? '1 servicio' : `${p.servicios} servicios`}
                     </span>
+                    <Link
+                      href={`/admin/catalogo/proveedores/${p.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-marca hover:bg-hundida focus-visible:outline-2 focus-visible:outline-marca"
+                      aria-label={`Entrega de ${p.nombre}`}
+                    >
+                      <PackageCheck className="size-3.5" aria-hidden="true" />
+                      Entrega
+                    </Link>
                     {puedeGestionar && (
                       <Boton
                         variante="fantasma"
@@ -540,6 +549,16 @@ function CamposPlan({
           error={campos.orden}
         />
       </div>
+      <Campo
+        etiqueta="Referencia en el proveedor (SKU)"
+        name="skuProveedor"
+        defaultValue={plan?.skuProveedor ?? ''}
+        placeholder="Opcional"
+        ayuda="Código del plan en el sistema del proveedor. Se envía en el webhook de entrega."
+        error={campos.skuProveedor}
+        spellCheck={false}
+        autoCapitalize="off"
+      />
       <AreaTexto
         etiqueta="Beneficios"
         name="beneficios"
@@ -590,6 +609,7 @@ function leerPlan(d: FormData, editando: boolean) {
     precioUsd: textoDe(d, 'precioUsd') ?? '',
     // Vacío al editar quita el costo; al crear, simplemente no se envía.
     costoUsd: textoDe(d, 'costoUsd') ?? (editando ? null : undefined),
+    skuProveedor: textoDe(d, 'skuProveedor') ?? (editando ? null : undefined),
     duracionCantidad: textoDe(d, 'duracionCantidad') ?? '',
     duracionUnidad: d.get('duracionUnidad'),
     beneficios: String(d.get('beneficios') ?? '')

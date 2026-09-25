@@ -110,6 +110,8 @@ export interface PlanPublico {
   revendible: boolean;
   /** Costo para NV en USD. Solo lo recibe el equipo. */
   costoUsd?: Decimal | null;
+  /** Referencia en el sistema del proveedor (fase 6). Solo la recibe el equipo. */
+  skuProveedor?: string | null;
   orden: number;
   precios: PreciosPorMoneda;
 }

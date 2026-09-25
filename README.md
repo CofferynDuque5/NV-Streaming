@@ -6,15 +6,15 @@ Plataforma para vender **servicios de streaming autorizados**: panel de administ
 
 ## Estado
 
-| Fase                            | Contenido                                                                                                                                                | Estado    |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 0. Cimientos                    | Monorepo, base de datos y migraciones, acceso completo con 2FA, roles y permisos, auditoría inalterable, sistema de diseño NV, CI con metas de velocidad | ✅        |
-| 1. MVP operativo                | Clientes, planes y catálogo, suscripciones, cobros manuales con conciliación, soporte                                                                    | ✅        |
-| 2. Revendedores y editor visual | Saldo prepagado, precios mayoristas por nivel, editor de páginas por bloques                                                                             | ✅        |
-| 3. Automatizaciones             | Trabajador con cola en PostgreSQL, recordatorios, avisos, escalados y tasa del bolívar                                                                   | ✅        |
-| 4. Pagos en línea               | PayPal y Mercado Pago, cobro automático con autorización expresa, devoluciones                                                                           | ✅        |
-| 5. Asistente de IA              | Consultas con los permisos de quien pregunta, acciones con confirmación y auditoría                                                                      | ✅        |
-| 6. Proveedores y producción     | Integraciones oficiales de proveedores y puesta en marcha                                                                                                | Pendiente |
+| Fase                            | Contenido                                                                                                                                                | Estado |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 0. Cimientos                    | Monorepo, base de datos y migraciones, acceso completo con 2FA, roles y permisos, auditoría inalterable, sistema de diseño NV, CI con metas de velocidad | ✅     |
+| 1. MVP operativo                | Clientes, planes y catálogo, suscripciones, cobros manuales con conciliación, soporte                                                                    | ✅     |
+| 2. Revendedores y editor visual | Saldo prepagado, precios mayoristas por nivel, editor de páginas por bloques                                                                             | ✅     |
+| 3. Automatizaciones             | Trabajador con cola en PostgreSQL, recordatorios, avisos, escalados y tasa del bolívar                                                                   | ✅     |
+| 4. Pagos en línea               | PayPal y Mercado Pago, cobro automático con autorización expresa, devoluciones                                                                           | ✅     |
+| 5. Asistente de IA              | Consultas con los permisos de quien pregunta, acciones con confirmación y auditoría                                                                      | ✅     |
+| 6. Proveedores y producción     | Entregas por proveedor (manual, códigos, webhook firmado), Docker, HTTPS, respaldos, monitoreo y guía de instalación                                     | ✅     |
 
 Detalle en la [propuesta de arquitectura](docs/arquitectura/PROPUESTA-ARQUITECTURA.md).
 
@@ -64,6 +64,19 @@ Contraseña de todos: `NvDemo-2026!`
 | cliente@nv.test    | Cliente            | Entra directo a “Mis servicios” (2FA opcional)                |
 
 Para la verificación en dos pasos sirve cualquier aplicación TOTP gratuita (Google Authenticator, Microsoft Authenticator, Aegis, 2FAS…). Los datos de demostración nunca se cargan en producción.
+
+## Instalación en producción
+
+Guía completa, paso a paso y sin conocimientos previos: **[docs/INSTALACION.md](docs/INSTALACION.md)** (servidor gratuito ARM de Oracle Cloud + Cloudflare, HTTPS automático, copias cifradas y monitoreo). Operación diaria y prueba de carga: [docs/OPERACION.md](docs/OPERACION.md).
+
+```bash
+git clone https://github.com/CofferynDuque5/NV-Streaming.git ~/nv-streaming
+cd ~/nv-streaming && bash infra/instalar.sh
+```
+
+- `docker-compose.prod.yml`: PostgreSQL (sin exponer), migraciones, API, trabajador, web, Caddy (80/443), Uptime Kuma (solo por túnel SSH), copias de seguridad y Ollama opcional (perfil `ia`). Imágenes en `apps/api/Dockerfile` (API y trabajador, destino `migrar` para Prisma) y `apps/web/Dockerfile` (Next.js autónomo), para amd64 y arm64.
+- `infra/`: `instalar.sh`, `actualizar.sh`, `estado.sh`, `respaldar.sh`, `restaurar.sh`, `crear-admin.sh` (primera cuenta de administración con enlace de invitación y 2FA obligatorio; nunca datos de demostración), la configuración de Caddy y la prueba de carga con k6.
+- Las claves se generan en el servidor (`.env.produccion`, fuera de git).
 
 ## Automatizaciones y trabajador
 
@@ -158,6 +171,93 @@ La VM Ampere A1 del nivel Always Free (hasta 4 OCPU y 24 GB de RAM) alcanza para
 4. Reinicia la API, entra en **/admin/asistente**, elige «Claude (Anthropic)» y fija el **tope de gasto mensual** en USD. NV suma tokens y costo de cada llamada (mes en hora de Venezuela) y, al llegar al tope, el asistente responde «Se alcanzó el tope de gasto del mes» hasta el mes siguiente o hasta que subas el tope. Como un mensaje puede hacer hasta 5 llamadas, el gasto real puede pasar el tope en lo que cuesta un mensaje. Pon también un límite de gasto en la consola de Anthropic como segunda barrera.
 
 `ANTHROPIC_API_URL` es solo para las pruebas automáticas (servidor falso local); en producción la API no arranca si tiene valor, ni con `ASISTENTE_SANDBOX_HABILITADO=true`.
+
+## Entregas y proveedores
+
+NV solo vende **servicios autorizados**: su servicio propio con licencia y la reventa como **distribuidor oficial**. **NV nunca entrega usuarios ni contraseñas de cuentas de terceros, ni cuentas compartidas**: lo que recibe el cliente es un código de canje, una tarjeta o un enlace de activación oficial, o los pasos para activar su propia cuenta. La API rechaza cualquier texto que parezca una credencial (al completar a mano, al subir códigos, en las instrucciones y en las respuestas de los proveedores).
+
+Cuando se confirma el pago de un alta o de una renovación, o un revendedor compra una activación, se crea una **entrega** en la misma transacción (una por pago, sin duplicados) y el trabajador la procesa con el **adaptador** de su proveedor. Se elige en **Catálogo → proveedor → Entrega** (`/admin/catalogo/proveedores/<id>`):
+
+| Adaptador                 | Para qué                                              | Cómo funciona                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Manual**                | Servicio propio o acuerdos sin integración            | La entrega queda pendiente y se avisa al equipo con `entregas.gestionar`. Alguien la completa en `/admin/entregas` con los pasos para activar y, si hace falta, un enlace oficial (https) o un código.                                                                                                                                                                  |
+| **Códigos de inventario** | Tarjetas o códigos de canje comprados al distribuidor | Se suben lotes por plan en `/admin/inventario` (pegados o en .txt/.csv). Cada código se guarda **cifrado** (AES-256-GCM) con una huella para descartar repetidos, y nunca se vuelve a mostrar al equipo. Cada entrega toma uno con `FOR UPDATE SKIP LOCKED` (nunca el mismo dos veces). Sin existencias, la entrega espera y se reintenta al subir un lote o cada hora. |
+| **Webhook firmado**       | Plataforma propia o API de un distribuidor oficial    | NV llama a la URL del proveedor con el contrato de abajo; lo que responda (código, enlace, instrucciones) se guarda cifrado para el cliente.                                                                                                                                                                                                                            |
+
+- El cliente ve sus servicios en **Mis accesos** (`/cuenta/accesos`) y el revendedor los de sus clientes en `/revendedor/accesos`. El código o enlace solo se descifra al pulsar «Mostrar», con confirmación, un aviso de no compartirlo, límite de 30 por hora y registro en la auditoría. Los correos avisan de que el acceso está listo, **sin el código**.
+- Los códigos **nunca** van a los registros del servidor, a la auditoría (solo un prefijo de su huella) ni al asistente de IA (solo ve el estado de la entrega).
+- La automatización **«Pocos códigos en inventario»** (`stock_bajo_codigos`) avisa a quien tiene `inventario.gestionar` cuando un plan baja del umbral configurado.
+- Cuando una suscripción termina (cancelada, o vencida tras la suspensión) o se reembolsa la compra de un revendedor, las entregas no hechas se anulan y las de webhook se **revocan** con el evento `entrega.revocada`. Un código ya entregado no se puede recuperar.
+- Permisos: `entregas.ver` y `entregas.gestionar` (administración y operación), `inventario.gestionar` (solo administración).
+
+### Contrato del webhook de entrega
+
+NV hace `POST` a la URL configurada con un cuerpo JSON y estas cabeceras:
+
+| Cabecera          | Valor                                                                          |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `NV-Evento`       | `entrega.solicitada`, `entrega.revocada` o `ping` (botón «Probar webhook»)     |
+| `NV-Id-Entrega`   | id de la entrega (uuid)                                                        |
+| `Idempotency-Key` | el mismo id: los reintentos repiten la clave, no crees la activación dos veces |
+| `NV-Firma`        | `t=<segundos unix>,v1=<hex de HMAC-SHA256(clave, "<t>.<cuerpo crudo>")>`       |
+
+```json
+{
+  "evento": "entrega.solicitada",
+  "idEntrega": "3f0c…",
+  "fecha": "2026-09-25T14:00:00.000Z",
+  "motivo": "alta",
+  "plan": { "id": "…", "sku": "SKU-DEL-PROVEEDOR", "nombre": "Tarjeta 30 días" },
+  "cliente": { "id": "…" },
+  "periodo": { "inicio": "2026-09-25T14:00:00.000Z", "fin": "2026-10-25T14:00:00.000Z" }
+}
+```
+
+`motivo` es `alta`, `renovacion` o `compra` (revendedor). `cliente.correo` solo se envía si activas «Enviar el correo del cliente al proveedor» porque el acuerdo lo exige. `entrega.revocada` lleva `{ evento, idEntrega, fecha, referencia, motivo }`.
+
+**Respuesta** (JSON, máximo 64 KB, dentro del tiempo límite configurado de 2 a 30 s): `{ "referencia": "…", "codigo": "…", "enlace": "https://…", "instrucciones": "…" }`, todos opcionales. `enlace` debe ser https. Si la respuesta parece traer usuario y contraseña, la entrega queda **fallida** y no se muestra nada al cliente.
+
+| Respuesta del proveedor                           | Resultado                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 2xx                                               | Entregada                                                                       |
+| 409, o 4xx con `{"codigo":"ya_existe"}`           | Entregada (ya la tenías: idempotencia)                                          |
+| 408, 425, 429, 5xx, tiempo agotado o sin conexión | Reintento a 1 min, 5 min, 30 min, 2 h y 12 h; después fallida y aviso al equipo |
+| Otro 4xx o una redirección                        | Fallida (sin reintento); el equipo la revisa y puede reintentarla a mano        |
+| A `entrega.revocada`: 2xx, 404 o 410              | Revocada                                                                        |
+
+NV **no sigue redirecciones**, solo llama por **https** y nunca a direcciones privadas, locales o reservadas (se comprueba la IP resuelta en cada llamada). La clave de firma se genera en el panel («Generar clave de firma»), se guarda cifrada y **se muestra una sola vez**: compártela con el proveedor por un canal seguro. Al rotarla, la anterior deja de valer.
+
+Verificación en Node.js (del lado del proveedor), sobre el cuerpo **crudo** tal como llegó:
+
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+export function firmaValida(clave, cabecera, cuerpoCrudo, toleranciaSegundos = 300) {
+  const partes = Object.fromEntries(
+    String(cabecera ?? '')
+      .split(',')
+      .map((p) => p.trim().split('=')),
+  );
+  const t = Number(partes.t);
+  if (!Number.isInteger(t) || !/^[0-9a-f]{64}$/.test(partes.v1 ?? '')) return false;
+  if (Math.abs(Date.now() / 1000 - t) > toleranciaSegundos) return false;
+  const esperada = createHmac('sha256', clave).update(`${t}.${cuerpoCrudo}`).digest();
+  return timingSafeEqual(esperada, Buffer.from(partes.v1, 'hex'));
+}
+```
+
+Responde 401 si la firma no es válida y guarda `idEntrega` para no activar dos veces el mismo pedido.
+
+### Qué configurar por proveedor
+
+1. **Adaptador** en Catálogo → proveedor → Entrega, y las **instrucciones** que verá el cliente (sin secretos). Decide si las renovaciones generan una entrega nueva.
+2. **SKU del proveedor** en cada plan (lo recibe el webhook en `plan.sku`).
+3. Códigos: sube los lotes en `/admin/inventario` y ajusta el umbral de «Pocos códigos en inventario» en Automatizaciones.
+4. Webhook: la URL https del proveedor, el tiempo límite, «Generar clave de firma» (entrégala por un canal seguro) y «Probar webhook» (envía un `ping` firmado). Activa «Enviar el correo del cliente al proveedor» solo si el acuerdo lo exige.
+
+Variables: `ENTREGAS_EN_API=true` hace que la API procese las entregas si no ejecutas el trabajador. `ENTREGAS_WEBHOOK_RED_LOCAL` solo existe para las pruebas automáticas (permite http y direcciones locales); nunca lo actives en producción.
+
+Los datos de demostración incluyen **NV Originals** (servicio propio, entrega manual, plan «Pase 30 días») y el «Distribuidor de demostración» con 10 códigos **falsos** (`DEMO-XXXX-0001`…) en su plan de tarjetas.
 
 ## Pruebas
 

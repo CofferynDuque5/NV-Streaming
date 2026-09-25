@@ -505,6 +505,112 @@ export const Plantillas = {
       html: envolver('Pago en línea para revisar', p, { texto: 'Ir a cobros', url }, PIE_EQUIPO),
     };
   },
+  // ── Entregas (fase 6). Nunca llevan el código ni el enlace: se ven en el panel. ──
+  servicioListo(nombre: string, servicio: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Tu servicio ${servicio} está listo.`,
+      'Entra en «Mis accesos» de tu cuenta para ver cómo activarlo. Por seguridad, el código o el enlace de activación solo se muestra dentro de tu cuenta: no lo compartas con nadie.',
+    ];
+    return {
+      asunto: 'Tu servicio está listo',
+      texto: texto(p, url),
+      html: envolver('Tu servicio está listo', p, { texto: 'Ver mis accesos', url }, PIE_SERVICIO),
+    };
+  },
+  accesoListoRevendedor(
+    nombre: string,
+    cliente: string,
+    servicio: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `La activación de ${servicio} para tu cliente ${cliente} está lista.`,
+      'Entra en «Accesos de clientes» de tu panel para ver cómo activarla y entrégasela a tu cliente. El código solo se muestra dentro del panel.',
+    ];
+    return {
+      asunto: `Activación lista: ${cliente}`,
+      texto: texto(p, url),
+      html: envolver('Activación lista', p, { texto: 'Ver accesos de clientes', url }),
+    };
+  },
+  entregaPendiente(
+    nombre: string,
+    cliente: string,
+    servicio: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `${cliente} pagó ${servicio} y su entrega es manual: falta que alguien del equipo la complete.`,
+      'Escribe los pasos para activar el servicio y, si corresponde, el enlace o el código oficial. Nunca se entregan usuarios ni contraseñas de cuentas.',
+    ];
+    return {
+      asunto: `Entrega pendiente: ${servicio}`,
+      texto: texto(p, url),
+      html: envolver('Entrega pendiente', p, { texto: 'Completar la entrega', url }, PIE_EQUIPO),
+    };
+  },
+  entregaSinStock(nombre: string, plan: string, cliente: string, url: string): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `No quedan códigos disponibles de ${plan} y la entrega de ${cliente} está esperando.`,
+      'Sube un lote nuevo en el inventario: las entregas pendientes se harán solas.',
+    ];
+    return {
+      asunto: `Sin códigos: ${plan}`,
+      texto: texto(p, url),
+      html: envolver(
+        'Sin códigos en inventario',
+        p,
+        { texto: 'Ir al inventario', url },
+        PIE_EQUIPO,
+      ),
+    };
+  },
+  entregaFallida(
+    nombre: string,
+    cliente: string,
+    servicio: string,
+    detalle: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `No se pudo completar la entrega de ${servicio} para ${cliente}.`,
+      `Detalle: ${detalle}`,
+      'Revísala en el panel: puedes reintentarla, completarla a mano o anularla.',
+    ];
+    return {
+      asunto: `Entrega fallida: ${servicio}`,
+      texto: texto(p, url),
+      html: envolver('Entrega fallida', p, { texto: 'Ver la entrega', url }, PIE_EQUIPO),
+    };
+  },
+  stockBajoCodigos(
+    nombre: string,
+    umbral: number,
+    lineas: string[],
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Estos planes tienen menos de ${umbral} códigos disponibles o entregas esperando códigos:`,
+      ...lineas.map((l) => `• ${l}`),
+      'Sube un lote nuevo desde el inventario para que las entregas no se detengan.',
+    ];
+    return {
+      asunto: 'Quedan pocos códigos en el inventario',
+      texto: texto(p, url),
+      html: envolver(
+        'Pocos códigos en inventario',
+        p,
+        { texto: 'Ir al inventario', url },
+        PIE_EQUIPO,
+      ),
+    };
+  },
   avisoPrueba(nombre: string): CorreoRenderizado {
     const p = [
       `Hola, ${nombre}.`,

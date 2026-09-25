@@ -61,7 +61,7 @@ export function planPublico(p: PlanCompleto, tasas: MapaTasas, equipo = false): 
     visible: p.visible,
     renovable: p.renovable,
     revendible: p.revendible,
-    ...(equipo ? { costoUsd: p.costoUsd?.toFixed(2) ?? null } : {}),
+    ...(equipo ? { costoUsd: p.costoUsd?.toFixed(2) ?? null, skuProveedor: p.skuProveedor } : {}),
     orden: p.orden,
     precios: preciosPorMoneda(p, tasas),
   };

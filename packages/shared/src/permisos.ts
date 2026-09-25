@@ -45,6 +45,10 @@ export const PERMISOS = [
   // Fase 5
   'asistente.usar',
   'asistente.configurar',
+  // Fase 6
+  'entregas.ver',
+  'entregas.gestionar',
+  'inventario.gestionar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -89,6 +93,10 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
     'Usar el asistente de IA (consulta con sus propios permisos; las acciones se confirman)',
   'asistente.configurar':
     'Activar el asistente de IA, elegir su motor, fijar el tope de gasto y ver su uso',
+  'entregas.ver': 'Ver las entregas de servicios (estado, intentos y errores; nunca los códigos)',
+  'entregas.gestionar': 'Completar entregas manuales, reintentar y anular entregas de servicios',
+  'inventario.gestionar':
+    'Subir lotes de códigos de activación, anular códigos y configurar la entrega de los proveedores',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -119,6 +127,8 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'sitio.editar',
     'automatizaciones.ver',
     'asistente.usar',
+    'entregas.ver',
+    'entregas.gestionar',
   ],
   ventas: [
     'panel.ver',

@@ -28,6 +28,17 @@ const precioMtok = (nombre: string) =>
     .regex(/^(\d{1,6}(\.\d{1,6})?)?$/, `${nombre} debe ser un importe en USD, p. ej. 3 o 0.25.`)
     .default('');
 
+/**
+ * `trustProxy` de Fastify a partir del número de proxies de confianza. Fastify 5.12 ya no
+ * acepta un número (lo trata como «no confiar en nadie» y la API vería siempre la IP del
+ * proxy, compartiendo los límites de uso entre todos los visitantes); una función con el
+ * mismo significado sí se respeta: se confía en los `saltos` proxies más cercanos.
+ * La API solo es alcanzable desde esos proxies (red interna de Docker o localhost).
+ */
+function confiarEnProxies(saltos: number): false | ((direccion: string, salto: number) => boolean) {
+  return saltos === 0 ? false : (_direccion, salto) => salto < saltos;
+}
+
 const EntornoSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -186,6 +197,17 @@ const EntornoSchema = z
       (v) => (v === '' ? undefined : v),
       booleano.optional(),
     ),
+    // ── Entregas de servicios (fase 6) ─────────────────────────────────────────
+    /**
+     * Solo pruebas: permite webhooks de entrega por http y a direcciones privadas o
+     * locales (servidores falsos). En producción no se permite.
+     */
+    ENTREGAS_WEBHOOK_RED_LOCAL: booleano.default(false),
+    /**
+     * Respaldo para instalaciones sin trabajador: la API también procesa la cola de
+     * entregas (y sus reintentos) cada pocos segundos.
+     */
+    ENTREGAS_EN_API: booleano.default(false),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),
@@ -196,6 +218,7 @@ const EntornoSchema = z
   })
   .transform((e) => ({
     ...e,
+    PROXIES_DE_CONFIANZA: confiarEnProxies(e.PROXIES_DE_CONFIANZA),
     PASARELA_SANDBOX_HABILITADA: e.PASARELA_SANDBOX_HABILITADA ?? e.NODE_ENV !== 'production',
     ASISTENTE_SANDBOX_HABILITADO: e.ASISTENTE_SANDBOX_HABILITADO ?? e.NODE_ENV !== 'production',
   }))
@@ -256,6 +279,14 @@ const EntornoSchema = z
         code: 'custom',
         path: ['ANTHROPIC_API_URL'],
         message: 'ANTHROPIC_API_URL es solo para pruebas: déjala vacía en producción.',
+      });
+    }
+    if (e.ENTREGAS_WEBHOOK_RED_LOCAL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENTREGAS_WEBHOOK_RED_LOCAL'],
+        message:
+          'ENTREGAS_WEBHOOK_RED_LOCAL es solo para pruebas: en producción los webhooks de entrega van por https a direcciones públicas.',
       });
     }
     if (e.MERCADOPAGO_API_URL) {

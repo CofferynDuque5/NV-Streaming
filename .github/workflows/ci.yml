@@ -123,3 +123,89 @@ jobs:
           name: informe-lighthouse
           path: apps/web/.lighthouseci
           retention-days: 7
+
+  produccion:
+    name: Imágenes de producción y prueba de humo (Docker Compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NV_IMAGEN: nv-streaming
+      NV_VERSION: ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revisar los scripts de infra con shellcheck
+        run: shellcheck -x infra/*.sh infra/respaldos/*.sh
+      - uses: docker/setup-buildx-action@v3
+      - name: Imagen de la API y el trabajador
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: api
+          tags: nv-streaming/api:ci
+          load: true
+          cache-from: type=gha,scope=nv-api
+          cache-to: type=gha,mode=max,scope=nv-api
+      - name: Imagen de migraciones
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: migrar
+          tags: nv-streaming/migrar:ci
+          load: true
+          cache-from: type=gha,scope=nv-api
+      - name: Imagen de la web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          tags: nv-streaming/web:ci
+          build-args: WEB_ORIGEN=https://localhost
+          load: true
+          cache-from: type=gha,scope=nv-web
+          cache-to: type=gha,mode=max,scope=nv-web
+      - name: Imagen de copias de seguridad
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/respaldos/Dockerfile
+          tags: nv-streaming/respaldos:ci
+          load: true
+          cache-from: type=gha,scope=nv-respaldos
+          cache-to: type=gha,mode=max,scope=nv-respaldos
+      - name: Tamaño de las imágenes
+        run: docker images nv-streaming
+      - name: Entorno desechable (claves aleatorias; se borra con el runner)
+        run: |
+          mkdir -p "$RUNNER_TEMP/respaldos"
+          NV_DOMINIO=localhost NV_CORREO_ADMIN=ci@nv-streaming.dev NV_CADDY_TLS=interno \
+            NV_WEB_ORIGEN=https://localhost NV_SMTP_HOST=localhost \
+            NV_CORREO_REMITENTE='NV CI <ci@nv-streaming.dev>' NV_RESPALDO_DIR="$RUNNER_TEMP/respaldos" \
+            bash infra/generar-entorno.sh .env.produccion
+      - name: Arrancar la pila de producción
+        run: |
+          docker compose -f docker-compose.prod.yml --env-file .env.produccion up -d --no-build \
+            --wait --wait-timeout 300 postgres api trabajador web caddy respaldos
+      - name: Prueba de humo (salud, portada, ingreso, migraciones, administrador y copias)
+        run: |
+          set -euo pipefail
+          c() { curl -fsS -k --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null -w "$1 %{http_code} %{time_total}s\n" "https://localhost$1"; }
+          curl -fsSk https://localhost/api/v1/salud | grep -q '"ok"'
+          c / && c /planes && c /ingresar
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/panel)" = 307
+          migraciones="$(docker compose -f docker-compose.prod.yml --env-file .env.produccion exec -T postgres \
+            psql -XAtq -U nv -d nv -c 'SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL')"
+          echo "Migraciones aplicadas: $migraciones"
+          test "$migraciones" -ge 1
+          salida="$(bash infra/crear-admin.sh ci@nv-streaming.dev "Administración CI")"
+          grep -q '/invitacion?token=' <<<"$salida"
+          bash infra/respaldar.sh
+          bash infra/restaurar.sh probar ultima
+          bash infra/estado.sh --breve || true
+      - name: Logs si algo falló
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml --env-file .env.produccion logs --tail=200
+      - name: Apagar y borrar todo
+        if: always()
+        run: docker compose -f docker-compose.prod.yml --env-file .env.produccion down -v --remove-orphans

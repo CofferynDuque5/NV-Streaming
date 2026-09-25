@@ -17,6 +17,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado, iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
+import { solicitarRevocacion } from '../entregas/registro.js';
 import { CERO, type Dec, redondear } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { INCLUIR_SUSCRIPCION, suscripcionPublica } from '../suscripciones/presentacion.js';
@@ -494,6 +495,7 @@ export class ComprasService {
             datos: { compraRevendedorId: id, estadoAnterior: s.estado },
           },
         });
+        await solicitarRevocacion(tx, s.id, detalle, ahora);
       }
       await this.auditoria.registrar(
         {

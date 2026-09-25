@@ -33,6 +33,7 @@ import { SuscripcionesController } from './suscripciones/suscripciones.controlle
 import { SuscripcionesService } from './suscripciones/suscripciones.service.js';
 import { VencimientosService } from './suscripciones/vencimientos.service.js';
 import { FiltroErrores } from './comun/errores.js';
+import { CONTROLADORES_ENTREGAS, PROVEEDORES_ENTREGAS } from './entregas/entregas.js';
 import type { Entorno } from './config/entorno.js';
 import { CuentaController } from './cuenta/cuenta.controller.js';
 import { CuentaService } from './cuenta/cuenta.service.js';
@@ -79,6 +80,7 @@ export class AppModule {
         ...CONTROLADORES_AUTOMATIZACIONES,
         ...CONTROLADORES_PAGOS_EN_LINEA,
         ...CONTROLADORES_ASISTENTE,
+        ...CONTROLADORES_ENTREGAS,
       ],
       providers: [
         CuentaService,
@@ -101,6 +103,7 @@ export class AppModule {
         ...PROVEEDORES_AUTOMATIZACIONES,
         ...PROVEEDORES_PAGOS_EN_LINEA,
         ...PROVEEDORES_ASISTENTE,
+        ...PROVEEDORES_ENTREGAS,
         { provide: APP_FILTER, useClass: FiltroErrores },
         // El orden importa: origen → sesión → permisos.
         { provide: APP_GUARD, useClass: OrigenGuard },

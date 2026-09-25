@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 
 /** SHA-256 en hexadecimal. Se usa para guardar tokens sin poder recuperarlos. */
 export function sha256(valor: string): string {
@@ -37,6 +37,19 @@ export class Cifrador {
   ) {
     if (claveActiva.length !== 32) throw new Error('La clave de cifrado debe tener 32 bytes.');
     this.claves = new Map([...Object.entries(anteriores), [idClaveActiva, claveActiva]]);
+  }
+
+  /**
+   * Huella HMAC-SHA256 (hex) de un valor, con una clave derivada de la clave
+   * activa y del contexto. Sirve para buscar o rechazar repetidos (p. ej. los
+   * códigos de inventario) sin descifrar nada. Si se rota la clave activa, las
+   * huellas viejas dejan de coincidir: hay que recalcularlas.
+   */
+  huella(valor: string, contexto: string): string {
+    const clave = createHmac('sha256', this.claves.get(this.idClaveActiva)!)
+      .update(`nv:huella:${contexto}`, 'utf8')
+      .digest();
+    return createHmac('sha256', clave).update(valor, 'utf8').digest('hex');
   }
 
   cifrar(textoPlano: string, contexto: string): string {
