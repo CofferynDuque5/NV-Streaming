@@ -17,7 +17,7 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     id: 'portada',
     tipo: 'portada',
     fondo: 'normal',
-    etiqueta: 'Nueva plataforma en preparación',
+    etiqueta: 'Solo servicios autorizados',
     titulo: 'Tu streaming, en regla y sin complicaciones.',
     destacado: 'en regla',
     subtitulo:
@@ -119,9 +119,9 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     id: 'llamada',
     tipo: 'llamada',
     fondo: 'normal',
-    titulo: 'Crea tu cuenta y te avisamos cuando abra el catálogo',
-    texto: 'Registrarte es gratis y solo necesitas un correo.',
+    titulo: 'Crea tu cuenta y activa tu plan hoy',
+    texto: 'Registrarte es gratis y solo necesitas un correo. Paga en bolívares o en tu moneda.',
     boton: { texto: 'Crear mi cuenta', enlace: '/registro' },
-    botonSecundario: null,
+    botonSecundario: { texto: 'Ver planes', enlace: '/planes' },
   },
 ];
