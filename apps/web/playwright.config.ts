@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec/,
+        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -71,6 +71,13 @@ export default defineConfig({
       name: 'entregas',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /entregas\.spec/,
+    },
+    // Carrito y billetera: el cliente recarga para pagar un pedido y administración (con 2FA
+    // desde roles.spec.ts) concilia la recarga.
+    {
+      name: 'billetera',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /billetera\.spec/,
     },
   ],
   webServer: [

@@ -91,6 +91,8 @@ export class FacturacionService {
       concepto: ConceptoFactura;
       cupon?: string | null;
       actorId: string | null;
+      /** Pedido del carrito al que pertenece. */
+      pedidoId?: string | null;
     },
   ): Promise<Factura> {
     const c = await this.calcular(tx, { ...e, clienteId: e.clienteId });
@@ -102,6 +104,7 @@ export class FacturacionService {
         data: {
           clienteId: e.clienteId,
           suscripcionId: e.suscripcionId,
+          pedidoId: e.pedidoId ?? null,
           concepto: e.concepto,
           estado: gratis ? 'pagada' : 'emitida',
           moneda: c.moneda,

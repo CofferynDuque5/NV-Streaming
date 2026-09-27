@@ -283,9 +283,14 @@ export function EditarCondiciones({
 export function AjustarSaldo({
   revendedorId,
   saldoUsd,
+  ruta = `/revendedores/${revendedorId}/ajustes`,
+  quienVe = 'el revendedor',
 }: {
-  revendedorId: string;
+  revendedorId?: string;
   saldoUsd: string;
+  /** Ruta de la API que registra el ajuste (revendedor o billetera de un cliente). */
+  ruta?: string;
+  quienVe?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
   const { cargando, error, campos, ejecutar } = useAccion();
@@ -293,7 +298,7 @@ export function AjustarSaldo({
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
-    const r = await ejecutar('POST', `/revendedores/${revendedorId}/ajustes`, {
+    const r = await ejecutar('POST', ruta, {
       montoUsd: textoDe(d, 'montoUsd') ?? '',
       motivo: textoDe(d, 'motivo') ?? '',
     });
@@ -330,7 +335,7 @@ export function AjustarSaldo({
         rows={2}
         required
         placeholder="Ej. Compensación por una recarga duplicada."
-        ayuda="Queda en el historial y lo ve el revendedor."
+        ayuda={`Queda en el historial y lo ve ${quienVe}.`}
         error={campos.motivo}
       />
       <ErrorGeneral error={error} />
@@ -349,8 +354,16 @@ export function AjustarSaldo({
 /** Confirmar (con el monto que llegó) o rechazar una recarga en revisión. */
 export function ConciliarRecarga({
   recarga,
+  titular = recarga.revendedor?.nombre ?? 'El revendedor',
+  base = '/recargas-saldo',
 }: {
-  recarga: Pick<RecargaPublica, 'id' | 'moneda' | 'montoDeclarado' | 'tasa' | 'revendedor'>;
+  recarga: Pick<RecargaPublica, 'id' | 'moneda' | 'montoDeclarado' | 'tasa'> & {
+    revendedor?: { nombre: string };
+  };
+  /** Quién verá el motivo de un rechazo. */
+  titular?: string;
+  /** Ruta de la API de la cola (recargas de revendedores o de billeteras). */
+  base?: string;
 }) {
   const [confirmando, setConfirmando] = useState(false);
   const [monto, setMonto] = useState(recarga.montoDeclarado);
@@ -360,7 +373,7 @@ export function ConciliarRecarga({
   async function confirmar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
-    const r = await ejecutar('POST', `/recargas-saldo/${recarga.id}/confirmar`, {
+    const r = await ejecutar('POST', `${base}/${recarga.id}/confirmar`, {
       montoRecibido: textoDe(d, 'montoRecibido') ?? '',
       notas: textoDe(d, 'notas'),
     });
@@ -381,12 +394,12 @@ export function ConciliarRecarga({
           Confirmar
         </Boton>
         <AccionConMotivo
-          ruta={`/recargas-saldo/${recarga.id}/rechazar`}
+          ruta={`${base}/${recarga.id}/rechazar`}
           boton="Rechazar"
           confirmar="Rechazar recarga"
           etiqueta="Motivo del rechazo"
           placeholder="Ej. No encontramos el pago en el banco."
-          ayuda={`${recarga.revendedor.nombre} verá este motivo.`}
+          ayuda={`${titular} verá este motivo.`}
           icono={<X className="size-4" />}
           peligro
         />

@@ -204,8 +204,8 @@ export interface PagoPublico {
   motivoRechazo: string | null;
   tieneComprobante: boolean;
   creadoEn: string;
-  /** "manual" o "pasarela" (fase 4). */
-  origen?: 'manual' | 'pasarela';
+  /** "manual", "pasarela" (fase 4) o "billetera" (pagado con saldo). */
+  origen?: 'manual' | 'pasarela' | 'billetera';
   pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;
   montoReembolsado?: Decimal;
   /** Solo para el equipo. */

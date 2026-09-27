@@ -164,46 +164,14 @@ export class SuscripcionesService {
         );
       }
       const plan = await this.planContratable(tx, auth, e.planId);
-      const s = await tx.suscripcion.create({
-        data: {
-          clienteId: titular.id,
-          planId: plan.id,
-          moneda: e.moneda,
-          creadoPorId: auth.usuario.id,
-        },
-      });
-      await this.evento(tx, s.id, 'alta', auth.usuario.id, null, {
-        planId: plan.id,
-        moneda: e.moneda,
-      });
-      const factura = await this.facturacion.emitir(tx, {
+      const { s, factura } = await this.alta(tx, auth, {
         clienteId: titular.id,
-        suscripcionId: s.id,
         plan,
         moneda: e.moneda,
-        concepto: 'alta',
         cupon: e.cupon ?? null,
-        actorId: auth.usuario.id,
+        pedidoId: null,
+        cliente,
       });
-      await this.auditoria.registrar(
-        {
-          actorId: auth.usuario.id,
-          accion: 'suscripcion.creada',
-          entidad: 'suscripcion',
-          entidadId: s.id,
-          despues: {
-            clienteId: titular.id,
-            planId: plan.id,
-            moneda: e.moneda,
-            facturaId: factura.id,
-            total: factura.total.toFixed(2),
-            cupon: e.cupon ?? null,
-          },
-          cliente,
-        },
-        tx,
-      );
-      if (factura.estado === 'pagada') await this.aplicarPago(tx, factura, auth.usuario.id);
       return {
         suscripcion: suscripcionPublica(await this.cargar(tx, s.id)),
         factura: {
@@ -213,6 +181,87 @@ export class SuscripcionesService {
         },
       };
     });
+  }
+
+  /**
+   * Alta de un plan dentro de un pedido del carrito (en la transacción del
+   * pedido, que ya bloqueó al cliente y comprobó sus límites).
+   */
+  async altaDePedido(
+    tx: Tx,
+    auth: ContextoAuth,
+    e: {
+      clienteId: string;
+      planId: string;
+      moneda: Moneda;
+      cupon: string | null;
+      pedidoId: string;
+      cliente: InfoCliente;
+    },
+  ): Promise<Factura> {
+    const plan = await this.planContratable(tx, auth, e.planId);
+    const { factura } = await this.alta(tx, auth, { ...e, plan });
+    return factura;
+  }
+
+  /** Crea la suscripción pendiente de pago con su factura de alta, y la audita. */
+  private async alta(
+    tx: Tx,
+    auth: ContextoAuth,
+    e: {
+      clienteId: string;
+      plan: PlanCompleto;
+      moneda: Moneda;
+      cupon: string | null;
+      pedidoId: string | null;
+      cliente: InfoCliente;
+    },
+  ): Promise<{ s: Suscripcion; factura: Factura }> {
+    const { plan } = e;
+    const s = await tx.suscripcion.create({
+      data: {
+        clienteId: e.clienteId,
+        planId: plan.id,
+        moneda: e.moneda,
+        creadoPorId: auth.usuario.id,
+      },
+    });
+    await this.evento(tx, s.id, 'alta', auth.usuario.id, null, {
+      planId: plan.id,
+      moneda: e.moneda,
+      ...(e.pedidoId ? { pedidoId: e.pedidoId } : {}),
+    });
+    const factura = await this.facturacion.emitir(tx, {
+      clienteId: e.clienteId,
+      suscripcionId: s.id,
+      plan,
+      moneda: e.moneda,
+      concepto: 'alta',
+      cupon: e.cupon,
+      actorId: auth.usuario.id,
+      pedidoId: e.pedidoId,
+    });
+    await this.auditoria.registrar(
+      {
+        actorId: auth.usuario.id,
+        accion: 'suscripcion.creada',
+        entidad: 'suscripcion',
+        entidadId: s.id,
+        despues: {
+          clienteId: e.clienteId,
+          planId: plan.id,
+          moneda: e.moneda,
+          facturaId: factura.id,
+          total: factura.total.toFixed(2),
+          cupon: e.cupon,
+          ...(e.pedidoId ? { pedidoId: e.pedidoId } : {}),
+        },
+        cliente: e.cliente,
+      },
+      tx,
+    );
+    if (factura.estado === 'pagada') await this.aplicarPago(tx, factura, auth.usuario.id);
+    return { s, factura };
   }
 
   /** Emite la factura de renovación. El periodo se extiende cuando se paga. */
@@ -683,7 +732,7 @@ export class SuscripcionesService {
     return tx.suscripcion.findUniqueOrThrow({ where: { id }, include: INCLUIR_SUSCRIPCION });
   }
 
-  private async planContratable(tx: Tx, auth: ContextoAuth, planId: string): Promise<PlanCompleto> {
+  async planContratable(tx: Tx, auth: ContextoAuth, planId: string): Promise<PlanCompleto> {
     const plan = await tx.plan.findFirst({
       where: {
         id: planId,

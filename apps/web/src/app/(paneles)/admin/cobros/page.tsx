@@ -17,10 +17,12 @@ import {
   ReceiptText,
   Repeat,
   TriangleAlert,
+  Wallet,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { ColaRecargasBilletera } from '@/componentes/admin/billeteras';
 import { ConciliarPago } from '@/componentes/admin/cobros';
 import { TablaCobrosAutomaticos } from '@/componentes/admin/cobros-automaticos';
 import { mismoImporte } from '@/componentes/admin/formato-admin';
@@ -42,7 +44,7 @@ import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Cobros' };
 
-type Vista = 'conciliar' | 'facturas' | 'automaticos';
+type Vista = 'conciliar' | 'billeteras' | 'facturas' | 'automaticos';
 type Crudo = Record<string, string | string[] | undefined>;
 
 const FILTRO_ESTADO: Record<EstadoFactura, string> = {
@@ -56,7 +58,10 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
   const puedeConciliar = sesion.permisos.includes('pagos.gestionar');
   const crudo = await searchParams;
   const pedida =
-    crudo.vista === 'facturas' || crudo.vista === 'conciliar' || crudo.vista === 'automaticos'
+    crudo.vista === 'facturas' ||
+    crudo.vista === 'conciliar' ||
+    crudo.vista === 'billeteras' ||
+    crudo.vista === 'automaticos'
       ? crudo.vista
       : null;
   const vista: Vista =
@@ -67,12 +72,20 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
         : (pedida ?? 'conciliar');
 
   // El total de la cola se muestra en la pestaña aunque se esté viendo la otra.
-  const enRevision = puedeConciliar
-    ? vista === 'conciliar'
-      ? null
-      : ((await leerApi<Pagina<PagoPublico>>('/pagos?estado=en_revision&porPagina=1')).datos
-          ?.total ?? null)
-    : null;
+  const [enRevision, recargasEnRevision] = puedeConciliar
+    ? await Promise.all([
+        vista === 'conciliar'
+          ? null
+          : leerApi<Pagina<PagoPublico>>('/pagos?estado=en_revision&porPagina=1').then(
+              (r) => r.datos?.total ?? null,
+            ),
+        vista === 'billeteras'
+          ? null
+          : leerApi<Pagina<unknown>>('/billeteras/recargas?estado=en_revision&porPagina=1').then(
+              (r) => r.datos?.total ?? null,
+            ),
+      ])
+    : [null, null];
 
   return (
     <>
@@ -84,8 +97,14 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
             : 'Facturas de tu cartera de clientes y su estado de pago.'
         }
       />
-      <Pestanas vista={vista} enRevision={enRevision} puedeConciliar={puedeConciliar} />
+      <Pestanas
+        vista={vista}
+        enRevision={enRevision}
+        recargasEnRevision={recargasEnRevision}
+        puedeConciliar={puedeConciliar}
+      />
       {vista === 'conciliar' && <ColaConciliacion crudo={crudo} />}
+      {vista === 'billeteras' && <ColaRecargasBilletera crudo={crudo} ruta="/admin/cobros" />}
       {vista === 'facturas' && <Facturas crudo={crudo} />}
       {vista === 'automaticos' && (
         <TablaCobrosAutomaticos
@@ -101,15 +120,20 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
 function Pestanas({
   vista,
   enRevision,
+  recargasEnRevision,
   puedeConciliar,
 }: {
   vista: Vista;
   enRevision: number | null;
+  recargasEnRevision: number | null;
   puedeConciliar: boolean;
 }) {
   const pestanas: { id: Vista; texto: string; icono: typeof FileSearch }[] = [
     ...(puedeConciliar
-      ? [{ id: 'conciliar' as const, texto: 'Por conciliar', icono: FileSearch }]
+      ? [
+          { id: 'conciliar' as const, texto: 'Por conciliar', icono: FileSearch },
+          { id: 'billeteras' as const, texto: 'Recargas de billetera', icono: Wallet },
+        ]
       : []),
     { id: 'facturas', texto: 'Facturas', icono: ReceiptText },
     { id: 'automaticos', texto: 'Cobros automáticos', icono: Repeat },
@@ -133,9 +157,10 @@ function Pestanas({
               >
                 <Icono className={clsx('size-4', activa && 'text-marca')} aria-hidden="true" />
                 {texto}
-                {id === 'conciliar' && enRevision !== null && enRevision > 0 && (
+                {((id === 'conciliar' && (enRevision ?? 0) > 0) ||
+                  (id === 'billeteras' && (recargasEnRevision ?? 0) > 0)) && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-aviso px-1.5 text-[0.7rem] font-semibold text-fondo tabular-nums">
-                    {enRevision}
+                    {id === 'conciliar' ? enRevision : recargasEnRevision}
                   </span>
                 )}
               </Link>

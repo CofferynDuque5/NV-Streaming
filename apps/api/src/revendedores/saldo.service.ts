@@ -15,6 +15,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
+import { exigirReferenciaNueva } from '../comun/referencias.js';
 import { PRISMA } from '../comun/tokens.js';
 import { aUsd, D } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
@@ -98,7 +99,7 @@ export class SaldoService {
           ],
         });
       }
-      if (e.referenciaExterna) await this.exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      if (e.referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
       const tasa = e.moneda === 'USD' ? D(1) : await this.tasas.tasaDe(e.moneda, tx);
       const comprobante = await this.almacen.guardar(tx, archivo, auth.usuario.id);
       const monto = D(e.monto);
@@ -413,31 +414,6 @@ export class SaldoService {
       throw new ErrorApp(409, 'RECARGA_YA_REVISADA', 'Esta recarga ya se revisó.');
     }
     return r;
-  }
-
-  /**
-   * La misma referencia bancaria no puede usarse dos veces en el mismo método,
-   * ni en otra recarga ni en el pago de una factura.
-   */
-  private async exigirReferenciaNueva(tx: Tx, metodoCobroId: string, referencia: string) {
-    const filtro = {
-      metodoCobroId,
-      referenciaExterna: { equals: referencia, mode: 'insensitive' as const },
-    };
-    // En serie: una transacción usa una sola conexión.
-    const recarga = await tx.recargaSaldo.findFirst({
-      where: { ...filtro, estado: { in: ['en_revision', 'confirmada'] } },
-      select: { id: true },
-    });
-    const pago = await tx.pago.findFirst({
-      where: { ...filtro, estado: { in: ['en_revision', 'confirmado'] } },
-      select: { id: true },
-    });
-    if (recarga || pago) {
-      throw new ErrorApp(409, 'REFERENCIA_REPETIDA', 'Esa referencia ya se reportó en otro pago.', {
-        referenciaExterna: ['Esa referencia ya se reportó en otro pago.'],
-      });
-    }
   }
 
   private async insertarConReferencia(

@@ -1,6 +1,7 @@
 import type {
   EstadoFactura,
   EstadoPago,
+  EstadoPedido,
   EstadoSuscripcion,
   EstadoTicket,
   PrioridadTicket,
@@ -8,6 +9,7 @@ import type {
 import {
   ESTADO_FACTURA,
   ESTADO_PAGO,
+  ESTADO_PEDIDO,
   ESTADO_SUSCRIPCION,
   ESTADO_TICKET,
   PRIORIDAD_TICKET,
@@ -31,6 +33,10 @@ export const EstadoFacturaInsignia = ({
 
 export const EstadoPagoInsignia = ({ estado }: { estado: EstadoPago }) => (
   <Insignia tono={ESTADO_PAGO[estado].tono}>{ESTADO_PAGO[estado].texto}</Insignia>
+);
+
+export const EstadoPedidoInsignia = ({ estado }: { estado: EstadoPedido }) => (
+  <Insignia tono={ESTADO_PEDIDO[estado].tono}>{ESTADO_PEDIDO[estado].texto}</Insignia>
 );
 
 export const EstadoTicketInsignia = ({ estado }: { estado: EstadoTicket }) => (

@@ -45,6 +45,7 @@ import {
   CONTROLADORES_PAGOS_EN_LINEA,
   PROVEEDORES_PAGOS_EN_LINEA,
 } from './pagos-en-linea/pagos-en-linea.js';
+import { CONTROLADORES_BILLETERA, PROVEEDORES_BILLETERA } from './billetera/billetera.js';
 import {
   CONTROLADORES_REVENDEDORES,
   PROVEEDORES_REVENDEDORES,
@@ -76,6 +77,7 @@ export class AppModule {
         MetricasController,
         AutoservicioController,
         ...CONTROLADORES_REVENDEDORES,
+        ...CONTROLADORES_BILLETERA,
         ...CONTROLADORES_SITIO,
         ...CONTROLADORES_AUTOMATIZACIONES,
         ...CONTROLADORES_PAGOS_EN_LINEA,
@@ -99,6 +101,7 @@ export class AppModule {
         TicketsService,
         MetricasService,
         ...PROVEEDORES_REVENDEDORES,
+        ...PROVEEDORES_BILLETERA,
         ...PROVEEDORES_SITIO,
         ...PROVEEDORES_AUTOMATIZACIONES,
         ...PROVEEDORES_PAGOS_EN_LINEA,

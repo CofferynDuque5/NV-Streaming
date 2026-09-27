@@ -61,4 +61,6 @@ export const REGLAS_COBRO = {
   diasSuspension: 30,
   /** Suscripciones pendientes de pago que un cliente puede tener a la vez. */
   pendientesPorCliente: 3,
+  /** Planes distintos que caben en un pedido del carrito. */
+  articulosPorPedido: 5,
 } as const;

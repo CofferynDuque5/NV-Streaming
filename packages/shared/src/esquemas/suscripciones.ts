@@ -19,7 +19,7 @@ export const codigoCuponSchema = z
   .toUpperCase()
   .regex(/^[A-Z0-9_-]{3,40}$/, 'El cupón usa letras, números, guiones (3 a 40).');
 
-const cuponOpcional = z.preprocess(
+export const cuponOpcional = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
   codigoCuponSchema.optional(),
 );

@@ -16,6 +16,7 @@ import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado, numeroFactura } from '../comun/formato.js';
+import { exigirReferenciaNueva } from '../comun/referencias.js';
 import { PRISMA } from '../comun/tokens.js';
 import { CorreoService } from '../correo/correo.service.js';
 import { Plantillas } from '../correo/plantillas.js';
@@ -246,7 +247,7 @@ export class PagosService {
           'Ya hay un pago de esta factura en revisión. Espera a que lo confirmemos.',
         );
       }
-      if (e.referenciaExterna) await this.exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      if (e.referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
       const comprobante = archivo ? await this.almacen.guardar(tx, archivo, auth.usuario.id) : null;
       const monto = D(e.monto);
       const pago = await this.insertarConReferencia(tx, {
@@ -354,6 +355,32 @@ export class PagosService {
     return tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
   }
 
+  /**
+   * Registra el pago de una factura con saldo de la billetera, dentro de la
+   * transacción de quien llama (que ya descontó el saldo con la fila del
+   * cliente bloqueada). Queda confirmado por el MISMO camino que una
+   * conciliación manual: factura pagada, suscripción activada o renovada.
+   */
+  async registrarDeBilletera(
+    tx: Tx,
+    e: { factura: Factura; creadoPorId: string | null; cliente?: InfoCliente },
+  ): Promise<Pago> {
+    const ahora = new Date();
+    const pago = await this.insertarConReferencia(tx, {
+      facturaId: e.factura.id,
+      clienteId: e.factura.clienteId,
+      metodoCobroId: null,
+      moneda: e.factura.moneda,
+      montoDeclarado: e.factura.total,
+      montoRecibido: e.factura.total,
+      fechaPago: ahora,
+      origen: 'billetera',
+      creadoPorId: e.creadoPorId,
+    });
+    await this.cerrarFactura(tx, null, e.factura, e.factura.total, pago.id, null, e.cliente);
+    return tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
+  }
+
   /** Confirma el pago, marca la factura pagada y aplica el pago a la suscripción. */
   private async cerrarFactura(
     tx: Tx,
@@ -422,23 +449,6 @@ export class PagosService {
       throw new ErrorApp(409, 'PAGO_YA_REVISADO', 'Este pago ya se revisó.');
     }
     return p;
-  }
-
-  /** La misma referencia bancaria no puede usarse dos veces en el mismo método. */
-  private async exigirReferenciaNueva(tx: Tx, metodoCobroId: string, referencia: string) {
-    const repetido = await tx.pago.findFirst({
-      where: {
-        metodoCobroId,
-        referenciaExterna: { equals: referencia, mode: 'insensitive' },
-        estado: { in: ['en_revision', 'confirmado'] },
-      },
-      select: { id: true },
-    });
-    if (repetido) {
-      throw new ErrorApp(409, 'REFERENCIA_REPETIDA', 'Esa referencia ya se reportó en otro pago.', {
-        referenciaExterna: ['Esa referencia ya se reportó en otro pago.'],
-      });
-    }
   }
 
   private async insertarConReferencia(

@@ -1,14 +1,16 @@
 import {
+  type BilleteraPublica,
   type CatalogoPublico,
   type FacturaDetalle,
   formatearMonto,
   type MetodoCobroPublico,
   type OpcionesPagoEnLinea,
 } from '@nv/shared';
-import { ArrowLeft, FileText, Globe } from 'lucide-react';
+import { ArrowLeft, FileText, Globe, Wallet } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PagarConSaldo } from '@/componentes/cliente/carrito';
 import { CambiarMoneda, FormularioPago } from '@/componentes/cliente/pago';
 import { PagarEnLinea } from '@/componentes/cliente/pago-en-linea';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -46,15 +48,17 @@ export default async function Factura({ params }: { params: Promise<{ id: string
 
   const porPagar = f.estado === 'emitida' && !f.pagoEnRevision;
   const enLinea = porPagar && monedaAdmitePagoEnLinea(f.moneda);
-  const [{ datos: todos }, { datos: catalogo }, { datos: opcionesEnLinea }] = porPagar
-    ? await Promise.all([
-        leerApi<MetodoCobroPublico[]>(`/mi/metodos-cobro?moneda=${f.moneda}`),
-        leerApi<CatalogoPublico>('/catalogo'),
-        enLinea
-          ? leerApi<OpcionesPagoEnLinea>(`/mi/facturas/${f.id}/pago-en-linea`)
-          : Promise.resolve({ datos: null }),
-      ])
-    : [{ datos: null }, { datos: null }, { datos: null }];
+  const [{ datos: todos }, { datos: catalogo }, { datos: opcionesEnLinea }, { datos: billetera }] =
+    porPagar
+      ? await Promise.all([
+          leerApi<MetodoCobroPublico[]>(`/mi/metodos-cobro?moneda=${f.moneda}`),
+          leerApi<CatalogoPublico>('/catalogo'),
+          enLinea
+            ? leerApi<OpcionesPagoEnLinea>(`/mi/facturas/${f.id}/pago-en-linea`)
+            : Promise.resolve({ datos: null }),
+          leerApi<BilleteraPublica>('/mi/billetera'),
+        ])
+      : [{ datos: null }, { datos: null }, { datos: null }, { datos: null }];
   // Los métodos en línea se ofrecen arriba; aquí solo los manuales (con comprobante).
   const metodos = todos?.filter((m) => (m.tipo ?? 'manual') === 'manual') ?? null;
   const opciones = opcionesEnLinea?.opciones.length ? opcionesEnLinea : null;
@@ -100,6 +104,23 @@ export default async function Factura({ params }: { params: Promise<{ id: string
           {porPagar && catalogo && catalogo.monedas.length > 1 && (
             <Tarjeta className="px-5 py-5 sm:px-6">
               <CambiarMoneda facturaId={f.id} actual={f.moneda} monedas={catalogo.monedas} />
+            </Tarjeta>
+          )}
+
+          {billetera && Number(billetera.saldoUsd) > 0 && (
+            <Tarjeta>
+              <CabeceraTarjeta
+                titulo="Pagar con tu saldo"
+                descripcion="Se descuenta de tu billetera y la factura queda pagada al momento."
+                accion={<Wallet className="size-5 text-marca" aria-hidden="true" />}
+              />
+              <div className="px-5 py-5 sm:px-6">
+                <PagarConSaldo
+                  facturaId={f.id}
+                  totalUsd={f.totalUsd}
+                  saldoUsd={billetera.saldoUsd}
+                />
+              </div>
             </Tarjeta>
           )}
 
@@ -162,7 +183,9 @@ export default async function Factura({ params }: { params: Promise<{ id: string
                         {formatearMonto(p.montoRecibido ?? p.montoDeclarado, p.moneda)} ·{' '}
                         {p.origen === 'pasarela'
                           ? `Pago en línea (${nombrePasarela(p.pasarela)})`
-                          : p.metodo.nombre}
+                          : p.origen === 'billetera'
+                            ? 'Saldo de la billetera'
+                            : p.metodo.nombre}
                       </span>
                       <EstadoPagoInsignia estado={p.estado} />
                     </div>

@@ -50,7 +50,7 @@ export const INCLUIR_PAGO = {
 type PagoBase = Pago & {
   factura: Pick<Factura, 'id' | 'numero' | 'total' | 'moneda'>;
   cliente: { id: string; nombre: string };
-  metodoCobro: Pick<MetodoCobro, 'id' | 'nombre'>;
+  metodoCobro: Pick<MetodoCobro, 'id' | 'nombre'> | null;
   revisadoPor: Pick<Usuario, 'id' | 'nombre'> | null;
   comprobante?: Archivo | null;
 };
@@ -67,7 +67,10 @@ export function pagoPublico(p: PagoBase, equipo: boolean): PagoPublico {
       moneda: p.factura.moneda,
     },
     cliente: p.cliente,
-    metodo: { id: p.metodoCobro.id, nombre: p.metodoCobro.nombre },
+    // Los pagos con saldo no tienen método de cobro: se muestran como la billetera.
+    metodo: p.metodoCobro
+      ? { id: p.metodoCobro.id, nombre: p.metodoCobro.nombre }
+      : { id: 'billetera', nombre: 'Saldo de la billetera' },
     moneda: p.moneda,
     montoDeclarado: dec2(p.montoDeclarado),
     montoRecibido: dec(p.montoRecibido),
@@ -77,7 +80,7 @@ export function pagoPublico(p: PagoBase, equipo: boolean): PagoPublico {
     motivoRechazo: p.motivoRechazo,
     tieneComprobante: p.comprobanteId !== null,
     creadoEn: iso(p.creadoEn)!,
-    origen: p.origen === 'pasarela' ? 'pasarela' : 'manual',
+    origen: p.origen === 'pasarela' || p.origen === 'billetera' ? p.origen : 'manual',
     pasarela: esPasarela(p.pasarela) ? p.pasarela : null,
     montoReembolsado: dec2(p.montoReembolsado),
     ...(equipo

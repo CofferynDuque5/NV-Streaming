@@ -85,29 +85,32 @@ model Usuario {
   mensajesTicket       MensajeTicket[]
 
   // Fase 2
-  revendedor               Revendedor?              @relation("RevendedorUsuario")
-  revendedoresRevisados    Revendedor[]             @relation("RevendedorRevisor")
-  automatizacionesEditadas Automatizacion[]
-  metodosRevocados         MetodoPagoAutorizado[]   @relation("MetodoRevocador")
-  reembolsosSolicitados    Reembolso[]
-  notificaciones           Notificacion[]
-  preciosMayoristas        PrecioMayorista[]
-  recargasRevisadas        RecargaSaldo[]           @relation("RecargaRevisor")
-  movimientosSaldo         MovimientoSaldo[]
-  comprasReembolsadas      CompraRevendedor[]       @relation("CompraReembolsador")
-  paginasEditadas          Pagina[]                 @relation("PaginaEditor")
-  versionesPublicadas      VersionPagina[]
-  mediosSubidos            Medio[]
+  revendedor                 Revendedor?              @relation("RevendedorUsuario")
+  revendedoresRevisados      Revendedor[]             @relation("RevendedorRevisor")
+  automatizacionesEditadas   Automatizacion[]
+  metodosRevocados           MetodoPagoAutorizado[]   @relation("MetodoRevocador")
+  reembolsosSolicitados      Reembolso[]
+  notificaciones             Notificacion[]
+  preciosMayoristas          PrecioMayorista[]
+  recargasRevisadas          RecargaSaldo[]           @relation("RecargaRevisor")
+  movimientosSaldo           MovimientoSaldo[]
+  recargasBilleteraRevisadas RecargaBilletera[]       @relation("RecargaBilleteraRevisor")
+  movimientosBilletera       MovimientoBilletera[]
+  pedidosCreados             Pedido[]
+  comprasReembolsadas        CompraRevendedor[]       @relation("CompraReembolsador")
+  paginasEditadas            Pagina[]                 @relation("PaginaEditor")
+  versionesPublicadas        VersionPagina[]
+  mediosSubidos              Medio[]
   // Fase 5
-  conversacionesAsistente  ConversacionAsistente[]
-  accionesSolicitadas      AccionPropuesta[]        @relation("AccionSolicitante")
-  accionesDecididas        AccionPropuesta[]        @relation("AccionDecisor")
-  asistenteEditado         ConfiguracionAsistente[]
-  temasActualizados        TemaSitio[]
+  conversacionesAsistente    ConversacionAsistente[]
+  accionesSolicitadas        AccionPropuesta[]        @relation("AccionSolicitante")
+  accionesDecididas          AccionPropuesta[]        @relation("AccionDecisor")
+  asistenteEditado           ConfiguracionAsistente[]
+  temasActualizados          TemaSitio[]
   // Fase 6
-  entregasCompletadas      Entrega[]                @relation("EntregaCompletador")
-  lotesSubidos             LoteCodigos[]
-  codigosAnulados          CodigoInventario[]       @relation("CodigoAnulador")
+  entregasCompletadas        Entrega[]                @relation("EntregaCompletador")
+  lotesSubidos               LoteCodigos[]
+  codigosAnulados            CodigoInventario[]       @relation("CodigoAnulador")
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -262,6 +265,7 @@ model MetodoCobro {
   actualizadoEn      DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   recargas           RecargaSaldo[]
+  recargasBilletera  RecargaBilletera[]
   pagos              Pago[]
   intentos           IntentoPago[]
   metodosAutorizados MetodoPagoAutorizado[]
@@ -303,26 +307,31 @@ model Cliente {
   recibirRecordatorios Boolean       @default(true) @map("recibir_recordatorios")
   /// Cliente final de un revendedor (su cartera). NV no le cobra: le cobra el revendedor.
   revendedorId         String?       @map("revendedor_id") @db.Uuid
+  /// Saldo de la billetera: reflejo del libro mayor (`movimientos_billetera`).
+  saldoUsd             Decimal       @default(0) @map("saldo_usd") @db.Decimal(14, 2)
   creadoPorId          String?       @map("creado_por_id") @db.Uuid
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  usuario            Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
-  asignadoA          Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  creadoPor          Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  revendedor         Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
-  comprasRevendedor  CompraRevendedor[]
-  contactos          ContactoCliente[]
-  notas              NotaInterna[]
-  suscripciones      Suscripcion[]
-  facturas           Factura[]
-  pagos              Pago[]
-  tickets            Ticket[]
-  canjesCupon        CanjeCupon[]
-  notificaciones     Notificacion[]
-  metodosAutorizados MetodoPagoAutorizado[]
-  intentosPago       IntentoPago[]
-  entregas           Entrega[]
+  usuario              Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA            Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor            Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor           Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  comprasRevendedor    CompraRevendedor[]
+  contactos            ContactoCliente[]
+  notas                NotaInterna[]
+  suscripciones        Suscripcion[]
+  facturas             Factura[]
+  pagos                Pago[]
+  tickets              Ticket[]
+  canjesCupon          CanjeCupon[]
+  notificaciones       Notificacion[]
+  metodosAutorizados   MetodoPagoAutorizado[]
+  intentosPago         IntentoPago[]
+  entregas             Entrega[]
+  pedidos              Pedido[]
+  recargasBilletera    RecargaBilletera[]
+  movimientosBilletera MovimientoBilletera[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
@@ -592,6 +601,8 @@ model Factura {
   numero          Int             @unique @default(autoincrement())
   clienteId       String          @map("cliente_id") @db.Uuid
   suscripcionId   String?         @map("suscripcion_id") @db.Uuid
+  /// Pedido del carrito al que pertenece (una factura por plan).
+  pedidoId        String?         @map("pedido_id") @db.Uuid
   concepto        ConceptoFactura
   estado          EstadoFactura   @default(emitida)
   moneda          Moneda
@@ -611,21 +622,24 @@ model Factura {
   creadoEn        DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente           Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  suscripcion       Suscripcion?      @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
-  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onDelete: Restrict)
-  anuladaPor        Usuario?          @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
-  creadoPor         Usuario?          @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  lineas            LineaFactura[]
-  pagos             Pago[]
-  intentosPago      IntentoPago[]
-  cobrosAutomaticos CobroAutomatico[]
-  canje             CanjeCupon?
-  entregas          Entrega[]
+  cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion          Suscripcion?          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  pedido               Pedido?               @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  cupon                Cupon?                @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  anuladaPor           Usuario?              @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  creadoPor            Usuario?              @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  lineas               LineaFactura[]
+  pagos                Pago[]
+  intentosPago         IntentoPago[]
+  cobrosAutomaticos    CobroAutomatico[]
+  canje                CanjeCupon?
+  entregas             Entrega[]
+  movimientosBilletera MovimientoBilletera[]
 
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([estado, venceEn])
   @@index([suscripcionId])
+  @@index([pedidoId])
   @@map("facturas")
 }
 
@@ -716,10 +730,11 @@ model Archivo {
   subidoPorId    String?  @map("subido_por_id") @db.Uuid
   creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  subidoPor Usuario?       @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
-  pagos     Pago[]
-  recargas  RecargaSaldo[]
-  medio     Medio?
+  subidoPor         Usuario?           @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  pagos             Pago[]
+  recargas          RecargaSaldo[]
+  recargasBilletera RecargaBilletera[]
+  medio             Medio?
 
   @@map("archivos")
 }
@@ -738,7 +753,8 @@ model Pago {
   referencia        String     @unique @db.VarChar(20)
   facturaId         String     @map("factura_id") @db.Uuid
   clienteId         String     @map("cliente_id") @db.Uuid
-  metodoCobroId     String     @map("metodo_cobro_id") @db.Uuid
+  /// Nulo solo en los pagos con saldo de la billetera (origen "billetera").
+  metodoCobroId     String?    @map("metodo_cobro_id") @db.Uuid
   moneda            Moneda
   montoDeclarado    Decimal    @map("monto_declarado") @db.Decimal(14, 2)
   montoRecibido     Decimal?   @map("monto_recibido") @db.Decimal(14, 2)
@@ -746,7 +762,7 @@ model Pago {
   referenciaExterna String?    @map("referencia_externa") @db.VarChar(80)
   fechaPago         DateTime   @map("fecha_pago") @db.Timestamptz(3)
   comprobanteId     String?    @map("comprobante_id") @db.Uuid
-  /// "manual" (con comprobante) o "pasarela" (confirmado por la pasarela).
+  /// "manual" (con comprobante), "pasarela" (confirmado por la pasarela) o "billetera" (con saldo).
   origen            String     @default("manual") @db.VarChar(20)
   pasarela          String?    @db.VarChar(30)
   /// Id del cobro en la pasarela (captura, pago). Único por pasarela.
@@ -763,7 +779,7 @@ model Pago {
 
   factura         Factura          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
   cliente         Cliente          @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  metodoCobro     MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  metodoCobro     MetodoCobro?     @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
   comprobante     Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
   revisadoPor     Usuario?         @relation("PagoRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
   creadoPor       Usuario?         @relation("PagoCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
@@ -1722,4 +1738,100 @@ model CodigoInventario {
   @@index([planId, estado, creadoEn])
   @@index([loteId])
   @@map("codigos_inventario")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Carrito (pedidos) y billetera del cliente
+// ═════════════════════════════════════════════════════════════════════════════
+
+/// Compra de varios planes a la vez desde el carrito: una suscripción y una
+/// factura por plan. Su estado se deduce de sus facturas.
+model Pedido {
+  id              String   @id @default(uuid()) @db.Uuid
+  /// Correlativo; se muestra como PED-000123.
+  numero          Int      @unique @default(autoincrement())
+  clienteId       String   @map("cliente_id") @db.Uuid
+  moneda          Moneda
+  /// El cliente eligió "recargar y pagar": al confirmarse su recarga se pagan
+  /// con saldo las facturas pendientes del pedido.
+  pagarAlRecargar Boolean  @default(false) @map("pagar_al_recargar")
+  creadoPorId     String?  @map("creado_por_id") @db.Uuid
+  creadoEn        DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente   Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  creadoPor Usuario?           @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  facturas  Factura[]
+  recargas  RecargaBilletera[]
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("pedidos")
+}
+
+enum TipoMovimientoBilletera {
+  recarga
+  pago
+  ajuste
+}
+
+/// Recarga de la billetera del cliente: paga a mano con comprobante y el equipo la concilia.
+model RecargaBilletera {
+  id                String        @id @default(uuid()) @db.Uuid
+  /// Referencia del servidor, p. ej. B-7K2M9QX4.
+  referencia        String        @unique @db.VarChar(20)
+  clienteId         String        @map("cliente_id") @db.Uuid
+  /// Pedido que la recarga debe pagar al confirmarse (opcional).
+  pedidoId          String?       @map("pedido_id") @db.Uuid
+  metodoCobroId     String        @map("metodo_cobro_id") @db.Uuid
+  moneda            Moneda
+  montoDeclarado    Decimal       @map("monto_declarado") @db.Decimal(14, 2)
+  montoRecibido     Decimal?      @map("monto_recibido") @db.Decimal(14, 2)
+  /// Unidades de `moneda` por 1 USD al reportar; fija cuánto saldo se acredita.
+  tasa              Decimal       @db.Decimal(18, 6)
+  /// Saldo acreditado (en USD) al confirmar.
+  montoUsd          Decimal?      @map("monto_usd") @db.Decimal(14, 2)
+  referenciaExterna String?       @map("referencia_externa") @db.VarChar(80)
+  fechaPago         DateTime      @map("fecha_pago") @db.Timestamptz(3)
+  comprobanteId     String?       @map("comprobante_id") @db.Uuid
+  estado            EstadoRecarga @default(en_revision)
+  motivoRechazo     String?       @map("motivo_rechazo") @db.VarChar(500)
+  notas             String?       @db.VarChar(500)
+  revisadoPorId     String?       @map("revisado_por_id") @db.Uuid
+  revisadoEn        DateTime?     @map("revisado_en") @db.Timestamptz(3)
+  creadoEn          DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente     Cliente              @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  pedido      Pedido?              @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  metodoCobro MetodoCobro          @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante Archivo?             @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor Usuario?             @relation("RecargaBilleteraRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  movimiento  MovimientoBilletera?
+
+  @@index([estado, creadoEn])
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@map("recargas_billetera")
+}
+
+/// Libro mayor de la billetera: solo se insertan filas (un disparador impide editarlas o borrarlas).
+model MovimientoBilletera {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  clienteId          String                  @map("cliente_id") @db.Uuid
+  tipo               TipoMovimientoBilletera
+  /// Positivo suma saldo, negativo lo resta.
+  montoUsd           Decimal                 @map("monto_usd") @db.Decimal(14, 2)
+  saldoResultanteUsd Decimal                 @map("saldo_resultante_usd") @db.Decimal(14, 2)
+  recargaId          String?                 @unique @map("recarga_id") @db.Uuid
+  facturaId          String?                 @map("factura_id") @db.Uuid
+  motivo             String?                 @db.VarChar(500)
+  autorId            String?                 @map("autor_id") @db.Uuid
+  creadoEn           DateTime                @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cliente Cliente           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  recarga RecargaBilletera? @relation(fields: [recargaId], references: [id], onDelete: Restrict)
+  factura Factura?          @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  autor   Usuario?          @relation(fields: [autorId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([facturaId])
+  @@map("movimientos_billetera")
 }

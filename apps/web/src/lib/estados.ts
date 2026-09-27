@@ -2,9 +2,11 @@ import type {
   CategoriaTicket,
   EstadoFactura,
   EstadoPago,
+  EstadoPedido,
   EstadoSuscripcion,
   EstadoTicket,
   PrioridadTicket,
+  TipoMovimientoBilletera,
 } from '@nv/shared';
 
 export type TonoInsignia = 'neutro' | 'marca' | 'acento' | 'exito' | 'aviso' | 'peligro';
@@ -25,6 +27,18 @@ export const ESTADO_FACTURA: Etiquetas<EstadoFactura | 'vencida'> = {
   vencida: { texto: 'Vencida', tono: 'peligro' },
   pagada: { texto: 'Pagada', tono: 'exito' },
   anulada: { texto: 'Anulada', tono: 'neutro' },
+};
+
+export const ESTADO_PEDIDO: Etiquetas<EstadoPedido> = {
+  pendiente: { texto: 'Por pagar', tono: 'aviso' },
+  pagado: { texto: 'Pagado', tono: 'exito' },
+  anulado: { texto: 'Cancelado', tono: 'neutro' },
+};
+
+export const TIPO_MOVIMIENTO_BILLETERA: Record<TipoMovimientoBilletera, string> = {
+  recarga: 'Recarga',
+  pago: 'Pago de factura',
+  ajuste: 'Ajuste',
 };
 
 export const ESTADO_PAGO: Etiquetas<EstadoPago> = {

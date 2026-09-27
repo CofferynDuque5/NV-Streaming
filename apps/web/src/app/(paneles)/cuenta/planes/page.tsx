@@ -1,6 +1,7 @@
 import type { CatalogoPublico, ResumenCliente } from '@nv/shared';
 import { Layers } from 'lucide-react';
 import type { Metadata } from 'next';
+import { AgregarAlCarrito, EnlaceCarrito } from '@/componentes/cliente/carrito';
 import { Contratar } from '@/componentes/cliente/contratar';
 import {
   agruparPorServicio,
@@ -50,8 +51,13 @@ export default async function ContratarPlan({
     <>
       <CabeceraPagina
         titulo="Contratar un plan"
-        descripcion="Elige la moneda en la que vas a pagar. El importe queda fijado en tu factura."
-        acciones={<SelectorMoneda monedas={monedas} actual={moneda} ruta="/cuenta/planes" />}
+        descripcion="Contrata un plan o junta varios en el carrito y págalos juntos. El importe queda fijado en tu factura."
+        acciones={
+          <div className="flex flex-wrap items-center gap-2">
+            <SelectorMoneda monedas={monedas} actual={moneda} ruta="/cuenta/planes" />
+            <EnlaceCarrito moneda={moneda} />
+          </div>
+        }
       />
       {!catalogo && (
         <Alerta tono="peligro">
@@ -83,12 +89,15 @@ export default async function ContratarPlan({
                         Ya tienes este plan. Renuévalo desde Mis servicios.
                       </p>
                     ) : precio ? (
-                      <Contratar
-                        planId={p.id}
-                        moneda={moneda}
-                        precio={precio.precio}
-                        abierto={p.id === filtro.plan}
-                      />
+                      <div className="grid gap-2">
+                        <Contratar
+                          planId={p.id}
+                          moneda={moneda}
+                          precio={precio.precio}
+                          abierto={p.id === filtro.plan}
+                        />
+                        <AgregarAlCarrito planId={p.id} />
+                      </div>
                     ) : (
                       <p className="text-sm text-tinta-suave">Elige otra moneda para este plan.</p>
                     )

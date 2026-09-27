@@ -100,18 +100,33 @@ export function FormularioRecarga({
   metodos,
   tasas,
   maxMb,
+  ruta = '/revendedor/recargas',
+  pedidoId,
+  montoSugeridoUsd,
+  exito = 'Te acreditaremos el saldo en cuanto confirmemos el pago.',
 }: {
   metodos: MetodoCobroPublico[];
   /** Unidades por 1 USD de cada moneda con tasa. */
   tasas: Partial<Record<Moneda, string>>;
   maxMb: number;
+  /** Ruta de la API que recibe la recarga (revendedor o billetera del cliente). */
+  ruta?: string;
+  /** Pedido del carrito que se paga al confirmar esta recarga. */
+  pedidoId?: string;
+  /** Lo que falta, en USD, para sugerir el monto en la moneda elegida. */
+  montoSugeridoUsd?: string;
+  exito?: string;
 }) {
   const monedas = useMemo(() => [...new Set(metodos.map((m) => m.moneda))], [metodos]);
   const [moneda, setMoneda] = useState<Moneda>(monedas.includes('VES') ? 'VES' : monedas[0]!);
   const deMoneda = metodos.filter((m) => m.moneda === moneda);
   const [metodoId, setMetodoId] = useState(deMoneda[0]?.id ?? '');
   const metodo = deMoneda.find((m) => m.id === metodoId) ?? deMoneda[0];
-  const [monto, setMonto] = useState('');
+  const sugerido = (m: Moneda) => {
+    const t = m === 'USD' ? '1' : tasas[m];
+    return montoSugeridoUsd && t ? (Number(montoSugeridoUsd) * Number(t)).toFixed(2) : '';
+  };
+  const [monto, setMonto] = useState(() => sugerido(moneda));
   const [enviada, setEnviada] = useState<string | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const { cargando, error, campos, ejecutar } = useAccion();
@@ -123,6 +138,7 @@ export function FormularioRecarga({
   function cambiarMoneda(m: Moneda) {
     setMoneda(m);
     setMetodoId(metodos.find((x) => x.moneda === m)?.id ?? '');
+    if (montoSugeridoUsd) setMonto(sugerido(m));
   }
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
@@ -143,8 +159,9 @@ export function FormularioRecarga({
       const v = textoDe(origen, campo);
       if (v !== undefined) d.set(campo, v);
     }
+    if (pedidoId) d.set('pedidoId', pedidoId);
     d.set('comprobante', archivo);
-    const r = await ejecutar<{ referencia: string }>('POST', '/revendedor/recargas', d);
+    const r = await ejecutar<{ referencia: string }>('POST', ruta, d);
     if (r) {
       setEnviada(r.datos.referencia);
       setMonto('');
@@ -169,7 +186,7 @@ export function FormularioRecarga({
     >
       {enviada && (
         <Alerta tono="exito" titulo="Recibimos tu recarga">
-          Código {enviada}. Te acreditaremos el saldo en cuanto confirmemos el pago.
+          Código {enviada}. {exito}
         </Alerta>
       )}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

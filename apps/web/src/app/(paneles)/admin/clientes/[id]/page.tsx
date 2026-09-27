@@ -29,6 +29,7 @@ import {
   NuevaNota,
   NuevaSuscripcion,
 } from '@/componentes/admin/clientes';
+import { BilleteraDeCliente } from '@/componentes/admin/billeteras';
 import { cargarEquipo } from '@/componentes/admin/equipo-servidor';
 import { RevocarMetodo } from '@/componentes/cliente/metodos-pago';
 import {
@@ -391,6 +392,8 @@ export default async function FichaCliente({ params }: { params: Promise<{ id: s
               </ul>
             )}
           </Tarjeta>
+
+          <BilleteraDeCliente clienteId={c.id} puedeAjustar={puede('billeteras.ajustar')} />
 
           <MetodosAutorizados
             clienteId={c.id}

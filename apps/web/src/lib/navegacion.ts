@@ -13,6 +13,7 @@ export type NombreIcono =
   | 'editor'
   | 'asistente'
   | 'saldo'
+  | 'carrito'
   | 'catalogo'
   | 'compras'
   | 'servicios'
@@ -113,6 +114,8 @@ const CLIENTE: ElementoNavegacion[] = [
     permiso: 'autoservicio.usar',
   },
   { etiqueta: 'Contratar', href: '/cuenta/planes', icono: 'planes' },
+  { etiqueta: 'Carrito y pedidos', href: '/cuenta/carrito', icono: 'carrito' },
+  { etiqueta: 'Mi billetera', href: '/cuenta/billetera', icono: 'saldo' },
   { etiqueta: 'Facturas y pagos', href: '/cuenta/facturas', icono: 'cobros' },
   { etiqueta: 'Mis métodos de pago', href: '/cuenta/metodos-pago', icono: 'metodos' },
   { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte' },

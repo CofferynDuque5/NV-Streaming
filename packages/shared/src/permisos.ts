@@ -49,6 +49,8 @@ export const PERMISOS = [
   'entregas.ver',
   'entregas.gestionar',
   'inventario.gestionar',
+  // Carrito y billetera del cliente
+  'billeteras.ajustar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -97,6 +99,7 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'entregas.gestionar': 'Completar entregas manuales, reintentar y anular entregas de servicios',
   'inventario.gestionar':
     'Subir lotes de códigos de activación, anular códigos y configurar la entrega de los proveedores',
+  'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [

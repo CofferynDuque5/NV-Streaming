@@ -8,6 +8,7 @@ import {
   SelectorMoneda,
   TarjetaPlan,
 } from '@/componentes/planes';
+import { AgregarAlCarrito, EnlaceCarrito } from '@/componentes/cliente/carrito';
 import { monedaMayorista, PlanesMayoristas } from '@/componentes/planes-mayoristas';
 import { BotonEnlace } from '@/componentes/ui/boton';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -103,7 +104,13 @@ export default async function Planes({
             Solo servicios autorizados. Paga por transferencia o pago móvil y activamos tu servicio
             en cuanto confirmamos el pago.
           </p>
-          <SelectorMoneda monedas={monedas} actual={moneda} ruta="/planes" />
+          <div className="flex flex-wrap items-center gap-2">
+            <SelectorMoneda monedas={monedas} actual={moneda} ruta="/planes" />
+            <EnlaceCarrito
+              moneda={moneda}
+              destino={`/ingresar?siguiente=${encodeURIComponent(`/cuenta/carrito?moneda=${moneda}`)}`}
+            />
+          </div>
           {porUbicacion && ubicacion.pais && (
             <p className="text-sm text-tinta-suave">
               Te mostramos los precios en {moneda} ({INFO_MONEDA[moneda].nombre}) porque parece que
@@ -135,12 +142,15 @@ export default async function Planes({
                     plan={p}
                     moneda={moneda}
                     accion={
-                      <BotonEnlace
-                        href={`/cuenta/planes?plan=${p.id}&moneda=${moneda}`}
-                        className="w-full"
-                      >
-                        Elegir este plan <ArrowRight className="size-4" aria-hidden="true" />
-                      </BotonEnlace>
+                      <div className="grid gap-2">
+                        <BotonEnlace
+                          href={`/cuenta/planes?plan=${p.id}&moneda=${moneda}`}
+                          className="w-full"
+                        >
+                          Elegir este plan <ArrowRight className="size-4" aria-hidden="true" />
+                        </BotonEnlace>
+                        <AgregarAlCarrito planId={p.id} />
+                      </div>
                     }
                   />
                 ))}
