@@ -123,33 +123,17 @@
         </sc-for>
       </div>
 
-      <!-- CARD form -->
-      <sc-if value="{{ isCard }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div>
-          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Número de tarjeta</label>
-          <div style="position:relative;">
-            <input type="text" value="4242 4242 4242 4242" style="width:100%;background:rgba(0,207,255,0.05);border:1px solid rgba(0,207,255,0.35);border-radius:9px;padding:11px 46px 11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;box-shadow:0 0 0 3px rgba(0,207,255,0.1);letter-spacing:0.05em;" />
-            <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;gap:4px;">
-              <div style="width:24px;height:16px;background:linear-gradient(135deg,#eb001b,#f79e1b);border-radius:3px;opacity:0.7;"></div>
-              <div style="width:24px;height:16px;background:linear-gradient(135deg,#1434CB,#0a8fdc);border-radius:3px;opacity:0.7;"></div>
-            </div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
-          <div style="grid-column:span 2;">
-            <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Fecha de vencimiento</label>
-            <input type="text" value="12 / 27" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;" />
-          </div>
+      <!-- BILLETERA: se descuenta del saldo real y se activa al instante -->
+      <sc-if value="{{ isBilletera }}" hint-placeholder-val="{{ false }}">
+      <div data-nv-billetera-pago style="background:rgba(123,102,255,0.06);border:1px solid rgba(123,102,255,0.22);border-radius:12px;padding:16px 18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
           <div>
-            <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">CVV</label>
-            <input type="password" value="123" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;" />
+            <div style="font-size:13.5px;font-weight:600;color:#F0F0FA;">Pago con saldo de tu billetera</div>
+            <div style="font-size:12px;color:rgba(240,240,250,0.5);margin-top:3px;">Saldo disponible: <span data-nv-saldo-actual style="font-family:'JetBrains Mono',monospace;color:#9D8DFF;font-weight:500;">{{ saldoFmt }}</span> · Se descontará <span style="font-family:'JetBrains Mono',monospace;color:#00CFFF;font-weight:500;">{{ totalFmt }}</span></div>
           </div>
+          <span data-nv-saldo-estado style="padding:5px 11px;border-radius:100px;font-size:11.5px;font-weight:500;background:{{ saldoOkBg }};border:1px solid {{ saldoOkBorder }};color:{{ saldoOkColor }};">{{ saldoOkTxt }}</span>
         </div>
-        <div>
-          <label style="display:block;font-size:12.5px;color:rgba(240,240,250,0.55);margin-bottom:6px;font-weight:400;">Nombre en la tarjeta</label>
-          <input type="text" placeholder="JUAN PÉREZ" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:14px;color:#F0F0FA;letter-spacing:0.04em;" />
-        </div>
+        <p style="font-size:11.5px;color:rgba(240,240,250,0.45);margin-top:10px;line-height:1.5;">Con saldo suficiente el servicio se activa al instante: verás tus datos de acceso en <b>Mi cuenta → Mis servicios</b>. Si no hay stock, te devolvemos el saldo automáticamente. <a href="billetera.html" style="color:#9D8DFF;text-decoration:none;">Recargar billetera →</a></p>
       </div>
       </sc-if>
 
@@ -206,7 +190,7 @@
               </button>
             </div>
           </sc-if>
-          <p style="font-size:11.5px;color:rgba(200,215,255,0.35);margin-top:9px;line-height:1.5;">Verificaremos tu comprobante y activaremos el servicio en pocos minutos. Recibirás confirmación por correo.</p>
+          <p style="font-size:11.5px;color:rgba(200,215,255,0.35);margin-top:9px;line-height:1.5;">Verificaremos tu comprobante y activaremos el servicio. Te avisaremos por WhatsApp y verás tus datos de acceso en Mi cuenta → Mis servicios.</p>
         </div>
       </div>
       </sc-if>
@@ -214,23 +198,6 @@
 
     <!-- Divider -->
     <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:28px;"></div>
-
-    <!-- Wallet balance option -->
-    <div style="background:rgba(123,102,255,0.06);border:1px solid rgba(123,102,255,0.18);border-radius:12px;padding:16px 18px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:36px;height:36px;background:rgba(123,102,255,0.12);border:1px solid rgba(123,102,255,0.25);border-radius:9px;display:flex;align-items:center;justify-content:center;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7B66FF" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h.01M12 12h.01M8 12h.01"/></svg>
-        </div>
-        <div>
-          <div style="font-size:13.5px;font-weight:500;color:#F0F0FA;">Usar saldo del Wallet</div>
-          <div style="font-size:12px;color:#9D8DFF;margin-top:1px;">Saldo disponible: <span style="font-family:'JetBrains Mono',monospace;font-weight:500;">$25.00</span></div>
-        </div>
-      </div>
-      <!-- Toggle -->
-      <div style="width:44px;height:24px;background:#7B66FF;border-radius:100px;position:relative;cursor:pointer;box-shadow:0 2px 8px rgba(123,102,255,0.3);">
-        <div style="position:absolute;right:3px;top:3px;width:18px;height:18px;background:white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-      </div>
-    </div>
 
     <!-- Terms -->
     <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:24px;">
@@ -315,7 +282,7 @@
     <!-- Aviso real, sin fechas inventadas -->
     <div style="margin-top:10px;padding:12px 16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:flex-start;gap:8px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(240,240,250,0.35)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
-      <p style="font-size:11.5px;color:rgba(240,240,250,0.4);line-height:1.55;font-weight:300;">Validaremos tu pago y activaremos el servicio en pocos minutos. Recibirás la confirmación por WhatsApp y correo.</p>
+      <p style="font-size:11.5px;color:rgba(240,240,250,0.4);line-height:1.55;font-weight:300;">Validaremos tu pago y activaremos el servicio. Te avisaremos por WhatsApp y verás tu acceso en Mi cuenta.</p>
     </div>
   </div>
 </div>
@@ -324,7 +291,7 @@
 <script type="text/x-dc" data-dc-script>
 
 class Component extends DCLogic {
-  state = { method: 'tarjeta', fileName: '' };
+  state = { method: 'movil', fileName: '' };
 
   onFile(e) {
     const f = e && e.target && e.target.files && e.target.files[0];
@@ -352,7 +319,7 @@ class Component extends DCLogic {
       select: () => this.setState({ method: id }),
     });
     const methods = [
-      mk('tarjeta','Tarjeta','💳','rgba(0,207,255,0.12)','rgba(0,207,255,0.28)','Visa · Mastercard'),
+      mk('billetera','Saldo de billetera','👛','rgba(123,102,255,0.14)','rgba(123,102,255,0.3)','Activación instantánea'),
       mk('movil','Pago Móvil','📱','rgba(0,180,255,0.14)','rgba(0,180,255,0.28)','Venezuela · instantáneo'),
       mk('binance','Binance','🔶','rgba(240,185,11,0.14)','rgba(240,185,11,0.3)','USDT · cripto'),
       mk('zelle','Zelle','💵','rgba(108,51,255,0.14)','rgba(108,51,255,0.3)','Transferencia USD'),
@@ -360,10 +327,12 @@ class Component extends DCLogic {
       mk('paypal','PayPal','🅿️','rgba(0,48,135,0.18)','rgba(0,80,200,0.32)','Internacional'),
     ];
     const det = DETAILS[cur] || DETAILS.movil;
-    const isManual = cur !== 'tarjeta';
+    const isManual = cur !== 'billetera';
     return {
       methods,
-      isCard: cur === 'tarjeta',
+      isBilletera: cur === 'billetera',
+      // Saldo/estado reales los pone bridge.js (decoratePagos) desde la sesión.
+      saldoFmt: '', saldoOkBg: 'rgba(255,255,255,0.04)', saldoOkBorder: 'rgba(255,255,255,0.1)', saldoOkColor: 'rgba(240,240,250,0.5)', saldoOkTxt: '',
       isManual,
       manualTitle: det.title,
       manualLines: det.lines,

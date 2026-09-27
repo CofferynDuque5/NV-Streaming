@@ -8,6 +8,7 @@ import type { Request, Response } from 'express';
 import { AccountsRepository } from '../../db/repositories/accounts.repo.js';
 import { PlansRepository } from '../../db/repositories/plans.repo.js';
 import { query } from '../../db/pool.js';
+import { atenderColaEspera } from '../commerce/queue.service.js';
 
 // Errores de clave foránea (p.ej. borrar una cuenta con suscripción) → 409 claro.
 function esFk(e: unknown): boolean { return !!(e && typeof e === 'object' && (e as { code?: string }).code === '23503'); }
@@ -35,7 +36,10 @@ export const InventoryController = {
       };
       if (b.perfil != null) datos.perfil = String(b.perfil);
       const cuenta = await AccountsRepository.crear(datos);
-      res.status(201).json({ cuenta });
+      // Stock nuevo → si alguien esperaba esta plataforma, se le asigna YA
+      // (suscripción activa + pedido enlazado + aviso), por orden de llegada.
+      const atendidos = await atenderColaEspera(plataformaId);
+      res.status(201).json({ cuenta, cola_atendida: atendidos });
     } catch (e) {
       if (e && (e as { code?: string }).code === '23505') { res.status(409).json({ error: 'cuenta_duplicada', mensaje: 'Ya existe una cuenta con ese correo en esa plataforma.' }); return; }
       throw e;

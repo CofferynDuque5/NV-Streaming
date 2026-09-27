@@ -30,6 +30,27 @@ const money = (n) => "$" + Number(n || 0).toLocaleString("en-US", { minimumFract
 const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
 function toast(m, c) { try { if (window.NV && window.NV.toast) window.NV.toast(m, c); } catch (_) {} }
 const OK = "rgba(0,212,160,0.55)", BAD = "rgba(255,120,80,0.55)";
+// Estado de ENTREGA de un pedido (aprovisionamiento automático del backend).
+function provisionTag(r) {
+  const e = String(r.provision_estado || "");
+  if (String(r.estado) === "pendiente") return `<span style="color:rgba(200,215,255,0.35)">— </span>`;
+  const M = { asignado: ["Cuenta asignada", "#00D4A0"], cola_espera: ["En cola (sin stock)", "#FFB020"], sin_stock: ["Sin stock · reembolsado", "#FF3E6C"], no_aplica: ["Entrega manual", "#00CFFF"], sin_plan: ["Sin plan · manual", "#00CFFF"], error: ["Error · revisar", "#FF3E6C"], ya_aprovisionado: ["Cuenta asignada", "#00D4A0"] };
+  const m = M[e]; if (!m) return `<span style="color:rgba(200,215,255,0.35)">—</span>`;
+  return `<span style="padding:2px 8px;border-radius:100px;font-size:11px;color:${m[1]};background:${m[1]}1a;border:1px solid ${m[1]}55;white-space:nowrap;">${esc(m[0])}</span>`;
+}
+// Visor de comprobante (imagen en base64 guardada con el pedido).
+let _pedidosCache = [];
+function verComprobante(id) {
+  const r = _pedidosCache.find((x) => String(x.id) === String(id)); if (!r || !r.comprobante) return;
+  const ov = document.createElement("div"); ov.setAttribute("data-nv-ux", "1");
+  ov.style.cssText = "position:fixed;inset:0;z-index:30000;background:rgba(0,0,10,0.85);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;";
+  const src = String(r.comprobante);
+  ov.innerHTML = src.startsWith("data:application/pdf") ? `<iframe src="${src}" style="width:90vw;height:90vh;border:none;border-radius:10px;background:#fff"></iframe>` : `<img src="${src}" alt="comprobante" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)">`;
+  ov.addEventListener("click", () => ov.remove());
+  document.body.appendChild(ov);
+}
+document.addEventListener("click", (ev) => { const b = ev.target.closest("[data-nv-ver-img]"); if (b) { ev.preventDefault(); ev.stopPropagation(); verComprobante(b.getAttribute("data-nv-ver-img")); } }, true);
+
 function fechaCorta(v) { if (!v) return ""; const t = Date.parse(v); if (!t) return String(v).slice(0, 10); return new Date(t).toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" }); }
 function haceCuanto(iso) { const t = Date.parse(iso); if (!t) return ""; const s = Math.max(1, (Date.now() - t) / 1000); if (s < 3600) return "hace " + Math.floor(s / 60) + " min"; if (s < 86400) return "hace " + Math.floor(s / 3600) + " h"; return "hace " + Math.floor(s / 86400) + " d"; }
 async function confirmar(titulo, msg, ok) { if (window.NVUI && window.NVUI.confirmar) return window.NVUI.confirmar(titulo, msg, ok || "Confirmar"); return window.confirm(msg); }
@@ -87,17 +108,25 @@ const SECCIONES = [
 
   { id: "pedidos", grupo: "Ventas", label: "Pedidos", icon: "🧾", tipo: "tabla",
     titulo: "Pedidos", sub: "Órdenes de compra, entregas y estados.",
-    cargar: () => NVApi.pedidos(),
+    cargar: async () => { _pedidosCache = await NVApi.pedidos(); return _pedidosCache; },
     columnas: [
-      { k: "nombre_cliente", label: "Cliente", fmt: (r) => esc(r.nombre_cliente || r.uid_cliente || "—") },
+      { k: "nombre_cliente", label: "Cliente", fmt: (r) => esc(r.nombre_cliente || r.email_cliente || r.uid_cliente || "—") },
       { k: "id_servicio", label: "Servicio", fmt: (r) => esc(r.id_servicio) },
       { k: "precio", label: "Precio", fmt: (r) => money(r.precio) },
+      { k: "metodo_pago", label: "Método", fmt: (r) => esc(r.metodo_pago || "—") },
+      { k: "comprobante", label: "Comprobante", fmt: (r) => (r.comprobante ? `<button type="button" class="nv-adm-ghost" data-nv-ver-img="${esc(r.id)}" style="padding:3px 9px;font-size:11.5px;">Ver</button>` : `<span style="color:rgba(200,215,255,0.35)">Sin captura</span>`) },
       { k: "estado", label: "Estado", fmt: (r) => tag(r.estado) },
+      { k: "provision_estado", label: "Entrega", fmt: (r) => provisionTag(r) },
       { k: "creado_en", label: "Fecha", fmt: (r) => fechaCorta(r.creado_en) },
     ],
     acciones: (r) => (String(r.estado) === "pendiente" ? [
-      { label: "Aprobar", tono: "ok", run: () => NVApi.cambiarEstadoPedido(r.id, "aprobado") },
-      { label: "Rechazar", tono: "bad", run: () => NVApi.cambiarEstadoPedido(r.id, "rechazado") },
+      { label: "Aprobar", tono: "ok", confirmTitulo: "Aprobar pedido",
+        confirm: `¿Confirmas que el pago de ${money(r.precio)} por "${r.id_servicio}" es correcto? Se asignará una cuenta del inventario al cliente (si hay stock) y se le avisará por WhatsApp.`,
+        okMsg: (rr) => { const p = rr && rr.provision; const e = p && p.estado; return e === "asignado" ? `Aprobado ✓ cuenta asignada${p.perfil ? " (perfil " + p.perfil + ")" : ""}` : e === "cola_espera" ? "Aprobado ✓ SIN STOCK: el cliente quedó en lista de espera (carga cuentas en Inventario)" : e === "no_aplica" || e === "sin_plan" ? "Aprobado ✓ sin aprovisionamiento automático: entrega manual por WhatsApp" : "Pedido aprobado ✓"; },
+        run: () => NVApi.cambiarEstadoPedido(r.id, "aprobado") },
+      { label: "Rechazar", tono: "bad", confirmTitulo: "Rechazar pedido", confirm: `¿Rechazar el pedido de "${r.id_servicio}" por ${money(r.precio)}? El cliente lo verá como rechazado.`, okMsg: "Pedido rechazado", run: () => NVApi.cambiarEstadoPedido(r.id, "rechazado") },
+    ] : String(r.estado) === "aprobado" ? [
+      { label: "Marcar entregado", tono: "ok", okMsg: "Marcado como entregado", run: () => NVApi.cambiarEstadoPedido(r.id, "entregado") },
     ] : []),
   },
 
@@ -622,7 +651,7 @@ async function renderTabla(s) {
       const b = el("button", "nv-adm-btn", esc(a.label));
       b.addEventListener("click", async () => {
         b.disabled = true;
-        try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
+        try { const rr = await a.run(); toast(typeof a.okMsg === "function" ? a.okMsg(rr) : (a.okMsg || "Hecho ✓"), OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
         catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
       });
       acc.appendChild(b);
@@ -638,7 +667,7 @@ async function renderTabla(s) {
     // Confirmación opcional (acciones sensibles: mover dinero, etc.).
     if (a.confirm) { const ok = await confirmar(a.confirmTitulo || "Confirmar", a.confirm, a.label); if (!ok) return; }
     b.disabled = true; b.textContent = "…";
-    try { await a.run(); toast(a.okMsg || "Hecho ✓", OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
+    try { const rr = await a.run(); toast(typeof a.okMsg === "function" ? a.okMsg(rr) : (a.okMsg || "Hecho ✓"), OK); invalidarOverview(); ir(s.id); refrescarBadgeAlertas(); }
     catch (e) { b.disabled = false; toast((e && e.message) || "Error", BAD); }
   }));
 }

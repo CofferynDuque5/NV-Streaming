@@ -111,6 +111,8 @@ export const NVApi = {
 
   // ── Comercio ──
   async crearPedido(body) { return req("POST", "/pedidos", body); },
+  // Mis accesos: suscripciones con credenciales (si están activas y pagadas), pedidos y cola de espera.
+  async misAccesos() { const r = await req("GET", "/mis/accesos"); return r && typeof r === "object" ? r : { accesos: [], cola_espera: [], pedidos: [] }; },
   async misPedidos() { const r = await req("GET", "/pedidos/mios"); return (r && r.pedidos) || []; },
   async pedidos(estado) { const r = await req("GET", "/pedidos" + (estado ? "?estado=" + encodeURIComponent(estado) : "")); return (r && r.pedidos) || []; },
   async cambiarEstadoPedido(id, estado) { return req("POST", "/pedidos/" + encodeURIComponent(id) + "/estado", { estado }); },

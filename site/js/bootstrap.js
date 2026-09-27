@@ -19,6 +19,7 @@ import { instalarChat } from "./modules/assistant-chat.js";
 import { instalarResellerApp } from "./modules/reseller-app.js";
 import { instalarEditorPersist } from "./modules/editor-persist.js";
 import { instalarBibliotecaMedios } from "./modules/media-library.js";
+import { instalarAccesos } from "./modules/mi-cuenta-accesos.js";
 import { cargarCatalogoReal, cargarConfigReal } from "./modules/catalog-api.js";
 import { instalarToasts } from "./modules/nv-toast.js";
 import { instalarForms } from "./modules/nv-forms.js";
@@ -81,6 +82,7 @@ async function boot() {
   instalarResellerApp();          // Panel de Revendedor REAL: navegación lateral + /api/reseller/*
   instalarEditorPersist();        // editor visual → guarda componentes en PostgreSQL
   instalarBibliotecaMedios();     // editor: pestaña Medios real (ImgBB vía backend + tabla medios)
+  instalarAccesos();              // mi-cuenta: "Mis accesos" (credenciales reales de lo comprado)
   wireAcciones();                 // captura de comprobante + checkout + recarga
 
   // Inicializa Firebase (resiliente). Siempre resuelve; offline → seed local.
@@ -186,29 +188,70 @@ function wireAcciones() {
     const inst = window.__NV_INSTANCE || {};
     const st = inst.state || {};
 
-    // Checkout (pagos / carrito) — con modal de confirmación + spinner + éxito.
+    // Checkout (pagos / carrito) — con modal de confirmación + spinner + resultado REAL.
     if (/^(confirmar pago|finalizar compra|pagar ahora|confirmar y pagar|realizar pago|finalizar pedido)/.test(txt)) {
       ev.preventDefault();
-      const metodo = st.method || (Store.get("metodosPago") || [])[0]?.id_pago || "pago_movil_bdv";
+      // Sin sesión no hay a quién entregarle la cuenta: primero iniciar sesión.
+      if ((Store.get("sesion") || {}).estado !== "autenticado") {
+        const ir = await NVUI.confirmar("Inicia sesión para comprar", "Necesitas una cuenta para que podamos entregarte el acceso y guardar tu pedido. ¿Vamos al inicio de sesión?", "Iniciar sesión");
+        if (ir) location.href = "auth.html?next=" + encodeURIComponent(location.pathname.split("/").pop() || "pagos.html");
+        return;
+      }
+      if (!NV.cart.items().length) { NVUI.error("Carrito vacío", "Añade un servicio o un combo antes de pagar."); return; }
+      // Método elegido en la página (ids de la plantilla) → id real del backend.
+      const MAPA = { movil: "pago_movil_bdv", binance: "binance_pay", zelle: "zelle", transferencia: "transferencia", paypal: "paypal", billetera: "billetera" };
+      const metodo = MAPA[st.method] || st.method || (Store.get("metodosPago") || [])[0]?.id_pago || "pago_movil_bdv";
       const total = NV.moneda ? NV.moneda.formato(NV.cart.totalUSD()) : "";
-      // Pedimos el WhatsApp: es el canal por el que se entrega el acceso y los
+      if (metodo === "billetera") {
+        const saldo = Number(((Store.get("sesion") || {}).usuario || {}).saldoBilletera);
+        if (!(isFinite(saldo) && saldo + 1e-9 >= NV.cart.totalUSD())) {
+          const rec = await NVUI.confirmar("Saldo insuficiente", `Tu saldo es ${NV.moneda ? NV.moneda.formato(saldo || 0) : saldo} y el total ${total}. ¿Recargar la billetera ahora?`, "Recargar");
+          if (rec) location.href = "billetera.html";
+          return;
+        }
+      } else if (!window.__NV_COMPROBANTE) {
+        // Pago manual sin captura: se puede registrar, pero el admin no podrá validarlo.
+        const seguir = await NVUI.confirmar("Sin comprobante", "No has subido la captura del pago. Puedes registrar el pedido igual y enviarla luego por WhatsApp, pero la activación tardará más. ¿Continuar sin comprobante?", "Continuar");
+        if (!seguir) return;
+      }
+      // Pedimos el WhatsApp: es el canal por el que avisamos la activación y los
       // códigos (OTP). Sin él, el backend no puede alcanzar al cliente.
       const telefono = await pedirWhatsApp();
-      if (telefono == null) { NV.toast("Compra cancelada: necesitamos tu WhatsApp para enviarte el acceso.", "rgba(255,176,32,0.55)"); return; }
-      const ok = await NVUI.confirmar("Confirmar pago", `Vas a registrar tu pago${total ? " por " + total : ""}. Enviaremos el acceso y la confirmación al WhatsApp +${telefono}.`, "Sí, pagar");
+      if (telefono == null) { NV.toast("Compra cancelada: necesitamos tu WhatsApp para avisarte la activación.", "rgba(255,176,32,0.55)"); return; }
+      const ok = await NVUI.confirmar("Confirmar pago", metodo === "billetera"
+        ? `Se descontarán ${total} de tu billetera y el servicio se activará al instante. Avisaremos al WhatsApp +${telefono}.`
+        : `Vas a registrar tu pago${total ? " por " + total : ""}. Validaremos el comprobante y avisaremos la activación al WhatsApp +${telefono}.`, "Sí, pagar");
       if (!ok) return;
-      NVUI.spinner(true, "Procesando tu pago…");
+      NVUI.spinner(true, metodo === "billetera" ? "Activando tu servicio…" : "Registrando tu pedido…");
       const t0 = performance.now();
       try {
-        const ids = await Commerce.Checkout.crearPedido({ metodo_pago: metodo, comprobante: window.__NV_COMPROBANTE || "", telefono });
+        const r = await Commerce.Checkout.crearPedido({ metodo_pago: metodo, comprobante: window.__NV_COMPROBANTE || "", telefono });
         window.__NV_COMPROBANTE = "";
-        await new Promise((r) => setTimeout(r, Math.max(0, 550 - (performance.now() - t0)))); // mínimo perceptible
+        await new Promise((res) => setTimeout(res, Math.max(0, 550 - (performance.now() - t0)))); // mínimo perceptible
         NVUI.spinner(false);
-        reproducir("success");
-        await NVUI.exito("¡Pago registrado!", `Creamos tu pedido (${ids.length} ítem${ids.length === 1 ? "" : "s"}). Validaremos tu pago y te avisaremos por WhatsApp.`);
+        const n = r.pedidos.length;
+        const lista = (arr) => arr.map((p) => p.nombre).join(", ");
+        if (r.provisionados.length && !r.pendientes.length && !r.reembolsados.length) {
+          reproducir("success");
+          await NVUI.exito("¡Listo! Tu servicio está activo", `${lista(r.provisionados)}: cuenta asignada${r.provisionados[0].perfil ? " (perfil " + r.provisionados[0].perfil + ")" : ""}. Tus datos de acceso ya están en Mi cuenta → Mis servicios.`);
+          location.href = "mi-cuenta.html";
+        } else if (r.reembolsados.length && !r.provisionados.length && !r.pendientes.length) {
+          reproducir("error");
+          await NVUI.error("Sin stock por ahora", `${lista(r.reembolsados)}: no hay cuentas disponibles en este momento. Te devolvimos el saldo a la billetera. Te avisaremos cuando haya stock.`);
+        } else {
+          reproducir("success");
+          const partes = [];
+          if (r.provisionados.length) partes.push(`${lista(r.provisionados)}: activo (ya en Mi cuenta).`);
+          if (r.pendientes.length) partes.push(`${lista(r.pendientes)}: pedido registrado, pendiente de validar el pago. Te avisamos por WhatsApp y verás el acceso en Mi cuenta.`);
+          if (r.reembolsados.length) partes.push(`${lista(r.reembolsados)}: sin stock, saldo devuelto.`);
+          if (r.errores.length) partes.push(`No se pudo: ${r.errores.map((e) => e.nombre + " (" + e.mensaje + ")").join("; ")}.`);
+          await NVUI.exito(n === 1 ? "Pedido registrado" : `${n} pedidos registrados`, partes.join(" "));
+          location.href = "mi-cuenta.html";
+        }
       } catch (e) {
         NVUI.spinner(false);
         reproducir("error");
+        if (e && e.code === "sin_sesion") { location.href = "auth.html?next=pagos.html"; return; }
         NVUI.error("No se pudo procesar", e.message || "Inténtalo de nuevo o contáctanos por WhatsApp.");
       }
       return;

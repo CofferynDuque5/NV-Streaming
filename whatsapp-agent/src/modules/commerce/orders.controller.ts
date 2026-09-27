@@ -10,7 +10,23 @@ import { WalletRepository, WalletError } from '../../db/repositories/wallet.repo
 import { UsersRepository } from '../../db/repositories/users.repo.js';
 import { ResellerRepository } from '../../db/repositories/reseller.repo.js';
 import { provisionarPedido } from './provisioning.service.js';
+import { query } from '../../db/pool.js';
 import type { AuthedRequest } from '../auth/auth.middleware.js';
+
+/** Aviso en la bandeja del admin (alertas_admin): nunca rompe el pedido. */
+async function alertarAdmin(tipo: string, mensaje: string): Promise<void> {
+  try { await query(`INSERT INTO alertas_admin (tipo, mensaje) VALUES ($1, $2)`, [tipo, mensaje]); } catch { /* best-effort */ }
+}
+
+// Transiciones permitidas del pedido. Un pedido rechazado o entregado es final;
+// uno aprobado solo puede marcarse entregado. Evita aprobar dos veces o
+// "resucitar" un pedido rechazado desde la API.
+const TRANSICIONES: Record<string, ReadonlySet<string>> = {
+  pendiente: new Set(['aprobado', 'rechazado']),
+  aprobado: new Set(['entregado']),
+  rechazado: new Set(),
+  entregado: new Set(),
+};
 
 /** Acredita la comisión del revendedor si el comprador fue referido (idempotente,
  *  nunca rompe el flujo del pedido). */
@@ -90,6 +106,9 @@ export const OrdersController = {
         throw e;
       }
     }
+    // Pago manual (pago móvil, Binance, Zelle…): queda PENDIENTE hasta que el
+    // admin valide el comprobante. Avisamos en la bandeja del back office.
+    await alertarAdmin('nuevo_pedido', `Nuevo pedido pendiente: ${idServicio} · $${precio.toFixed(2)} · ${body.metodo_pago || 'sin método'} · ${user.email || user.sub}${body.comprobante ? ' · con comprobante' : ' · SIN comprobante'}`);
     res.status(201).json({ pedido });
   },
 
@@ -106,11 +125,20 @@ export const OrdersController = {
 
   async cambiarEstado(req: Request, res: Response): Promise<void> {
     const estado = (req.body?.estado || '').trim();
-    const pedido = await OrdersRepository.cambiarEstado(req.params.id || '', estado);
+    const actual = await OrdersRepository.obtener(req.params.id || '');
+    if (!actual) { res.status(404).json({ error: 'pedido_no_encontrado' }); return; }
+    const permitidas = TRANSICIONES[actual.estado] ?? new Set<string>();
+    if (!permitidas.has(estado)) {
+      res.status(409).json({ error: 'transicion_invalida', mensaje: `Un pedido "${actual.estado}" no puede pasar a "${estado || '?'}".`, pedido: actual });
+      return;
+    }
+    const pedido = await OrdersRepository.cambiarEstado(actual.id, estado);
     if (!pedido) { res.status(400).json({ error: 'estado_o_pedido_invalido' }); return; }
-    // Al aprobar desde el back office también se aprovisiona (idempotente).
+    // Al aprobar desde el back office también se aprovisiona (idempotente): se
+    // asigna la cuenta del inventario, se crea la suscripción y se avisa al cliente.
     const provision = estado === 'aprobado' ? await provisionarPedido(pedido) : null;
     if (estado === 'aprobado' || estado === 'entregado') await acreditarComision(pedido.id);
-    res.json({ pedido, provision });
+    const final = (await OrdersRepository.obtener(pedido.id)) ?? pedido; // con provision_estado ya escrito
+    res.json({ pedido: final, provision });
   },
 };

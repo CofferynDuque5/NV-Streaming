@@ -15,6 +15,7 @@
  */
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { OrdersController } from './orders.controller.js';
+import { AccessController } from './access.controller.js';
 import { WalletController } from './wallet.controller.js';
 import { requireAuth, requireRol } from '../auth/auth.middleware.js';
 
@@ -29,6 +30,8 @@ commerceRouter.post('/pedidos', requireAuth, wrap(OrdersController.crear));
 commerceRouter.get('/pedidos/mios', requireAuth, wrap(OrdersController.mios));
 commerceRouter.get('/pedidos', ...admin, wrap(OrdersController.listar));
 commerceRouter.post('/pedidos/:id/estado', ...admin, wrap(OrdersController.cambiarEstado));
+// ── Mis accesos (suscripciones con credenciales + pedidos + cola) ──
+commerceRouter.get('/mis/accesos', requireAuth, wrap(AccessController.mios));
 
 // ── Billetera ──
 commerceRouter.get('/wallet', requireAuth, wrap(WalletController.resumen));

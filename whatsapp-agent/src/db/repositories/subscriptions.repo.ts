@@ -171,6 +171,34 @@ export const SubscriptionsRepository = {
     });
   },
 
+  /**
+   * Accesos de un cliente para la WEB (Mi cuenta → Mis servicios): todas sus
+   * suscripciones con la cuenta asignada (contraseña aún cifrada: la descifra el
+   * controlador solo si la suscripción está activa, pagada y vigente).
+   */
+  async accesosDeUsuario(usuarioId: string): Promise<AccesoRow[]> {
+    return query<AccesoRow>(
+      `SELECT s.id, s.plataforma_id, s.estado, s.pagada, s.fecha_inicio, s.fecha_vencimiento, s.renovacion_automatica,
+              c.correo, c.contrasena_cifrada, c.perfil, c.pin,
+              p.nombre AS plan_nombre, p.precio AS plan_precio, p.moneda AS plan_moneda, p.duracion_dias AS plan_duracion_dias,
+              (SELECT o.id FROM pedidos o WHERE o.suscripcion_id = s.id ORDER BY o.creado_en DESC LIMIT 1) AS pedido_id
+       FROM suscripciones s
+       JOIN cuentas_streaming c ON c.id = s.cuenta_streaming_id
+       JOIN planes p ON p.id = s.plan_id
+       WHERE s.usuario_id = $1
+       ORDER BY s.fecha_vencimiento DESC`,
+      [usuarioId],
+    );
+  },
+
+  /** Entradas del cliente en cola de espera (sin stock todavía). */
+  async colaDeUsuario(usuarioId: string): Promise<Array<{ id: string; plataforma_id: string; estado: string; creado_en: Date; atendido_en: Date | null }>> {
+    return query(
+      `SELECT id, plataforma_id, estado, creado_en, atendido_en FROM cola_espera WHERE usuario_id = $1 ORDER BY creado_en DESC`,
+      [usuarioId],
+    );
+  },
+
   /* ─────────────────────  Job de renovaciones (Paso 3)  ───────────────────── */
 
   /** Suscripciones ACTIVAS ya vencidas (fecha_vencimiento < ahora). */
@@ -320,4 +348,12 @@ export interface SuscripcionServicio {
   plan_nombre: string;
   plan_precio: string;
   plan_moneda: string;
+}
+
+/** Fila de acceso para la web (Mi cuenta): suscripción + cuenta + plan. */
+export interface AccesoRow extends SuscripcionServicio {
+  fecha_inicio: Date;
+  renovacion_automatica: boolean;
+  plan_duracion_dias: number;
+  pedido_id: string | null;
 }

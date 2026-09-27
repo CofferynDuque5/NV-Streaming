@@ -68,6 +68,8 @@ export function createApp() {
   // ruta admite cuerpos mayores (12 MB ≈ 8 MB de imagen). Va ANTES del parser
   // global de 1 MB; express.json no vuelve a parsear un cuerpo ya leído.
   app.use('/api/admin/medios', express.json({ limit: '12mb' }));
+  // Pedidos y recargas llevan el COMPROBANTE (captura) en base64 dentro del JSON.
+  app.use(['/api/pedidos', '/api/wallet/recargas'], express.json({ limit: '12mb' }));
 
   // Body JSON conservando el cuerpo CRUDO (necesario para validar la firma HMAC).
   app.use(

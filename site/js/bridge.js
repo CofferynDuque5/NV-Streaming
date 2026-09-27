@@ -415,6 +415,7 @@ function decoratePagos(vals) {
     // Sin métodos configurados → no mostrar datos de pago de demostración.
     const vacio = { title: "Método no configurado", lines: [{ k: "Estado", v: "Aún no hay métodos de pago configurados." }], _id: "__vacio__", _empty: true };
     vals.movil = vacio; vals.binance = vacio; vals.zelle = vacio; vals.paypal = vacio; vals.transferencia = vacio;
+    pintarMetodoActivo(vals);
     return;
   }
   // Detalle por método (líneas para pagar) desde metodos_pago_config real.
@@ -437,6 +438,32 @@ function decoratePagos(vals) {
   vals.zelle = build("zelle", "Zelle") || vals.zelle;
   vals.paypal = build("paypal", "PayPal") || vals.paypal;
   vals.transferencia = build("transferencia", "Transferencia") || vals.transferencia;
+  pintarMetodoActivo(vals);
+}
+
+/* Datos REALES del método seleccionado ("Datos para Pago Móvil": titular,
+ * teléfono, banco…) + estado real de la billetera. La plantilla pinta
+ * `manualTitle/manualLines` ({label,value}); antes se rellenaban vals.movil…
+ * con otro formato y los datos reales nunca llegaban a la pantalla. */
+function pintarMetodoActivo(vals) {
+  const activo = (Array.isArray(vals.methods) ? vals.methods.find((m) => m.active) : null) || {};
+  const det = vals[activo.id];
+  if (det && Array.isArray(det.lines)) {
+    vals.manualTitle = det.title || vals.manualTitle;
+    vals.manualLines = det.lines.map((l) => ({ label: l.label || l.k || "", value: l.value || l.v || "" }));
+  }
+  // Billetera: saldo real de la sesión frente al total del carrito.
+  const u = ((Store.get("sesion") || {}).usuario) || {};
+  const saldo = Number(u.saldoBilletera);
+  const total = Cart.totalUSD();
+  const auth = (Store.get("sesion") || {}).estado === "autenticado";
+  vals.saldoFmt = auth && isFinite(saldo) ? fmtUSD(saldo) : "—";
+  const ok = auth && isFinite(saldo) && saldo + 1e-9 >= total;
+  vals.saldoOk = ok;
+  vals.saldoOkTxt = !auth ? "Inicia sesión" : ok ? "Saldo suficiente" : `Faltan ${fmtUSD(Math.max(0, total - (isFinite(saldo) ? saldo : 0)))}`;
+  vals.saldoOkBg = ok ? "rgba(0,212,160,0.1)" : "rgba(255,176,32,0.1)";
+  vals.saldoOkBorder = ok ? "rgba(0,212,160,0.3)" : "rgba(255,176,32,0.35)";
+  vals.saldoOkColor = ok ? "#00D4A0" : "#FFB020";
 }
 
 function decorateBilletera(vals) {
@@ -474,15 +501,29 @@ function decorateSerRevendedor(vals) {
 }
 
 function decorateCuenta(vals) {
-  const subs = Store.get("suscripciones") || [];
-  // Compras REALES del usuario: pedidos aprobados/entregados (/pedidos/mios).
-  const pedidosOk = (Store.get("pedidos") || []).filter((p) => ["aprobado", "entregado"].includes(String(p.estado)));
-  // Lo que el usuario realmente tiene: suscripciones relacionales (si las hay) +
-  // sus pedidos aprobados como servicios comprados. Sin datos inventados.
-  const servicios = subs.concat(pedidosOk.map((p) => ({
-    servicio: p.id_servicio, estado: "activo", perfil: "Comprado",
-    vence: p.vence || "", precioVenta: Number(p.precio) || 0, _creado: p.creadoEn,
-  })));
+  // Fuente de verdad de lo que el cliente TIENE: /api/mis/accesos (suscripciones
+  // relacionales con la cuenta asignada + pedidos con su estado de entrega).
+  // Respaldo (aún sin cargar): pedidos aprobados de /pedidos/mios.
+  const acc = Store.get("accesos");
+  const pedidosTodos = Store.get("pedidos") || [];
+  const pedidosOk = pedidosTodos.filter((p) => ["aprobado", "entregado"].includes(String(p.estado)));
+  let servicios;
+  if (acc && Array.isArray(acc.accesos)) {
+    const conCuenta = new Set(acc.accesos.map((a) => a.pedido_id).filter(Boolean));
+    servicios = acc.accesos.map((a) => ({
+      servicio: a.plataforma_id, estado: (a.estado === "activa" && a.vigente) ? "activo" : String(a.estado),
+      perfil: a.credenciales ? `Perfil ${a.perfil || "asignado"}` : (a.motivo === "suscripcion_vencida" ? "Vencida" : a.estado),
+      vence: a.vence || "", precioVenta: Number(a.precio) || 0, _creado: a.inicio,
+    })).concat((acc.pedidos || []).filter((p) => !conCuenta.has(p.id) && p.estado !== "rechazado" && !(p.estado === "aprobado" && p.provision_estado === "asignado")).map((p) => ({
+      servicio: p.id_servicio,
+      estado: p.estado === "pendiente" ? "pendiente" : p.provision_estado === "cola_espera" ? "en_espera" : "activo",
+      perfil: p.estado === "pendiente" ? "Pendiente de validar el pago" : p.provision_estado === "cola_espera" ? "En lista de espera (sin stock)" : "Entrega manual por WhatsApp",
+      vence: "", precioVenta: Number(p.precio) || 0, _creado: p.creado_en,
+    })));
+  } else {
+    servicios = pedidosOk.map((p) => ({ servicio: p.id_servicio, estado: "activo", perfil: "Comprado", vence: "", precioVenta: Number(p.precio) || 0, _creado: p.creadoEn }));
+  }
+  const ESTADO_TXT = { activo: "Activo", activa: "Activo", pendiente: "Pendiente", en_espera: "En espera", vencida: "Vencida", pausada: "Pausada", cancelada: "Cancelada" };
 
   // ── Perfil + estadísticas REALES (sin datos inventados) ──
   const ses = Store.get("sesion") || {};
@@ -543,7 +584,7 @@ function decorateCuenta(vals) {
   const nomServ = (id) => (Catalogo.porId(id) || {}).nombre_display || id;
   if (Array.isArray(vals.subscriptions)) {
     if (serviciosReales.length) {
-      vals.subscriptions = serviciosReales.slice(0, 8).map((s, i) => onSample(vals.subscriptions, i, { icon: short(nomServ(s.servicio)).slice(0, 1), gradient: grad(s.servicio), name: nomServ(s.servicio), plan: s.perfil || s.tipo || "Servicio", expires: s.vence ? Utils.fecha(s.vence) : "—", status: (s.estado === "activo" || s.estado === "activa") ? "Activo" : s.estado, price: fmtUSD(s.precioVenta) }));
+      vals.subscriptions = serviciosReales.slice(0, 8).map((s, i) => onSample(vals.subscriptions, i, { icon: short(nomServ(s.servicio)).slice(0, 1), gradient: grad(s.servicio), name: nomServ(s.servicio), plan: s.perfil || s.tipo || "Servicio", expires: s.vence ? Utils.fecha(s.vence) : "—", status: ESTADO_TXT[s.estado] || s.estado, statusColor: s.estado === "activo" || s.estado === "activa" ? "#00D4A0" : (s.estado === "pendiente" || s.estado === "en_espera") ? "#FFB020" : "#FF3E6C", statusBg: s.estado === "activo" || s.estado === "activa" ? "rgba(0,212,160,0.1)" : (s.estado === "pendiente" || s.estado === "en_espera") ? "rgba(255,176,32,0.1)" : "rgba(255,62,108,0.1)", statusBorder: s.estado === "activo" || s.estado === "activa" ? "rgba(0,212,160,0.3)" : (s.estado === "pendiente" || s.estado === "en_espera") ? "rgba(255,176,32,0.35)" : "rgba(255,62,108,0.35)", price: fmtUSD(s.precioVenta) }));
     } else {
       vals.subscriptions = [filaVacia({ name: auth ? "Sin servicios todavía" : "Inicia sesión para ver tus servicios", plan: auth ? "Explora el catálogo para contratar un servicio." : "Aquí aparecerán tus servicios." })];
     }
