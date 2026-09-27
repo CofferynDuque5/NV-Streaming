@@ -76,8 +76,8 @@ Ver la guía completa en **`docs/FIREBASE.md`** y **`docs/ENVIRONMENT.md`**. Lo 
 
 1. **`site/js/firebase-config.js`** → credenciales de tu proyecto Firebase.
 2. **`.firebaserc`** → tu `PROJECT_ID`.
-3. **`site/js/config.js`** → `imgbb.apiKey`, `whatsapp.numero`, `moneda.tasaVES`. `api.base` va **vacío** (mismo origen: nginx hace proxy de `/api` al backend, ver `deploy/nginx.conf`); ponle una URL completa solo si sirves el backend en otro host/puerto sin proxy.
-4. **`whatsapp-agent/.env`** → `DATABASE_URL`, `CREDENTIALS_ENC_KEY`, `OPENAI_API_KEY`, credenciales de WhatsApp, `ADMIN_API_TOKEN`, datos de pago…
+3. **`site/js/config.js`** → `whatsapp.numero`, `moneda.tasaVES`. (La clave de ImgBB **no** va aquí: es `IMGBB_API_KEY` en el `.env` del backend; el navegador sube a `/api/admin/medios`.) `api.base` va **vacío** (mismo origen: nginx hace proxy de `/api` al backend, ver `deploy/nginx.conf`); ponle una URL completa solo si sirves el backend en otro host/puerto sin proxy.
+4. **`whatsapp-agent/.env`** → `DATABASE_URL`, `CREDENTIALS_ENC_KEY`, `OPENAI_API_KEY`, `IMGBB_API_KEY` (biblioteca de imágenes del editor), credenciales de WhatsApp, `ADMIN_API_TOKEN`, datos de pago…
 5. **Secretos de Cloud Functions** → `firebase functions:secrets:set` (ver `docs/CLOUD-FUNCTIONS.md`).
 
 ---

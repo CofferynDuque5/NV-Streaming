@@ -7,26 +7,81 @@
   "plataformas": [
     { "id": "netflix", "nombre": "Netflix", "categoria": "STREAMING", "orden": 1 },
     { "id": "disney", "nombre": "Disney+", "categoria": "STREAMING", "orden": 2 },
-    { "id": "max", "nombre": "Max", "categoria": "STREAMING", "orden": 3 },
+    { "id": "disney_espn", "nombre": "Disney+ con ESPN", "categoria": "STREAMING", "orden": 3 },
     { "id": "prime", "nombre": "Prime Video", "categoria": "STREAMING", "orden": 4 },
-    { "id": "spotify", "nombre": "Spotify", "categoria": "MUSICA", "orden": 5 },
-    { "id": "chatgpt", "nombre": "ChatGPT", "categoria": "IA", "orden": 6 }
+    { "id": "max", "nombre": "HBO Max", "categoria": "STREAMING", "orden": 5 },
+    { "id": "paramount", "nombre": "Paramount+", "categoria": "STREAMING", "orden": 6 },
+    { "id": "crunchyroll", "nombre": "Crunchyroll", "categoria": "STREAMING", "orden": 7 },
+    { "id": "flujotv", "nombre": "FlujoTV", "categoria": "STREAMING", "orden": 8 },
+    { "id": "telelatino", "nombre": "Telelatino", "categoria": "STREAMING", "orden": 9 },
+    { "id": "plex", "nombre": "Plex", "categoria": "STREAMING", "orden": 10 },
+    { "id": "appletv", "nombre": "AppleTV", "categoria": "STREAMING", "orden": 11 },
+    { "id": "vix", "nombre": "Vix Premium", "categoria": "STREAMING", "orden": 12 },
+    { "id": "rakuten", "nombre": "Rakuten Viki", "categoria": "STREAMING", "orden": 13 },
+    { "id": "youtube", "nombre": "YouTube Premium", "categoria": "STREAMING", "orden": 14 },
+    { "id": "spotify", "nombre": "Spotify Premium", "categoria": "MUSICA", "orden": 15 },
+    { "id": "deezer", "nombre": "Deezer Premium", "categoria": "MUSICA", "orden": 16 },
+    { "id": "tidal", "nombre": "Tidal", "categoria": "MUSICA", "orden": 17 },
+    { "id": "canva", "nombre": "Canva Pro", "categoria": "SOFTWARE", "orden": 18 },
+    { "id": "capcut", "nombre": "CapCut Pro", "categoria": "SOFTWARE", "orden": 19 },
+    { "id": "googleone", "nombre": "Google One", "categoria": "CLOUD", "orden": 20 },
+    { "id": "chatgpt", "nombre": "ChatGPT+", "categoria": "IA", "orden": 21 },
+    { "id": "gemini", "nombre": "Gemini + 2 TB", "categoria": "IA", "orden": 22 },
+    { "id": "office365", "nombre": "Office 365", "categoria": "SOFTWARE", "orden": 23 }
   ],
   "metodos_pago_config": [
-    { "id": "pago_movil_bdv", "tipo_banco": "Banco de Venezuela", "tipo": "pago_movil", "titular": "", "documento_identidad": "", "telefono_pago": "", "estado_activo": true, "orden": 1, "instrucciones": "Realiza el Pago Móvil y sube el comprobante." },
-    { "id": "binance_pay", "tipo_banco": "Binance Pay", "tipo": "crypto", "titular": "", "correo_binance": "", "estado_activo": true, "orden": 2, "instrucciones": "Paga en USDT y sube el comprobante." },
-    { "id": "zelle", "tipo_banco": "Zelle", "tipo": "zelle", "titular": "", "correo_zelle": "", "estado_activo": true, "orden": 3, "instrucciones": "Transfiere por Zelle al correo indicado." }
+    { "id": "pago_movil_bdv", "id_pago": "pago_movil_bdv", "tipo": "pago_movil", "tipo_banco": "Bancos Venezolanos", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 1, "instrucciones": "Pago Móvil o transferencia a banco venezolano. Sube el comprobante." },
+    { "id": "binance_pay", "id_pago": "binance_pay", "tipo": "cripto", "tipo_banco": "Binance (USDT)", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 2, "instrucciones": "Envía USDT por Binance Pay y sube el comprobante con el ID de la transacción." },
+    { "id": "zinli", "id_pago": "zinli", "tipo": "billetera", "tipo_banco": "Zinli", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 3, "instrucciones": "Transfiere por Zinli y sube el comprobante." },
+    { "id": "revolut", "id_pago": "revolut", "tipo": "billetera", "tipo_banco": "Revolut", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 4, "instrucciones": "Transfiere por Revolut y sube el comprobante." },
+    { "id": "yape", "id_pago": "yape", "tipo": "billetera", "tipo_banco": "Yape (Perú)", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 5, "instrucciones": "Paga por Yape y sube el comprobante." },
+    { "id": "bancolombia", "id_pago": "bancolombia", "tipo": "transferencia", "tipo_banco": "Bancolombia", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 6, "instrucciones": "Transferencia Bancolombia. Sube el comprobante." },
+    { "id": "ripio", "id_pago": "ripio", "tipo": "billetera", "tipo_banco": "Ripio (Argentina)", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 7, "instrucciones": "Envía por Ripio y sube el comprobante." },
+    { "id": "pichincha", "id_pago": "pichincha", "tipo": "transferencia", "tipo_banco": "Banco Pichincha (Ecuador)", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 8, "instrucciones": "Transferencia Banco Pichincha. Sube el comprobante." },
+    { "id": "zelle", "id_pago": "zelle", "tipo": "zelle", "tipo_banco": "Zelle", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 9, "instrucciones": "Transfiere por Zelle y sube el comprobante con el número de confirmación." },
+    { "id": "paypal", "id_pago": "paypal", "tipo": "paypal", "tipo_banco": "PayPal (+ comisión)", "titular": "", "documento_identidad": "", "telefono_pago": "", "correo_zelle": "", "correo_paypal": "", "correo_binance": "", "estado_activo": true, "orden": 10, "instrucciones": "Paga por PayPal (aplica comisión) y sube el comprobante." }
   ],
   "preguntas_frecuentes": [
     { "id": "faq_1", "pregunta": "¿Cuánto tarda la activación?", "respuesta": "La activación es inmediata tras validar tu pago.", "orden": 1 },
     { "id": "faq_2", "pregunta": "¿Tienen garantía?", "respuesta": "Sí, todos los servicios incluyen garantía. Escríbenos si tienes cualquier problema.", "orden": 2 }
   ],
   "servicios_sistema": [
-    { "id": "netflix", "id_servicio": "netflix", "nombre_display": "Netflix", "descripcion": "4K UHD · 4 pantallas", "categoria": "STREAMING", "precio": 5.99, "activo": true, "destacado": true, "orden": 1 },
-    { "id": "disney", "id_servicio": "disney", "nombre_display": "Disney+", "descripcion": "Catálogo completo · 4 pantallas", "categoria": "STREAMING", "precio": 4.99, "activo": true, "destacado": true, "orden": 2 },
-    { "id": "max", "id_servicio": "max", "nombre_display": "Max", "descripcion": "HBO Max · Full HD", "categoria": "STREAMING", "precio": 4.49, "activo": true, "destacado": false, "orden": 3 },
-    { "id": "prime", "id_servicio": "prime", "nombre_display": "Prime Video", "descripcion": "Amazon Prime Video", "categoria": "STREAMING", "precio": 3.99, "activo": true, "destacado": false, "orden": 4 },
-    { "id": "spotify", "id_servicio": "spotify", "nombre_display": "Spotify", "descripcion": "Premium individual", "categoria": "MUSICA", "precio": 3.49, "activo": true, "destacado": true, "orden": 5 },
-    { "id": "chatgpt", "id_servicio": "chatgpt", "nombre_display": "ChatGPT Plus", "descripcion": "GPT avanzado", "categoria": "IA", "precio": 9.99, "activo": true, "destacado": false, "orden": 6 }
+    { "id": "netflix", "id_servicio": "netflix", "nombre_display": "Netflix", "descripcion": "Cuenta original · Suscripción mensual", "categoria": "STREAMING", "precio": 5, "precio_rev": 4, "activo": true, "destacado": true, "orden": 1, "tarjeta_url": "assets/card-netflix.png", "logo_url": "assets/t-netflix.png" },
+    { "id": "disney", "id_servicio": "disney", "nombre_display": "Disney+", "descripcion": "Sin ESPN · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 3, "activo": true, "destacado": true, "orden": 2, "tarjeta_url": "assets/card-disney.png", "logo_url": "assets/t-disney.png" },
+    { "id": "disney_espn", "id_servicio": "disney_espn", "nombre_display": "Disney+ con ESPN", "descripcion": "Con ESPN · Suscripción mensual", "categoria": "STREAMING", "precio": 3.5, "precio_rev": 3, "activo": true, "destacado": false, "orden": 3, "tarjeta_url": "assets/card-disney.png", "logo_url": "assets/t-disney.png" },
+    { "id": "prime", "id_servicio": "prime", "nombre_display": "Prime Video", "descripcion": "Amazon Prime Video · Suscripción mensual", "categoria": "STREAMING", "precio": 2, "precio_rev": 2, "activo": true, "destacado": false, "orden": 4 },
+    { "id": "max", "id_servicio": "max", "nombre_display": "HBO Max", "descripcion": "HBO Max · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2.7, "activo": true, "destacado": false, "orden": 5, "tarjeta_url": "assets/card-hbo.png", "logo_url": "assets/t-hbo.png" },
+    { "id": "paramount", "id_servicio": "paramount", "nombre_display": "Paramount+", "descripcion": "Paramount+ · Suscripción mensual", "categoria": "STREAMING", "precio": 2, "precio_rev": 2, "activo": true, "destacado": false, "orden": 6, "tarjeta_url": "assets/card-paramount.png", "logo_url": "assets/t-paramount.png" },
+    { "id": "crunchyroll", "id_servicio": "crunchyroll", "nombre_display": "Crunchyroll", "descripcion": "Anime · Suscripción mensual", "categoria": "STREAMING", "precio": 2, "precio_rev": 1.5, "activo": true, "destacado": false, "orden": 7, "tarjeta_url": "assets/card-crunchyroll.png", "logo_url": "assets/t-crunchyroll.png" },
+    { "id": "flujotv", "id_servicio": "flujotv", "nombre_display": "FlujoTV", "descripcion": "TV en vivo · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2.5, "activo": true, "destacado": false, "orden": 8, "tarjeta_url": "assets/card-flujo.png", "logo_url": "assets/t-flujo.png" },
+    { "id": "telelatino", "id_servicio": "telelatino", "nombre_display": "Telelatino", "descripcion": "TV en vivo · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2.5, "activo": true, "destacado": false, "orden": 9 },
+    { "id": "plex", "id_servicio": "plex", "nombre_display": "Plex", "descripcion": "Plex · Suscripción mensual", "categoria": "STREAMING", "precio": 2, "precio_rev": 2, "activo": true, "destacado": false, "orden": 10 },
+    { "id": "appletv", "id_servicio": "appletv", "nombre_display": "AppleTV", "descripcion": "Apple TV+ · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2.7, "activo": true, "destacado": false, "orden": 11, "tarjeta_url": "assets/card-appletv.png", "logo_url": "assets/t-appletv.png" },
+    { "id": "vix", "id_servicio": "vix", "nombre_display": "Vix Premium", "descripcion": "ViX Premium · Suscripción mensual", "categoria": "STREAMING", "precio": 2, "precio_rev": 1.5, "activo": true, "destacado": false, "orden": 12, "tarjeta_url": "assets/card-vix.png", "logo_url": "assets/t-vix.png" },
+    { "id": "rakuten", "id_servicio": "rakuten", "nombre_display": "Rakuten Viki", "descripcion": "Rakuten Viki · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2, "activo": true, "destacado": false, "orden": 13 },
+    { "id": "youtube", "id_servicio": "youtube", "nombre_display": "YouTube Premium", "descripcion": "Sin anuncios + YouTube Music · Suscripción mensual", "categoria": "STREAMING", "precio": 3, "precio_rev": 2.7, "activo": true, "destacado": false, "orden": 14, "tarjeta_url": "assets/card-youtube.png", "logo_url": "assets/t-youtube.png" },
+    { "id": "spotify", "id_servicio": "spotify", "nombre_display": "Spotify Premium", "descripcion": "Premium · Suscripción mensual", "categoria": "MUSICA", "precio": 3.5, "precio_rev": 3.5, "activo": true, "destacado": true, "orden": 15, "tarjeta_url": "assets/card-spotify.png", "logo_url": "assets/t-spotify.png" },
+    { "id": "deezer", "id_servicio": "deezer", "nombre_display": "Deezer Premium", "descripcion": "Premium · Suscripción mensual", "categoria": "MUSICA", "precio": 3, "precio_rev": 3, "activo": true, "destacado": false, "orden": 16, "tarjeta_url": "assets/card-deezer.png", "logo_url": "assets/t-deezer.png" },
+    { "id": "tidal", "id_servicio": "tidal", "nombre_display": "Tidal", "descripcion": "HiFi · Suscripción mensual", "categoria": "MUSICA", "precio": 3, "precio_rev": 3, "activo": true, "destacado": false, "orden": 17, "tarjeta_url": "assets/card-tidal.png", "logo_url": "assets/t-tidal.png" },
+    { "id": "canva", "id_servicio": "canva", "nombre_display": "Canva Pro", "descripcion": "Canva Pro · Suscripción mensual", "categoria": "SOFTWARE", "precio": 3.5, "precio_rev": 2.7, "activo": true, "destacado": false, "orden": 18 },
+    { "id": "capcut", "id_servicio": "capcut", "nombre_display": "CapCut Pro", "descripcion": "CapCut Pro · Suscripción mensual", "categoria": "SOFTWARE", "precio": 5, "precio_rev": 5, "activo": true, "destacado": false, "orden": 19 },
+    { "id": "googleone", "id_servicio": "googleone", "nombre_display": "Google One", "descripcion": "Almacenamiento en la nube · Suscripción mensual", "categoria": "CLOUD", "precio": 3.5, "precio_rev": 3, "activo": true, "destacado": false, "orden": 20, "tarjeta_url": "assets/card-googleone.png", "logo_url": "assets/t-googleone.png" },
+    { "id": "chatgpt", "id_servicio": "chatgpt", "nombre_display": "ChatGPT+", "descripcion": "ChatGPT Plus · Suscripción mensual", "categoria": "IA", "precio": 5, "precio_rev": 4, "activo": true, "destacado": false, "orden": 21, "tarjeta_url": "assets/card-chatgpt.png", "logo_url": "assets/t-chatgpt.png" },
+    { "id": "gemini", "id_servicio": "gemini", "nombre_display": "Gemini + 2 TB", "descripcion": "Gemini Advanced + 2 TB · Suscripción mensual", "categoria": "IA", "precio": 5, "precio_rev": 3.5, "activo": true, "destacado": false, "orden": 22 },
+    { "id": "office365", "id_servicio": "office365", "nombre_display": "Office 365", "descripcion": "Microsoft 365 · Suscripción mensual", "categoria": "SOFTWARE", "precio": 3.5, "precio_rev": 3, "activo": true, "destacado": false, "orden": 23, "tarjeta_url": "assets/card-office365.png", "logo_url": "assets/t-office365.png" }
+  ],
+  "planes_revendedor": [
+    { "id": "rev_starter", "name": "Starter", "price": "$9.99", "period": "/mes", "accent": "#00CFFF", "featured": false, "orden": 1, "activo": true, "tagline": "Ideal para empezar a revender.", "features": ["Precios de revendedor", "Panel de ventas", "Hasta 30 clientes", "Soporte por chat"] },
+    { "id": "rev_pro", "name": "Pro", "price": "$24.99", "period": "/mes", "accent": "#9B3FFF", "featured": true, "orden": 2, "activo": true, "tagline": "El favorito de los revendedores activos.", "features": ["Todo lo de Starter", "Clientes ilimitados", "Comisiones potenciadas", "CRM + cotizaciones", "Material de marketing"] },
+    { "id": "rev_anual", "name": "Anual", "price": "$199", "period": "/año", "accent": "#00D4A0", "featured": false, "orden": 3, "activo": true, "tagline": "2 meses gratis pagando al año.", "features": ["Todo lo de Pro", "2 meses gratis", "Prioridad de soporte", "Insignia verificada"] }
+  ],
+  "combos_suscripciones": [
+    { "id": "combo_cine", "id_combo": "combo_cine", "nombre_combo": "Combo Cine +", "descripcion": "🎬 Netflix + HBO Max + Prime Video + Paramount+", "precio_publico_combo": 12, "precio_revendedor_combo": 10.7, "servicios_included": ["Netflix", "HBO Max", "Prime Video", "Paramount+"], "banner_url": "", "activo": true, "orden": 1 },
+    { "id": "combo_essential", "id_combo": "combo_essential", "nombre_combo": "Combo Essential", "descripcion": "⭐ Netflix + Disney+ + Spotify Premium", "precio_publico_combo": 11.5, "precio_revendedor_combo": 10.5, "servicios_included": ["Netflix", "Disney+", "Spotify Premium"], "banner_url": "", "activo": true, "orden": 2 },
+    { "id": "combo_family", "id_combo": "combo_family", "nombre_combo": "Combo Family", "descripcion": "🍿 Netflix + Disney+ + Prime Video + YouTube Premium", "precio_publico_combo": 13, "precio_revendedor_combo": 11.7, "servicios_included": ["Netflix", "Disney+", "Prime Video", "YouTube Premium"], "banner_url": "", "activo": true, "orden": 3 },
+    { "id": "combo_tvpro", "id_combo": "combo_tvpro", "nombre_combo": "Combo TV Pro", "descripcion": "📺 FlujoTV + Telelatino + Plex", "precio_publico_combo": 8, "precio_revendedor_combo": 7, "servicios_included": ["FlujoTV", "Telelatino", "Plex"], "banner_url": "", "activo": true, "orden": 4 },
+    { "id": "combo_musica", "id_combo": "combo_musica", "nombre_combo": "Combo Música", "descripcion": "🎧 Spotify Premium + Deezer Premium + Tidal + YouTube Premium", "precio_publico_combo": 12.5, "precio_revendedor_combo": 12.2, "servicios_included": ["Spotify Premium", "Deezer Premium", "Tidal", "YouTube Premium"], "banner_url": "", "activo": true, "orden": 5 },
+    { "id": "combo_creador", "id_combo": "combo_creador", "nombre_combo": "Combo Creador", "descripcion": "🎨 Canva Pro + CapCut Pro + Google One", "precio_publico_combo": 12, "precio_revendedor_combo": 10.7, "servicios_included": ["Canva Pro", "CapCut Pro", "Google One"], "banner_url": "", "activo": true, "orden": 6 },
+    { "id": "combo_office", "id_combo": "combo_office", "nombre_combo": "Combo Office", "descripcion": "💼 Office 365 + Google One + Gemini + 2 TB", "precio_publico_combo": 12, "precio_revendedor_combo": 9.5, "servicios_included": ["Office 365", "Google One", "Gemini + 2 TB"], "banner_url": "", "activo": true, "orden": 7 }
   ]
 }

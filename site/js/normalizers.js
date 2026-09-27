@@ -40,6 +40,7 @@ export const normalizarOferta = (o) => ({
   id_servicio: str(o.id_servicio),
   nombre: str(o.nombre),
   etiqueta: str(o.etiqueta || "OFERTA"),
+  codigo: str(o.codigo).trim().toUpperCase(), // cupón canjeable en el carrito (vacío = sin cupón)
   descuento_pct: num(o.descuento_pct),
   precio_normal: num(o.precio_normal),
   precio_oferta: num(o.precio_oferta),
@@ -112,7 +113,11 @@ export const normalizarPedido = (p) => ({
   nombre_cliente: str(p.nombre_cliente),
   email_cliente: str(p.email_cliente),
   uid_cliente: str(p.uid_cliente),
-  creadoEn: p.creadoEn || null,
+  // Aprovisionamiento (backend): asignado | cola_espera | sin_plan | no_aplica | error
+  provision_estado: str(p.provision_estado),
+  suscripcion_id: str(p.suscripcion_id),
+  creadoEn: p.creadoEn || p.creado_en || null,
+  actualizadoEn: p.actualizadoEn || p.actualizado_en || null,
 });
 
 // §5.1: recargas_billetera.monto puede venir como string "50" → number.

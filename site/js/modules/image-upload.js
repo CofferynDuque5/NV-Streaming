@@ -8,7 +8,8 @@
  * siguiente input de texto, actualizando además una vista previa si existe.
  *
  * No interfiere con la captura de comprobantes de pago (esos inputs NO llevan
- * `data-imgbb`). No inventa URLs: si falta la API key, avisa al operador.
+ * `data-imgbb`). No inventa URLs: si el backend no tiene IMGBB_API_KEY, el
+ * servicio devuelve un error claro que aquí se muestra al operador.
  */
 import { servicioImagenes, ServicioImagenes } from "../services/imgbb.service.js";
 
@@ -40,15 +41,11 @@ async function onChange(ev) {
   const file = input.files && input.files[0];
   if (!file) return;
 
-  if (!servicioImagenes.configurado) {
-    toast("Configura tu API key de ImgBB en NV_CONFIG.imgbb.apiKey", "rgba(255,176,32,0.5)");
-    return;
-  }
   const prev = resolverPreview(input);
   const destino = resolverDestino(input);
-  toast("Subiendo imagen a ImgBB…", "rgba(0,207,255,0.5)");
+  toast("Subiendo imagen…", "rgba(0,207,255,0.5)");
   try {
-    const res = await subir(file, { nombre: input.getAttribute("data-imgbb-name") || file.name });
+    const res = await subir(file, { nombre: input.getAttribute("data-imgbb-name") || file.name, uso: input.getAttribute("data-imgbb-uso") || "general" });
     if (destino) { destino.value = res.url; destino.dispatchEvent(new Event("input", { bubbles: true })); }
     if (prev && prev.tagName === "IMG") prev.src = res.display_url || res.url;
     input.dataset.imgbbUrl = res.url;

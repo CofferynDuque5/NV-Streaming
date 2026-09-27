@@ -36,6 +36,12 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
 
+  // ImgBB (biblioteca de imágenes: logo, tarjetas, banners). La clave vive SOLO
+  // aquí (servidor); el navegador sube a /api/admin/medios y nunca ve la clave.
+  // Sin clave, la biblioteca lista/borra pero rechaza subidas con 503 claro.
+  IMGBB_API_KEY: z.string().default(''),
+  IMGBB_ENDPOINT: z.string().url().default('https://api.imgbb.com/1/upload'),
+
   // Clave para cifrar/descifrar credenciales en reposo (AES-256-GCM).
   // 32 bytes en base64 o hex. Si falta, se usa una clave de desarrollo (con aviso).
   CREDENTIALS_ENC_KEY: z.string().default(''),

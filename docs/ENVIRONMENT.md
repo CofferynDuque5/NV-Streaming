@@ -15,7 +15,7 @@ Tres superficies de configuración. **Solo el backend usa `.env`.**
 | Clave | Para qué | ¿Obligatoria? | ¿Cambiar en prod? |
 |---|---|---|---|
 | `api.base` | URL del backend `whatsapp-agent` | Para catálogo/IA/pagos vivos | **Sí** → tu URL (p.ej. `https://api.tudominio.com`). Por defecto `http://localhost:3000`. Si es inalcanzable, el frontend degrada a datos locales |
-| `imgbb.apiKey` | Subida de imágenes (Back Office) | Para subir imágenes | **Sí** → de https://api.imgbb.com/. Vacía por defecto |
+| `imgbb.viaBackend` | Las imágenes se suben por `/api/admin/medios` (el backend usa `IMGBB_API_KEY`). La clave **nunca** va en este archivo público | — | No tocar |
 | `whatsapp.numero` | WhatsApp de soporte | Sí | Verifica que sea tu número (formato internacional sin `+`) |
 | `moneda.tasaVES` | Tasa USD→VES por defecto | No (el backend la sobreescribe vía `/api/config`) | Opcional |
 | `marca.*`, `colores.*` | Identidad visual | No | Opcional |
@@ -41,6 +41,7 @@ Plantilla completa y comentada en **`.env.example`** (raíz del paquete). Resume
 | `WHATSAPP_VERIFY_TOKEN` | ✅ | ✅ | verificación del webhook |
 | `WHATSAPP_APP_SECRET` | ✅ | ✅ | valida firma del webhook |
 | `OPENAI_API_KEY` | ⚠️ (para IA) | ✅ | sin ella el agente no responde |
+| `IMGBB_API_KEY` | ⚠️ (para subir imágenes) | ✅ | biblioteca de medios del editor/admin (logo, tarjetas, banners). De https://api.imgbb.com/. Sin ella, subir devuelve 503 con aviso; listar/quitar siguen funcionando |
 | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` | ⚠️ (para enviar) | ✅/– | necesarios para enviar mensajes |
 | `ADMIN_API_TOKEN` | ⚠️ | ✅ | sin él, endpoints admin de pago → 503 |
 

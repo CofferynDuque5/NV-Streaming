@@ -8,6 +8,7 @@
  */
 
 import NVCore from "../core.js";
+import { NVApi } from "./nv-api.js";
 import { Catalogo } from "./data.service.js";
 import { motorPrecios } from "./pricing.engine.js";
 
@@ -60,15 +61,57 @@ export const Cart = {
   },
   subtotalUSD() { return this.items().reduce((a, i) => a + Utils.num(i.precioUSD) * (i.cantidad || 1), 0); },
   cupon() { return Store.get("cupon") || null; },
+  // Cupones REALES: una oferta del CMS (colección `ofertas`, panel Ofertas) con
+  // `codigo` y `descuento_pct` y activa. Sin códigos inventados en el código.
   aplicarCupon(codigo) {
-    const CUP = { NV20: 0.2, NV10: 0.1, BIENVENIDO: 0.15 };
-    const pct = CUP[String(codigo || "").toUpperCase()];
-    if (pct) { Store.set("cupon", { codigo: String(codigo).toUpperCase(), pct }); this._persistir(this.items()); return true; }
-    return false;
+    const code = String(codigo || "").trim().toUpperCase();
+    if (!code) return false;
+    const of = (Store.get("ofertas") || []).find((o) => o.activo !== false && String(o.codigo || "").trim().toUpperCase() === code && Utils.num(o.descuento_pct) > 0);
+    if (!of) return false;
+    Store.set("cupon", { codigo: code, pct: Math.min(100, Utils.num(of.descuento_pct)) / 100 });
+    this._persistir(this.items());
+    return true;
   },
   quitarCupon() { Store.set("cupon", null); this._persistir(this.items()); },
   descuentoUSD() { const c = this.cupon(); return c ? this.subtotalUSD() * c.pct : 0; },
+
+  /**
+   * Reconcilia el carrito guardado (localStorage) con el catálogo ACTUAL:
+   * precios según la tarifa vigente y el rol, nombres al día, y fuera los
+   * servicios/combos que ya no existen. Evita que un carrito viejo muestre
+   * precios de una versión anterior (p.ej. Netflix $4.49 cuando hoy es $4.00).
+   */
+  reconciliar() {
+    const antes = this.items();
+    if (!antes.length) return false;
+    const tipo = motorPrecios.tipoAplicable();
+    const combos = Store.get("combos") || [];
+    const despues = [];
+    for (const it of antes) {
+      if (it.tipo === "combo") {
+        const c = combos.find((x) => x.id === it.id || x.nombre_combo === it.id);
+        if (!c) continue;
+        despues.push(Object.assign({}, it, { nombre: c.nombre_combo, precioUSD: Catalogo.precioComboUSD(c, tipo), img: c.banner_url, meta: Object.assign({}, it.meta, { tipo_precio: tipo }) }));
+      } else {
+        const s = Catalogo.porId(it.id);
+        if (!s || s.activo === false) continue;
+        despues.push(Object.assign({}, it, { nombre: s.nombre_display, precioUSD: Catalogo.precioFinalUSD(s, tipo), img: s.tarjeta_url || s.logo_url, meta: Object.assign({}, it.meta, { categoria: s.categoria, tipo_precio: tipo }) }));
+      }
+    }
+    const cambio = JSON.stringify(antes) !== JSON.stringify(despues);
+    if (cambio) this._persistir(despues);
+    return cambio;
+  },
 };
+
+// El catálogo real llega después del primer pintado; en cuanto llega (o cambia
+// el rol de la sesión), el carrito se reconcilia con los precios vigentes.
+if (Bus && Bus.on) {
+  Bus.on("catalogo:real", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("user:login", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("user:logout", () => { try { Cart.reconciliar(); } catch (_) {} });
+  Bus.on("store:changed", (e) => { if (e && (e.key === "combos")) { try { Cart.reconciliar(); } catch (_) {} } });
+}
 
 /* ────────────────────────────  MONEDA  ──────────────────────────── */
 export const Moneda = {
@@ -83,54 +126,68 @@ export const Moneda = {
 /* ────────────────────────────  CHECKOUT  ──────────────────────────── */
 export const Checkout = {
   /**
-   * Crea un pedido real por cada ítem del carrito. `comprobante` es la imagen
-   * (data URL) cuando el método lo requiere (p. ej. Pago Móvil).
+   * Crea los pedidos REALES en el servidor (POST /api/pedidos), uno por unidad
+   * de cada ítem del carrito. Los combos se descomponen en sus servicios (el
+   * precio lo fija el servidor por servicio y rol; el combo es la suma).
+   * `comprobante` es la captura (data URL) para pagos manuales; `billetera`
+   * descuenta el saldo y aprovisiona al instante.
+   *
+   * Devuelve { pedidos, provisionados, pendientes, reembolsados, saldo } y
+   * LANZA un Error claro si nada pudo crearse (sin sesión, saldo insuficiente,
+   * comprobante demasiado grande, servidor caído…). Nunca inventa pedidos.
    */
-  async crearPedido({ metodo_pago, comprobante = "", tipo_precio, cliente = {}, telefono = "" }) {
+  async crearPedido({ metodo_pago, comprobante = "", telefono = "" }) {
     const items = Cart.items();
     if (!items.length) throw new Error("El carrito está vacío");
     const sesion = Store.get("sesion") || {};
-    const usuario = sesion.usuario || {};
-    // El tipo de precio del pedido refleja la tarifa realmente aplicada por rol.
-    const tipoPedido = tipo_precio || motorPrecios.tipoAplicable();
-    const idsCreados = [];
+    if (sesion.estado !== "autenticado") { const e = new Error("Inicia sesión para completar tu compra."); e.code = "sin_sesion"; throw e; }
+
+    // Unidades a pedir: servicios × cantidad; combos → sus servicios × cantidad.
+    const unidades = [];
+    const combos = Store.get("combos") || [];
     for (const it of items) {
-      const pedido = {
-        comprobante,
-        creadoEn: DB.online ? DB.fx.serverTimestamp() : new Date(),
-        estado: "pendiente",
-        id_servicio: it.tipo === "combo" ? "" : it.id,
-        id_combo: it.tipo === "combo" ? it.id : "",
-        nombre_item: it.nombre,
-        cantidad: it.cantidad || 1,
-        metodo_pago,
-        precio: Utils.num(it.precioUSD) * (it.cantidad || 1),
-        tipo_precio: (it.meta && it.meta.tipo_precio) || tipoPedido,
-        moneda: Moneda.activa(),
-        total_local: Moneda.convertir(Utils.num(it.precioUSD) * (it.cantidad || 1)),
-        nombre_cliente: cliente.nombre || usuario.nombre || "",
-        email_cliente: cliente.email || usuario.email || "",
-        uid_cliente: usuario.uid || "",
-        telefono: String(telefono || "").replace(/\D/g, ""), // WhatsApp E.164 (para entrega/OTP)
-      };
-      try {
-        const id = await DB.add("pedidos", pedido);
-        idsCreados.push(id);
-        // Notificación interna al admin.
-        await DB.add("notificaciones_admin", {
-          creadoEn: DB.fx.serverTimestamp(), email: pedido.email_cliente, leido: false,
-          mensaje: `Nuevo pedido pendiente: ${it.nombre} · ${Utils.formatear(pedido.precio, "USD")}`, tipo: "nuevo_pedido",
-        });
-      } catch (e) {
-        // Offline: simula el pedido en el Store para que la UI refleje el estado.
-        const sim = Object.assign({ id: "sim_" + Math.round(performance.now()) + idsCreados.length }, pedido);
-        Store.set("pedidos", [sim, ...(Store.get("pedidos") || [])]);
-        idsCreados.push(sim.id);
+      const n = it.cantidad || 1;
+      if (it.tipo === "combo") {
+        const c = combos.find((x) => x.id === it.id || x.nombre_combo === it.id);
+        const ids = (c ? c.servicios_included : []).map((ref) => { const s = Catalogo.porId(ref) || Catalogo.servicios().find((x) => x.nombre_display === ref); return s ? s.id_servicio : null; }).filter(Boolean);
+        if (!ids.length) { const e = new Error(`El combo "${it.nombre}" no tiene servicios reconocibles.`); e.code = "combo_invalido"; throw e; }
+        for (let i = 0; i < n; i++) for (const id of ids) unidades.push({ id_servicio: id, nombre: it.nombre });
+      } else {
+        for (let i = 0; i < n; i++) unidades.push({ id_servicio: it.id, nombre: it.nombre });
       }
     }
-    Bus.emit("payment:completed", { ids: idsCreados });
+
+    const tel = String(telefono || "").replace(/\D/g, "");
+    const out = { pedidos: [], provisionados: [], pendientes: [], reembolsados: [], saldo: null, errores: [] };
+    for (const u of unidades) {
+      try {
+        const r = await NVApi.crearPedido({ id_servicio: u.id_servicio, metodo_pago, comprobante, telefono: tel });
+        const p = (r && r.pedido) || null;
+        if (!p) throw new Error("Respuesta inválida del servidor");
+        out.pedidos.push(p);
+        if (r.saldo != null) out.saldo = Number(r.saldo);
+        if (r.reembolsado) out.reembolsados.push(Object.assign({ nombre: u.nombre }, p));
+        else if (r.provision && r.provision.provisionado) out.provisionados.push(Object.assign({ nombre: u.nombre, perfil: r.provision.perfil }, p));
+        else out.pendientes.push(Object.assign({ nombre: u.nombre, provision: r.provision || null }, p));
+      } catch (e) {
+        const code = (e && e.data && e.data.error) || "";
+        let msg = (e && e.message) || "No se pudo crear el pedido.";
+        if (e && e.status === 401) { msg = "Tu sesión expiró. Inicia sesión de nuevo."; }
+        else if (e && e.status === 402) { msg = "Saldo insuficiente en tu billetera para " + u.nombre + "."; }
+        else if (e && e.status === 413) { msg = "El comprobante es demasiado grande (máximo 8 MB). Sube una captura más ligera."; }
+        else if (code === "servicio_no_encontrado") { msg = `"${u.nombre}" ya no está en el catálogo.`; }
+        else if (e && e.status === 0) { msg = "No hay conexión con el servidor. Inténtalo de nuevo en un momento."; }
+        out.errores.push({ nombre: u.nombre, mensaje: msg, status: e && e.status, code });
+        if (e && (e.status === 401 || e.status === 402 || e.status === 0 || e.status === 413)) break; // no insistir
+      }
+    }
+    if (!out.pedidos.length) { const e = new Error(out.errores[0] ? out.errores[0].mensaje : "No se pudo registrar el pedido."); e.code = out.errores[0] && out.errores[0].code; e.status = out.errores[0] && out.errores[0].status; throw e; }
+
+    // Refleja el saldo nuevo en la sesión (pago con billetera).
+    if (out.saldo != null && sesion.usuario) Store.set("sesion", Object.assign({}, sesion, { usuario: Object.assign({}, sesion.usuario, { saldoBilletera: out.saldo }) }));
+    Bus.emit("payment:completed", { ids: out.pedidos.map((p) => p.id), resultado: out });
     Cart.clear();
-    return idsCreados;
+    return out;
   },
 };
 

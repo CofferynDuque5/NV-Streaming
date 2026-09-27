@@ -1,93 +1,106 @@
 /**
  * imgbb.service.js — Servicio de Persistencia de Imágenes (POO · SOLID).
  *
- * Responsabilidad ÚNICA (SRP): subir imágenes a ImgBB (https://api.imgbb.com,
- * plan gratuito sin caducidad) y devolver la URL pública para persistir en
- * PostgreSQL (logo_url, tarjeta_url, imagen_url, banner_url, comprobante…).
+ * Responsabilidad ÚNICA (SRP): subir imágenes y devolver la URL pública para
+ * persistir en PostgreSQL (logo_url, tarjeta_url, imagen_url, banner_url…).
  *
- * ImgBB acepta el archivo como base64 en un `POST multipart/form-data` contra
- * `https://api.imgbb.com/1/upload?key=API_KEY`. Esta clase encapsula el armado
- * del payload, el manejo de la respuesta y los errores, sin acoplarse a la UI.
+ * La subida la hace el BACKEND (`POST /api/admin/medios`): el navegador manda
+ * la imagen en base64 y el servidor la reenvía a ImgBB con la clave guardada en
+ * su `.env` (IMGBB_API_KEY). Así la API key nunca viaja al cliente ni se
+ * versiona, y cada imagen queda registrada en la biblioteca de medios (tabla
+ * `medios`) para verla, reutilizarla o quitarla desde el editor.
  *
- * La API key se lee de `window.NV_CONFIG.imgbb.apiKey` (NO se hardcodea ninguna
- * credencial). Si falta, `subir()` lanza un error claro para que el panel guíe
- * al administrador a configurarla. Sin datos ficticios ni URLs inventadas.
+ * Si el servidor no tiene clave responde 503 `imgbb_no_configurado` y este
+ * servicio lo traduce a un mensaje claro para el operador. No inventa URLs.
  */
-
-const ENDPOINT = "https://api.imgbb.com/1/upload";
+import { NVApi } from "./nv-api.js";
 
 export class ServicioImagenes {
   /**
    * @param {object} opts
-   * @param {string} [opts.apiKey]  API key de ImgBB (por defecto de NV_CONFIG).
-   * @param {typeof fetch} [opts.fetchImpl]  Inyectable para pruebas (DIP).
+   * @param {object} [opts.api]  Cliente REST inyectable (DIP) con subirMedio/medios/borrarMedio.
    */
   constructor(opts = {}) {
-    const cfg = (typeof window !== "undefined" && window.NV_CONFIG && window.NV_CONFIG.imgbb) || {};
-    this._apiKey = opts.apiKey || cfg.apiKey || "";
-    this._fetch = opts.fetchImpl || (typeof fetch !== "undefined" ? fetch.bind(globalThis) : null);
+    this._api = opts.api || NVApi;
+    this._estado = null; // { configurado } cacheado tras la primera consulta
   }
 
-  get configurado() { return !!this._apiKey; }
+  /** ¿Sabemos ya que el backend tiene IMGBB_API_KEY? (null = aún no consultado) */
+  get configurado() { return this._estado ? !!this._estado.configurado : null; }
 
-  /** Convierte un File/Blob a base64 puro (sin el prefijo `data:...;base64,`). */
-  static aBase64(file) {
+  /** Consulta al backend si ImgBB está configurado (y cachea). */
+  async estado() {
+    try { const r = await this._api.medios(); this._estado = { configurado: !!(r && r.configurado) }; }
+    catch (_) { this._estado = null; }
+    return this._estado ? this._estado.configurado : false;
+  }
+
+  /** Convierte un File/Blob a dataURL (`data:<mime>;base64,...`). */
+  static aDataURL(file) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
-      r.onload = () => { const s = String(r.result || ""); resolve(s.includes(",") ? s.split(",")[1] : s); };
+      r.onload = () => resolve(String(r.result || ""));
       r.onerror = () => reject(new Error("No se pudo leer el archivo"));
       r.readAsDataURL(file);
     });
   }
 
-  /** Normaliza la entrada (File | dataURL | base64) a base64 puro. */
+  /** Normaliza la entrada (File | dataURL | base64) a dataURL o base64 puro. */
   async _normalizar(entrada) {
-    if (typeof entrada === "string") return entrada.includes(",") ? entrada.split(",")[1] : entrada;
-    if (entrada instanceof Blob) return ServicioImagenes.aBase64(entrada);
+    if (typeof entrada === "string") return entrada.trim();
+    if (entrada instanceof Blob) {
+      if (entrada.size > 8 * 1024 * 1024) throw new Error("La imagen pesa más de 8 MB.");
+      if (entrada.type && !/^image\//.test(entrada.type)) throw new Error("Solo se admiten imágenes.");
+      return ServicioImagenes.aDataURL(entrada);
+    }
     throw new Error("Formato de imagen no soportado");
   }
 
   /**
-   * Sube una imagen y devuelve un contrato homogéneo.
+   * Sube una imagen (vía backend → ImgBB) y devuelve un contrato homogéneo.
    * @param {File|Blob|string} entrada  Archivo, dataURL o base64.
    * @param {object} [meta]
-   * @param {string} [meta.nombre]   Nombre lógico del asset.
-   * @param {number} [meta.expira]   Segundos hasta autoborrado (0 = permanente).
-   * @returns {Promise<{url:string, display_url:string, thumb:string, delete_url:string, id:string, size:number}>}
+   * @param {string} [meta.nombre]  Nombre lógico del asset.
+   * @param {string} [meta.uso]     logo | servicio | combo | banner | cartelera | general.
+   * @returns {Promise<{id:string,url:string,display_url:string,thumb:string,delete_url:string,size:number,medio:object}>}
    */
   async subir(entrada, meta = {}) {
-    if (!this._apiKey) throw new Error("Falta la API key de ImgBB. Configúrala en NV_CONFIG.imgbb.apiKey.");
-    if (!this._fetch) throw new Error("fetch no disponible en este entorno.");
-
-    const base64 = await this._normalizar(entrada);
-    const form = new FormData();
-    form.append("key", this._apiKey);
-    form.append("image", base64);
-    if (meta.nombre) form.append("name", meta.nombre);
-
-    const url = ENDPOINT + (meta.expira ? "?expiration=" + Math.max(60, meta.expira) : "");
-    let res;
+    const imagen = await this._normalizar(entrada);
+    let medio;
     try {
-      res = await this._fetch(url, { method: "POST", body: form });
+      medio = await this._api.subirMedio({ imagen, nombre: meta.nombre || "imagen", uso: meta.uso || "general" });
     } catch (e) {
-      throw new Error("Red no disponible al subir a ImgBB: " + (e && e.message));
+      const code = e && e.data && e.data.error;
+      if (e && e.status === 503 && code === "imgbb_no_configurado") {
+        this._estado = { configurado: false };
+        throw new Error("El servidor no tiene IMGBB_API_KEY. Añádela en whatsapp-agent/.env (o en el .env raíz con Docker) y reinicia el backend.");
+      }
+      if (e && e.status === 401) throw new Error("Inicia sesión como administrador para subir imágenes.");
+      if (e && e.status === 413) throw new Error("La imagen es demasiado grande (máximo 8 MB).");
+      throw new Error((e && e.message) || "No se pudo subir la imagen.");
     }
-    let json;
-    try { json = await res.json(); } catch (e) { throw new Error("Respuesta inválida de ImgBB"); }
-    if (!res.ok || !json || json.success !== true || !json.data) {
-      const msg = (json && json.error && json.error.message) || ("HTTP " + res.status);
-      throw new Error("ImgBB rechazó la subida: " + msg);
-    }
-    const d = json.data;
+    if (!medio || !medio.url) throw new Error("El servidor no devolvió la URL de la imagen.");
+    this._estado = { configurado: true };
     return {
-      url: d.url || (d.image && d.image.url) || "",
-      display_url: d.display_url || d.url || "",
-      thumb: (d.thumb && d.thumb.url) || d.url || "",
-      delete_url: d.delete_url || "",
-      id: d.id || "",
-      size: Number(d.size) || 0,
+      id: medio.id || "",
+      url: medio.url,
+      display_url: medio.display_url || medio.url,
+      thumb: medio.thumb_url || medio.url,
+      delete_url: medio.delete_url || "",
+      size: Number(medio.tamano) || 0,
+      medio,
     };
   }
+
+  /** Lista la biblioteca real (orden: más reciente primero). */
+  async listar() {
+    const r = await this._api.medios();
+    this._estado = { configurado: !!(r && r.configurado) };
+    return (r && Array.isArray(r.medios)) ? r.medios : [];
+  }
+
+  /** Quita un medio de la biblioteca. Devuelve { ok, medio, delete_url, nota }. */
+  async borrar(id) { return this._api.borrarMedio(id); }
 }
 
 /** Instancia única compartida. */
