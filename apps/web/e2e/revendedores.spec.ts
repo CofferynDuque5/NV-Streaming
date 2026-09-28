@@ -125,15 +125,24 @@ test('el revendedor ve sus precios mayoristas en el sitio público; el resto, lo
   expect(publicada.ok()).toBe(true);
 
   // Sin sesión: precios al público y el botón de siempre.
-  for (const ruta of ['/planes?moneda=USD', '/precios-e2e?moneda=USD']) {
-    await anonimo.goto(ruta);
-    const mensual = anonimo
-      .getByRole('article')
-      .filter({ has: anonimo.getByRole('heading', { name: 'Mensual', exact: true }) });
-    await expect(mensual.getByText(usd(5.99))).toBeVisible();
-    await expect(mensual.getByRole('link', { name: 'Elegir este plan' })).toBeVisible();
-    await expect(anonimo.getByText('Precio mayorista')).toHaveCount(0);
-  }
+  await anonimo.goto('/precios-e2e?moneda=USD');
+  const mensual = anonimo
+    .getByRole('article')
+    .filter({ has: anonimo.getByRole('heading', { name: 'Mensual', exact: true }) });
+  await expect(mensual.getByText(usd(5.99))).toBeVisible();
+  await expect(mensual.getByRole('link', { name: 'Elegir este plan' })).toBeVisible();
+  await expect(anonimo.getByText('Precio mayorista')).toHaveCount(0);
+  // En el catálogo y el detalle: precio al público y carrito.
+  await anonimo.goto('/catalogo?moneda=USD');
+  const cineAnonimo = anonimo.getByRole('article').filter({ hasText: 'NV Cine' });
+  await expect(cineAnonimo.getByText(usd(5.99))).toBeVisible();
+  await expect(
+    cineAnonimo.getByRole('button', { name: /Agregar NV Cine .* al carrito/ }),
+  ).toBeVisible();
+  await expect(anonimo.getByText('Tu precio')).toHaveCount(0);
+  await anonimo.goto('/catalogo/nv-cine?moneda=USD');
+  await expect(anonimo.getByRole('button', { name: 'Agregar al carrito' })).toBeVisible();
+  await expect(anonimo.getByRole('link', { name: 'Comprar con saldo' })).toHaveCount(0);
 
   // El revendedor (nivel Plata) ve su precio mayorista, el público de referencia y su margen.
   await entrar(revendedor, 'revendedor@nv.test', /\/revendedor$/);
@@ -143,7 +152,36 @@ test('el revendedor ve sus precios mayoristas en el sitio público; el resto, lo
   const plan = catalogo.planes.find((p) => p.nombre === 'Mensual')!;
   const margen = Number(plan.precioPublicoUsd) - Number(plan.precioUsd);
 
-  for (const ruta of ['/planes', '/precios-e2e']) {
+  // Catálogo: su precio en la tarjeta y la compra con saldo en lugar del carrito.
+  await revendedor.goto('/catalogo?moneda=USD');
+  await expect(revendedor.getByText('Tus precios de revendedor · Nivel Plata')).toBeVisible();
+  const cine = revendedor.getByRole('article').filter({ hasText: plan.servicio.nombre });
+  await expect(cine.getByText('Tu precio')).toBeVisible();
+  await expect(cine.getByText(usd(Number(plan.precioUsd)))).toBeVisible();
+  await expect(cine.getByRole('link', { name: /con saldo/ })).toHaveAttribute(
+    'href',
+    `/revendedor/catalogo?plan=${plan.id}`,
+  );
+  await expect(cine.getByRole('button', { name: /al carrito/ })).toHaveCount(0);
+
+  // Detalle: precio mayorista del plan elegido; el plan anual no se revende.
+  await revendedor.goto('/catalogo/nv-cine?moneda=USD');
+  await expect(
+    revendedor
+      .getByRole('main')
+      .getByText(usd(Number(plan.precioUsd)), { exact: true })
+      .first(),
+  ).toBeVisible();
+  await expect(revendedor.getByRole('link', { name: 'Comprar con saldo' })).toHaveAttribute(
+    'href',
+    `/revendedor/catalogo?plan=${plan.id}`,
+  );
+  await expect(revendedor.getByRole('button', { name: 'Agregar al carrito' })).toHaveCount(0);
+  await revendedor.getByRole('radio', { name: /1 año/ }).check();
+  await expect(revendedor.getByText('Este plan no está disponible para reventa.')).toBeVisible();
+  await expect(revendedor.getByRole('link', { name: 'Comprar con saldo' })).toHaveCount(0);
+
+  for (const ruta of ['/precios-e2e']) {
     await revendedor.goto(`${ruta}?moneda=USD`);
     await expect(revendedor.getByText('Tus precios de revendedor · Nivel Plata')).toBeVisible();
     await expect(revendedor.getByRole('link', { name: /Elegir este plan/ })).toHaveCount(0);

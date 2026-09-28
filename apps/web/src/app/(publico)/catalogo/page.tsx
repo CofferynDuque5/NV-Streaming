@@ -1,4 +1,4 @@
-import { REGLAS_COBRO, serviciosTienda } from '@nv/shared';
+import { INFO_MONEDA, REGLAS_COBRO, serviciosTienda } from '@nv/shared';
 import { Layers } from 'lucide-react';
 import type { Metadata } from 'next';
 import { AvisoMayorista } from '@/componentes/tienda/aviso-mayorista';
@@ -7,7 +7,9 @@ import { estadoDesdeUrl } from '@/componentes/tienda/catalogo-estado';
 import { Migas } from '@/componentes/tienda/migas';
 import { SinServicio } from '@/componentes/tienda/sin-servicio';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
+import { nombrePais } from '@/lib/formato';
 import { catalogoTienda, leerTemaPublico, mayoristaTienda, monedaTienda } from '@/lib/tienda';
+import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = {
   title: 'Catálogo',
@@ -20,11 +22,18 @@ type Parametros = Record<string, string | string[] | undefined>;
 export default async function Catalogo({ searchParams }: { searchParams: Promise<Parametros> }) {
   const parametros = await searchParams;
   const pedida = typeof parametros.moneda === 'string' ? parametros.moneda : undefined;
-  const [catalogo, moneda, tema] = await Promise.all([
+  const [catalogo, moneda, tema, ubicacion] = await Promise.all([
     catalogoTienda(),
     monedaTienda(pedida),
     leerTemaPublico(),
+    ubicacionVisitante(),
   ]);
+  // Si la moneda sale del país de la conexión, se dice por qué (y que se puede cambiar).
+  const porUbicacion =
+    !pedida &&
+    moneda === ubicacion.moneda &&
+    (ubicacion.origen === 'conexion' || ubicacion.origen === 'idioma') &&
+    ubicacion.pais !== null;
   const mayorista = await mayoristaTienda(moneda);
   const servicios = catalogo ? serviciosTienda(catalogo) : [];
   const universos = new Set(servicios.map((s) => s.servicio.categoria).filter(Boolean)).size;
@@ -43,6 +52,12 @@ export default async function Catalogo({ searchParams }: { searchParams: Promise
               {servicios.length} {servicios.length === 1 ? 'servicio' : 'servicios'}
               {universos > 1 ? ` en ${universos} universos` : ''}. Filtra por precio, ordena como
               prefieras y agrega hasta {REGLAS_COBRO.articulosPorPedido} planes a tu carrito.
+            </p>
+          )}
+          {porUbicacion && ubicacion.pais && (
+            <p className="text-sm text-tinta-tenue">
+              Te mostramos los precios en {moneda} ({INFO_MONEDA[moneda].nombre}) porque parece que
+              estás en {nombrePais(ubicacion.pais)}. Puedes cambiar la moneda arriba.
             </p>
           )}
         </header>

@@ -1,13 +1,18 @@
 import { expect, test } from '@playwright/test';
 
-test('la portada presenta NV sin datos inventados y lleva al registro', async ({ page }) => {
+test('la portada presenta NV con datos reales y lleva al catálogo', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle('NV Streaming');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('en regla');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('en un solo portal');
+  // Solo los servicios del catálogo: nada de marcas de ejemplo.
   await expect(page.getByText(/Netflix|Disney|HBO|Spotify/)).toHaveCount(0);
-  await page.getByRole('link', { name: 'Crear mi cuenta' }).first().click();
-  await expect(page).toHaveURL(/\/registro$/);
-  await expect(page.getByRole('heading', { name: 'Crea tu cuenta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Todos los servicios' })).toBeVisible();
+  await expect(page.getByRole('article').filter({ hasText: 'NV Cine' }).first()).toBeVisible();
+  // Los métodos de pago son los activos del panel.
+  await expect(page.getByRole('heading', { name: 'Métodos de pago' })).toBeVisible();
+  await page.getByRole('link', { name: 'Explorar servicios' }).click();
+  await expect(page).toHaveURL(/\/catalogo$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Todo el catálogo');
 });
 
 test('el registro valida en español y confirma el envío del correo', async ({ page }) => {

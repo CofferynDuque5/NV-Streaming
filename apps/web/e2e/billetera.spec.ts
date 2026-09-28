@@ -19,18 +19,16 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   const cliente = await (await browser.newContext()).newPage();
   const admin = await (await browser.newContext()).newPage();
 
-  // 1. El cliente agrega dos planes al carrito desde la página pública.
+  // 1. El cliente agrega dos planes al carrito desde el detalle del servicio.
   await ingresar(cliente, 'cliente@nv.test');
   await expect(cliente).toHaveURL(/\/cuenta$/);
-  await cliente.goto('/planes?moneda=USD');
-  for (const nombre of ['Trimestral', 'Anual']) {
-    await cliente
-      .getByRole('article')
-      .filter({ has: cliente.getByRole('heading', { name: nombre, exact: true }) })
-      .getByRole('button', { name: 'Agregar al carrito' })
-      .click();
+  await cliente.goto('/catalogo/nv-cine?moneda=USD');
+  for (const duracion of ['3 meses', '1 año']) {
+    await cliente.getByRole('radio', { name: new RegExp(duracion) }).check();
+    await cliente.getByRole('button', { name: 'Agregar al carrito' }).click();
+    await expect(cliente.getByRole('button', { name: 'En el carrito' })).toBeVisible();
   }
-  await expect(cliente.getByRole('link', { name: /Ver el carrito \(2 planes\)/ })).toBeVisible();
+  await expect(cliente.getByRole('button', { name: 'Carrito, 2 planes' })).toBeVisible();
 
   // 2. En el carrito: sin saldo, elige "recargar y pagar".
   await cliente.goto('/cuenta/carrito?moneda=USD');

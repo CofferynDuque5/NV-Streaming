@@ -9,6 +9,11 @@ export default function preparar(): void {
   const { url, clave } = entornoE2e();
   rmSync(ARCHIVO_SECRETOS, { force: true });
   rmSync(ARCHIVO_PASOS, { force: true });
+  // Datos de la API guardados por Next en otra ejecución (otra base): se descartan.
+  rmSync(fileURLToPath(new URL('../.next/cache/fetch-cache', import.meta.url)), {
+    recursive: true,
+    force: true,
+  });
   const opciones = {
     cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
     // La misma clave que la API: la semilla cifra los códigos de demostración con ella.

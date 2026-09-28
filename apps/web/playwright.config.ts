@@ -101,7 +101,9 @@ export default defineConfig({
     },
     {
       command: `pnpm exec next start -p ${PUERTO_WEB}`,
-      url: ORIGEN,
+      // Un archivo estático: comprobar que la web responde no debe pedir datos a la API antes
+      // de que preparar.ts vacíe y siembre la base (quedarían en la caché de datos de Next).
+      url: `${ORIGEN}/marca/marca.webp`,
       reuseExistingServer: false,
       env: { API_URL_INTERNA: `http://localhost:${PUERTO_API}` },
     },

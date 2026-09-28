@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { entrarEquipo, ingresar } from './ayudas';
 
 /** PNG mínimo válido de 1×1 píxel, como comprobante de pago. */
@@ -10,26 +10,40 @@ const PNG_1X1 = Buffer.from(
 // Se ejecuta después de roles.spec.ts: el equipo ya tiene la verificación en dos pasos.
 test.describe.configure({ mode: 'serial' });
 
-test('la página pública muestra los planes en la moneda elegida', async ({ page }) => {
-  await page.goto('/planes?moneda=VES');
-  await expect(page.getByRole('heading', { name: 'NV Cine' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'VES' })).toHaveAttribute('aria-current', 'true');
+/** Abre el selector de moneda de la cabecera y devuelve sus opciones. */
+async function menuMonedas(page: Page) {
+  await page.getByRole('button', { name: /Cambiar moneda/ }).click();
+  return page.getByRole('navigation', { name: 'Moneda' });
+}
+
+test('el catálogo público muestra los precios en la moneda elegida', async ({ page }) => {
+  await page.goto('/catalogo?moneda=VES');
+  await expect(page.getByRole('heading', { name: 'NV Cine' }).first()).toBeVisible();
+  const monedas = await menuMonedas(page);
+  await expect(monedas.getByRole('link', { name: /^VES/ })).toHaveAttribute('aria-current', 'true');
   // 5,99 USD × 150 = 898,50 Bs (tasa de demostración de la semilla).
-  await expect(page.getByText(/898,50/).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole('main')
+      .getByText(/898,50/)
+      .first(),
+  ).toBeVisible();
 });
 
 test('sin elegir moneda, muestra la del país de la conexión y recuerda la elegida', async ({
   page,
 }) => {
   await page.setExtraHTTPHeaders({ 'cf-ipcountry': 'CO' });
-  await page.goto('/planes');
-  await expect(page.getByRole('link', { name: 'COP' })).toHaveAttribute('aria-current', 'true');
+  await page.goto('/catalogo');
+  let monedas = await menuMonedas(page);
+  await expect(monedas.getByRole('link', { name: /^COP/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByText('parece que estás en Colombia')).toBeVisible();
 
-  await page.getByRole('link', { name: 'EUR' }).click();
+  await monedas.getByRole('link', { name: /^EUR/ }).click();
   await expect(page).toHaveURL(/moneda=EUR/);
-  await page.goto('/planes');
-  await expect(page.getByRole('link', { name: 'EUR' })).toHaveAttribute('aria-current', 'true');
+  await page.goto('/catalogo');
+  monedas = await menuMonedas(page);
+  await expect(monedas.getByRole('link', { name: /^EUR/ })).toHaveAttribute('aria-current', 'true');
   await expect(page.getByText('parece que estás en')).toHaveCount(0);
 });
 

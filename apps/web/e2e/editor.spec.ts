@@ -5,7 +5,7 @@ import { entrarEquipo } from './ayudas';
 // configurada la verificación en dos pasos de administración.
 test.describe.configure({ mode: 'serial' });
 
-const ORIGINAL = 'Tu streaming, en regla y sin complicaciones.';
+const ORIGINAL = 'Todos tus universos, en un solo portal';
 const NUEVO = 'Streaming autorizado, ahora editado desde el panel';
 
 async function abrirPortada(page: Page) {
@@ -60,5 +60,5 @@ test('administración edita la portada, la ve en la vista previa y la publica', 
   await publicar(page, 'Portada original');
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('en regla');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('en un solo portal');
 });
