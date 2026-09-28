@@ -12,7 +12,10 @@ import {
 } from '@nv/shared';
 import { cache } from 'react';
 import { monedaValida } from '@/componentes/planes';
+import { monedaMayorista } from '@/componentes/planes-mayoristas';
+import type { MayoristaTienda } from '@/componentes/tienda/precio-tarjeta';
 import { leerApi } from './api-servidor';
+import { vistaMayorista } from './revendedor-publico';
 import { obtenerSesion } from './sesion';
 import { ETIQUETA_SITIO, leerCatalogo } from './sitio';
 import { ubicacionVisitante } from './ubicacion';
@@ -101,4 +104,14 @@ export const sesionTienda = cache(async (): Promise<SesionTienda | null> => {
     // Sin saldo: la cabecera solo muestra el acceso al panel.
   }
   return base;
+});
+
+/**
+ * Precios mayoristas de un revendedor con sesión, en USD o bolívares según la
+ * moneda de la tienda. `null` para cualquier otra visita. Se lee en cada
+ * petición con su cookie: nunca se guarda en caché.
+ */
+export const mayoristaTienda = cache(async (moneda: Moneda): Promise<MayoristaTienda | null> => {
+  const vista = await vistaMayorista();
+  return vista ? { vista, moneda: monedaMayorista(vista, moneda) } : null;
 });

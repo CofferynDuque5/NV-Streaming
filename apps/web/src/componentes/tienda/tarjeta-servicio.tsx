@@ -62,7 +62,7 @@ export function TarjetaServicio(props: PropsTarjeta) {
   const href = `/catalogo/${servicio.slug}`;
   return (
     <article
-      className="tarjeta-brillo grid min-w-0 content-start overflow-hidden"
+      className="tarjeta-brillo @container/t grid min-w-0 content-start overflow-hidden"
       style={{ '--c': item.color } as CSSProperties}
       aria-labelledby={`srv-${servicio.id}`}
     >
@@ -70,7 +70,7 @@ export function TarjetaServicio(props: PropsTarjeta) {
         href={href}
         tabIndex={-1}
         aria-hidden="true"
-        className="escenario h-48 rounded-t-[1.3rem]"
+        className="escenario h-48 rounded-t-[1.3rem] @max-[13rem]/t:h-40"
       >
         <ArteServicio
           arte={item.arte}
@@ -78,10 +78,10 @@ export function TarjetaServicio(props: PropsTarjeta) {
           categoria={servicio.categoria}
           color={item.color}
           prioridad={prioridad}
-          className="relative h-40 w-auto"
+          className="relative h-40 w-auto @max-[13rem]/t:h-32"
         />
       </Link>
-      <div className="grid gap-2.5 p-4 pt-3.5">
+      <div className="grid gap-2.5 p-4 pt-3.5 @max-[13rem]/t:p-3">
         <p className="flex items-center gap-1.5 text-[0.68rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
           <i
             className="size-1.5 rounded-full"
@@ -98,8 +98,15 @@ export function TarjetaServicio(props: PropsTarjeta) {
           {servicio.nombre}
         </h3>
         <Precio plan={plan} moneda={props.moneda} mayorista={props.mayorista} />
-        <div className="mt-1 flex gap-2">
-          <Link href={href} className={clasesBoton('secundario', 'md', 'min-w-0 flex-1')}>
+        <div className="mt-1 flex gap-2 @max-[13rem]/t:gap-1.5">
+          <Link
+            href={href}
+            className={clasesBoton(
+              'secundario',
+              'md',
+              'min-w-0 flex-1 @max-[13rem]/t:px-2 @max-[13rem]/t:text-[0.8125rem]',
+            )}
+          >
             Ver detalles
             <span className="sr-only"> de {servicio.nombre}</span>
           </Link>

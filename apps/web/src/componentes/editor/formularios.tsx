@@ -152,7 +152,7 @@ function EditorBoton({
           etiqueta="Mostrar este botón"
           checked={activo}
           onChange={(e) =>
-            onCambio(e.currentTarget.checked ? { texto: 'Ver más', enlace: '/planes' } : null)
+            onCambio(e.currentTarget.checked ? { texto: 'Ver más', enlace: '/catalogo' } : null)
           }
         />
       )}
@@ -172,7 +172,7 @@ function EditorBoton({
             max={300}
             error={err(`${ruta}.enlace`)}
             placeholder="/registro o https://…"
-            ayuda="Una ruta del sitio (/planes) o una dirección https://."
+            ayuda="Una ruta del sitio (/catalogo) o una dirección https://."
           />
         </div>
       )}

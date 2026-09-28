@@ -9,8 +9,8 @@ import { SelectorMoneda } from './planes';
 /*
  * Vista del catálogo para un revendedor con sesión: precios mayoristas de su
  * nivel en USD o bolívares, con el precio público como referencia y su margen.
- * Sin estado ni APIs del servidor: la usan la página /planes y el bloque de
- * planes del sitio, que reciben la vista por propiedades en cada petición.
+ * Sin estado ni APIs del servidor: la usa el bloque de planes del sitio, que
+ * recibe la vista por propiedades en cada petición.
  */
 
 export type MonedaMayorista = 'USD' | 'VES';
@@ -128,7 +128,7 @@ function TarjetaMayorista({
   );
 }
 
-const MENSAJES: Record<Exclude<VistaMayorista['estado'], 'ok'>, string> = {
+export const MENSAJES_MAYORISTA: Record<Exclude<VistaMayorista['estado'], 'ok'>, string> = {
   sin_nivel:
     'Todavía no tienes un nivel de revendedor asignado, así que no hay precios mayoristas para ti. El equipo de NV te lo asignará pronto.',
   no_disponible:
@@ -167,7 +167,7 @@ export function PlanesMayoristas({
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-aviso" aria-hidden="true" />
         <div className="grid gap-1.5">
           <p className="font-semibold">No podemos mostrarte tus precios de revendedor</p>
-          <p className="text-tinta-suave">{MENSAJES[vista.estado]}</p>
+          <p className="text-tinta-suave">{MENSAJES_MAYORISTA[vista.estado]}</p>
           <Link href="/revendedor" className="w-fit font-medium text-marca hover:underline">
             Ir a mi panel de revendedor
           </Link>

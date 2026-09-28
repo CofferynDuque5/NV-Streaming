@@ -1,10 +1,7 @@
 import type { CatalogoPublico, PaginaPublicada } from '@nv/shared';
 import type { Metadata } from 'next';
 import type { ContextoBloques } from '@/componentes/bloques/bloques';
-import { monedaMayorista } from '@/componentes/planes-mayoristas';
-import { vistaMayorista } from './revendedor-publico';
-import { catalogoTienda, leerTemaPublico, monedaTienda } from './tienda';
-import { ubicacionVisitante } from './ubicacion';
+import { catalogoTienda, leerTemaPublico, mayoristaTienda, monedaTienda } from './tienda';
 
 const API = process.env.API_URL_INTERNA ?? 'http://localhost:4000';
 
@@ -49,16 +46,14 @@ export async function contextoPublico(
   pagina: Pick<PaginaPublicada, 'ruta' | 'bloques'>,
   monedaPedida: string | undefined,
 ): Promise<ContextoBloques> {
-  const [catalogo, tema, moneda, ubicacion, vista] = await Promise.all([
+  const [catalogo, tema, moneda] = await Promise.all([
     catalogoTienda(),
     leerTemaPublico(),
     monedaTienda(monedaPedida),
-    ubicacionVisitante(),
-    pagina.bloques.some((b) => TIPOS_CON_PRECIOS.has(b.tipo)) ? vistaMayorista() : null,
   ]);
   // Revendedor con sesión: sus precios, calculados para esta petición (nunca en caché).
-  const mayorista = vista
-    ? { vista, moneda: monedaMayorista(vista, monedaPedida, ubicacion.moneda) }
+  const mayorista = pagina.bloques.some((b) => TIPOS_CON_PRECIOS.has(b.tipo))
+    ? await mayoristaTienda(moneda)
     : null;
   return {
     ruta: pagina.ruta,

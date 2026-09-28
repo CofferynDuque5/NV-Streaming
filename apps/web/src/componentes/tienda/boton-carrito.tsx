@@ -2,6 +2,7 @@
 
 import clsx from 'clsx';
 import { Check, ShoppingCart } from 'lucide-react';
+import { clasesBoton } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { MAX_CARRITO, useCarrito } from '@/lib/carrito';
 
@@ -13,12 +14,15 @@ export function BotonCarrito({
   planId,
   nombre,
   variante = 'icono',
+  tamano = 'lg',
   className,
 }: {
   planId: string;
   /** Nombre del servicio y plan, para el aviso y la etiqueta accesible. */
   nombre: string;
-  variante?: 'icono' | 'completo';
+  /** «principal»: el botón primario de la ficha del servicio. */
+  variante?: 'icono' | 'completo' | 'principal';
+  tamano?: 'md' | 'lg';
   className?: string;
 }) {
   const carrito = useCarrito();
@@ -39,6 +43,27 @@ export function BotonCarrito({
     notificar(`${nombre} está en tu carrito.`, 'exito');
   }
 
+  if (variante === 'principal') {
+    return (
+      <button
+        type="button"
+        onClick={pulsar}
+        aria-pressed={dentro}
+        className={clasesBoton(
+          dentro ? 'secundario' : 'primario',
+          tamano,
+          clsx(dentro && 'border-exito/50 bg-exito-suave', className),
+        )}
+      >
+        {dentro ? (
+          <Check className="size-4 text-exito" aria-hidden="true" />
+        ) : (
+          <ShoppingCart className="size-4" aria-hidden="true" />
+        )}
+        {dentro ? 'En el carrito' : 'Agregar al carrito'}
+      </button>
+    );
+  }
   if (variante === 'completo') {
     return (
       <button

@@ -360,6 +360,30 @@
     box-shadow: 0 0 18px -8px var(--nv-marca);
   }
 
+  /* Tarjeta de universo del catálogo: orbe, nombre y resultados; la activa brilla con su color. */
+  .tarjeta-universo {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 9.5rem;
+    padding: 0.55rem 1rem 0.55rem 0.6rem;
+    border-radius: 1rem;
+    border: 1px solid var(--nv-borde);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.03), transparent), var(--nv-superficie);
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .tarjeta-universo:hover {
+    border-color: color-mix(in srgb, var(--c) 60%, transparent);
+  }
+  .tarjeta-universo[aria-pressed='true'] {
+    border-color: color-mix(in srgb, var(--c) 85%, white 5%);
+    background: color-mix(in srgb, var(--c) 14%, var(--nv-superficie));
+    box-shadow: 0 0 26px -8px var(--c);
+  }
+
   /* Panel de vidrio (cabecera, menús y paneles flotantes). */
   .vidrio {
     background: var(--nv-vidrio);

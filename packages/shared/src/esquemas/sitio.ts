@@ -93,7 +93,7 @@ const texto = (max: number, vacio = 'Este campo es obligatorio.') =>
   z.string({ error: vacio }).trim().min(1, vacio).max(max, `Máximo ${max} caracteres.`);
 
 const MENSAJE_ENLACE =
-  'Usa una ruta del sitio que empiece por / (p. ej. /planes) o una dirección https://.';
+  'Usa una ruta del sitio que empiece por / (p. ej. /catalogo) o una dirección https://.';
 
 export const enlaceSchema = z
   .string({ error: 'Escribe el enlace.' })
