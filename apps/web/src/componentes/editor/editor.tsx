@@ -10,6 +10,8 @@ import {
   type PaletaSitio,
   TIPOS_BLOQUE,
   type TipoBloque,
+  type ContactoSitio,
+  type MetodoPagoSitio,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -51,12 +53,17 @@ export function EditorPagina({
   inicial,
   mediosIniciales,
   catalogo,
+  metodosPago,
+  contacto,
   paleta,
   puedePublicar,
 }: {
   inicial: PaginaSitioDetalle;
   mediosIniciales: MedioSitio[];
   catalogo: CatalogoPublico | null;
+  /** Métodos de cobro activos y contacto: los bloques de la tienda los usan en la vista previa. */
+  metodosPago: MetodoPagoSitio[];
+  contacto: ContactoSitio | null;
   paleta: PaletaSitio;
   puedePublicar: boolean;
 }) {
@@ -114,8 +121,10 @@ export function EditorPagina({
       ruta: pagina.ruta,
       catalogo,
       moneda: monedaValida(catalogo?.monedas ?? ['USD'], 'USD'),
+      metodosPago,
+      contacto,
     }),
-    [pagina.ruta, catalogo],
+    [pagina.ruta, catalogo, metodosPago, contacto],
   );
   const servicios = useMemo(() => {
     const vistos = new Map<string, string>();

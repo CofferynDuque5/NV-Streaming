@@ -4,11 +4,17 @@ import {
   type BloqueDe,
   type BloqueSitio,
   type BotonSitio,
+  CATEGORIAS_SERVICIO,
+  type CategoriaServicio,
   FONDOS_BLOQUE,
+  INFO_CATEGORIA,
   ICONOS_SITIO,
   type IconoSitio,
   type MedioSitio,
+  ORDENES_SERVICIOS,
   PROPORCIONES_IMAGEN,
+  VARIANTES_SERVICIOS,
+  VISUALES_PANEL,
 } from '@nv/shared';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -286,7 +292,17 @@ export function BotonIcono({
 }
 
 function Encabezado<
-  B extends BloqueDe<'planes' | 'beneficios' | 'pasos' | 'testimonios' | 'preguntas'>,
+  B extends BloqueDe<
+    | 'planes'
+    | 'beneficios'
+    | 'pasos'
+    | 'testimonios'
+    | 'preguntas'
+    | 'universos'
+    | 'servicios'
+    | 'ranking'
+    | 'metodos-pago'
+  >,
 >({ b, cambiar, err }: Pick<PropsFormulario<B>, 'b' | 'cambiar' | 'err'>) {
   return (
     <>
@@ -401,8 +417,8 @@ function FormPortada({
         )}
         {!b.imagen && (
           <Casilla
-            etiqueta="Mostrar la ilustración del panel"
-            ayuda="Un dibujo hecho con CSS, sin datos. Si no, el texto se centra."
+            etiqueta="Mostrar el portal de servicios"
+            ayuda="Un anillo con las tarjetas de los servicios más pedidos del catálogo. Si no, el texto se centra."
             checked={b.ilustracion}
             onChange={(e) => cambiar({ ilustracion: e.currentTarget.checked })}
           />
@@ -446,10 +462,13 @@ function FormBeneficios(p: PropsFormulario<BloqueDe<'beneficios'>>) {
       <Selector
         etiqueta="Diseño"
         value={b.variante}
-        onChange={(e) => cambiar({ variante: e.currentTarget.value as 'tarjetas' | 'lista' })}
+        onChange={(e) =>
+          cambiar({ variante: e.currentTarget.value as 'tarjetas' | 'lista' | 'compacta' })
+        }
       >
         <option value="tarjetas">Tarjetas en cuadrícula</option>
         <option value="lista">Texto a un lado y lista al otro</option>
+        <option value="compacta">Franja compacta (bajo la portada)</option>
       </Selector>
       <EditorBoton
         etiqueta="Botón (opcional)"
@@ -806,6 +825,306 @@ function Opciones({ b, cambiar, err }: Pick<PropsFormulario, 'b' | 'cambiar' | '
   );
 }
 
+/* ------------------------------------------------ bloques de la tienda */
+
+const NOMBRES_VARIANTE_SERVICIOS: Record<(typeof VARIANTES_SERVICIOS)[number], string> = {
+  rejilla: 'Cuadrícula de tarjetas',
+  carril: 'Fila que se desliza',
+  tira: 'Tira de imágenes (sin precios)',
+};
+
+const NOMBRES_ORDEN: Record<(typeof ORDENES_SERVICIOS)[number], string> = {
+  recomendados: 'Recomendados (lo más pedido primero)',
+  menor: 'Precio: de menor a mayor',
+  az: 'Nombre: de la A a la Z',
+};
+
+const NOMBRES_VISUAL: Record<(typeof VISUALES_PANEL)[number], string> = {
+  ninguno: 'Sin visual (botón a un lado)',
+  billetera: 'Tarjeta de la Billetera NV',
+  universo: 'Tarjetas de los servicios de un universo',
+};
+
+function SelectorUniverso({
+  valor,
+  onCambio,
+  error,
+  todos,
+  ayuda,
+}: {
+  valor: CategoriaServicio | null | undefined;
+  onCambio: (v: CategoriaServicio | null) => void;
+  error?: string | undefined;
+  todos: string;
+  ayuda?: string;
+}) {
+  return (
+    <Selector
+      etiqueta="Universo"
+      value={valor ?? ''}
+      onChange={(e) => onCambio((e.currentTarget.value || null) as CategoriaServicio | null)}
+      error={error}
+      ayuda={ayuda}
+    >
+      <option value="">{todos}</option>
+      {CATEGORIAS_SERVICIO.map((c) => (
+        <option key={c} value={c}>
+          {INFO_CATEGORIA[c].nombre}
+        </option>
+      ))}
+    </Selector>
+  );
+}
+
+function AvisoDatosReales({ children }: { children: ReactNode }) {
+  return <Alerta tono="info">{children}</Alerta>;
+}
+
+function FormUniversos({ b, cambiar, err }: PropsFormulario<BloqueDe<'universos'>>) {
+  return (
+    <>
+      <AvisoDatosReales>
+        Muestra los universos que tienen servicios en el catálogo, con cuántos tiene cada uno.
+      </AvisoDatosReales>
+      <Encabezado b={b} cambiar={cambiar} err={err} />
+    </>
+  );
+}
+
+function FormServicios({ b, cambiar, err }: PropsFormulario<BloqueDe<'servicios'>>) {
+  return (
+    <>
+      <AvisoDatosReales>
+        Tarjetas reales del catálogo con el precio desde en la moneda de quien visita y el botón del
+        carrito.
+      </AvisoDatosReales>
+      <Encabezado b={b} cambiar={cambiar} err={err} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Selector
+          etiqueta="Diseño"
+          value={b.variante}
+          onChange={(e) =>
+            cambiar({
+              variante: e.currentTarget.value as (typeof VARIANTES_SERVICIOS)[number],
+            })
+          }
+        >
+          {VARIANTES_SERVICIOS.map((v) => (
+            <option key={v} value={v}>
+              {NOMBRES_VARIANTE_SERVICIOS[v]}
+            </option>
+          ))}
+        </Selector>
+        <Selector
+          etiqueta="Orden"
+          value={b.orden}
+          onChange={(e) =>
+            cambiar({ orden: e.currentTarget.value as (typeof ORDENES_SERVICIOS)[number] })
+          }
+        >
+          {ORDENES_SERVICIOS.map((o) => (
+            <option key={o} value={o}>
+              {NOMBRES_ORDEN[o]}
+            </option>
+          ))}
+        </Selector>
+        <SelectorUniverso
+          valor={b.categoria}
+          onCambio={(categoria) => cambiar({ categoria })}
+          error={err('categoria')}
+          todos="Todos los universos"
+        />
+        <Campo
+          etiqueta="Cuántos servicios"
+          type="number"
+          min={1}
+          max={24}
+          value={String(b.limite)}
+          onChange={(e) => cambiar({ limite: Number(e.currentTarget.value) })}
+          error={err('limite')}
+        />
+      </div>
+      {b.variante === 'rejilla' && (
+        <Casilla
+          etiqueta="Chips para filtrar por universo"
+          checked={b.filtros}
+          onChange={(e) => cambiar({ filtros: e.currentTarget.checked })}
+        />
+      )}
+    </>
+  );
+}
+
+function FormRanking({ b, cambiar, err }: PropsFormulario<BloqueDe<'ranking'>>) {
+  return (
+    <>
+      <AvisoDatosReales>
+        Ordena los servicios por activaciones y renovaciones de los últimos 30 días. Si no hubo
+        ninguna, el bloque no se muestra.
+      </AvisoDatosReales>
+      <Encabezado b={b} cambiar={cambiar} err={err} />
+      <Campo
+        etiqueta="Cuántos servicios"
+        type="number"
+        min={3}
+        max={10}
+        value={String(b.limite)}
+        onChange={(e) => cambiar({ limite: Number(e.currentTarget.value) })}
+        error={err('limite')}
+      />
+    </>
+  );
+}
+
+function FormMetodosPago({ b, cambiar, err }: PropsFormulario<BloqueDe<'metodos-pago'>>) {
+  return (
+    <>
+      <AvisoDatosReales>
+        Muestra los métodos de cobro activos en Finanzas, más el saldo de la billetera.
+      </AvisoDatosReales>
+      <Encabezado b={b} cambiar={cambiar} err={err} />
+    </>
+  );
+}
+
+function FormCanal({ b, cambiar, err }: PropsFormulario<BloqueDe<'canal'>>) {
+  return (
+    <>
+      <AvisoDatosReales>
+        El botón lleva al canal de WhatsApp de «Contacto y redes». Sin ese enlace, el bloque no se
+        muestra.
+      </AvisoDatosReales>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Texto
+          etiqueta="Antetítulo (opcional)"
+          valor={b.etiqueta}
+          onCambio={(etiqueta) => cambiar({ etiqueta })}
+          max={60}
+          error={err('etiqueta')}
+        />
+        <Texto
+          etiqueta="Título"
+          valor={b.titulo}
+          onCambio={(titulo) => cambiar({ titulo })}
+          max={120}
+          error={err('titulo')}
+        />
+      </div>
+      <Area
+        etiqueta="Texto (opcional)"
+        valor={b.texto}
+        onCambio={(texto) => cambiar({ texto })}
+        max={300}
+        error={err('texto')}
+        filas={2}
+      />
+      <Texto
+        etiqueta="Texto del botón"
+        valor={b.boton}
+        onCambio={(boton) => cambiar({ boton })}
+        max={40}
+        error={err('boton')}
+      />
+    </>
+  );
+}
+
+function FormPanel({ b, cambiar, err }: PropsFormulario<BloqueDe<'panel'>>) {
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Texto
+          etiqueta="Antetítulo (opcional)"
+          valor={b.etiqueta}
+          onCambio={(etiqueta) => cambiar({ etiqueta })}
+          max={60}
+          error={err('etiqueta')}
+        />
+        <Texto
+          etiqueta="Título"
+          valor={b.titulo}
+          onCambio={(titulo) => cambiar({ titulo })}
+          max={120}
+          error={err('titulo')}
+        />
+      </div>
+      <Texto
+        etiqueta="Parte del título resaltada (opcional)"
+        valor={b.resaltado}
+        onCambio={(resaltado) => cambiar({ resaltado })}
+        max={60}
+        error={err('resaltado')}
+        ayuda="Escribe exactamente las palabras del título que quieres con el degradado de la marca."
+      />
+      <Area
+        etiqueta="Texto (opcional)"
+        valor={b.texto}
+        onCambio={(texto) => cambiar({ texto })}
+        max={400}
+        error={err('texto')}
+        filas={3}
+      />
+      <ListaElementos
+        titulo="Puntos con marca verde (opcional)"
+        elementos={b.puntos}
+        onCambio={(puntos) => cambiar({ puntos })}
+        nuevo={() => ''}
+        maximo={6}
+        error={err('puntos')}
+        nombre={(i) => `Punto ${i + 1}`}
+      >
+        {(punto, i) => (
+          <Texto
+            etiqueta="Texto"
+            valor={punto}
+            onCambio={(v) => cambiar({ puntos: b.puntos.map((x, j) => (j === i ? v : x)) })}
+            max={120}
+            error={err(`puntos.${i}`)}
+          />
+        )}
+      </ListaElementos>
+      <EditorBoton
+        etiqueta="Botón principal"
+        boton={b.boton}
+        onCambio={(boton) => cambiar({ boton })}
+        err={err}
+        ruta="boton"
+      />
+      <EditorBoton
+        etiqueta="Enlace secundario"
+        boton={b.botonSecundario}
+        onCambio={(botonSecundario) => cambiar({ botonSecundario })}
+        err={err}
+        ruta="botonSecundario"
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Selector
+          etiqueta="Visual"
+          value={b.visual}
+          onChange={(e) =>
+            cambiar({ visual: e.currentTarget.value as (typeof VISUALES_PANEL)[number] })
+          }
+        >
+          {VISUALES_PANEL.map((v) => (
+            <option key={v} value={v}>
+              {NOMBRES_VISUAL[v]}
+            </option>
+          ))}
+        </Selector>
+        {b.visual === 'universo' && (
+          <SelectorUniverso
+            valor={b.categoria}
+            onCambio={(categoria) => cambiar({ categoria })}
+            error={err('categoria')}
+            todos="Elige un universo"
+            ayuda="Se muestran las tarjetas de sus servicios."
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
 /** Formulario del bloque según su tipo. */
 export function FormularioBloque(props: PropsFormulario) {
   const { b } = props;
@@ -846,6 +1165,24 @@ export function FormularioBloque(props: PropsFormulario) {
       break;
     case 'banner':
       campos = <FormBanner {...conTipo(b)} />;
+      break;
+    case 'universos':
+      campos = <FormUniversos {...conTipo(b)} />;
+      break;
+    case 'servicios':
+      campos = <FormServicios {...conTipo(b)} />;
+      break;
+    case 'ranking':
+      campos = <FormRanking {...conTipo(b)} />;
+      break;
+    case 'metodos-pago':
+      campos = <FormMetodosPago {...conTipo(b)} />;
+      break;
+    case 'canal':
+      campos = <FormCanal {...conTipo(b)} />;
+      break;
+    case 'panel':
+      campos = <FormPanel {...conTipo(b)} />;
       break;
   }
   return (

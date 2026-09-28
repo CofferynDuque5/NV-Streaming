@@ -12,6 +12,7 @@ import { Alerta } from '@/componentes/ui/alerta';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
 import { leerCatalogo } from '@/lib/sitio';
+import { leerTemaPublico } from '@/lib/tienda';
 
 export const metadata: Metadata = { title: 'Editar página' };
 
@@ -20,11 +21,12 @@ export default async function EditarPagina({ params }: { params: Promise<{ id: s
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
 
-  const [pagina, medios, tema, catalogo] = await Promise.all([
+  const [pagina, medios, tema, catalogo, publico] = await Promise.all([
     leerApi<PaginaSitioDetalle>(`/sitio/paginas/${id}`),
     leerApi<MedioSitio[]>('/sitio/medios'),
     leerApi<TemaSitio>('/sitio/tema'),
     leerCatalogo(),
+    leerTemaPublico(),
   ]);
   if (pagina.estado === 404) notFound();
   if (!pagina.datos) {
@@ -38,6 +40,8 @@ export default async function EditarPagina({ params }: { params: Promise<{ id: s
       inicial={pagina.datos}
       mediosIniciales={medios.datos ?? []}
       catalogo={catalogo}
+      metodosPago={publico.metodosPago}
+      contacto={tema.datos?.contacto ?? null}
       paleta={tema.datos?.paleta ?? PALETA_PREDETERMINADA}
       puedePublicar={sesion.permisos.includes('sitio.publicar')}
     />

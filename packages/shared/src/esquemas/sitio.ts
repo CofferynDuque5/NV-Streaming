@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { IDS_PALETAS } from '../sitio-paletas.js';
 import { enlacesDelTexto, esEnlaceSeguro } from '../sitio-texto.js';
+import { CATEGORIAS_SERVICIO } from './catalogo.js';
 import { correoSchema, textoOpcional, uuidSchema } from './comunes.js';
 
 export * from '../sitio-paletas.js';
@@ -26,6 +27,7 @@ export const RUTAS_RESERVADAS = [
   'api',
   'apple-icon',
   'configurar-2fa',
+  'catalogo',
   'cuenta',
   'favicon',
   'icon',
@@ -45,6 +47,7 @@ export const RUTAS_RESERVADAS = [
   'revendedor',
   'revendedores',
   'robots',
+  'servicios',
   'sitemap',
   'sitio',
   'terminos',
@@ -214,7 +217,8 @@ export const bloqueBeneficiosSchema = z.object({
   ...base,
   tipo: z.literal('beneficios'),
   ...encabezado,
-  variante: z.enum(['tarjetas', 'lista']).default('tarjetas'),
+  /** tarjetas: rejilla; lista: texto y lista; compacta: franja de confianza bajo la portada. */
+  variante: z.enum(['tarjetas', 'lista', 'compacta']).default('tarjetas'),
   boton: opcional(botonSitioSchema),
   elementos: z
     .array(
@@ -306,6 +310,89 @@ export const bloqueBannerSchema = z.object({
   enlace: opcional(botonSitioSchema),
 });
 
+// ---------------------------------------------------------------------------
+// Bloques de la tienda: se llenan solos con datos reales (catálogo, pedidos del
+// mes, métodos de cobro y contacto). Sin datos, no se muestran.
+
+const categoriaOpcional = z.preprocess(
+  (v) => (v === '' ? null : v),
+  z.enum(CATEGORIAS_SERVICIO, { error: 'Elige un universo de la lista.' }).nullable().optional(),
+);
+
+/** Universos (categorías) con cuántos servicios tiene cada uno. */
+export const bloqueUniversosSchema = z.object({
+  ...base,
+  tipo: z.literal('universos'),
+  ...encabezado,
+});
+
+export const VARIANTES_SERVICIOS = ['rejilla', 'carril', 'tira'] as const;
+export const ORDENES_SERVICIOS = ['recomendados', 'menor', 'az'] as const;
+
+/** Tarjetas de servicio del catálogo con su precio desde y el botón del carrito. */
+export const bloqueServiciosSchema = z.object({
+  ...base,
+  tipo: z.literal('servicios'),
+  ...encabezado,
+  /** rejilla: cuadrícula; carril: fila que se desliza; tira: franja de tarjetas sin precios. */
+  variante: z.enum(VARIANTES_SERVICIOS).default('rejilla'),
+  /** Solo los servicios de un universo; vacío = todos. */
+  categoria: categoriaOpcional,
+  orden: z.enum(ORDENES_SERVICIOS).default('recomendados'),
+  limite: z.coerce
+    .number({ error: 'Escribe un número.' })
+    .int('Escribe un número entero.')
+    .min(1, 'Muestra al menos 1 servicio.')
+    .max(24, 'Máximo 24 servicios.')
+    .default(8),
+  /** Chips para filtrar por universo sin salir de la página. */
+  filtros: z.boolean().default(false),
+});
+
+/** «Lo más pedido»: los servicios con más activaciones y renovaciones en 30 días. */
+export const bloqueRankingSchema = z.object({
+  ...base,
+  tipo: z.literal('ranking'),
+  ...encabezado,
+  limite: z.coerce.number().int().min(3, 'Muestra al menos 3.').max(10, 'Máximo 10.').default(5),
+});
+
+/** Métodos de pago activos en el panel de cobros (más el saldo de la billetera). */
+export const bloqueMetodosPagoSchema = z.object({
+  ...base,
+  tipo: z.literal('metodos-pago'),
+  ...encabezado,
+});
+
+/** Invitación al canal de WhatsApp. Solo se ve si el canal está configurado. */
+export const bloqueCanalSchema = z.object({
+  ...base,
+  tipo: z.literal('canal'),
+  etiqueta: textoOpcional(60),
+  titulo: texto(120, 'Escribe el título.'),
+  texto: textoOpcional(300),
+  boton: texto(40, 'Escribe el texto del botón.'),
+});
+
+export const VISUALES_PANEL = ['ninguno', 'billetera', 'universo'] as const;
+
+/** Panel destacado con texto, lista de puntos, botones y un visual opcional. */
+export const bloquePanelSchema = z.object({
+  ...base,
+  tipo: z.literal('panel'),
+  etiqueta: textoOpcional(60),
+  titulo: texto(120, 'Escribe el título.'),
+  /** Parte del título que se pinta con el degradado de la marca. */
+  resaltado: textoOpcional(60),
+  texto: textoOpcional(400),
+  puntos: z.array(texto(120, 'Escribe el punto.')).max(6, 'Máximo 6 puntos.').default([]),
+  boton: opcional(botonSitioSchema),
+  botonSecundario: opcional(botonSitioSchema),
+  /** billetera: tarjeta NV (sin saldo); universo: tarjetas de los servicios de `categoria`. */
+  visual: z.enum(VISUALES_PANEL).default('ninguno'),
+  categoria: categoriaOpcional,
+});
+
 export const bloqueSitioSchema = z.discriminatedUnion(
   'tipo',
   [
@@ -319,6 +406,12 @@ export const bloqueSitioSchema = z.discriminatedUnion(
     bloqueTextoSchema,
     bloqueImagenSchema,
     bloqueBannerSchema,
+    bloqueUniversosSchema,
+    bloqueServiciosSchema,
+    bloqueRankingSchema,
+    bloqueMetodosPagoSchema,
+    bloqueCanalSchema,
+    bloquePanelSchema,
   ],
   { error: 'Tipo de bloque desconocido.' },
 );
@@ -337,6 +430,12 @@ export const TIPOS_BLOQUE = [
   'texto',
   'imagen',
   'banner',
+  'universos',
+  'servicios',
+  'ranking',
+  'metodos-pago',
+  'canal',
+  'panel',
 ] as const satisfies readonly TipoBloque[];
 
 /** Lista de bloques de una página: como mucho 40, con ids y anclas sin repetir. */

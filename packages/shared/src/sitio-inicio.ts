@@ -1,15 +1,20 @@
 /**
- * Contenido de la página de inicio tal como estaba antes del editor visual. La
- * semilla lo publica como versión 1 y la web lo muestra si la API no responde
- * o todavía no hay una portada publicada. Sin datos inventados.
+ * Contenido de la página de inicio de la tienda. La semilla lo publica como
+ * versión 1 y la web lo muestra si la API no responde o todavía no hay una
+ * portada publicada. Sin datos inventados: los bloques de la tienda (servicios,
+ * universos, lo más pedido, métodos de pago, canal) se llenan con datos reales
+ * y no se muestran si no los hay.
  */
 import type { BloqueSitio } from './esquemas/sitio.js';
+import { REGLAS_COBRO } from './monedas.js';
+
+const MAX_PLANES = REGLAS_COBRO.articulosPorPedido;
 
 export const PAGINA_INICIO = {
   ruta: '/',
   titulo: 'NV Streaming',
   descripcion:
-    'Servicios de streaming autorizados, con activación, pagos y soporte en un solo lugar.',
+    'Streaming, música y más servicios autorizados en un solo portal. Pagas en tu moneda y lo gestionas desde tu panel.',
 } as const;
 
 export const BLOQUES_INICIO: BloqueSitio[] = [
@@ -17,111 +22,217 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     id: 'portada',
     tipo: 'portada',
     fondo: 'normal',
-    etiqueta: 'Solo servicios autorizados',
-    titulo: 'Tu streaming, en regla y sin complicaciones.',
-    destacado: 'en regla',
+    etiqueta: 'Bienvenido al multiverso NV',
+    titulo: 'Todos tus universos, en un solo portal',
+    destacado: 'en un solo portal',
     subtitulo:
-      'NV Streaming reúne planes autorizados, pagos seguros y soporte en español en un solo panel, para ti y para quienes revenden.',
-    botonPrimario: { texto: 'Crear mi cuenta', enlace: '/registro' },
-    botonSecundario: { texto: 'Ver planes y precios', enlace: '/planes' },
+      'Streaming, música y más servicios autorizados. Pagas en tu moneda y lo gestionas todo desde tu panel.',
+    botonPrimario: { texto: 'Explorar servicios', enlace: '/catalogo' },
+    botonSecundario: { texto: 'Cómo comprar', enlace: '/#como-comprar' },
     imagen: null,
     ilustracion: true,
   },
   {
-    id: 'pasos',
-    tipo: 'pasos',
-    ancla: 'como-funciona',
-    fondo: 'suave',
-    etiqueta: 'Cómo funciona',
-    titulo: 'Tres pasos, sin sorpresas',
+    id: 'tira',
+    tipo: 'servicios',
+    fondo: 'normal',
+    variante: 'tira',
+    etiqueta: null,
+    titulo: 'Servicios disponibles',
     subtitulo: null,
-    elementos: [
-      {
-        titulo: 'Elige tu plan',
-        texto: 'Compara planes de servicios autorizados con precios claros y sin letra pequeña.',
-      },
-      {
-        titulo: 'Paga de forma segura',
-        texto:
-          'Paga en dólares, bolívares, pesos, soles o euros y envía tu comprobante. Nunca te pedimos los datos de tu tarjeta.',
-      },
-      {
-        titulo: 'Actívalo y gestiónalo',
-        texto: 'Sigue el estado de tus servicios, renovaciones y pagos desde tu panel.',
-      },
-    ],
+    categoria: null,
+    orden: 'recomendados',
+    limite: 24,
+    filtros: false,
   },
   {
-    id: 'razones',
+    id: 'confianza',
     tipo: 'beneficios',
     fondo: 'normal',
-    variante: 'tarjetas',
-    etiqueta: 'Por qué NV',
-    titulo: 'Confianza desde el primer pago',
+    variante: 'compacta',
+    etiqueta: null,
+    titulo: 'Por qué comprar en NV',
     subtitulo: null,
     boton: null,
     elementos: [
       {
-        icono: 'insignia',
+        icono: 'globo',
+        titulo: 'Pagas en tu moneda',
+        texto: 'Bolívares, dólares y más, con la tasa del día',
+      },
+      {
+        icono: 'escudo',
         titulo: 'Solo servicios autorizados',
-        texto:
-          'Trabajamos con contenido licenciado y distribuidores oficiales. Nada de cuentas compartidas.',
-      },
-      {
-        icono: 'tarjeta',
-        titulo: 'Pagos protegidos',
-        texto:
-          'Los cobros automáticos solo se activan con tu autorización expresa y los puedes cancelar.',
-      },
-      {
-        icono: 'candado',
-        titulo: 'Tu cuenta, blindada',
-        texto:
-          'Verificación en dos pasos, sesiones que puedes cerrar a distancia y datos cifrados.',
+        texto: 'Nada de cuentas compartidas',
       },
       {
         icono: 'soporte',
         titulo: 'Soporte en español',
-        texto: 'Personas reales que conocen tu historial y resuelven con seguimiento.',
+        texto: 'Personas reales que siguen tu caso',
+      },
+      {
+        icono: 'billetera',
+        titulo: 'Billetera NV',
+        texto: 'Recarga saldo y compra en un toque',
       },
     ],
+  },
+  {
+    id: 'universos',
+    tipo: 'universos',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Elige tu universo',
+    subtitulo: 'Cada categoría es un mundo con sus propios planes',
+  },
+  {
+    id: 'ranking',
+    tipo: 'ranking',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Lo más pedido',
+    subtitulo: 'Según las activaciones y renovaciones del último mes',
+    limite: 5,
+  },
+  {
+    id: 'streaming',
+    tipo: 'panel',
+    fondo: 'normal',
+    etiqueta: 'Universo streaming',
+    titulo: 'Cine, series y TV de todas las galaxias',
+    resaltado: 'de todas las galaxias',
+    texto: 'Eliges tu plataforma, pagas en tu moneda y la gestionas desde tu panel.',
+    puntos: ['Planes de 1 mes en adelante', 'Para teléfono, TV y computadora'],
+    boton: { texto: 'Ver planes de streaming', enlace: '/catalogo?categoria=streaming' },
+    botonSecundario: null,
+    visual: 'universo',
+    categoria: 'streaming',
+  },
+  {
+    id: 'todos',
+    tipo: 'servicios',
+    fondo: 'normal',
+    variante: 'rejilla',
+    etiqueta: null,
+    titulo: 'Todos los servicios',
+    subtitulo: 'Precios en tu moneda, con la tasa del día',
+    categoria: null,
+    orden: 'recomendados',
+    limite: 12,
+    filtros: true,
+  },
+  {
+    id: 'billetera',
+    tipo: 'panel',
+    fondo: 'normal',
+    etiqueta: 'Billetera NV',
+    titulo: 'Recarga una vez y compra en un toque',
+    resaltado: 'en un toque',
+    texto:
+      'Reportas tu recarga con el comprobante, el equipo la confirma y el saldo queda listo para tus próximas compras.',
+    puntos: [
+      'Paga pedidos completos con tu saldo',
+      'Si lo eliges, tus facturas pendientes se pagan al confirmarse tu recarga',
+      'Cada movimiento queda en tu panel',
+    ],
+    boton: { texto: 'Recargar saldo', enlace: '/cuenta/billetera' },
+    botonSecundario: null,
+    visual: 'billetera',
+    categoria: null,
+  },
+  {
+    id: 'pasos',
+    tipo: 'pasos',
+    ancla: 'como-comprar',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Cómo comprar',
+    subtitulo: null,
+    elementos: [
+      {
+        titulo: 'Elige tus servicios',
+        texto: `Agrega hasta ${MAX_PLANES} planes al carrito y págalos juntos.`,
+      },
+      {
+        titulo: 'Paga y sube el comprobante',
+        texto: 'Con los métodos de pago activos o con el saldo de tu billetera.',
+      },
+      {
+        titulo: 'Gestiónalo desde tu panel',
+        texto: 'Cuando confirmamos tu pago, tu plan se activa y lo ves en tu panel.',
+      },
+    ],
+  },
+  {
+    id: 'pagos',
+    tipo: 'metodos-pago',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Métodos de pago',
+    subtitulo: 'Los que el equipo tiene activos hoy',
+  },
+  {
+    id: 'preguntas',
+    tipo: 'preguntas',
+    ancla: 'preguntas',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Preguntas frecuentes',
+    subtitulo: null,
+    elementos: [
+      {
+        pregunta: '¿Cómo pago?',
+        respuesta:
+          'Eliges tus planes, pagas con uno de los métodos de pago activos o con el saldo de tu billetera y subes tu comprobante desde tu panel. El equipo lo revisa y lo confirma.',
+      },
+      {
+        pregunta: '¿Puedo pagar en bolívares?',
+        respuesta:
+          'Sí. Los precios en bolívares se calculan con la tasa del día que publica el equipo y el monto exacto queda fijado en tu factura.',
+      },
+      {
+        pregunta: '¿Puedo comprar varios servicios a la vez?',
+        respuesta: `Sí. Agrega hasta ${MAX_PLANES} planes al carrito y págalos juntos en un solo pedido.`,
+      },
+      {
+        pregunta: '¿Me dan una cuenta compartida?',
+        respuesta:
+          'No. Solo vendemos servicios autorizados y nunca te pedimos ni te damos contraseñas de otras personas.',
+      },
+      {
+        pregunta: '¿Cómo recargo mi billetera?',
+        respuesta:
+          'Desde tu panel, en Billetera: reportas tu recarga con el comprobante y, cuando el equipo la confirma, el saldo queda listo.',
+      },
+      {
+        pregunta: '¿Qué pasa si mi servicio falla?',
+        respuesta: 'Abre un ticket de soporte desde tu panel y te respondemos con seguimiento.',
+      },
+    ],
+  },
+  {
+    id: 'canal',
+    tipo: 'canal',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Novedades primero en tu WhatsApp',
+    texto: 'Únete al canal de NV y entérate de los servicios nuevos antes que nadie.',
+    boton: 'Unirme al canal',
   },
   {
     id: 'reventa',
-    tipo: 'beneficios',
+    tipo: 'panel',
     ancla: 'revendedores',
     fondo: 'acento',
-    variante: 'lista',
     etiqueta: 'Para revendedores',
-    titulo: 'Vende NV con precio mayorista',
-    subtitulo:
-      'Un panel propio para comprar activaciones con tu saldo, seguir tus ventas y atender a tus clientes. El equipo de NV habilita las cuentas de revendedor.',
-    boton: { texto: 'Quiero revender', enlace: '/registro' },
-    elementos: [
-      {
-        icono: 'billetera',
-        titulo: 'Saldo prepagado',
-        texto: 'Recargas tu saldo y compras activaciones al instante, sin esperar aprobaciones.',
-      },
-      {
-        icono: 'capas',
-        titulo: 'Precio mayorista por nivel',
-        texto: 'Cuanto más vendes, mejor es tu precio de compra.',
-      },
-      {
-        icono: 'tienda',
-        titulo: 'Tú pones el precio final',
-        texto: 'Cobras a tus clientes a tu manera y llevas el control desde tu panel.',
-      },
-    ],
-  },
-  {
-    id: 'llamada',
-    tipo: 'llamada',
-    fondo: 'normal',
-    titulo: 'Crea tu cuenta y activa tu plan hoy',
-    texto: 'Registrarte es gratis y solo necesitas un correo. Paga en bolívares o en tu moneda.',
-    boton: { texto: 'Crear mi cuenta', enlace: '/registro' },
-    botonSecundario: { texto: 'Ver planes', enlace: '/planes' },
+    titulo: 'Vende todos los universos con precio de mayorista',
+    resaltado: 'precio de mayorista',
+    texto:
+      'Recargas saldo, compras activaciones al instante y tu precio mejora según tu nivel. El equipo de NV habilita las cuentas de revendedor.',
+    puntos: [],
+    boton: { texto: 'Quiero ser revendedor', enlace: '/cuenta/revendedor' },
+    botonSecundario: null,
+    visual: 'ninguno',
+    categoria: null,
   },
 ];

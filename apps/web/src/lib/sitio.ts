@@ -1,9 +1,9 @@
-import { type CatalogoPublico, type PaginaPublicada } from '@nv/shared';
+import type { CatalogoPublico, PaginaPublicada } from '@nv/shared';
 import type { Metadata } from 'next';
 import type { ContextoBloques } from '@/componentes/bloques/bloques';
-import { monedaValida } from '@/componentes/planes';
 import { monedaMayorista } from '@/componentes/planes-mayoristas';
 import { vistaMayorista } from './revendedor-publico';
+import { catalogoTienda, leerTemaPublico, monedaTienda } from './tienda';
 import { ubicacionVisitante } from './ubicacion';
 
 const API = process.env.API_URL_INTERNA ?? 'http://localhost:4000';
@@ -41,27 +41,36 @@ export async function leerCatalogo(): Promise<CatalogoPublico | null> {
   }
 }
 
-/** Datos para los bloques: solo se consulta el catálogo si la página lo muestra. */
+/**
+ * Datos para los bloques: catálogo (con caché), moneda de la visita, métodos
+ * de cobro y contacto del sitio. Los precios de revendedor se leen por petición.
+ */
 export async function contextoPublico(
   pagina: Pick<PaginaPublicada, 'ruta' | 'bloques'>,
   monedaPedida: string | undefined,
 ): Promise<ContextoBloques> {
-  if (!pagina.bloques.some((b) => b.tipo === 'planes')) {
-    return { ruta: pagina.ruta, catalogo: null, moneda: 'USD' };
-  }
-  const [catalogo, ubicacion, vista] = await Promise.all([
-    leerCatalogo(),
+  const [catalogo, tema, moneda, ubicacion, vista] = await Promise.all([
+    catalogoTienda(),
+    leerTemaPublico(),
+    monedaTienda(monedaPedida),
     ubicacionVisitante(),
-    vistaMayorista(),
+    pagina.bloques.some((b) => TIPOS_CON_PRECIOS.has(b.tipo)) ? vistaMayorista() : null,
   ]);
-  const moneda = monedaValida(catalogo?.monedas ?? ['USD'], monedaPedida, ubicacion.moneda);
   // Revendedor con sesión: sus precios, calculados para esta petición (nunca en caché).
   const mayorista = vista
     ? { vista, moneda: monedaMayorista(vista, monedaPedida, ubicacion.moneda) }
     : null;
-  return { ruta: pagina.ruta, catalogo, moneda, mayorista };
+  return {
+    ruta: pagina.ruta,
+    catalogo,
+    moneda,
+    mayorista,
+    metodosPago: tema.metodosPago,
+    contacto: tema.contacto,
+  };
 }
 
+const TIPOS_CON_PRECIOS = new Set<string>(['planes', 'servicios', 'ranking']);
 /** Título y descripción para buscadores y redes a partir de la página publicada. */
 export function metadatosPagina(p: { titulo: string; descripcion: string | null }): Metadata {
   return {

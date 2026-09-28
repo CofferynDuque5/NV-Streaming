@@ -18,6 +18,18 @@ export const INFO_BLOQUES: Record<TipoBloque, { nombre: string; descripcion: str
   texto: { nombre: 'Texto', descripcion: 'Párrafos, listas y enlaces.' },
   imagen: { nombre: 'Imagen', descripcion: 'Una imagen de la biblioteca.' },
   banner: { nombre: 'Aviso', descripcion: 'Franja con un mensaje breve.' },
+  universos: { nombre: 'Universos', descripcion: 'Categorías con cuántos servicios tienen.' },
+  servicios: {
+    nombre: 'Servicios',
+    descripcion: 'Tarjetas del catálogo con precio y carrito.',
+  },
+  ranking: { nombre: 'Lo más pedido', descripcion: 'Los servicios más pedidos del mes.' },
+  'metodos-pago': { nombre: 'Métodos de pago', descripcion: 'Los métodos de cobro activos.' },
+  canal: { nombre: 'Canal de WhatsApp', descripcion: 'Invitación al canal configurado.' },
+  panel: {
+    nombre: 'Panel destacado',
+    descripcion: 'Texto, puntos y botones con un visual.',
+  },
 };
 
 /**
@@ -103,6 +115,55 @@ export function bloqueNuevo(tipo: TipoBloque): BloqueSitio {
       return { ...comun, tipo, medioId: '', alt: '', leyenda: null, proporcion: '16:9' };
     case 'banner':
       return { ...comun, tipo, texto: '', tono: 'info', enlace: null };
+    case 'universos':
+      return { ...comun, tipo, etiqueta: null, titulo: 'Elige tu universo', subtitulo: null };
+    case 'servicios':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Servicios',
+        subtitulo: null,
+        variante: 'rejilla',
+        categoria: null,
+        orden: 'recomendados',
+        limite: 8,
+        filtros: false,
+      };
+    case 'ranking':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Lo más pedido',
+        subtitulo: null,
+        limite: 5,
+      };
+    case 'metodos-pago':
+      return { ...comun, tipo, etiqueta: null, titulo: 'Métodos de pago', subtitulo: null };
+    case 'canal':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Únete a nuestro canal de WhatsApp',
+        texto: null,
+        boton: 'Unirme al canal',
+      };
+    case 'panel':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Título del panel',
+        resaltado: null,
+        texto: null,
+        puntos: [],
+        boton: null,
+        botonSecundario: null,
+        visual: 'ninguno',
+        categoria: null,
+      };
   }
 }
 

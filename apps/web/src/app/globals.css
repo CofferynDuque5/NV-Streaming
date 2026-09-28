@@ -163,6 +163,16 @@
     transform: rotate(360deg);
   }
 }
+@keyframes nv-tira {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes nv-flotar {
+  50% {
+    transform: translateY(-8px);
+  }
+}
 @keyframes nv-entrar {
   from {
     opacity: 0;

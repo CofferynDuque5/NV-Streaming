@@ -134,7 +134,7 @@ describe('rutas de las páginas', () => {
   );
 
   it('rechaza las rutas que usa la aplicación', () => {
-    for (const r of ['admin', 'cuenta', 'revendedor', 'api', 'planes', 'ingresar', 'marca']) {
+    for (const r of ['admin', 'cuenta', 'revendedor', 'api', 'planes', 'catalogo', 'ingresar']) {
       expect(RUTAS_RESERVADAS).toContain(r);
     }
     for (const ruta of ['/admin', '/admin/sitio', '/planes', '/registro', '/cuenta/x', '/api/v1']) {
