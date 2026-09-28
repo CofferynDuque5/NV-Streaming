@@ -418,6 +418,12 @@
   }
 }
 
+/* Con el carrito lateral abierto, los avisos van arriba (no tapan sus botones). */
+:root[data-carrito-abierto] [data-avisos] {
+  top: 1rem;
+  bottom: auto;
+}
+
 /* Espacio para la barra de pestañas del teléfono (y para que los avisos no la tapen). */
 @media (width < 53.75rem) {
   :root:has(.barra-inferior) {

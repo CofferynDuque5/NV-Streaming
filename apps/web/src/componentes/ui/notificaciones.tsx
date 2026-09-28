@@ -6,17 +6,26 @@ import { createContext, type ReactNode, useCallback, useContext, useRef, useStat
 
 type Tono = 'exito' | 'error' | 'info';
 
+/** Acción opcional del aviso (p. ej. «Deshacer» o «Ver carrito»). */
+export interface AccionAviso {
+  texto: string;
+  alPulsar: () => void;
+}
+
 interface Notificacion {
   id: number;
   tono: Tono;
   texto: string;
+  accion?: AccionAviso | undefined;
 }
 
-type Notificar = (texto: string, tono?: Tono) => void;
+type Notificar = (texto: string, tono?: Tono, accion?: AccionAviso) => void;
 
 const ContextoNotificar = createContext<Notificar>(() => {});
 
 const DURACION_MS = 4500;
+/** Con una acción, el aviso dura más para dar tiempo a pulsarla. */
+const DURACION_ACCION_MS = 7000;
 
 const estilos: Record<Tono, { clase: string; icono: ReactNode }> = {
   exito: {
@@ -46,10 +55,10 @@ export function ProveedorNotificaciones({ children }: { children: ReactNode }) {
   }, []);
 
   const notificar = useCallback<Notificar>(
-    (texto, tono = 'exito') => {
+    (texto, tono = 'exito', accion) => {
       const id = siguiente.current++;
-      setLista((l) => [...l.slice(-2), { id, tono, texto }]);
-      window.setTimeout(() => cerrar(id), DURACION_MS);
+      setLista((l) => [...l.slice(-2), { id, tono, texto, accion }]);
+      window.setTimeout(() => cerrar(id), accion ? DURACION_ACCION_MS : DURACION_MS);
     },
     [cerrar],
   );
@@ -58,6 +67,7 @@ export function ProveedorNotificaciones({ children }: { children: ReactNode }) {
     <ContextoNotificar.Provider value={notificar}>
       {children}
       <div
+        data-avisos
         aria-live="polite"
         className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--nv-barra-inferior,0px)+1rem+env(safe-area-inset-bottom,0px))] z-[80] grid justify-items-center gap-2 px-4"
       >
@@ -72,6 +82,18 @@ export function ProveedorNotificaciones({ children }: { children: ReactNode }) {
           >
             {estilos[n.tono].icono}
             <span className="min-w-0 flex-1">{n.texto}</span>
+            {n.accion && (
+              <button
+                type="button"
+                onClick={() => {
+                  n.accion?.alPulsar();
+                  cerrar(n.id);
+                }}
+                className="shrink-0 border-l border-borde-fuerte pl-3 font-semibold whitespace-nowrap text-cian hover:underline"
+              >
+                {n.accion.texto}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => cerrar(n.id)}

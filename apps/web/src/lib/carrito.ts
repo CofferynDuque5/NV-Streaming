@@ -56,6 +56,35 @@ function suscribir(aviso: () => void) {
 
 export const MAX_CARRITO = REGLAS_COBRO.articulosPorPedido;
 
+/* Último plan agregado (para marcarlo como «Recién agregado» en el carrito lateral). */
+const EVENTO_RECIENTE = 'nv-carrito-reciente';
+let reciente: string | null = null;
+
+function suscribirReciente(aviso: () => void) {
+  window.addEventListener(EVENTO_RECIENTE, aviso);
+  return () => window.removeEventListener(EVENTO_RECIENTE, aviso);
+}
+
+function marcarReciente(id: string | null) {
+  reciente = id;
+  window.dispatchEvent(new Event(EVENTO_RECIENTE));
+}
+
+export function useRecienAgregado(): string | null {
+  return useSyncExternalStore(
+    suscribirReciente,
+    () => reciente,
+    () => null,
+  );
+}
+
+/** Evento que abre el carrito lateral desde cualquier parte de la tienda. */
+export const EVENTO_ABRIR_CARRITO = 'nv-abrir-carrito';
+
+export function abrirCarrito() {
+  window.dispatchEvent(new Event(EVENTO_ABRIR_CARRITO));
+}
+
 export function useCarrito() {
   const planes = useSyncExternalStore(suscribir, leer, () => VACIO);
   return {
@@ -66,9 +95,25 @@ export function useCarrito() {
       const actuales = leer();
       if (actuales.includes(id) || actuales.length >= MAX_CARRITO) return;
       guardar([...actuales, id]);
+      marcarReciente(id);
+    },
+    /** Vuelve a poner un plan en su posición (deshacer). */
+    insertar(id: string, indice: number) {
+      const actuales = leer();
+      if (actuales.includes(id) || actuales.length >= MAX_CARRITO) return;
+      guardar([...actuales.slice(0, indice), id, ...actuales.slice(indice)]);
+    },
+    /** Cambia un plan por otro del mismo servicio sin moverlo de lugar. */
+    cambiar(viejo: string, nuevo: string): boolean {
+      const actuales = leer();
+      if (actuales.includes(nuevo)) return false;
+      guardar(actuales.map((x) => (x === viejo ? nuevo : x)));
+      if (reciente === viejo) marcarReciente(nuevo);
+      return true;
     },
     quitar(id: string) {
       guardar(leer().filter((x) => x !== id));
+      if (reciente === id) marcarReciente(null);
     },
     vaciar() {
       guardar([]);

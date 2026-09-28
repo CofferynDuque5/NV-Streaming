@@ -55,7 +55,6 @@ export async function CabeceraTienda() {
         enlaceSaldo: sesion.enlaceSaldo,
       }
     : null;
-  const carrito = `/cuenta/carrito?moneda=${moneda}`;
 
   return (
     <>
@@ -97,7 +96,7 @@ export async function CabeceraTienda() {
                 <b className="tabular-nums">{sesionMenu.saldo}</b>
               </Link>
             )}
-            <IconoCarrito href={carrito} />
+            <IconoCarrito />
             <div className="hidden nav:block">
               {sesionMenu ? (
                 <Link href={sesionMenu.panel} className={clasesBoton('primario', 'md')}>
@@ -152,7 +151,6 @@ export async function CabeceraTienda() {
         )}
       </header>
       <BarraInferior
-        carrito={carrito}
         billetera={sesionMenu?.enlaceSaldo ?? '/cuenta/billetera'}
         cuenta={sesionMenu?.panel ?? '/ingresar'}
       />

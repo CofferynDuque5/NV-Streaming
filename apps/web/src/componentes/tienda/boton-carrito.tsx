@@ -4,11 +4,46 @@ import clsx from 'clsx';
 import { Check, ShoppingCart } from 'lucide-react';
 import { clasesBoton } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
-import { MAX_CARRITO, useCarrito } from '@/lib/carrito';
+import { abrirCarrito, MAX_CARRITO, useCarrito } from '@/lib/carrito';
+
+const VER_CARRITO = { texto: 'Ver carrito', alPulsar: abrirCarrito };
 
 /**
- * Suma un plan al carrito (solo su id; el precio se cotiza en la API al pagar)
- * y avisa con un mensaje verde, o rojo si el carrito ya está lleno.
+ * Agrega un plan al carrito (solo su id; el precio se cotiza en la API) y lo
+ * avisa con «Ver carrito». Un plan que ya está no se repite, y con el carrito
+ * lleno se avisa en rojo.
+ */
+export function useAgregarAlCarrito() {
+  const carrito = useCarrito();
+  const notificar = useNotificar();
+  return (planId: string, nombre: string): boolean => {
+    if (carrito.tiene(planId)) {
+      notificar('Ese plan ya está en tu carrito.', 'error', VER_CARRITO);
+      return false;
+    }
+    if (carrito.lleno) {
+      notificar(
+        `Tu carrito ya tiene ${MAX_CARRITO} planes. Quita uno para agregar otro.`,
+        'error',
+        VER_CARRITO,
+      );
+      return false;
+    }
+    carrito.agregar(planId);
+    notificar(
+      carrito.planes.length + 1 >= MAX_CARRITO
+        ? `${nombre} está en tu carrito. Llegaste al máximo de ${MAX_CARRITO} planes.`
+        : `${nombre} está en tu carrito.`,
+      'exito',
+      VER_CARRITO,
+    );
+    return true;
+  };
+}
+
+/**
+ * Botón para agregar un plan al carrito. Si ya está, lo indica y avisa en
+ * lugar de repetirlo; se quita desde el carrito.
  */
 export function BotonCarrito({
   planId,
@@ -21,34 +56,20 @@ export function BotonCarrito({
   /** Nombre del servicio y plan, para el aviso y la etiqueta accesible. */
   nombre: string;
   /** «principal»: el botón primario de la ficha del servicio. */
-  variante?: 'icono' | 'completo' | 'principal';
+  variante?: 'icono' | 'principal';
   tamano?: 'md' | 'lg';
   className?: string;
 }) {
   const carrito = useCarrito();
-  const notificar = useNotificar();
+  const agregar = useAgregarAlCarrito();
   const dentro = carrito.tiene(planId);
-
-  function pulsar() {
-    if (dentro) {
-      carrito.quitar(planId);
-      notificar(`Quitaste ${nombre} del carrito.`, 'info');
-      return;
-    }
-    if (carrito.lleno) {
-      notificar(`Tu carrito ya tiene ${MAX_CARRITO} planes, el máximo por pedido.`, 'error');
-      return;
-    }
-    carrito.agregar(planId);
-    notificar(`${nombre} está en tu carrito.`, 'exito');
-  }
+  const pulsar = () => agregar(planId, nombre);
 
   if (variante === 'principal') {
     return (
       <button
         type="button"
         onClick={pulsar}
-        aria-pressed={dentro}
         className={clasesBoton(
           dentro ? 'secundario' : 'primario',
           tamano,
@@ -64,35 +85,11 @@ export function BotonCarrito({
       </button>
     );
   }
-  if (variante === 'completo') {
-    return (
-      <button
-        type="button"
-        onClick={pulsar}
-        aria-pressed={dentro}
-        className={clsx(
-          'inline-flex h-11 items-center justify-center gap-2 rounded-[0.875rem] border px-4 text-sm font-semibold transition-colors',
-          dentro
-            ? 'border-exito/50 bg-exito-suave text-tinta'
-            : 'border-borde-fuerte bg-marca-suave text-tinta hover:border-cian',
-          className,
-        )}
-      >
-        {dentro ? (
-          <Check className="size-4 text-exito" aria-hidden="true" />
-        ) : (
-          <ShoppingCart className="size-4" aria-hidden="true" />
-        )}
-        {dentro ? 'En el carrito' : 'Agregar'}
-      </button>
-    );
-  }
   return (
     <button
       type="button"
       onClick={pulsar}
-      aria-pressed={dentro}
-      aria-label={dentro ? `Quitar ${nombre} del carrito` : `Agregar ${nombre} al carrito`}
+      aria-label={dentro ? `${nombre} ya está en tu carrito` : `Agregar ${nombre} al carrito`}
       title={dentro ? 'En el carrito' : 'Agregar al carrito'}
       className={clsx(
         'grid size-11 shrink-0 place-items-center rounded-[0.875rem] border transition-colors',

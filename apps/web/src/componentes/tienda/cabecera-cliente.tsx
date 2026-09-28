@@ -28,7 +28,7 @@ import {
   useState,
 } from 'react';
 import { clasesBoton } from '@/componentes/ui/boton';
-import { useCarrito } from '@/lib/carrito';
+import { abrirCarrito, useCarrito } from '@/lib/carrito';
 import { ArteServicio } from './arte';
 import { Bandera, IconoCategoria, Orbe } from './iconos';
 import {
@@ -374,12 +374,15 @@ export function ChipsMonedas({ monedas, actual }: { monedas: OpcionMoneda[]; act
 
 /* ------------------------------------------------------------------- carrito */
 
-export function IconoCarrito({ href }: { href: string }) {
+/** Botón del carrito: abre el carrito lateral y muestra cuántos planes tiene. */
+export function IconoCarrito() {
   const { planes } = useCarrito();
   const n = planes.length;
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={abrirCarrito}
+      aria-haspopup="dialog"
       aria-label={`Carrito, ${n} ${n === 1 ? 'plan' : 'planes'}`}
       className="relative grid size-11 place-items-center rounded-[0.9rem] border border-borde bg-white/[0.02] transition-colors hover:border-borde-fuerte"
     >
@@ -389,7 +392,7 @@ export function IconoCarrito({ href }: { href: string }) {
           {n}
         </em>
       )}
-    </Link>
+    </button>
   );
 }
 
@@ -683,54 +686,40 @@ export function CajonMovil({
 /* ---------------------------------------------------------- barra inferior */
 
 /** Barra de pestañas del teléfono: inicio, catálogo, carrito, billetera y cuenta. */
-export function BarraInferior({
-  carrito,
-  billetera,
-  cuenta,
-}: {
-  carrito: string;
-  billetera: string;
-  cuenta: string;
-}) {
+export function BarraInferior({ billetera, cuenta }: { billetera: string; cuenta: string }) {
   const ruta = usePathname();
   const { planes } = useCarrito();
-  const pestanas = [
-    { href: '/', texto: 'Inicio', Icono: House, activa: ruta === '/' },
-    {
-      href: '/catalogo',
-      texto: 'Catálogo',
-      Icono: LayoutGrid,
-      activa: ruta.startsWith('/catalogo'),
-    },
-    { href: carrito, texto: 'Carrito', Icono: ShoppingCart, activa: false, cuenta: planes.length },
-    { href: billetera, texto: 'Billetera', Icono: Wallet, activa: false },
-    { href: cuenta, texto: 'Cuenta', Icono: User, activa: false },
-  ];
+  const n = planes.length;
+  const clase = (activa: boolean) =>
+    clsx(
+      'relative grid justify-items-center gap-0.5 rounded-xl py-1 text-[0.7rem] font-medium',
+      activa ? 'text-cian' : 'text-tinta-suave',
+    );
+  const enlace = (href: string, texto: string, Icono: typeof House, activa: boolean) => (
+    <Link href={href} aria-current={activa ? 'page' : undefined} className={clase(activa)}>
+      <Icono className="size-5" aria-hidden="true" />
+      {texto}
+    </Link>
+  );
   return (
     <nav
       aria-label="Accesos rápidos"
       className="barra-inferior vidrio fixed inset-x-2.5 bottom-[calc(0.6rem+env(safe-area-inset-bottom,0px))] z-40 grid grid-cols-5 rounded-[1.4rem] px-1 py-1.5 shadow-nv nav:hidden"
     >
-      {pestanas.map(({ href, texto, Icono, activa, cuenta }) => (
-        <Link
-          key={texto}
-          href={href}
-          aria-current={activa ? 'page' : undefined}
-          className={clsx(
-            'relative grid justify-items-center gap-0.5 rounded-xl py-1 text-[0.7rem] font-medium',
-            activa ? 'text-cian' : 'text-tinta-suave',
-          )}
-        >
-          <Icono className="size-5" aria-hidden="true" />
-          {texto}
-          {cuenta ? (
-            <em className="absolute top-0 left-1/2 ml-2 grid h-4 min-w-4 place-items-center rounded-full bg-[linear-gradient(135deg,#8b5cf6,#e879f9)] px-1 text-[0.62rem] font-bold not-italic text-white tabular-nums">
-              {cuenta}
-              <span className="sr-only">{cuenta === 1 ? 'plan' : 'planes'}</span>
-            </em>
-          ) : null}
-        </Link>
-      ))}
+      {enlace('/', 'Inicio', House, ruta === '/')}
+      {enlace('/catalogo', 'Catálogo', LayoutGrid, ruta.startsWith('/catalogo'))}
+      <button type="button" onClick={abrirCarrito} aria-haspopup="dialog" className={clase(false)}>
+        <ShoppingCart className="size-5" aria-hidden="true" />
+        Carrito
+        {n > 0 && (
+          <em className="absolute top-0 left-1/2 ml-2 grid h-4 min-w-4 place-items-center rounded-full bg-[linear-gradient(135deg,#8b5cf6,#e879f9)] px-1 text-[0.62rem] font-bold not-italic text-white tabular-nums">
+            {n}
+            <span className="sr-only">{n === 1 ? 'plan' : 'planes'}</span>
+          </em>
+        )}
+      </button>
+      {enlace(billetera, 'Billetera', Wallet, false)}
+      {enlace(cuenta, 'Cuenta', User, false)}
     </nav>
   );
 }

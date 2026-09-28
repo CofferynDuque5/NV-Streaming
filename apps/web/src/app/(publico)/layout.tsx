@@ -1,7 +1,8 @@
-import { BLOQUES_INICIO, cssPaleta, PALETA_PREDETERMINADA } from '@nv/shared';
+import { BLOQUES_INICIO, cssPaleta, PALETA_PREDETERMINADA, serviciosTienda } from '@nv/shared';
 import type { ReactNode } from 'react';
 import { AyudaFlotante } from '@/componentes/tienda/ayuda-flotante';
 import { CabeceraTienda } from '@/componentes/tienda/cabecera';
+import { CarritoLateral } from '@/componentes/tienda/carrito-lateral';
 import { datosMenu } from '@/componentes/tienda/datos-menu';
 import { PieTienda } from '@/componentes/tienda/pie';
 import { leerPaginaPublicada } from '@/lib/sitio';
@@ -43,6 +44,11 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         whatsapp={tema.contacto.whatsapp}
         correo={tema.contacto.correo}
         preguntas={preguntas}
+      />
+      <CarritoLateral
+        servicios={catalogo ? serviciosTienda(catalogo) : []}
+        moneda={moneda}
+        cliente={sesion?.rol === 'cliente'}
       />
     </>
   );

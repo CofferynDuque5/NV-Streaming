@@ -14,6 +14,7 @@ export function ArteServicio({
   className,
   prioridad,
   decorativa = true,
+  orbe = 'xl',
 }: {
   arte: ClaveArte | null;
   nombre: string;
@@ -23,11 +24,13 @@ export function ArteServicio({
   /** La imagen principal de la página: se carga sin esperar. */
   prioridad?: boolean;
   decorativa?: boolean;
+  /** Tamaño del orbe cuando no hay imagen (en espacios pequeños, «sm»). */
+  orbe?: 'sm' | 'md' | 'xl';
 }) {
   if (!arte) {
     return (
       <span className={clsx('grid place-items-center', className)}>
-        <Orbe categoria={categoria} color={color} tamano="xl" />
+        <Orbe categoria={categoria} color={color} tamano={orbe} />
         {!decorativa && <span className="sr-only">{nombre}</span>}
       </span>
     );
