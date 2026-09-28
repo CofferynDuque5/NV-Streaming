@@ -3,7 +3,7 @@ import { ChevronRight, FileText } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { EstadoPagina } from '@/componentes/editor/estado-pagina';
-import { NuevaPagina, SelectorTema } from '@/componentes/editor/paginas';
+import { ContactoSitioFormulario, NuevaPagina, SelectorTema } from '@/componentes/editor/paginas';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -86,6 +86,20 @@ export default async function EditorVisual() {
             <SelectorTema tema={tema} puedeCambiar={puedePublicar} />
           ) : (
             <Alerta tono="peligro">No pudimos cargar el tema. Recarga la página.</Alerta>
+          )}
+        </div>
+      </Tarjeta>
+
+      <Tarjeta>
+        <CabeceraTarjeta
+          titulo="Contacto y redes"
+          descripcion="WhatsApp, canal, redes y correo que ve el público. Lo que dejes vacío no aparece en el sitio."
+        />
+        <div className="p-5 sm:p-6">
+          {tema ? (
+            <ContactoSitioFormulario contacto={tema.contacto} puedeCambiar={puedePublicar} />
+          ) : (
+            <Alerta tono="peligro">No pudimos cargar el contacto. Recarga la página.</Alerta>
           )}
         </div>
       </Tarjeta>

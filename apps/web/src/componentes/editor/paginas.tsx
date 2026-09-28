@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  type ContactoSitio,
+  contactoSitioSchema,
   type PaginaSitioDetalle,
   PALETAS_SITIO,
   type PaletaSitio,
@@ -178,5 +180,138 @@ export function SelectorTema({ tema, puedeCambiar }: { tema: TemaSitio; puedeCam
         <p className="text-sm text-tinta-tenue">Solo administración puede cambiar la paleta.</p>
       )}
     </div>
+  );
+}
+
+type CampoContacto = keyof ContactoSitio;
+
+const CAMPOS_CONTACTO: {
+  campo: CampoContacto;
+  etiqueta: string;
+  ayuda: string;
+  tipo: 'tel' | 'url' | 'email';
+  ejemplo: string;
+}[] = [
+  {
+    campo: 'whatsapp',
+    etiqueta: 'WhatsApp de soporte',
+    ayuda: 'Con el código de país. Activa el botón de ayuda y los enlaces de WhatsApp.',
+    tipo: 'tel',
+    ejemplo: '58 414 000 0000',
+  },
+  {
+    campo: 'canalWhatsapp',
+    etiqueta: 'Canal de WhatsApp',
+    ayuda: 'Enlace de invitación del canal. Sin él, la portada no muestra la sección del canal.',
+    tipo: 'url',
+    ejemplo: 'https://whatsapp.com/channel/…',
+  },
+  {
+    campo: 'instagram',
+    etiqueta: 'Instagram',
+    ayuda: 'Enlace al perfil; aparece en el pie del sitio.',
+    tipo: 'url',
+    ejemplo: 'https://instagram.com/…',
+  },
+  {
+    campo: 'tiktok',
+    etiqueta: 'TikTok',
+    ayuda: 'Enlace al perfil; aparece en el pie del sitio.',
+    tipo: 'url',
+    ejemplo: 'https://tiktok.com/@…',
+  },
+  {
+    campo: 'correo',
+    etiqueta: 'Correo de contacto',
+    ayuda: 'Se muestra en el pie y en el botón de ayuda.',
+    tipo: 'email',
+    ejemplo: 'soporte@tudominio.com',
+  },
+];
+
+/** Valida un solo campo de contacto con el mismo esquema que usa la API. */
+function errorDeCampo(campo: CampoContacto, valor: string): string | undefined {
+  const forma = contactoSitioSchema.shape[campo];
+  const r = forma.safeParse(valor);
+  return r.success ? undefined : r.error.issues[0]?.message;
+}
+
+/** Datos de contacto y redes del sitio público. Lo que queda vacío no se muestra. */
+export function ContactoSitioFormulario({
+  contacto,
+  puedeCambiar,
+}: {
+  contacto: ContactoSitio;
+  puedeCambiar: boolean;
+}) {
+  const inicial = Object.fromEntries(
+    CAMPOS_CONTACTO.map(({ campo }) => [campo, contacto[campo] ?? '']),
+  ) as Record<CampoContacto, string>;
+  const [valores, setValores] = useState(inicial);
+  const [tocados, setTocados] = useState<Partial<Record<CampoContacto, boolean>>>({});
+  const [hecho, setHecho] = useState(false);
+  const { cargando, error, campos, ejecutar } = useAccion();
+
+  const errores = Object.fromEntries(
+    CAMPOS_CONTACTO.map(({ campo }) => [campo, errorDeCampo(campo, valores[campo])]),
+  ) as Record<CampoContacto, string | undefined>;
+  const hayErrores = Object.values(errores).some(Boolean);
+  const cambiado = CAMPOS_CONTACTO.some(({ campo }) => valores[campo] !== inicial[campo]);
+
+  async function guardar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setHecho(false);
+    setTocados(Object.fromEntries(CAMPOS_CONTACTO.map(({ campo }) => [campo, true])));
+    if (hayErrores) return;
+    const r = await ejecutar('PUT', '/sitio/contacto', valores);
+    if (r) {
+      await refrescarSitio();
+      setHecho(true);
+    }
+  }
+
+  return (
+    <form className="grid gap-4" onSubmit={guardar} noValidate>
+      <fieldset className="grid gap-4 sm:grid-cols-2" disabled={!puedeCambiar}>
+        <legend className="sr-only">Contacto y redes</legend>
+        {CAMPOS_CONTACTO.map(({ campo, etiqueta, ayuda, tipo, ejemplo }) => (
+          <Campo
+            key={campo}
+            name={campo}
+            etiqueta={etiqueta}
+            ayuda={ayuda}
+            type={tipo}
+            inputMode={tipo === 'tel' ? 'tel' : undefined}
+            placeholder={ejemplo}
+            autoComplete="off"
+            value={valores[campo]}
+            onChange={(ev) => {
+              const v = ev.currentTarget.value;
+              setValores((a) => ({ ...a, [campo]: v }));
+              setHecho(false);
+            }}
+            onBlur={() => setTocados((a) => ({ ...a, [campo]: true }))}
+            error={
+              (tocados[campo] || valores[campo] !== inicial[campo] ? errores[campo] : undefined) ??
+              campos[campo]
+            }
+          />
+        ))}
+      </fieldset>
+      <ErrorGeneral error={error} />
+      {hecho && <Alerta tono="exito">Datos de contacto guardados en el sitio público.</Alerta>}
+      {puedeCambiar ? (
+        <Boton
+          type="submit"
+          className="w-fit"
+          cargando={cargando}
+          disabled={!cambiado || hayErrores}
+        >
+          Guardar contacto
+        </Boton>
+      ) : (
+        <p className="text-sm text-tinta-tenue">Solo administración puede cambiar el contacto.</p>
+      )}
+    </form>
   );
 }

@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from '@nv/db';
 import {
   type BloqueSitio,
   bloqueSitioSchema,
+  type ContactoSitio,
   contenidoPaginaSchema,
   type CrearPaginaEntrada,
   esPaletaSitio,
@@ -25,6 +26,24 @@ import { esUnicoDuplicado, iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 
 type Tx = Prisma.TransactionClient;
+
+function contactoDe(
+  t: {
+    whatsapp: string | null;
+    canalWhatsapp: string | null;
+    instagram: string | null;
+    tiktok: string | null;
+    correoContacto: string | null;
+  } | null,
+): ContactoSitio {
+  return {
+    whatsapp: t?.whatsapp ?? null,
+    canalWhatsapp: t?.canalWhatsapp ?? null,
+    instagram: t?.instagram ?? null,
+    tiktok: t?.tiktok ?? null,
+    correo: t?.correoContacto ?? null,
+  };
+}
 
 const PERSONA = { select: { id: true, nombre: true } } as const;
 
@@ -362,14 +381,72 @@ export class SitioService {
     });
     return {
       paleta: esPaletaSitio(t?.paleta) ? t.paleta : PALETA_PREDETERMINADA,
+      contacto: contactoDe(t),
       actualizadoEn: iso(t?.actualizadoEn),
       actualizadoPor: t?.actualizadoPor ?? null,
     };
   }
 
+  /**
+   * Tema, contacto y los nombres de los métodos de cobro activos. Nunca las
+   * instrucciones de pago (cuentas, teléfonos): esas solo se ven al pagar.
+   */
   async temaPublico(): Promise<TemaSitioPublico> {
-    const t = await this.prisma.temaSitio.findUnique({ where: { id: 1 } });
-    return { paleta: esPaletaSitio(t?.paleta) ? t.paleta : PALETA_PREDETERMINADA };
+    const [t, metodos] = await Promise.all([
+      this.prisma.temaSitio.findUnique({ where: { id: 1 } }),
+      this.prisma.metodoCobro.findMany({
+        where: { activo: true, OR: [{ pasarela: null }, { pasarela: { not: 'sandbox' } }] },
+        select: { nombre: true, moneda: true },
+        orderBy: [{ orden: 'asc' }, { creadoEn: 'asc' }],
+      }),
+    ]);
+    const vistos = new Set<string>();
+    return {
+      paleta: esPaletaSitio(t?.paleta) ? t.paleta : PALETA_PREDETERMINADA,
+      contacto: contactoDe(t),
+      metodosPago: metodos.filter((m) => {
+        const clave = `${m.nombre.toLowerCase()}|${m.moneda}`;
+        if (vistos.has(clave)) return false;
+        vistos.add(clave);
+        return true;
+      }),
+    };
+  }
+
+  async cambiarContacto(
+    auth: ContextoAuth,
+    contacto: ContactoSitio,
+    cliente: InfoCliente,
+  ): Promise<TemaSitio> {
+    const datos = {
+      whatsapp: contacto.whatsapp,
+      canalWhatsapp: contacto.canalWhatsapp,
+      instagram: contacto.instagram,
+      tiktok: contacto.tiktok,
+      correoContacto: contacto.correo,
+      actualizadoPorId: auth.usuario.id,
+    };
+    await this.prisma.$transaction(async (tx) => {
+      const antes = await tx.temaSitio.findUnique({ where: { id: 1 } });
+      await tx.temaSitio.upsert({
+        where: { id: 1 },
+        create: { id: 1, ...datos },
+        update: datos,
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'contacto_sitio.cambiado',
+          entidad: 'tema_sitio',
+          entidadId: null,
+          antes: contactoDe(antes),
+          despues: contacto,
+          cliente,
+        },
+        tx,
+      );
+    });
+    return this.tema();
   }
 
   async cambiarTema(

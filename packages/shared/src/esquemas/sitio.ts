@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { IDS_PALETAS } from '../sitio-paletas.js';
 import { enlacesDelTexto, esEnlaceSeguro } from '../sitio-texto.js';
-import { textoOpcional, uuidSchema } from './comunes.js';
+import { correoSchema, textoOpcional, uuidSchema } from './comunes.js';
 
 export * from '../sitio-paletas.js';
 export * from '../sitio-texto.js';
@@ -415,5 +415,60 @@ export const temaSitioSchema = z.object({
   paleta: z.enum(IDS_PALETAS, { error: 'Elige una paleta.' }),
 });
 export type TemaSitioEntrada = z.infer<typeof temaSitioSchema>;
+
+// ---------------------------------------------------------------------------
+// Contacto del sitio: WhatsApp, canal y redes (pie de página y botón de soporte)
+
+const vacioANulo = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
+/** Enlace https:// de uno de los dominios indicados (o sus subdominios), sin espacios. */
+const enlaceDe = (dominios: readonly string[], mensaje: string) => {
+  const hosts = dominios.map((d) => d.replace(/\./g, '\\.')).join('|');
+  const forma = new RegExp(`^https://([a-z0-9-]+\\.)*(${hosts})(:443)?(/[^\\s"'<>]*)?$`, 'i');
+  return z.preprocess(
+    vacioANulo,
+    z
+      .string()
+      .trim()
+      .max(300, 'El enlace no puede superar 300 caracteres.')
+      .regex(forma, mensaje)
+      .nullable(),
+  );
+};
+
+export const contactoSitioSchema = z.object({
+  /** Número de WhatsApp de soporte con el código de país, solo dígitos (p. ej. 584141234567). */
+  whatsapp: z.preprocess(
+    (v) => (typeof v === 'string' ? v.replace(/[\s().+-]/g, '') || null : v),
+    z
+      .string()
+      .regex(
+        /^[1-9]\d{7,14}$/,
+        'Escribe el número con el código de país, solo números (p. ej. 584141234567).',
+      )
+      .nullable(),
+  ),
+  canalWhatsapp: enlaceDe(
+    ['whatsapp.com'],
+    'Pega el enlace del canal o grupo (https://whatsapp.com/channel/…).',
+  ),
+  instagram: enlaceDe(['instagram.com'], 'Pega el enlace del perfil (https://instagram.com/…).'),
+  tiktok: enlaceDe(['tiktok.com'], 'Pega el enlace del perfil (https://tiktok.com/@…).'),
+  correo: z.preprocess(vacioANulo, correoSchema.nullable()),
+});
+export type ContactoSitio = z.output<typeof contactoSitioSchema>;
+
+export const CONTACTO_VACIO: ContactoSitio = {
+  whatsapp: null,
+  canalWhatsapp: null,
+  instagram: null,
+  tiktok: null,
+  correo: null,
+};
+
+/** Enlace para abrir un chat de WhatsApp con el número (y un texto opcional). */
+export function enlaceWhatsapp(numero: string, texto?: string): string {
+  return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
+}
 
 export * from '../sitio-inicio.js';

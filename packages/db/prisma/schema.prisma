@@ -1139,6 +1139,13 @@ model TemaSitio {
   id               Int      @id @default(1)
   /// Paleta predefinida (ver `PALETAS_SITIO` en @nv/shared).
   paleta           String   @default("nv") @db.VarChar(30)
+  /// Contacto público del sitio (ver `contactoSitioSchema` en @nv/shared). Vacío = no se muestra.
+  /// WhatsApp de soporte: código de país y número, solo dígitos.
+  whatsapp         String?  @db.VarChar(20)
+  canalWhatsapp    String?  @map("canal_whatsapp") @db.VarChar(300)
+  instagram        String?  @db.VarChar(300)
+  tiktok           String?  @db.VarChar(300)
+  correoContacto   String?  @map("correo_contacto") @db.VarChar(254)
   actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
   actualizadoEn    DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 

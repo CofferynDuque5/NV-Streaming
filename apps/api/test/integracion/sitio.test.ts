@@ -299,14 +299,96 @@ describe('editor visual: imágenes y tema', () => {
   it('administración cambia la paleta y el público la ve', async () => {
     const e = await escenario();
     const publico = new Navegador(ctx.app, null);
-    expect((await publico.get('/sitio/publico/tema')).cuerpo).toEqual({ paleta: 'nv' });
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.paleta).toBe('nv');
     expect((await e.operador.get('/sitio/tema')).cuerpo.paleta).toBe('nv');
     expect((await e.admin.pedir('PUT', '/sitio/tema', { paleta: 'neon' })).estado).toBe(400);
     const r = await e.admin.pedir('PUT', '/sitio/tema', { paleta: 'esmeralda' });
     expect(r.estado).toBe(200);
     expect(r.cuerpo.actualizadoPor.nombre).toBeTruthy();
-    expect((await publico.get('/sitio/publico/tema')).cuerpo).toEqual({ paleta: 'esmeralda' });
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.paleta).toBe('esmeralda');
     const a = await ctx.prisma.auditoria.findFirst({ where: { accion: 'tema_sitio.cambiado' } });
     expect(a?.despues).toEqual({ paleta: 'esmeralda' });
+  });
+});
+
+describe('contacto del sitio y métodos de pago públicos', () => {
+  it('sin configurar no hay contacto; administración lo guarda y el público lo ve', async () => {
+    const e = await escenario();
+    const publico = new Navegador(ctx.app, null);
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.contacto).toEqual({
+      whatsapp: null,
+      canalWhatsapp: null,
+      instagram: null,
+      tiktok: null,
+      correo: null,
+    });
+
+    const contacto = {
+      whatsapp: '+58 (414) 123-4567',
+      canalWhatsapp: 'https://whatsapp.com/channel/0029VaNvStreaming',
+      instagram: 'https://www.instagram.com/nvstreaming',
+      tiktok: '',
+      correo: ' Soporte@NV-Streaming.com ',
+    };
+    // Operación edita borradores pero no cambia el contacto del sitio.
+    expect((await e.operador.pedir('PUT', '/sitio/contacto', contacto)).estado).toBe(403);
+    const r = await e.admin.pedir('PUT', '/sitio/contacto', contacto);
+    expect(r.estado).toBe(200);
+    const esperado = {
+      whatsapp: '584141234567',
+      canalWhatsapp: 'https://whatsapp.com/channel/0029VaNvStreaming',
+      instagram: 'https://www.instagram.com/nvstreaming',
+      tiktok: null,
+      correo: 'soporte@nv-streaming.com',
+    };
+    expect(r.cuerpo.contacto).toEqual(esperado);
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.contacto).toEqual(esperado);
+    const a = await ctx.prisma.auditoria.findFirst({
+      where: { accion: 'contacto_sitio.cambiado' },
+    });
+    expect(a?.despues).toEqual(esperado);
+  });
+
+  it('valida cada campo con un mensaje claro', async () => {
+    const e = await escenario();
+    const r = await e.admin.pedir('PUT', '/sitio/contacto', {
+      whatsapp: '0414-123',
+      canalWhatsapp: 'https://evil.example/whatsapp.com',
+      instagram: 'http://instagram.com/nv',
+      tiktok: 'javascript:alert(1)',
+      correo: 'no-es-correo',
+    });
+    expect(r.estado).toBe(400);
+    expect(Object.keys(r.cuerpo.error.campos).sort()).toEqual([
+      'canalWhatsapp',
+      'correo',
+      'instagram',
+      'tiktok',
+      'whatsapp',
+    ]);
+    expect(r.cuerpo.error.campos.whatsapp[0]).toMatch(/código de país/);
+  });
+
+  it('nombra los métodos de cobro activos sin sus datos de pago', async () => {
+    const e = await escenario();
+    const crear = (nombre: string, moneda: string, extra: Record<string, unknown> = {}) =>
+      e.admin.post('/finanzas/metodos-cobro', {
+        nombre,
+        moneda,
+        instrucciones: 'Cuenta 0102-0000-00 a nombre de NV',
+        ...extra,
+      });
+    expect((await crear('Pago Móvil', 'VES', { orden: 1 })).estado).toBe(201);
+    expect((await crear('Zelle', 'USD', { orden: 2 })).estado).toBe(201);
+    expect((await crear('Pago Móvil', 'VES', { orden: 3 })).estado).toBe(201);
+    const inactivo = await crear('Efectivo', 'USD', { orden: 4 });
+    await e.admin.patch(`/finanzas/metodos-cobro/${inactivo.cuerpo.id}`, { activo: false });
+
+    const r = await new Navegador(ctx.app, null).get('/sitio/publico/tema');
+    expect(r.cuerpo.metodosPago).toEqual([
+      { nombre: 'Pago Móvil', moneda: 'VES' },
+      { nombre: 'Zelle', moneda: 'USD' },
+    ]);
+    expect(JSON.stringify(r.cuerpo)).not.toContain('0102');
   });
 });

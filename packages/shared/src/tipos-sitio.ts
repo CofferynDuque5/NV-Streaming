@@ -1,5 +1,6 @@
 /** Tipos de respuesta del editor visual (fase 2). */
-import type { BloqueSitio, PaletaSitio } from './esquemas/sitio.js';
+import type { BloqueSitio, ContactoSitio, PaletaSitio } from './esquemas/sitio.js';
+import type { Moneda } from './monedas.js';
 
 export interface ReferenciaPersona {
   id: string;
@@ -60,12 +61,22 @@ export interface MedioSitio {
 
 export interface TemaSitio {
   paleta: PaletaSitio;
+  contacto: ContactoSitio;
   actualizadoEn: string | null;
   actualizadoPor: ReferenciaPersona | null;
 }
 
+/** Método de cobro tal como se nombra al público (sin datos de la cuenta). */
+export interface MetodoPagoSitio {
+  nombre: string;
+  moneda: Moneda;
+}
+
 export interface TemaSitioPublico {
   paleta: PaletaSitio;
+  contacto: ContactoSitio;
+  /** Métodos de cobro activos, sin repetir nombre y moneda, en el orden del panel. */
+  metodosPago: MetodoPagoSitio[];
 }
 
 /** Dirección pública de una imagen del sitio. */

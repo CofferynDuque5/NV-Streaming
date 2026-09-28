@@ -14,6 +14,7 @@ import {
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import {
   consultaPaginaPublicaSchema,
+  contactoSitioSchema,
   crearPaginaSchema,
   guardarBorradorSchema,
   publicarPaginaSchema,
@@ -168,6 +169,18 @@ export class SitioController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.sitio.cambiarTema(auth, cuerpo.paleta, cliente);
+  }
+
+  /** WhatsApp de soporte, canal, redes y correo que muestra el sitio. */
+  @Put('contacto')
+  @RequierePermiso('sitio.publicar')
+  @DocCuerpo(contactoSitioSchema)
+  cambiarContacto(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(contactoSitioSchema)) cuerpo: z.output<typeof contactoSitioSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.sitio.cambiarContacto(auth, cuerpo, cliente);
   }
 }
 
