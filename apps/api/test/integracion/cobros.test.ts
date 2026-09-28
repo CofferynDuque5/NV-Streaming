@@ -109,6 +109,83 @@ describe('catálogo y monedas', () => {
     );
   });
 
+  it('la categoría y la descripción del servicio llegan al catálogo público', async () => {
+    const e = await escenario();
+    const r = await e.admin.patch(`/catalogo/servicios/${e.servicioId}`, {
+      categoria: 'musica',
+      descripcion: 'Películas con licencia.',
+    });
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.categoria).toBe('musica');
+    const publico = (await new Navegador(ctx.app).get('/catalogo')).cuerpo;
+    expect(publico.servicios).toEqual([
+      {
+        id: e.servicioId,
+        nombre: 'NV Cine',
+        slug: 'nv-cine',
+        descripcion: 'Películas con licencia.',
+        categoria: 'musica',
+      },
+    ]);
+    // Una categoría que no existe se rechaza; vacía la quita.
+    const mala = await e.admin.patch(`/catalogo/servicios/${e.servicioId}`, {
+      categoria: 'cocina',
+    });
+    expect(mala.estado).toBe(400);
+    expect(mala.cuerpo.error.campos.categoria).toBeDefined();
+    const sin = await e.admin.patch(`/catalogo/servicios/${e.servicioId}`, { categoria: '' });
+    expect(sin.cuerpo.categoria).toBeNull();
+    // Un servicio sin planes a la venta no aparece en la lista pública.
+    await e.admin.patch(`/catalogo/planes/${e.planId}`, { visible: false });
+    expect((await new Navegador(ctx.app).get('/catalogo')).cuerpo.servicios).toEqual([]);
+  });
+
+  it('lo más pedido ordena los servicios por periodos pagados en los últimos 30 días', async () => {
+    const e = await escenario();
+    const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();
+    const musica = await e.admin.post('/catalogo/servicios', {
+      proveedorId: proveedor.id,
+      nombre: 'NV Música',
+      slug: 'nv-musica',
+      categoria: 'musica',
+    });
+    expect(musica.estado).toBe(201);
+    const planMusica = await e.admin.post('/catalogo/planes', {
+      servicioId: musica.cuerpo.id,
+      nombre: 'Individual',
+      precioUsd: '3.00',
+      duracionCantidad: 1,
+      duracionUnidad: 'mes',
+    });
+    expect((await new Navegador(ctx.app).get('/catalogo')).cuerpo.masPedidos).toEqual([]);
+
+    const cliente = await ctx.prisma.cliente.create({ data: { nombre: 'Cliente del ranking' } });
+    const periodos = async (planId: string, tipos: string[], hace = 0) => {
+      const s = await ctx.prisma.suscripcion.create({
+        data: { clienteId: cliente.id, planId, moneda: 'USD', estado: 'activa' },
+      });
+      for (const tipo of tipos) {
+        await ctx.prisma.eventoSuscripcion.create({
+          data: {
+            suscripcionId: s.id,
+            tipo: tipo as 'activacion',
+            creadoEn: new Date(Date.now() - hace * DIA),
+          },
+        });
+      }
+    };
+    // Música: dos periodos pagados este mes. Cine: uno este mes y varios viejos o sin pagar.
+    await periodos(planMusica.cuerpo.id, ['alta', 'activacion', 'renovacion']);
+    await periodos(e.planId, ['alta', 'activacion']);
+    await periodos(e.planId, ['activacion', 'renovacion', 'renovacion'], 45);
+    await periodos(e.planId, ['alta', 'cancelacion']);
+
+    const publico = (await new Navegador(ctx.app).get('/catalogo')).cuerpo;
+    expect(publico.masPedidos).toEqual([musica.cuerpo.id, e.servicioId]);
+    // Solo el orden: la respuesta no publica cuántas ventas hubo.
+    expect(JSON.stringify(publico)).not.toMatch(/"(n|ventas|cantidad)":/);
+  });
+
   it('un plan oculto no aparece en el sitio ni lo puede contratar el cliente', async () => {
     const e = await escenario();
     await e.admin.patch(`/catalogo/planes/${e.planId}`, { visible: false });

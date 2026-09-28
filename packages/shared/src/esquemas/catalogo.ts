@@ -7,6 +7,33 @@ export type TipoProveedor = (typeof TIPOS_PROVEEDOR)[number];
 export const UNIDADES_DURACION = ['dia', 'mes'] as const;
 export type UnidadDuracion = (typeof UNIDADES_DURACION)[number];
 
+/**
+ * Universos de la tienda. Cada servicio pertenece a uno (o a ninguno: entonces
+ * solo aparece en «Todo»). El orden es el de la franja de categorías.
+ */
+export const CATEGORIAS_SERVICIO = [
+  'streaming',
+  'musica',
+  'ia',
+  'juegos',
+  'software',
+  'nube',
+] as const;
+export type CategoriaServicio = (typeof CATEGORIAS_SERVICIO)[number];
+
+export const INFO_CATEGORIA: Record<CategoriaServicio, { nombre: string; descripcion: string }> = {
+  streaming: { nombre: 'Streaming', descripcion: 'Películas, series y TV' },
+  musica: { nombre: 'Música', descripcion: 'Música y podcasts sin anuncios' },
+  ia: { nombre: 'IA', descripcion: 'Asistentes para crear y estudiar' },
+  juegos: { nombre: 'Juegos', descripcion: 'Tarjetas, pases y más' },
+  software: { nombre: 'Software', descripcion: 'Oficina y productividad' },
+  nube: { nombre: 'Nube', descripcion: 'Espacio para tus archivos' },
+};
+
+export function esCategoriaServicio(v: unknown): v is CategoriaServicio {
+  return typeof v === 'string' && (CATEGORIAS_SERVICIO as readonly string[]).includes(v);
+}
+
 export const proveedorSchema = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
   tipo: z.enum(TIPOS_PROVEEDOR, { error: 'Elige el tipo de proveedor.' }),
@@ -28,6 +55,14 @@ export const servicioSchema = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
   slug: slugSchema,
   descripcion: textoOpcional(1000),
+  /** Universo de la tienda; vacío = sin categoría. */
+  categoria: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z
+      .enum(CATEGORIAS_SERVICIO, { error: 'Elige una categoría de la lista.' })
+      .nullable()
+      .optional(),
+  ),
   activo: z.boolean().default(true),
 });
 export type ServicioEntrada = z.infer<typeof servicioSchema>;

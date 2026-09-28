@@ -9,6 +9,7 @@ import {
   type PrecioFijoEntrada,
   type ProveedorEntrada,
   type ProveedorPublico,
+  type ServicioCatalogo,
   type ServicioEntrada,
   type ServicioPublico,
 } from '@nv/shared';
@@ -21,7 +22,7 @@ import { D, type MapaTasas, preciosPorMoneda } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 
 export type PlanCompleto = Plan & {
-  servicio: Pick<Servicio, 'id' | 'nombre' | 'slug' | 'activo'> & {
+  servicio: Pick<Servicio, 'id' | 'nombre' | 'slug' | 'activo' | 'descripcion' | 'categoria'> & {
     proveedor: Pick<Proveedor, 'activo'>;
   };
   preciosFijos: PrecioFijo[];
@@ -34,6 +35,8 @@ export const INCLUIR_PLAN = {
       nombre: true,
       slug: true,
       activo: true,
+      descripcion: true,
+      categoria: true,
       proveedor: { select: { activo: true } },
     },
   },
@@ -75,8 +78,12 @@ const servicioPublico = (
   nombre: s.nombre,
   slug: s.slug,
   descripcion: s.descripcion,
+  categoria: s.categoria,
   activo: s.activo,
 });
+
+/** Días que cuenta «Lo más pedido». */
+const DIAS_MAS_PEDIDOS = 30;
 
 const proveedorPublico = (p: Proveedor & { _count: { servicios: number } }): ProveedorPublico => ({
   id: p.id,
@@ -123,7 +130,7 @@ export class CatalogoService {
   // ── Público ────────────────────────────────────────────────────────────────
 
   async publico(): Promise<CatalogoPublico> {
-    const [planes, tasas, vigentes] = await Promise.all([
+    const [planes, tasas, vigentes, pedidos] = await Promise.all([
       this.prisma.plan.findMany({
         where: { ...planVendible, visible: true },
         include: INCLUIR_PLAN,
@@ -131,14 +138,47 @@ export class CatalogoService {
       }),
       this.tasas.mapa(),
       this.tasas.vigentes(),
+      this.pedidosPorServicio(),
     ]);
+    const servicios = new Map<string, ServicioCatalogo>();
+    for (const { servicio: s } of planes) {
+      if (!servicios.has(s.id)) {
+        servicios.set(s.id, {
+          id: s.id,
+          nombre: s.nombre,
+          slug: s.slug,
+          descripcion: s.descripcion,
+          categoria: s.categoria,
+        });
+      }
+    }
     return {
       planes: planes.map((p) => planPublico(p, tasas)),
+      servicios: [...servicios.values()],
+      masPedidos: pedidos.filter((id) => servicios.has(id)),
       monedas: MONEDAS.filter(
         (m) => tasas.has(m) || planes.some((p) => p.preciosFijos.some((f) => f.moneda === m)),
       ),
       tasas: vigentes,
     };
+  }
+
+  /**
+   * Servicios ordenados por periodos pagados (altas, renovaciones y
+   * recuperaciones) en los últimos 30 días. Solo el orden: nunca las cifras.
+   */
+  private async pedidosPorServicio(): Promise<string[]> {
+    const desde = new Date(Date.now() - DIAS_MAS_PEDIDOS * 24 * 3600_000);
+    const filas = await this.prisma.$queryRaw<{ servicio_id: string }[]>`
+      SELECT p.servicio_id::text AS servicio_id
+        FROM eventos_suscripcion e
+        JOIN suscripciones s ON s.id = e.suscripcion_id
+        JOIN planes p ON p.id = s.plan_id
+       WHERE e.tipo IN ('activacion', 'renovacion', 'recuperacion')
+         AND e.creado_en >= ${desde}
+       GROUP BY p.servicio_id
+       ORDER BY count(*) DESC, min(p.orden) ASC`;
+    return filas.map((f) => f.servicio_id);
   }
 
   // ── Proveedores ────────────────────────────────────────────────────────────
@@ -195,7 +235,7 @@ export class CatalogoService {
         throw Errores.noEncontrado('El proveedor');
       }
       const s = await tx.servicio.create({
-        data: { ...e, descripcion: e.descripcion ?? null },
+        data: { ...e, descripcion: e.descripcion ?? null, categoria: e.categoria ?? null },
         include: { proveedor: { select: { id: true, nombre: true, tipo: true } } },
       });
       return { id: s.id, antes: undefined, resultado: servicioPublico(s) };

@@ -104,6 +104,7 @@ async function sembrarNegocio() {
       proveedorId: propio.id,
       nombre: 'NV Cine',
       slug: 'nv-cine',
+      categoria: 'streaming',
       descripcion: 'Películas y series con licencia, en alta definición.',
     },
   });
@@ -112,6 +113,7 @@ async function sembrarNegocio() {
       proveedorId: propio.id,
       nombre: 'NV Música',
       slug: 'nv-musica',
+      categoria: 'musica',
       descripcion: 'Música sin anuncios y descargas para escuchar sin conexión.',
     },
   });

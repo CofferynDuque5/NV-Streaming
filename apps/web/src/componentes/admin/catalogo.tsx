@@ -1,6 +1,8 @@
 'use client';
 
 import {
+  CATEGORIAS_SERVICIO,
+  INFO_CATEGORIA,
   INFO_MONEDA,
   type MonedaConTasa,
   type PlanPublico,
@@ -263,6 +265,7 @@ function FormularioServicio({
       nombre: textoDe(d, 'nombre') ?? '',
       slug: textoDe(d, 'slug') ?? '',
       descripcion: servicio ? descripcion : descripcion || undefined,
+      categoria: String(d.get('categoria') ?? '') || null,
       activo: marcada(d, 'activo'),
     };
     const r = servicio
@@ -325,12 +328,27 @@ function FormularioServicio({
           ))}
         </Selector>
       )}
+      <Selector
+        etiqueta="Categoría en la tienda"
+        name="categoria"
+        defaultValue={servicio?.categoria ?? ''}
+        error={campos.categoria}
+        ayuda="El universo donde aparece en el menú y en el catálogo. Sin categoría solo sale en «Todo»."
+      >
+        <option value="">Sin categoría</option>
+        {CATEGORIAS_SERVICIO.map((c) => (
+          <option key={c} value={c}>
+            {INFO_CATEGORIA[c].nombre}
+          </option>
+        ))}
+      </Selector>
       <AreaTexto
         etiqueta="Descripción"
         name="descripcion"
         rows={2}
         defaultValue={servicio?.descripcion ?? ''}
         error={campos.descripcion}
+        ayuda="Se muestra en la página del servicio en la tienda."
       />
       <Casilla
         name="activo"
@@ -420,6 +438,10 @@ export function ListaServicios({
                       <code className="font-mono text-xs text-tinta-suave">{s.slug}</code>
                       <span aria-hidden="true">·</span>
                       <span>{s.proveedor.nombre}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {s.categoria ? INFO_CATEGORIA[s.categoria].nombre : 'Sin categoría'}
+                      </span>
                     </p>
                   </div>
                   {puedeGestionar && (

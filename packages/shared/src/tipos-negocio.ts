@@ -1,4 +1,4 @@
-import type { TipoProveedor, UnidadDuracion } from './esquemas/catalogo.js';
+import type { CategoriaServicio, TipoProveedor, UnidadDuracion } from './esquemas/catalogo.js';
 import type { EstadoCliente } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';
@@ -89,6 +89,7 @@ export interface ServicioPublico {
   nombre: string;
   slug: string;
   descripcion: string | null;
+  categoria: CategoriaServicio | null;
   activo: boolean;
 }
 
@@ -307,8 +308,24 @@ export interface ResumenCliente {
   ticketsAbiertos: number;
 }
 
+/** Servicio con al menos un plan a la venta, tal como lo ve el público. */
+export interface ServicioCatalogo {
+  id: string;
+  nombre: string;
+  slug: string;
+  descripcion: string | null;
+  categoria: CategoriaServicio | null;
+}
+
 export interface CatalogoPublico {
   planes: PlanPublico[];
+  /** Servicios que tienen planes en `planes`, en el orden del catálogo. */
+  servicios: ServicioCatalogo[];
+  /**
+   * Ids de servicio ordenados por activaciones y renovaciones de los últimos
+   * 30 días (solo los que tuvieron alguna). Es el orden de «Lo más pedido».
+   */
+  masPedidos: string[];
   monedas: Moneda[];
   tasas: TasaVigente[];
 }
