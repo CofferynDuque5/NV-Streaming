@@ -1,10 +1,4 @@
-import {
-  type CatalogoPublico,
-  esPaletaSitio,
-  PALETA_PREDETERMINADA,
-  type PaginaPublicada,
-  type PaletaSitio,
-} from '@nv/shared';
+import { type CatalogoPublico, type PaginaPublicada } from '@nv/shared';
 import type { Metadata } from 'next';
 import type { ContextoBloques } from '@/componentes/bloques/bloques';
 import { monedaValida } from '@/componentes/planes';
@@ -34,17 +28,6 @@ export async function leerPaginaPublicada(
     return r.ok ? ((await r.json()) as PaginaPublicada) : undefined;
   } catch {
     return undefined;
-  }
-}
-
-/** Paleta elegida para el sitio; la de NV si la API no responde. */
-export async function leerPaletaSitio(): Promise<PaletaSitio> {
-  try {
-    const r = await fetch(`${API}/api/v1/sitio/publico/tema`, CACHE_SITIO);
-    const datos = r.ok ? ((await r.json()) as { paleta?: unknown }) : null;
-    return esPaletaSitio(datos?.paleta) ? datos.paleta : PALETA_PREDETERMINADA;
-  } catch {
-    return PALETA_PREDETERMINADA;
   }
 }
 

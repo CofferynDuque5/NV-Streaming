@@ -29,3 +29,31 @@ export function Logo({ href = '/', className }: { href?: string; className?: str
     </Link>
   );
 }
+
+/** Logo de la tienda: la marca NV y «Streaming · Nathan y Valeryn». */
+export function LogoTienda({ className }: { className?: string }) {
+  return (
+    <Link
+      href="/"
+      className={clsx('inline-flex shrink-0 items-center gap-2 rounded-lg', className)}
+      aria-label="NV Streaming, inicio"
+    >
+      <img
+        src="/marca/marca.webp"
+        alt=""
+        width={62}
+        height={48}
+        decoding="async"
+        className="h-10 w-auto nav:h-12"
+      />
+      <span className="grid leading-none">
+        <b className="font-titulo text-[0.95rem] font-extrabold tracking-[0.28em] nav:text-[1.05rem]">
+          STREAMING
+        </b>
+        <span className="texto-degradado mt-1 text-[0.58rem] font-bold tracking-[0.2em] whitespace-nowrap">
+          NATHAN Y VALERYN
+        </span>
+      </span>
+    </Link>
+  );
+}

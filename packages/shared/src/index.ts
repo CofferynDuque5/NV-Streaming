@@ -28,3 +28,4 @@ export * from './entregas.js';
 export * from './tipos-entregas.js';
 export * from './esquemas/billetera.js';
 export * from './tipos-billetera.js';
+export * from './tienda.js';
