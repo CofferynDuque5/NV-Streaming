@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { ProveedorNotificaciones } from '@/componentes/ui/notificaciones';
 import { fuenteTexto, fuenteTitulo } from '@/lib/fuentes';
 import './globals.css';
 
@@ -19,16 +20,16 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#060912' },
-    { media: '(prefers-color-scheme: light)', color: '#f5f7fc' },
-  ],
+  themeColor: '#04050d',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es" className={`${fuenteTexto.variable} ${fuenteTitulo.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ProveedorNotificaciones>{children}</ProveedorNotificaciones>
+      </body>
     </html>
   );
 }

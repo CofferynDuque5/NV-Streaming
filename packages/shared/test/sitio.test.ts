@@ -4,12 +4,14 @@ import {
   BLOQUES_INICIO,
   contenidoPaginaSchema,
   contraste,
+  cssPaleta,
   crearPaginaSchema,
   enlaceSchema,
   esEnlaceSeguro,
   FONDOS_SITIO,
   guardarBorradorSchema,
   MAX_BLOQUES,
+  mezcla,
   PALETAS_SITIO,
   RUTA_PAGINA_REGEX,
   RUTAS_RESERVADAS,
@@ -210,23 +212,29 @@ describe('marcado del bloque de texto', () => {
 });
 
 describe('paletas del sitio', () => {
-  it('el texto sobre el color de la marca cumple WCAG AA en los dos modos', () => {
+  it('el texto sobre la marca y el botón principal cumple WCAG AA', () => {
     for (const [id, p] of Object.entries(PALETAS_SITIO)) {
-      for (const modo of ['oscuro', 'claro'] as const) {
-        const c = p[modo];
-        const fondos = FONDOS_SITIO[modo];
-        const casos = {
-          'tinta/marca': contraste(c.marcaTinta, c.marca),
-          'tinta/marca fuerte': contraste(c.marcaTinta, c.marcaFuerte),
-          'marca/fondo': contraste(c.marca, fondos.fondo),
-          'marca/superficie': contraste(c.marca, fondos.superficie),
-          'acento/fondo': contraste(c.acento, fondos.fondo),
-        };
-        for (const [caso, valor] of Object.entries(casos)) {
-          expect(valor, `${id} ${modo} ${caso}`).toBeGreaterThanOrEqual(4.5);
-        }
+      const [desde, hasta] = p.boton;
+      const casos = {
+        'tinta/marca': contraste(p.marcaTinta, p.marca),
+        'tinta/marca fuerte': contraste(p.marcaTinta, p.marcaFuerte),
+        'marca/fondo': contraste(p.marca, FONDOS_SITIO.fondo),
+        'marca/superficie': contraste(p.marca, FONDOS_SITIO.superficie),
+        'acento/fondo': contraste(p.acento, FONDOS_SITIO.fondo),
+        'botón/centro': contraste(p.botonTinta, mezcla(desde, hasta)),
+        'botón/abajo': contraste(p.botonTinta, hasta),
+      };
+      for (const [caso, valor] of Object.entries(casos)) {
+        expect(valor, `${id} ${caso}`).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+
+  it('la hoja de la paleta solo lleva variables del modo oscuro', () => {
+    const css = cssPaleta('esmeralda', 'html:root');
+    expect(css).toMatch(/^html:root\{--nv-marca:#34d399;/);
+    expect(css).toContain('--nv-boton-desde:#6ee7b7');
+    expect(css).not.toContain('@media');
   });
 
   it('calcula el contraste como WCAG', () => {

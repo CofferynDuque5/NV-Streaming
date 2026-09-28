@@ -1,53 +1,74 @@
 /**
- * Paletas del sitio público dentro de los límites de la marca NV. Cada una
- * define los colores de marca y acento para el modo oscuro y el claro; el texto
- * sobre la marca (`marcaTinta`) cumple WCAG AA (contraste ≥ 4,5:1).
+ * Paletas del sitio público dentro de los límites de la marca NV. El sitio es
+ * oscuro («cosmos»); cada paleta define la marca (textos y enlaces sobre el
+ * fondo), el acento y el degradado del botón principal. Todo cumple WCAG AA:
+ * el texto sobre la marca y sobre el centro del botón tiene contraste ≥ 4,5:1.
  */
-
-export interface ColoresPaleta {
-  marca: string;
-  marcaFuerte: string;
-  marcaTinta: string;
-  acento: string;
-}
 
 export interface DefinicionPaleta {
   nombre: string;
   descripcion: string;
-  oscuro: ColoresPaleta;
-  claro: ColoresPaleta;
+  marca: string;
+  marcaFuerte: string;
+  /** Texto sobre un relleno de color de marca. */
+  marcaTinta: string;
+  acento: string;
+  /** Degradado vertical del botón principal (arriba, abajo). */
+  boton: readonly [string, string];
+  /** Texto del botón principal. */
+  botonTinta: string;
 }
 
 export const PALETAS_SITIO = {
   nv: {
     nombre: 'NV',
-    descripcion: 'Cian y violeta: el aspecto original de NV Streaming.',
-    oscuro: { marca: '#22c8f5', marcaFuerte: '#5cdcff', marcaTinta: '#041018', acento: '#9b6bff' },
-    claro: { marca: '#0369a1', marcaFuerte: '#075985', marcaTinta: '#ffffff', acento: '#6d3fe0' },
+    descripcion: 'Azul NV con acentos cian y violeta: el aspecto del multiverso NV.',
+    marca: '#5b98ff',
+    marcaFuerte: '#8fb6ff',
+    marcaTinta: '#04050d',
+    acento: '#22d3ee',
+    boton: ['#4d8dfb', '#1d4ed8'],
+    botonTinta: '#ffffff',
   },
   esmeralda: {
     nombre: 'Esmeralda',
     descripcion: 'Verde esmeralda con acento azul cielo.',
-    oscuro: { marca: '#34d399', marcaFuerte: '#6ee7b7', marcaTinta: '#03140d', acento: '#38bdf8' },
-    claro: { marca: '#047857', marcaFuerte: '#065f46', marcaTinta: '#ffffff', acento: '#0369a1' },
+    marca: '#34d399',
+    marcaFuerte: '#6ee7b7',
+    marcaTinta: '#03140d',
+    acento: '#38bdf8',
+    boton: ['#6ee7b7', '#34d399'],
+    botonTinta: '#03140d',
   },
   atardecer: {
     nombre: 'Atardecer',
     descripcion: 'Naranja cálido con acento rosa.',
-    oscuro: { marca: '#fb923c', marcaFuerte: '#fdba74', marcaTinta: '#1a0a02', acento: '#f472b6' },
-    claro: { marca: '#c2410c', marcaFuerte: '#9a3412', marcaTinta: '#ffffff', acento: '#be185d' },
+    marca: '#fb923c',
+    marcaFuerte: '#fdba74',
+    marcaTinta: '#1a0a02',
+    acento: '#f472b6',
+    boton: ['#fdba74', '#fb923c'],
+    botonTinta: '#1a0a02',
   },
   violeta: {
     nombre: 'Violeta',
     descripcion: 'Violeta intenso con acento turquesa.',
-    oscuro: { marca: '#a78bfa', marcaFuerte: '#c4b5fd', marcaTinta: '#12072e', acento: '#22d3ee' },
-    claro: { marca: '#6d28d9', marcaFuerte: '#5b21b6', marcaTinta: '#ffffff', acento: '#0e7490' },
+    marca: '#a78bfa',
+    marcaFuerte: '#c4b5fd',
+    marcaTinta: '#12072e',
+    acento: '#22d3ee',
+    boton: ['#8b5cf6', '#6d28d9'],
+    botonTinta: '#ffffff',
   },
   dorado: {
     nombre: 'Dorado',
     descripcion: 'Ámbar dorado con acento coral.',
-    oscuro: { marca: '#fbbf24', marcaFuerte: '#fcd34d', marcaTinta: '#1a1002', acento: '#fb7185' },
-    claro: { marca: '#a16207', marcaFuerte: '#854d0e', marcaTinta: '#ffffff', acento: '#be123c' },
+    marca: '#fbbf24',
+    marcaFuerte: '#fcd34d',
+    marcaTinta: '#1a1002',
+    acento: '#fb7185',
+    boton: ['#fcd34d', '#f59e0b'],
+    botonTinta: '#1a1002',
   },
 } as const satisfies Record<string, DefinicionPaleta>;
 
@@ -60,10 +81,19 @@ export function esPaletaSitio(v: unknown): v is PaletaSitio {
 }
 
 /** Fondos del sistema de diseño (globals.css), para comprobar el contraste. */
-export const FONDOS_SITIO = {
-  oscuro: { fondo: '#060912', superficie: '#0b1020' },
-  claro: { fondo: '#f5f7fc', superficie: '#ffffff' },
-} as const;
+export const FONDOS_SITIO = { fondo: '#04050d', superficie: '#0a0e20' } as const;
+
+/** Color intermedio de dos colores hexadecimales: donde se lee la etiqueta del botón. */
+export function mezcla(a: string, b: string): string {
+  const [ca, cb] = [canales(a), canales(b)];
+  return `#${ca
+    .map((v, i) =>
+      Math.round((v + (cb[i] ?? v)) / 2)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
 
 function canales(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
@@ -86,16 +116,19 @@ export function contraste(a: string, b: string): number {
 
 const rgba = (hex: string, alfa: number) => `rgb(${canales(hex).join(' ')} / ${alfa})`;
 
-function variables(c: ColoresPaleta, modo: 'oscuro' | 'claro'): string {
-  const suave = modo === 'oscuro' ? 0.12 : 0.1;
+function variables(p: DefinicionPaleta): string {
   return [
-    `--nv-marca:${c.marca}`,
-    `--nv-marca-fuerte:${c.marcaFuerte}`,
-    `--nv-marca-tinta:${c.marcaTinta}`,
-    `--nv-marca-suave:${rgba(c.marca, suave)}`,
-    `--nv-acento:${c.acento}`,
-    `--nv-acento-suave:${rgba(c.acento, modo === 'oscuro' ? 0.14 : 0.1)}`,
-    `--nv-foco:${modo === 'oscuro' ? c.marcaFuerte : c.marca}`,
+    `--nv-marca:${p.marca}`,
+    `--nv-marca-fuerte:${p.marcaFuerte}`,
+    `--nv-marca-tinta:${p.marcaTinta}`,
+    `--nv-marca-suave:${rgba(p.marca, 0.12)}`,
+    `--nv-acento:${p.acento}`,
+    `--nv-acento-suave:${rgba(p.acento, 0.14)}`,
+    `--nv-boton-desde:${p.boton[0]}`,
+    `--nv-boton-hasta:${p.boton[1]}`,
+    `--nv-boton-tinta:${p.botonTinta}`,
+    `--nv-boton-brillo:${rgba(p.boton[0], 0.7)}`,
+    `--nv-foco:${p.marcaFuerte}`,
   ].join(';');
 }
 
@@ -104,6 +137,6 @@ function variables(c: ColoresPaleta, modo: 'oscuro' | 'claro'): string {
  * valores fijos de `PALETAS_SITIO`: nunca texto que venga del usuario.
  */
 export function cssPaleta(paleta: PaletaSitio, selector: string): string {
-  const p = PALETAS_SITIO[paleta] ?? PALETAS_SITIO.nv;
-  return `${selector}{${variables(p.oscuro, 'oscuro')}}@media (prefers-color-scheme: light){${selector}{${variables(p.claro, 'claro')}}}`;
+  const p: DefinicionPaleta = PALETAS_SITIO[paleta] ?? PALETAS_SITIO.nv;
+  return `${selector}{${variables(p)}}`;
 }

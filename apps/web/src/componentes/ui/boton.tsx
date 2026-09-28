@@ -7,22 +7,22 @@ type Variante = 'primario' | 'secundario' | 'fantasma' | 'peligro';
 type Tamano = 'sm' | 'md' | 'lg';
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-xl font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow] duration-150 disabled:pointer-events-none disabled:opacity-55 aria-disabled:pointer-events-none aria-disabled:opacity-55';
+  'relative inline-flex items-center justify-center gap-2 rounded-[0.875rem] border font-semibold whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform,filter] duration-150 disabled:pointer-events-none disabled:opacity-55 aria-disabled:pointer-events-none aria-disabled:opacity-55';
 
+// Una sola variante principal por bloque (regla de jerarquía); las demás acompañan.
 const variantes: Record<Variante, string> = {
   primario:
-    'bg-marca text-marca-tinta hover:bg-marca-fuerte shadow-[0_8px_24px_-12px_var(--nv-marca)]',
+    'border-transparent bg-[linear-gradient(180deg,var(--nv-boton-desde),var(--nv-boton-hasta))] text-[var(--nv-boton-tinta)] shadow-[0_0_0_1px_rgb(255_255_255/0.12)_inset,0_10px_30px_-10px_var(--nv-boton-brillo)] hover:shadow-[0_0_0_1px_rgb(255_255_255/0.2)_inset,0_14px_36px_-10px_var(--nv-boton-brillo)] hover:brightness-110 active:translate-y-px',
   secundario:
-    'border border-borde-fuerte bg-superficie text-tinta hover:bg-elevada hover:border-tinta-tenue',
-  fantasma: 'text-tinta-suave hover:bg-hundida hover:text-tinta',
-  peligro:
-    'border border-peligro/40 bg-peligro-suave text-peligro hover:bg-peligro hover:text-white',
+    'border-borde-fuerte bg-white/[0.03] text-tinta hover:border-cian hover:bg-white/[0.06]',
+  fantasma: 'border-transparent text-tinta-suave hover:bg-white/[0.05] hover:text-tinta',
+  peligro: 'border-peligro/40 bg-peligro-suave text-peligro hover:bg-peligro hover:text-fondo',
 };
 
 const tamanos: Record<Tamano, string> = {
-  sm: 'h-8 px-3 text-sm',
-  md: 'h-10 px-4 text-sm',
-  lg: 'h-12 px-6 text-base',
+  sm: 'h-9 px-3.5 text-sm',
+  md: 'h-11 px-5 text-sm',
+  lg: 'h-12 px-6 text-[0.95rem]',
 };
 
 export function clasesBoton(

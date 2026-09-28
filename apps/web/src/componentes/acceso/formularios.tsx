@@ -1,15 +1,13 @@
 'use client';
 
-import { LONGITUD_MINIMA_CONTRASENA } from '@nv/shared';
 import { MailCheck } from 'lucide-react';
 import Link from 'next/link';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
+import { CampoContrasenaNueva } from '@/componentes/ui/lista-contrasena';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
-
-const AYUDA_CONTRASENA = `Al menos ${LONGITUD_MINIMA_CONTRASENA} caracteres. Una frase fácil de recordar funciona muy bien.`;
 
 /** Envía un formulario a la API y gestiona carga, errores y éxito. */
 function useEnvio<T>(ruta: string, preparar: (datos: FormData) => unknown) {
@@ -82,15 +80,7 @@ export function FormularioRegistro() {
         required
         error={campos.correo}
       />
-      <Campo
-        etiqueta="Contraseña"
-        name="contrasena"
-        type="password"
-        autoComplete="new-password"
-        required
-        error={campos.contrasena}
-        ayuda={AYUDA_CONTRASENA}
-      />
+      <CampoContrasenaNueva etiqueta="Contraseña" error={campos.contrasena} />
       <div className="grid gap-1.5">
         <label className="flex items-start gap-3 text-sm text-tinta-suave">
           <input
@@ -179,15 +169,7 @@ export function FormularioRestablecer({ token }: { token: string }) {
   return (
     <form onSubmit={enviar} className="grid gap-4" noValidate>
       <EnlaceInvalido error={error} ruta="/recuperar" />
-      <Campo
-        etiqueta="Contraseña nueva"
-        name="contrasena"
-        type="password"
-        autoComplete="new-password"
-        required
-        error={campos.contrasena}
-        ayuda={AYUDA_CONTRASENA}
-      />
+      <CampoContrasenaNueva etiqueta="Contraseña nueva" error={campos.contrasena} />
       <Boton type="submit" tamano="lg" cargando={cargando} className="w-full">
         Guardar contraseña
       </Boton>
@@ -221,15 +203,7 @@ export function FormularioInvitacion({ token }: { token: string }) {
         required
         error={campos.nombre}
       />
-      <Campo
-        etiqueta="Contraseña"
-        name="contrasena"
-        type="password"
-        autoComplete="new-password"
-        required
-        error={campos.contrasena}
-        ayuda={AYUDA_CONTRASENA}
-      />
+      <CampoContrasenaNueva etiqueta="Contraseña" error={campos.contrasena} />
       <Boton type="submit" tamano="lg" cargando={cargando} className="w-full">
         Activar mi cuenta
       </Boton>

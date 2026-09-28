@@ -1,63 +1,47 @@
 @import 'tailwindcss';
 
 /*
- * Sistema de diseño NV. Toda la interfaz usa estos tokens semánticos:
- * nunca colores sueltos. El tema sigue la preferencia del sistema.
+ * Sistema de diseño NV «cosmos». Toda la interfaz usa estos tokens semánticos:
+ * nunca colores sueltos. El sitio es oscuro; la paleta elegida en el editor
+ * (sitio-paletas.ts) solo cambia la marca, el acento y el botón principal.
  */
 :root {
   color-scheme: dark;
-  --nv-fondo: #060912;
-  --nv-superficie: #0b1020;
-  --nv-elevada: #111830;
-  --nv-hundida: #080c18;
-  --nv-borde: rgb(148 163 214 / 0.14);
-  --nv-borde-fuerte: rgb(148 163 214 / 0.26);
-  --nv-tinta: #eef2ff;
-  --nv-tinta-suave: #b4bdd8;
+  --nv-fondo: #04050d;
+  --nv-superficie: #0a0e20;
+  --nv-elevada: #0f1530;
+  --nv-hundida: #070a18;
+  --nv-vidrio: rgb(12 16 38 / 0.72);
+  --nv-borde: rgb(140 160 255 / 0.14);
+  --nv-borde-fuerte: rgb(140 160 255 / 0.26);
+  --nv-tinta: #eef1ff;
+  --nv-tinta-suave: #a3adcf;
   --nv-tinta-tenue: #7c87a8;
-  --nv-marca: #22c8f5;
-  --nv-marca-fuerte: #5cdcff;
-  --nv-marca-tinta: #041018;
-  --nv-marca-suave: rgb(34 200 245 / 0.12);
-  --nv-acento: #9b6bff;
-  --nv-acento-suave: rgb(155 107 255 / 0.14);
-  --nv-exito: #2fd6a2;
-  --nv-exito-suave: rgb(47 214 162 / 0.12);
-  --nv-aviso: #ffb547;
-  --nv-aviso-suave: rgb(255 181 71 / 0.12);
-  --nv-peligro: #ff5c7a;
-  --nv-peligro-suave: rgb(255 92 122 / 0.12);
-  --nv-foco: #5cdcff;
-  --nv-sombra: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -16px rgb(0 0 0 / 0.7);
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --nv-fondo: #f5f7fc;
-    --nv-superficie: #ffffff;
-    --nv-elevada: #ffffff;
-    --nv-hundida: #eef1f8;
-    --nv-borde: rgb(15 23 52 / 0.1);
-    --nv-borde-fuerte: rgb(15 23 52 / 0.2);
-    --nv-tinta: #0c1224;
-    --nv-tinta-suave: #3f4a66;
-    --nv-tinta-tenue: #5f6a87;
-    --nv-marca: #0369a1;
-    --nv-marca-fuerte: #075985;
-    --nv-marca-tinta: #ffffff;
-    --nv-marca-suave: rgb(3 105 161 / 0.1);
-    --nv-acento: #6d3fe0;
-    --nv-acento-suave: rgb(109 63 224 / 0.1);
-    --nv-exito: #047857;
-    --nv-exito-suave: rgb(4 120 87 / 0.1);
-    --nv-aviso: #a15c00;
-    --nv-aviso-suave: rgb(161 92 0 / 0.1);
-    --nv-peligro: #c81e45;
-    --nv-peligro-suave: rgb(200 30 69 / 0.08);
-    --nv-foco: #0369a1;
-    --nv-sombra: 0 1px 2px rgb(15 23 52 / 0.06), 0 12px 32px -18px rgb(15 23 52 / 0.25);
-  }
+  --nv-marca: #5b98ff;
+  --nv-marca-fuerte: #8fb6ff;
+  --nv-marca-tinta: #04050d;
+  --nv-marca-suave: rgb(91 152 255 / 0.12);
+  --nv-acento: #22d3ee;
+  --nv-acento-suave: rgb(34 211 238 / 0.14);
+  --nv-cian: #22d3ee;
+  --nv-violeta: #a78bfa;
+  --nv-rosa: #e879f9;
+  --nv-exito: #34d399;
+  --nv-exito-suave: rgb(52 211 153 / 0.12);
+  --nv-aviso: #fbbf24;
+  --nv-aviso-suave: rgb(251 191 36 / 0.12);
+  --nv-peligro: #f87171;
+  --nv-peligro-suave: rgb(248 113 113 / 0.12);
+  --nv-foco: #22d3ee;
+  /* Botón principal: degradado azul NV (la paleta del sitio lo puede cambiar). */
+  --nv-boton-desde: #4d8dfb;
+  --nv-boton-hasta: #1d4ed8;
+  --nv-boton-tinta: #ffffff;
+  --nv-boton-brillo: rgb(79 141 255 / 0.7);
+  /* Degradado de marca: cian, azul, violeta y rosa. */
+  --nv-degradado: linear-gradient(95deg, #22d3ee 0%, #3b82f6 35%, #8b5cf6 70%, #e879f9 100%);
+  --nv-degradado-texto: linear-gradient(95deg, #8fb6ff 0%, #22d3ee 35%, #b69cff 70%, #e879f9 100%);
+  --nv-sombra: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -24px rgb(0 0 0 / 0.8);
 }
 
 @theme inline {
@@ -68,6 +52,7 @@
   --color-superficie: var(--nv-superficie);
   --color-elevada: var(--nv-elevada);
   --color-hundida: var(--nv-hundida);
+  --color-vidrio: var(--nv-vidrio);
   --color-borde: var(--nv-borde);
   --color-borde-fuerte: var(--nv-borde-fuerte);
   --color-tinta: var(--nv-tinta);
@@ -79,6 +64,9 @@
   --color-marca-suave: var(--nv-marca-suave);
   --color-acento: var(--nv-acento);
   --color-acento-suave: var(--nv-acento-suave);
+  --color-cian: var(--nv-cian);
+  --color-violeta: var(--nv-violeta);
+  --color-rosa: var(--nv-rosa);
   --color-exito: var(--nv-exito);
   --color-exito-suave: var(--nv-exito-suave);
   --color-aviso: var(--nv-aviso);
@@ -88,29 +76,297 @@
   --color-foco: var(--nv-foco);
 
   --shadow-nv: var(--nv-sombra);
-  --radius-nv: 0.875rem;
+  --radius-nv: 1.125rem;
 }
 
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
-    text-rendering: optimizeLegibility;
+    background: var(--nv-fondo);
   }
   body {
-    @apply bg-fondo text-tinta font-sans antialiased;
+    @apply text-tinta font-sans antialiased;
     min-height: 100dvh;
+    overflow-x: clip;
+    font-size: 15.5px;
+    line-height: 1.55;
   }
   h1,
   h2,
   h3 {
-    @apply font-titulo tracking-tight text-balance;
+    @apply font-titulo text-balance;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    line-height: 1.1;
   }
   :focus-visible {
     outline: 2px solid var(--nv-foco);
     outline-offset: 2px;
   }
   ::selection {
+    background: rgb(91 152 255 / 0.35);
+  }
+
+  /*
+   * Cosmos: nebulosa y estrellas solo con CSS (sin lienzo ni JavaScript).
+   * Son dos capas fijas detrás de todo; solo se anima la opacidad.
+   */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+  body::before {
+    background:
+      radial-gradient(40% 35% at 15% 10%, rgb(79 141 255 / 0.2), transparent 70%),
+      radial-gradient(35% 30% at 90% 25%, rgb(139 92 246 / 0.2), transparent 70%),
+      radial-gradient(45% 35% at 70% 85%, rgb(232 121 249 / 0.1), transparent 70%),
+      radial-gradient(40% 30% at 5% 75%, rgb(34 211 238 / 0.09), transparent 70%);
+  }
+  body::after {
+    background-image:
+      radial-gradient(1px 1px at 23px 41px, #fff, transparent),
+      radial-gradient(1px 1px at 157px 93px, rgb(255 255 255 / 0.8), transparent),
+      radial-gradient(1.5px 1.5px at 91px 177px, #cfe0ff, transparent),
+      radial-gradient(1px 1px at 211px 15px, rgb(255 255 255 / 0.7), transparent),
+      radial-gradient(1.5px 1.5px at 301px 263px, rgb(200 180 255 / 0.9), transparent),
+      radial-gradient(1px 1px at 47px 331px, rgb(255 255 255 / 0.6), transparent),
+      radial-gradient(2px 2px at 389px 121px, rgb(143 182 255 / 0.9), transparent);
+    background-size:
+      233px 233px,
+      271px 271px,
+      317px 317px,
+      359px 359px,
+      421px 421px,
+      443px 443px,
+      521px 521px;
+    opacity: 0.75;
+    animation: nv-titilar 7s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes nv-titilar {
+  to {
+    opacity: 0.45;
+  }
+}
+@keyframes nv-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes nv-entrar {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@layer components {
+  /* Texto con el degradado de la marca (títulos destacados). */
+  .texto-degradado {
+    background: var(--nv-degradado-texto);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Etiqueta en órbita: pastilla en mayúsculas con un punto brillante. */
+  .etiqueta-orbita {
+    --c: var(--nv-cian);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
+    background: color-mix(in srgb, var(--c) 8%, transparent);
+    color: var(--c);
+    font:
+      700 0.72rem/1 var(--fuente-titulo),
+      system-ui,
+      sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .etiqueta-orbita::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--c);
+    box-shadow: 0 0 10px var(--c);
+  }
+
+  /* Orbe: icono en una esfera de color con una órbita punteada. */
+  .orbe {
+    --c: var(--nv-marca);
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 1.375rem;
+    background: radial-gradient(
+      circle at 50% 30%,
+      color-mix(in srgb, var(--c) 38%, #0b1030) 0%,
+      #080b1c 72%
+    );
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--c) 75%, transparent),
+      inset 0 -12px 22px -12px var(--c),
+      0 0 28px -8px var(--c);
+  }
+  .orbe > svg {
+    position: relative;
+    z-index: 1;
+    width: 1em;
+    height: 1em;
+    filter: drop-shadow(0 0 6px var(--c));
+  }
+  .orbe::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+    border: 1px dashed color-mix(in srgb, var(--c) 45%, transparent);
+    background: radial-gradient(circle at 50% 0, var(--c) 0 2.5px, transparent 3px);
+    animation: nv-girar 9s linear infinite;
+    pointer-events: none;
+  }
+  .orbe-sm {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.1rem;
+  }
+  .orbe-sm::after {
+    inset: -5px;
+  }
+  .orbe-xl {
+    width: 4.625rem;
+    height: 4.625rem;
+    font-size: 1.9rem;
+  }
+
+  /* Tarjeta con brillo del color del servicio (--c). */
+  .tarjeta-brillo {
+    --c: var(--nv-marca);
+    position: relative;
+    isolation: isolate;
+    border-radius: 1.375rem;
+    border: 1px solid var(--nv-borde);
+    background: linear-gradient(180deg, rgb(15 21 48 / 0.9), rgb(8 11 26 / 0.95));
+    transition:
+      border-color 0.2s,
+      box-shadow 0.3s,
+      transform 0.2s;
+  }
+  .tarjeta-brillo:hover,
+  .tarjeta-brillo:focus-within {
+    border-color: color-mix(in srgb, var(--c) 55%, transparent);
+    box-shadow: 0 20px 50px -24px color-mix(in srgb, var(--c) 70%, transparent);
+  }
+  @media (hover: hover) {
+    .tarjeta-brillo:hover {
+      transform: translateY(-3px);
+    }
+  }
+
+  /* Escenario de la imagen del servicio: halo y órbita del color del servicio. */
+  .escenario {
+    --c: var(--nv-marca);
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background:
+      radial-gradient(
+        60% 55% at 50% 58%,
+        color-mix(in srgb, var(--c) 45%, transparent),
+        transparent 72%
+      ),
+      radial-gradient(
+        120% 80% at 50% 120%,
+        color-mix(in srgb, var(--c) 25%, transparent),
+        transparent 70%
+      );
+  }
+  .escenario::before {
+    content: '';
+    position: absolute;
+    width: 72%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 1px dashed color-mix(in srgb, var(--c) 40%, transparent);
+    animation: nv-girar 30s linear infinite;
+  }
+
+  /* Chip de filtro: el activo se marca con aria-pressed, aria-current o aria-selected. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.5rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid var(--nv-borde-fuerte);
+    background: rgb(255 255 255 / 0.03);
+    color: var(--nv-tinta-suave);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background-color 0.15s,
+      color 0.15s;
+  }
+  .chip:hover {
+    border-color: var(--nv-cian);
+    color: var(--nv-tinta);
+  }
+  .chip:is(
+    [aria-pressed='true'],
+    [aria-current='page'],
+    [aria-current='true'],
+    [aria-selected='true'],
+    [aria-checked='true']
+  ) {
+    border-color: color-mix(in srgb, var(--nv-marca) 70%, transparent);
     background: var(--nv-marca-suave);
+    color: var(--nv-tinta);
+    box-shadow: 0 0 18px -8px var(--nv-marca);
+  }
+
+  /* Panel de vidrio (cabecera, menús y paneles flotantes). */
+  .vidrio {
+    background: var(--nv-vidrio);
+    border: 1px solid var(--nv-borde);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
+
+  .contenedor {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .contenedor {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  .aparecer {
+    animation: nv-entrar 0.28s ease both;
   }
 }
 
@@ -119,6 +375,8 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

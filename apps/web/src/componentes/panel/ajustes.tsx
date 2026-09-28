@@ -10,6 +10,7 @@ import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Interruptor } from '@/componentes/ui/interruptor';
+import { CampoContrasenaNueva } from '@/componentes/ui/lista-contrasena';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { haceCuanto } from '@/lib/formato';
 
@@ -117,14 +118,11 @@ export function FormularioContrasena() {
         required
         error={campos.actual}
       />
-      <Campo
+      <CampoContrasenaNueva
+        key={exito ?? ''}
         etiqueta="Contraseña nueva"
         name="nueva"
-        type="password"
-        autoComplete="new-password"
-        required
         error={campos.nueva}
-        ayuda="Al menos 10 caracteres."
       />
       <Mensajes error={error} exito={exito} />
       <Boton type="submit" variante="secundario" cargando={cargando} className="justify-self-start">

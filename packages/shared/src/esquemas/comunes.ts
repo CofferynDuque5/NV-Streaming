@@ -49,6 +49,36 @@ export const contrasenaSchema = z
     error: 'La contraseña repite demasiados caracteres.',
   });
 
+export interface RequisitoContrasena {
+  clave: 'largo' | 'variedad' | 'comun';
+  texto: string;
+  cumple: boolean;
+}
+
+/**
+ * Requisitos de la contraseña para mostrarlos en vivo al escribirla. Son las
+ * mismas reglas de `contrasenaSchema` (la API vuelve a validarlas).
+ */
+export function requisitosContrasena(valor: string): RequisitoContrasena[] {
+  return [
+    {
+      clave: 'largo',
+      texto: `Al menos ${LONGITUD_MINIMA_CONTRASENA} caracteres`,
+      cumple: valor.length >= LONGITUD_MINIMA_CONTRASENA && valor.length <= 128,
+    },
+    {
+      clave: 'variedad',
+      texto: 'Al menos 5 caracteres distintos',
+      cumple: new Set(valor).size >= 5,
+    },
+    {
+      clave: 'comun',
+      texto: 'No es una contraseña común',
+      cumple: valor.length > 0 && !CONTRASENAS_COMUNES.has(valor.toLowerCase()),
+    },
+  ];
+}
+
 export const tokenSchema = z
   .string({ error: 'Falta el enlace de verificación.' })
   .trim()

@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import { Eye, EyeOff } from 'lucide-react';
+import { Check, Eye, EyeOff } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useId, useState } from 'react';
 import { clasesEntrada } from './clases';
 
@@ -12,6 +12,8 @@ interface PropsCampo extends Omit<ComponentProps<'input'>, 'id'> {
   error?: string | undefined;
   ayuda?: ReactNode;
   accesorio?: ReactNode;
+  /** Validación en vivo: el valor ya cumple lo pedido (borde verde y marca). */
+  valido?: boolean | undefined;
 }
 
 /** Campo de formulario con etiqueta, ayuda y error accesibles. */
@@ -20,6 +22,7 @@ export function Campo({
   error,
   ayuda,
   accesorio,
+  valido,
   className,
   type,
   ...resto
@@ -34,7 +37,7 @@ export function Campo({
   return (
     <div className={clsx('grid gap-1.5', className)}>
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-medium text-tinta">
+        <label htmlFor={id} className="text-sm font-semibold text-tinta">
           {etiqueta}
         </label>
         {accesorio}
@@ -45,9 +48,16 @@ export function Campo({
           type={esContrasena && visible ? 'text' : type}
           aria-invalid={error ? true : undefined}
           aria-describedby={describe || undefined}
-          className={clsx(clasesEntrada, esContrasena && 'pr-11')}
+          data-valido={valido && !error ? true : undefined}
+          className={clsx(clasesEntrada, (esContrasena || valido) && 'pr-11')}
           {...resto}
         />
+        {valido && !error && !esContrasena && (
+          <Check
+            className="pointer-events-none absolute inset-y-0 right-3.5 my-auto size-4 text-exito"
+            aria-hidden="true"
+          />
+        )}
         {esContrasena && (
           <button
             type="button"

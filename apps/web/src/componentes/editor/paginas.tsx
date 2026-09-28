@@ -90,12 +90,16 @@ export function NuevaPagina() {
   );
 }
 
-/** Muestra de los colores de una paleta en el modo claro y el oscuro. */
+/** Muestra de los colores de una paleta: marca, acento y el degradado del botón. */
 export function MuestraPaleta({ paleta }: { paleta: PaletaSitio }) {
   const p = PALETAS_SITIO[paleta];
   return (
     <span className="flex gap-1" aria-hidden="true">
-      {[p.oscuro.marca, p.oscuro.acento, p.claro.marca, p.claro.acento].map((c, i) => (
+      <span
+        className="h-5 w-9 rounded-full border border-borde-fuerte"
+        style={{ background: `linear-gradient(180deg, ${p.boton[0]}, ${p.boton[1]})` }}
+      />
+      {[p.marca, p.acento].map((c, i) => (
         <span
           key={i}
           className="size-5 rounded-full border border-borde-fuerte"

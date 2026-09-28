@@ -5,6 +5,7 @@ import {
   contrasenaSchema,
   INFO_CATEGORIA,
   registroSchema,
+  requisitosContrasena,
   servicioSchema,
   verificar2faSchema,
 } from '../src/index.js';
@@ -17,6 +18,14 @@ describe('contraseñas', () => {
   it('acepta frases largas', () => {
     expect(contrasenaSchema.safeParse('caballo correcto batería grapa').success).toBe(true);
   });
+
+  it.each(['', 'corta', 'aaaaaaaaaaaa', 'password123', 'caballo correcto batería grapa'])(
+    'la lista en vivo coincide con la validación para "%s"',
+    (c) => {
+      const cumple = requisitosContrasena(c).every((r) => r.cumple);
+      expect(cumple).toBe(contrasenaSchema.safeParse(c).success);
+    },
+  );
 });
 
 describe('registro', () => {

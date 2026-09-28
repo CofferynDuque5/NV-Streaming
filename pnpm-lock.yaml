@@ -110,10 +110,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@fontsource-variable/inter':
+      '@fontsource-variable/dm-sans':
         specifier: ^5.3.0
         version: 5.3.0
-      '@fontsource-variable/sora':
+      '@fontsource-variable/exo-2':
         specifier: ^5.3.0
         version: 5.3.0
       '@nv/shared':
@@ -560,11 +560,11 @@ packages:
   '@fastify/static@10.1.4':
     resolution: {integrity: sha512-YWYmXV0c3t/3DDyV32kRXJTgTY16FOkqtQ4mmBjbkWeukGR5n+Sr+7ppknNpS7hiRPrLU9zcySZZ1nLJVHTZkg==}
 
-  '@fontsource-variable/inter@5.3.0':
-    resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
+  '@fontsource-variable/dm-sans@5.3.0':
+    resolution: {integrity: sha512-BpUG5bqePiDFMBM4ZtLSlPdAIOM990uB1dlXzIf4aw21yQR7BmykedLXXXMqGWsR18aMLOsbWccwJNh3ztTQaA==}
 
-  '@fontsource-variable/sora@5.3.0':
-    resolution: {integrity: sha512-h8kHta4Z8SkfUGeI82TUy1n3rbrKpBRGwuk4t4qCwto5oEHxlbOFD2yGP+Df5fbmTXwKGn+o667vYp0E4K8Whw==}
+  '@fontsource-variable/exo-2@5.3.0':
+    resolution: {integrity: sha512-KgmRT6/E6y/ZwFcGnlFrFoKkizPcWtpDh1q1KlxLNA7NJWaSP4Y+nWGRlnRBiGZ8yybF8DhEWNldmDhOZkzMAQ==}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -5202,9 +5202,9 @@ snapshots:
       fastq: 1.20.3
       glob: 13.0.6
 
-  '@fontsource-variable/inter@5.3.0': {}
+  '@fontsource-variable/dm-sans@5.3.0': {}
 
-  '@fontsource-variable/sora@5.3.0': {}
+  '@fontsource-variable/exo-2@5.3.0': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
