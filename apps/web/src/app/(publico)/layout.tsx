@@ -2,7 +2,7 @@ import { BLOQUES_INICIO, cssPaleta, PALETA_PREDETERMINADA, serviciosTienda } fro
 import type { ReactNode } from 'react';
 import { AyudaFlotante } from '@/componentes/tienda/ayuda-flotante';
 import { CabeceraTienda } from '@/componentes/tienda/cabecera';
-import { CarritoLateral } from '@/componentes/tienda/carrito-lateral';
+import { CarritoLateralPerezoso } from '@/componentes/tienda/carrito-lateral-perezoso';
 import { datosMenu } from '@/componentes/tienda/datos-menu';
 import { PieTienda } from '@/componentes/tienda/pie';
 import { leerPaginaPublicada } from '@/lib/sitio';
@@ -45,7 +45,7 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         correo={tema.contacto.correo}
         preguntas={preguntas}
       />
-      <CarritoLateral
+      <CarritoLateralPerezoso
         servicios={catalogo ? serviciosTienda(catalogo) : []}
         moneda={moneda}
         cliente={sesion?.rol === 'cliente'}

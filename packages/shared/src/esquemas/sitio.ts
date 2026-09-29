@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { IDS_PALETAS } from '../sitio-paletas.js';
 import { enlacesDelTexto, esEnlaceSeguro } from '../sitio-texto.js';
-import { CATEGORIAS_SERVICIO } from './catalogo.js';
+import { CATEGORIAS_SERVICIO } from '../categorias.js';
 import { correoSchema, textoOpcional, uuidSchema } from './comunes.js';
 
 export * from '../sitio-paletas.js';
@@ -564,10 +564,5 @@ export const CONTACTO_VACIO: ContactoSitio = {
   tiktok: null,
   correo: null,
 };
-
-/** Enlace para abrir un chat de WhatsApp con el número (y un texto opcional). */
-export function enlaceWhatsapp(numero: string, texto?: string): string {
-  return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
-}
 
 export * from '../sitio-inicio.js';

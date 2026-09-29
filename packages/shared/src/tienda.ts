@@ -3,12 +3,8 @@
  * no se calcula ningún precio: solo se elige, ordena y filtra entre los precios
  * que ya vienen del servidor en cada moneda.
  */
-import {
-  CATEGORIAS_SERVICIO,
-  type CategoriaServicio,
-  INFO_CATEGORIA,
-  type UnidadDuracion,
-} from './esquemas/catalogo.js';
+import { CATEGORIAS_SERVICIO, type CategoriaServicio, INFO_CATEGORIA } from './categorias.js';
+import type { UnidadDuracion } from './esquemas/catalogo.js';
 import type { Moneda } from './monedas.js';
 import type { CatalogoPublico, PlanPublico, ServicioCatalogo } from './tipos-negocio.js';
 
@@ -274,4 +270,9 @@ export function duracionesCatalogo(
       clave: claveDuracion(p),
       etiqueta: etiquetaDuracion(p.duracionCantidad, p.duracionUnidad),
     }));
+}
+
+/** Enlace para abrir un chat de WhatsApp con el número (y un texto opcional). */
+export function enlaceWhatsapp(numero: string, texto?: string): string {
+  return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
 }

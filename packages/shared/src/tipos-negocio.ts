@@ -1,4 +1,5 @@
-import type { CategoriaServicio, TipoProveedor, UnidadDuracion } from './esquemas/catalogo.js';
+import type { CategoriaServicio } from './categorias.js';
+import type { TipoProveedor, UnidadDuracion } from './esquemas/catalogo.js';
 import type { EstadoCliente } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';

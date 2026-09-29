@@ -73,18 +73,24 @@ export function CarritoLateral({
   servicios,
   moneda,
   cliente,
+  abiertoInicial = false,
+  foco = null,
 }: {
   servicios: ServicioTienda[];
   moneda: Moneda;
   /** Hay sesión de cliente: se puede cotizar y mostrar el saldo. */
   cliente: boolean;
+  /** Se cargó al pulsar el carrito: aparece ya abierto. */
+  abiertoInicial?: boolean;
+  /** Elemento que lo abrió (recibe el foco al cerrar). */
+  foco?: HTMLElement | null;
 }) {
   const carrito = useCarrito();
   const reciente = useRecienAgregado();
   const agregar = useAgregarAlCarrito();
   const notificar = useNotificar();
   const ruta = usePathname();
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(abiertoInicial);
   // Al navegar a otra página, el carrito se cierra solo.
   const [rutaPrevia, setRutaPrevia] = useState(ruta);
   if (rutaPrevia !== ruta) {
@@ -93,7 +99,7 @@ export function CarritoLateral({
   }
   const panel = useRef<HTMLDivElement>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
-  const origen = useRef<HTMLElement | null>(null);
+  const origen = useRef<HTMLElement | null>(foco);
   const idTitulo = useId();
   const [resultado, setResultado] = useState<{
     clave: string;
