@@ -1,17 +1,26 @@
 import type { ResumenCliente, SesionListada } from '@nv/shared';
 import type { Metadata } from 'next';
-import { DatosFacturacion } from '@/componentes/cliente/datos-facturacion';
+import {
+  CajaPerfil,
+  CambiarContrasena,
+  CerrarOtrasSesiones,
+  DosPasos,
+  ListaSesiones as SesionesCliente,
+  Recordatorios,
+  TusDatos,
+} from '@/componentes/cliente/perfil-cuenta';
+import { CabeceraCuenta } from '@/componentes/cliente/piezas-cuenta';
 import {
   FormularioContrasena,
   FormularioPerfil,
   ListaSesiones,
-  PreferenciaRecordatorios,
   SeccionDosPasos,
 } from '@/componentes/panel/ajustes';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Perfil y seguridad' };
@@ -38,6 +47,74 @@ export default async function Ajustes() {
     : [null, null];
   const whatsapp = cliente?.contactos.find((c) => c.tipo === 'whatsapp');
 
+  if (esCliente) {
+    const lista = [...(sesiones.datos ?? [])]
+      .sort((a, b) => Number(b.actual) - Number(a.actual))
+      .map((s) => ({
+        ...s,
+        detalle: `${s.ip ? `IP ${s.ip}` : 'IP desconocida'} · ${
+          s.actual ? 'activa ahora' : `activa ${haceCuanto(s.ultimaActividadEn)}`
+        }`,
+      }));
+    return (
+      <>
+        <CabeceraCuenta
+          titulo="Perfil y seguridad"
+          descripcion="Tus datos, tu contraseña y dónde tienes la sesión abierta."
+        />
+        <CajaPerfil titulo="Tus datos" descripcion="Así te llamamos y te facturamos.">
+          {cliente ? (
+            <TusDatos
+              inicial={{
+                nombre: sesion.usuario.nombre,
+                correo: sesion.usuario.correo,
+                documento: cliente.documento,
+                pais: cliente.pais,
+                monedaPreferida: cliente.monedaPreferida,
+                whatsapp: whatsapp?.valor ?? null,
+                aceptaWhatsapp: Boolean(whatsapp?.consentimientoEn),
+              }}
+            />
+          ) : (
+            <Alerta tono="peligro">No pudimos cargar tus datos. Recarga la página.</Alerta>
+          )}
+        </CajaPerfil>
+        <CajaPerfil titulo="Contraseña" descripcion="Al cambiarla cerramos tus otras sesiones.">
+          <CambiarContrasena correo={sesion.usuario.correo} />
+        </CajaPerfil>
+        <CajaPerfil
+          titulo="Verificación en dos pasos"
+          descripcion="Aunque alguien sepa tu contraseña, no podrá entrar."
+        >
+          {dosPasos.datos ? (
+            <DosPasos estado={dosPasos.datos} />
+          ) : (
+            <Alerta tono="peligro">No pudimos cargar este ajuste. Recarga la página.</Alerta>
+          )}
+        </CajaPerfil>
+        <CajaPerfil
+          titulo="Dónde tienes la sesión abierta"
+          descripcion="Si no reconoces un dispositivo, ciérralo y cambia tu contraseña."
+          accion={lista.length > 1 ? <CerrarOtrasSesiones /> : undefined}
+        >
+          <SesionesCliente sesiones={lista} />
+        </CajaPerfil>
+        <CajaPerfil
+          titulo="Avisos"
+          descripcion="Las facturas y los avisos de pago te llegan siempre."
+        >
+          {preferencias ? (
+            <Recordatorios recibir={preferencias.recibirRecordatorios} />
+          ) : (
+            <Alerta tono="peligro">
+              No pudimos cargar tus preferencias de avisos. Recarga la página.
+            </Alerta>
+          )}
+        </CajaPerfil>
+      </>
+    );
+  }
+
   return (
     <>
       <CabeceraPagina
@@ -61,42 +138,6 @@ export default async function Ajustes() {
           </div>
         </Tarjeta>
       </div>
-      {cliente && (
-        <Tarjeta>
-          <CabeceraTarjeta
-            titulo="Datos de facturación"
-            descripcion="Los usamos en tus facturas y para avisarte de pagos y vencimientos."
-          />
-          <div className="p-5 sm:p-6">
-            <DatosFacturacion
-              inicial={{
-                documento: cliente.documento,
-                pais: cliente.pais,
-                monedaPreferida: cliente.monedaPreferida,
-                whatsapp: whatsapp?.valor ?? null,
-                aceptaWhatsapp: Boolean(whatsapp?.consentimientoEn),
-              }}
-            />
-          </div>
-        </Tarjeta>
-      )}
-      {esCliente && (
-        <Tarjeta>
-          <CabeceraTarjeta
-            titulo="Avisos"
-            descripcion="Por correo y, si lo aceptaste en tus datos de facturación, por WhatsApp."
-          />
-          <div className="p-5 sm:p-6">
-            {preferencias ? (
-              <PreferenciaRecordatorios recibir={preferencias.recibirRecordatorios} />
-            ) : (
-              <Alerta tono="peligro">
-                No pudimos cargar tus preferencias de avisos. Recarga la página.
-              </Alerta>
-            )}
-          </div>
-        </Tarjeta>
-      )}
       <Tarjeta>
         <CabeceraTarjeta titulo="Verificación en dos pasos" />
         <div className="p-5 sm:p-6">

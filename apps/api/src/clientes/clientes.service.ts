@@ -9,6 +9,7 @@ import {
   type ListarClientesEntrada,
   type NotaPublica,
   type Pagina,
+  type PanelCliente,
   type PerfilClienteEntrada,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -351,6 +352,43 @@ export class ClientesService {
         origen: 'registro_web',
       },
     });
+  }
+
+  /**
+   * Menú de la cuenta del propio cliente: quién la gestiona y cuántas cosas
+   * esperan algo de él (accesos sin ver, facturas por pagar y solicitudes que
+   * esperan su respuesta). Solo cuenta lo suyo.
+   */
+  async panelPropio(usuario: Usuario): Promise<PanelCliente> {
+    const propio = await this.deUsuario(usuario);
+    const [revendedor, accesosSinVer, facturasPorPagar, ticketsPorResponder] = await Promise.all([
+      propio.revendedorId
+        ? this.prisma.revendedor.findUnique({
+            where: { id: propio.revendedorId },
+            select: { nombreComercial: true },
+          })
+        : null,
+      this.prisma.entrega.count({
+        where: {
+          clienteId: propio.id,
+          estado: 'entregada',
+          vistaEn: null,
+          datosCifrados: { not: null },
+        },
+      }),
+      this.prisma.factura.count({
+        where: {
+          clienteId: propio.id,
+          estado: 'emitida',
+          pagos: { none: { estado: 'en_revision' } },
+        },
+      }),
+      this.prisma.ticket.count({ where: { clienteId: propio.id, estado: 'esperando_cliente' } }),
+    ]);
+    return {
+      revendedor: revendedor ? { nombre: revendedor.nombreComercial } : null,
+      pendientes: { accesosSinVer, facturasPorPagar, ticketsPorResponder },
+    };
   }
 
   /** El cliente activa o apaga los recordatorios (los avisos de pago y suspensión siguen llegando). */

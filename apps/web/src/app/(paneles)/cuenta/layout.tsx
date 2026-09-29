@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { Marco } from '@/componentes/panel/marco';
+import { MarcoCliente } from '@/componentes/panel/marco-cliente';
 import { requerirSesion } from '@/lib/sesion';
 
 export default async function Layout({ children }: { children: ReactNode }) {
   const sesion = await requerirSesion({ roles: ['cliente'] });
-  return <Marco sesion={sesion}>{children}</Marco>;
+  return <MarcoCliente sesion={sesion}>{children}</MarcoCliente>;
 }

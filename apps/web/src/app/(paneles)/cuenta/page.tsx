@@ -1,74 +1,100 @@
 import {
+  type AccesoServicio,
+  type BilleteraPublica,
   formatearMonto,
   type MetodoAutorizadoPublico,
+  type Pagina,
   type ResumenCliente,
   type SuscripcionPublica,
+  type TicketResumen,
 } from '@nv/shared';
-import { CalendarClock, Clapperboard, LifeBuoy, Receipt } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { CobroAutomatico } from '@/componentes/cliente/metodos-pago';
-import { AccionesSuscripcion } from '@/componentes/cliente/suscripcion';
+import { Cifra } from '@/componentes/cliente/piezas-cuenta';
+import {
+  AvisosCuenta,
+  type AvisoCuenta,
+  ServiciosCuenta,
+  type VistaServicio,
+} from '@/componentes/cliente/inicio-cuenta';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoFacturaInsignia, EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
-import { diasHasta, formatearDuracion, formatearFecha } from '@/lib/formato';
+import { diasHasta, formatearDuracion } from '@/lib/formato';
+import { leerPanelCliente } from '@/lib/panel-cliente';
 import { monedaAdmitePagoEnLinea } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
-const CON_COBRO_AUTOMATICO = new Set(['activa', 'en_gracia', 'suspendida']);
-
-/** Se ofrece el cobro automático en suscripciones renovables vigentes que se pagan en línea. */
-function admiteCobroAutomatico(s: SuscripcionPublica): boolean {
-  return (
-    s.plan.renovable &&
-    CON_COBRO_AUTOMATICO.has(s.estado) &&
-    !s.cancelarAlVencer &&
-    monedaAdmitePagoEnLinea(s.moneda)
-  );
-}
-
 export const metadata: Metadata = { title: 'Mis servicios' };
 
-function Vigencia({ s }: { s: SuscripcionPublica }) {
-  if (s.estado === 'pendiente_pago') return <>Se activa cuando confirmemos tu pago.</>;
-  if (s.estado === 'pausada') return <>Pausada. Los días que te quedaban se conservan.</>;
+const corta = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
+const larga = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' });
+const fCorta = (iso: string) => corta.format(new Date(iso));
+const fLarga = (iso: string) => larga.format(new Date(iso));
+const dias = (n: number) => `${n} ${n === 1 ? 'día' : 'días'}`;
+
+const RENOVABLES = new Set(['activa', 'en_gracia', 'suspendida', 'vencida']);
+const CON_COBRO_AUTOMATICO = new Set(['activa', 'en_gracia', 'suspendida']);
+const TERMINADOS = new Set(['cancelada', 'vencida', 'suspendida']);
+
+/** Activa, sin cancelación programada y con 7 días o menos por delante. */
+function porVencer(s: SuscripcionPublica) {
+  return s.estado === 'activa' && !s.cancelarAlVencer && !!s.venceEn && diasHasta(s.venceEn) <= 7;
+}
+
+function vigencia(s: SuscripcionPublica, conRevendedor: boolean): string {
+  if (s.estado === 'pendiente_pago')
+    return conRevendedor
+      ? 'Se activa cuando tu revendedor confirme el pago.'
+      : 'Se activa cuando confirmemos tu pago.';
+  if (s.estado === 'pausada') return 'Pausada. Los días que te quedaban se conservan.';
   if (s.estado === 'cancelada')
-    return <>Cancelada{s.canceladaEn ? ` el ${formatearFecha(s.canceladaEn)}` : ''}.</>;
-  if (!s.venceEn) return null;
-  const dias = diasHasta(s.venceEn);
+    return s.canceladaEn ? `Cancelada el ${fLarga(s.canceladaEn)}.` : 'Cancelada.';
+  if (!s.venceEn) return '';
+  const d = diasHasta(s.venceEn);
   if (s.estado === 'en_gracia')
-    return <>Venció el {formatearFecha(s.venceEn)}. Renueva para no perder el servicio.</>;
-  if (s.estado === 'suspendida' || s.estado === 'vencida')
-    return <>Venció el {formatearFecha(s.venceEn)}.</>;
-  if (s.cancelarAlVencer) return <>Termina el {formatearFecha(s.venceEn)} y no se renovará.</>;
-  return (
-    <>
-      Vence el {formatearFecha(s.venceEn)}
-      {dias >= 0 && dias <= 7
-        ? ` (en ${dias === 0 ? 'menos de un día' : `${dias} ${dias === 1 ? 'día' : 'días'}`})`
-        : ''}
-      .
-    </>
-  );
+    return `Venció ${d === 0 ? 'hoy' : d === -1 ? 'ayer' : `el ${fLarga(s.venceEn)}`}. Renueva para no perder el servicio.`;
+  if (s.estado === 'suspendida' || s.estado === 'vencida') return `Venció el ${fLarga(s.venceEn)}.`;
+  if (s.cancelarAlVencer) return `Termina el ${fLarga(s.venceEn)} y no se renovará.`;
+  const cuando = d <= 7 ? ` (en ${d <= 0 ? 'menos de un día' : dias(d)})` : '';
+  return `Vence el ${fLarga(s.venceEn)}${cuando}.`;
+}
+
+function barra(s: SuscripcionPublica, ahora = Date.now()): VistaServicio['barra'] {
+  if (!s.inicioEn || !s.venceEn || ['cancelada', 'pendiente_pago'].includes(s.estado)) return null;
+  const ini = new Date(s.inicioEn).getTime();
+  const total = Math.max(new Date(s.venceEn).getTime() - ini, 1);
+  const pasado = Math.min(Math.max(ahora - ini, 0), total);
+  const pct = Math.round((pasado / total) * 100);
+  const d = diasHasta(s.venceEn);
+  return {
+    pct,
+    tono: s.estado === 'en_gracia' ? 'rojo' : d <= 7 ? 'ambar' : 'normal',
+    desde: `Desde ${fCorta(s.inicioEn)}`,
+    resta: d > 0 ? `Quedan ${dias(d)}` : 'Periodo terminado',
+  };
 }
 
 export default async function MisServicios() {
   const sesion = await requerirSesion({ roles: ['cliente'] });
-  const [{ datos }, { datos: metodos }] = await Promise.all([
-    leerApi<ResumenCliente>('/mi/resumen'),
-    leerApi<MetodoAutorizadoPublico[]>('/mi/metodos-autorizados'),
-  ]);
+  const panel = await leerPanelCliente();
+  const revendedor = panel?.revendedor ?? null;
+  const [{ datos }, { datos: metodos }, { datos: accesos }, { datos: tickets }, billetera] =
+    await Promise.all([
+      leerApi<ResumenCliente>('/mi/resumen'),
+      revendedor
+        ? Promise.resolve({ datos: null })
+        : leerApi<MetodoAutorizadoPublico[]>('/mi/metodos-autorizados'),
+      leerApi<AccesoServicio[]>('/mi/accesos'),
+      leerApi<Pagina<TicketResumen>>('/mi/tickets?estado=esperando_cliente&porPagina=5'),
+      revendedor ? Promise.resolve(null) : leerApi<BilleteraPublica>('/mi/billetera'),
+    ]);
   const nombre = sesion.usuario.nombre.split(' ')[0];
 
   if (!datos) {
     return (
       <>
-        <CabeceraPagina titulo={`Hola, ${nombre}`} />
+        <h1 className="text-[clamp(1.625rem,4.4vw,2.375rem)]">Hola, {nombre}</h1>
         <Alerta tono="peligro">
           No pudimos cargar tus servicios. Recarga la página en un momento.
         </Alerta>
@@ -77,121 +103,222 @@ export default async function MisServicios() {
   }
 
   const { suscripciones, facturasPendientes, ticketsAbiertos } = datos;
+  const conRevendedor = revendedor !== null;
+  const enRevision = new Set(facturasPendientes.filter((f) => f.pagoEnRevision).map((f) => f.id));
+  const listos = (accesos ?? []).filter((a) => a.estado === 'entregada');
+
+  const servicios: VistaServicio[] = suscripciones.map((s) => {
+    const fin = s.estado === 'cancelada';
+    const terminado = TERMINADOS.has(s.estado);
+    const acceso = listos.find((a) => a.suscripcion?.id === s.id);
+    return {
+      s,
+      duracion: formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad),
+      vigencia: vigencia(s, conRevendedor),
+      barra: barra(s),
+      venceLargo: s.venceEn ? fLarga(s.venceEn) : null,
+      pagoEnRevision: !!s.facturaAbierta && enRevision.has(s.facturaAbierta.id),
+      puedeRenovar:
+        !conRevendedor &&
+        !s.facturaAbierta &&
+        !s.cancelarAlVencer &&
+        s.plan.renovable &&
+        RENOVABLES.has(s.estado),
+      renovarDestacado: s.estado !== 'activa' || porVencer(s),
+      puedeCancelar:
+        !conRevendedor &&
+        !s.cancelarAlVencer &&
+        ['activa', 'en_gracia', 'pendiente_pago'].includes(s.estado),
+      admiteCobroAutomatico:
+        !conRevendedor &&
+        s.plan.renovable &&
+        CON_COBRO_AUTOMATICO.has(s.estado) &&
+        !s.cancelarAlVencer &&
+        monedaAdmitePagoEnLinea(s.moneda),
+      accesoId: acceso?.id ?? null,
+      grupos: [
+        'todos',
+        ...(['activa', 'en_gracia'].includes(s.estado) ? (['activos'] as const) : []),
+        ...(porVencer(s) || s.estado === 'en_gracia' ? (['vencer'] as const) : []),
+        ...(s.estado === 'pendiente_pago' ? (['pendientes'] as const) : []),
+        ...(terminado ? (['terminados'] as const) : []),
+      ],
+      fin,
+    };
+  });
+
+  // «Para revisar»: lo que el cliente tiene que hacer, cada cosa con una sola acción.
+  const avisos: AvisoCuenta[] = [];
+  // Al cliente de un revendedor le cobra su revendedor: no se le pide pagar.
+  for (const f of conRevendedor ? [] : facturasPendientes.filter((f) => !f.pagoEnRevision)) {
+    const concepto = f.plan
+      ? `${f.concepto === 'alta' ? 'Alta' : 'Renovación'} · ${f.plan.servicio.nombre} ${f.plan.nombre} · `
+      : '';
+    avisos.push({
+      clave: `f-${f.id}`,
+      tipo: 'factura',
+      titulo: `Factura ${f.numero} por pagar`,
+      texto: `${concepto}${formatearMonto(f.total, f.moneda)} · ${f.vencida ? 'venció' : 'antes del'} ${fLarga(f.venceEn)}`,
+      href: `/cuenta/facturas/${f.id}`,
+    });
+  }
+  const conCobroSolo = (s: SuscripcionPublica) => !!s.cobroAutomatico || !!s.facturaAbierta;
+  for (const s of suscripciones) {
+    if (s.estado !== 'en_gracia' || conCobroSolo(s)) continue;
+    avisos.push({
+      clave: `g-${s.id}`,
+      tipo: 'gracia',
+      titulo: `${s.plan.servicio} venció`,
+      texto: conRevendedor
+        ? 'Tienes unos días de gracia. Pídele la renovación a tu revendedor.'
+        : 'Tienes unos días de gracia. Renueva para no perderlo.',
+      servicioId: conRevendedor ? undefined : s.id,
+    });
+  }
+  for (const s of suscripciones) {
+    if (!porVencer(s) || conCobroSolo(s) || !s.venceEn) continue;
+    const d = diasHasta(s.venceEn);
+    avisos.push({
+      clave: `v-${s.id}`,
+      tipo: 'vence',
+      titulo: d <= 0 ? `${s.plan.servicio} vence hoy` : `${s.plan.servicio} vence en ${dias(d)}`,
+      texto: conRevendedor
+        ? 'Pídele la renovación a tu revendedor.'
+        : 'Renueva ahora y no pierdes ni un día.',
+      servicioId: conRevendedor || !s.plan.renovable ? undefined : s.id,
+    });
+  }
+  for (const a of listos.filter((a) => !a.vistaEn && (a.tieneCodigo || a.tieneEnlace))) {
+    avisos.push({
+      clave: `a-${a.id}`,
+      tipo: 'acceso',
+      titulo: `Tu acceso de ${a.servicio} está listo`,
+      texto: 'Míralo y actívalo en tu propia cuenta.',
+      href: `/cuenta/accesos#acceso-${a.id}`,
+    });
+  }
+  for (const t of tickets?.elementos ?? []) {
+    avisos.push({
+      clave: `t-${t.id}`,
+      tipo: 'ticket',
+      titulo: `Te respondimos: ${t.asunto}`,
+      texto: `Solicitud #${t.numero} · esperando tu respuesta`,
+      href: `/cuenta/soporte/${t.id}`,
+    });
+  }
+
+  const activos = suscripciones.filter((s) => ['activa', 'en_gracia'].includes(s.estado));
+  const proxima = suscripciones
+    .filter((s) => s.estado === 'activa' && s.venceEn)
+    .sort((a, b) => a.venceEn!.localeCompare(b.venceEn!))[0];
+  const saldo = billetera?.datos ? formatearMonto(billetera.datos.saldoUsd, 'USD') : null;
+  const diasProxima = proxima?.venceEn ? diasHasta(proxima.venceEn) : 0;
+
+  const saldoOrevendedor = revendedor ? (
+    <Cifra titulo="Tu revendedor" valor={revendedor.nombre} detalle="Gestiona tus pagos" />
+  ) : (
+    <Cifra
+      titulo="Saldo"
+      valor={saldo ?? '—'}
+      detalle={saldo ? 'Billetera NV' : 'No pudimos leerlo'}
+      href="/cuenta/billetera"
+    />
+  );
+  const solicitudes = (
+    <Cifra
+      titulo="Solicitudes abiertas"
+      valor={ticketsAbiertos}
+      detalle={
+        (tickets?.total ?? 0) > 0
+          ? 'Te respondimos'
+          : ticketsAbiertos
+            ? 'Las estamos viendo'
+            : '¿Dudas? Escríbenos'
+      }
+      href="/cuenta/soporte"
+    />
+  );
+
+  const cifras = (
+    <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+      <Cifra
+        titulo="Servicios activos"
+        valor={activos.length}
+        detalle={
+          activos.length
+            ? [...new Set(activos.map((s) => s.plan.servicio))].slice(0, 3).join(', ')
+            : 'Ninguno por ahora'
+        }
+      />
+      <Cifra
+        titulo="Próximo vencimiento"
+        valor={proxima ? (diasProxima <= 0 ? 'Hoy' : dias(diasProxima)) : '—'}
+        detalle={proxima?.venceEn ? `${proxima.plan.servicio} · ${fCorta(proxima.venceEn)}` : ''}
+      />
+      {saldoOrevendedor}
+      {solicitudes}
+    </div>
+  );
+
+  const avisoRevendedor = revendedor && (
+    <AvisosCuenta
+      etiqueta="Tu revendedor"
+      avisos={[
+        {
+          clave: 'revendedor',
+          tipo: 'revendedor',
+          titulo: 'Tu cuenta la gestiona tu revendedor',
+          texto: `Tus pagos y renovaciones se los pides a ${revendedor.nombre}. Aquí ves tus servicios, accesos y soporte.`,
+        },
+      ]}
+    />
+  );
+
+  if (suscripciones.length === 0) {
+    return (
+      <>
+        {avisoRevendedor}
+        <div className="grid gap-1">
+          <h1 className="text-[clamp(1.625rem,4.4vw,2.375rem)]">Hola, {nombre}</h1>
+          <p className="max-w-[35rem] text-tinta-suave">
+            Aquí verás tus servicios, lo que tienes por pagar y tus solicitudes de ayuda.
+          </p>
+        </div>
+        <ServiciosCuenta servicios={[]} metodos={[]} conRevendedor={conRevendedor} />
+        <div className="grid grid-cols-2 gap-2.5">
+          {saldoOrevendedor}
+          {solicitudes}
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
-      <CabeceraPagina
-        titulo={`Hola, ${nombre}`}
-        descripcion="Tus servicios, lo que tienes pendiente de pago y tus solicitudes de ayuda."
-        acciones={
-          <BotonEnlace href="/cuenta/planes" variante="secundario">
+      {avisoRevendedor}
+      <div className="flex flex-wrap items-end justify-between gap-3.5">
+        <div className="grid min-w-0 gap-1">
+          <h1 className="text-[clamp(1.625rem,4.4vw,2.375rem)]">Hola, {nombre}</h1>
+          <p className="max-w-[35rem] text-tinta-suave">
+            {avisos.length
+              ? `Tienes ${avisos.length} ${avisos.length === 1 ? 'cosa que revisar' : 'cosas que revisar'}.`
+              : 'Todo está al día.'}
+          </p>
+        </div>
+        {!conRevendedor && (
+          <BotonEnlace href="/catalogo" variante="secundario">
+            <Plus className="size-4" aria-hidden="true" />
             Contratar otro plan
           </BotonEnlace>
-        }
-      />
-
-      {facturasPendientes.length > 0 && (
-        <Tarjeta>
-          <CabeceraTarjeta
-            titulo="Pendiente de pago"
-            descripcion="Paga en línea o envía el comprobante; activamos o renovamos tu servicio al confirmarlo."
-          />
-          <ul className="divide-y divide-borde">
-            {facturasPendientes.map((f) => (
-              <li
-                key={f.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6"
-              >
-                <div className="grid gap-1">
-                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    Factura {f.numero}
-                    <EstadoFacturaInsignia estado={f.estado} vencida={f.vencida} />
-                  </p>
-                  <p className="text-sm text-tinta-suave">
-                    {formatearMonto(f.total, f.moneda)} · pagar antes del{' '}
-                    {formatearFecha(f.venceEn)}
-                  </p>
-                </div>
-                {f.pagoEnRevision ? (
-                  <span className="text-sm text-tinta-suave">Estamos revisando tu pago</span>
-                ) : (
-                  <BotonEnlace href={`/cuenta/facturas/${f.id}`} tamano="sm">
-                    Pagar
-                  </BotonEnlace>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Tarjeta>
-      )}
-
-      {suscripciones.length === 0 ? (
-        <Tarjeta>
-          <EstadoVacio
-            icono={Clapperboard}
-            titulo="Todavía no tienes servicios"
-            accion={<BotonEnlace href="/cuenta/planes">Ver planes</BotonEnlace>}
-          >
-            Elige un plan, paga en tu moneda y lo activamos en cuanto confirmemos el pago.
-          </EstadoVacio>
-        </Tarjeta>
-      ) : (
-        <section aria-labelledby="titulo-servicios" className="grid gap-3">
-          <h2 id="titulo-servicios" className="text-base font-semibold">
-            Mis servicios
-          </h2>
-          <div className="grid gap-4 lg:grid-cols-2">
-            {suscripciones.map((s) => (
-              <Tarjeta key={s.id} className="grid gap-4 p-5 sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="grid gap-0.5">
-                    <p className="text-xs font-medium text-tinta-tenue">{s.plan.servicio}</p>
-                    <h3 className="text-lg font-semibold">{s.plan.nombre}</h3>
-                  </div>
-                  <EstadoSuscripcionInsignia estado={s.estado} />
-                </div>
-                <p className="flex items-start gap-2 text-sm text-tinta-suave">
-                  <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  <span>
-                    <Vigencia s={s} /> Plan de{' '}
-                    {formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad)}, pagado en{' '}
-                    {s.moneda}.
-                  </span>
-                </p>
-                {admiteCobroAutomatico(s) && metodos && <CobroAutomatico s={s} metodos={metodos} />}
-                <AccionesSuscripcion s={s} />
-              </Tarjeta>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/cuenta/facturas"
-          className="flex items-center gap-4 rounded-nv border border-borde bg-superficie p-5 shadow-nv transition-colors hover:border-borde-fuerte"
-        >
-          <Receipt className="size-5 text-marca" aria-hidden="true" />
-          <span className="grid gap-0.5">
-            <span className="text-sm font-semibold">Facturas y pagos</span>
-            <span className="text-sm text-tinta-suave">Historial y comprobantes enviados.</span>
-          </span>
-        </Link>
-        <Link
-          href="/cuenta/soporte"
-          className="flex items-center gap-4 rounded-nv border border-borde bg-superficie p-5 shadow-nv transition-colors hover:border-borde-fuerte"
-        >
-          <LifeBuoy className="size-5 text-marca" aria-hidden="true" />
-          <span className="grid gap-0.5">
-            <span className="text-sm font-semibold">Soporte</span>
-            <span className="text-sm text-tinta-suave">
-              {ticketsAbiertos > 0
-                ? `Tienes ${ticketsAbiertos} ${ticketsAbiertos === 1 ? 'solicitud abierta' : 'solicitudes abiertas'}.`
-                : '¿Necesitas ayuda? Escríbenos.'}
-            </span>
-          </span>
-        </Link>
+        )}
       </div>
+      {avisos.length > 0 && <AvisosCuenta etiqueta="Para revisar" avisos={avisos} />}
+      {cifras}
+      <ServiciosCuenta
+        servicios={servicios}
+        metodos={metodos ?? []}
+        conRevendedor={conRevendedor}
+      />
     </>
   );
 }

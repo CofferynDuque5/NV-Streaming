@@ -7,12 +7,27 @@ export const INCLUIR_FACTURA = {
   cliente: { select: { id: true, nombre: true } },
   cupon: { select: { codigo: true } },
   pagos: { where: { estado: 'en_revision' }, select: { id: true }, take: 1 },
+  lineas: {
+    where: { planId: { not: null } },
+    select: {
+      plan: {
+        select: {
+          id: true,
+          nombre: true,
+          servicio: { select: { nombre: true, slug: true, categoria: true } },
+        },
+      },
+    },
+    orderBy: { id: 'asc' },
+    take: 1,
+  },
 } as const;
 
 type FacturaBase = Factura & {
   cliente: { id: string; nombre: string };
   cupon: Pick<Cupon, 'codigo'> | null;
   pagos: { id: string }[];
+  lineas: { plan: PlanDeFactura | null }[];
 };
 
 export function facturaPublica(f: FacturaBase, ahora = new Date()): FacturaPublica {
@@ -38,6 +53,7 @@ export function facturaPublica(f: FacturaBase, ahora = new Date()): FacturaPubli
     creadoEn: iso(f.creadoEn)!,
     pagoEnRevision: f.pagos.length > 0,
     pedidoId: f.pedidoId,
+    plan: f.lineas.find((l) => l.plan)?.plan ?? null,
   };
 }
 
@@ -109,7 +125,7 @@ export const INCLUIR_LINEAS_FACTURA = {
 } as const;
 
 export function facturaDetalle(
-  f: FacturaBase & { lineas: (LineaFactura & { plan: PlanDeFactura | null })[] },
+  f: Omit<FacturaBase, 'lineas'> & { lineas: (LineaFactura & { plan: PlanDeFactura | null })[] },
   pagos: PagoBase[],
   equipo: boolean,
 ): FacturaDetalle {
@@ -123,6 +139,5 @@ export function facturaDetalle(
       total: dec2(l.total),
     })),
     pagos: pagos.map((p) => pagoPublico(p, equipo)),
-    plan: f.lineas.find((l) => l.plan)?.plan ?? null,
   };
 }

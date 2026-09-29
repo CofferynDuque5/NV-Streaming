@@ -133,6 +133,77 @@ const AJUSTES: ElementoNavegacion = {
   icono: 'ajustes',
 };
 
+/** Qué contador de pendientes lleva un elemento del menú de la cuenta. */
+export type ContadorCuenta = 'accesos' | 'facturas' | 'soporte';
+export type IconoCuenta =
+  | 'servicios'
+  | 'accesos'
+  | 'facturas'
+  | 'billetera'
+  | 'carrito'
+  | 'soporte'
+  | 'metodos'
+  | 'perfil'
+  | 'revendedor';
+
+export interface ElementoCuenta {
+  etiqueta: string;
+  href: string;
+  icono: IconoCuenta;
+  contador?: ContadorCuenta;
+  /** Solo para clientes directos de NV: los de un revendedor no lo usan. */
+  soloDirecto?: boolean;
+  permiso?: Permiso;
+}
+
+/** Menú de la cuenta del cliente: lo de todos los días arriba y la cuenta abajo. */
+const CUENTA: ElementoCuenta[][] = [
+  [
+    { etiqueta: 'Mis servicios', href: '/cuenta', icono: 'servicios' },
+    { etiqueta: 'Mis accesos', href: '/cuenta/accesos', icono: 'accesos', contador: 'accesos' },
+    {
+      etiqueta: 'Facturas y pagos',
+      href: '/cuenta/facturas',
+      icono: 'facturas',
+      contador: 'facturas',
+    },
+    { etiqueta: 'Billetera', href: '/cuenta/billetera', icono: 'billetera', soloDirecto: true },
+    { etiqueta: 'Carrito y pedidos', href: '/cuenta/carrito', icono: 'carrito', soloDirecto: true },
+    { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte', contador: 'soporte' },
+  ],
+  [
+    {
+      etiqueta: 'Métodos guardados',
+      href: '/cuenta/metodos-pago',
+      icono: 'metodos',
+      soloDirecto: true,
+    },
+    { etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil' },
+    {
+      etiqueta: 'Ser revendedor',
+      href: '/cuenta/revendedor',
+      icono: 'revendedor',
+      soloDirecto: true,
+      permiso: 'revendedor.solicitar',
+    },
+  ],
+];
+
+/**
+ * Grupos del menú de la cuenta del cliente. Al cliente de un revendedor no se
+ * le muestran la billetera, el carrito, los métodos guardados ni «Ser revendedor».
+ */
+export function navegacionCuenta(
+  permisos: readonly Permiso[],
+  directo: boolean,
+): ElementoCuenta[][] {
+  return CUENTA.map((grupo) =>
+    grupo.filter(
+      (e) => (!e.soloDirecto || directo) && (!e.permiso || permisos.includes(e.permiso)),
+    ),
+  );
+}
+
 export function navegacionDe(rol: Rol, permisos: readonly Permiso[]): ElementoNavegacion[] {
   const base = esEquipo(rol) ? EQUIPO : rol === 'revendedor' ? REVENDEDOR : CLIENTE;
   return [...base.filter((e) => !e.permiso || permisos.includes(e.permiso)), AJUSTES];

@@ -1,161 +1,201 @@
-import type { MetodoAutorizadoPublico } from '@nv/shared';
-import { ChevronDown, LockKeyhole, WalletCards } from 'lucide-react';
+import type { MetodoAutorizadoPublico, ResumenCliente } from '@nv/shared';
+import { ChevronDown, WalletCards } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { RevocarMetodo } from '@/componentes/cliente/metodos-pago';
+import { RevocarMetodoCliente } from '@/componentes/cliente/metodos-pago';
+import { PildoraEstado, type TonoEstado } from '@/componentes/cliente/pago';
+import {
+  CabeceraCuenta,
+  claseLista,
+  fechaLarga,
+  MiniaturaServicio,
+  Vacio,
+} from '@/componentes/cliente/piezas-cuenta';
 import { Alerta } from '@/componentes/ui/alerta';
-import { BotonEnlace } from '@/componentes/ui/boton';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { Insignia } from '@/componentes/ui/insignia';
-import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
-import { formatearFecha, formatearFechaHora } from '@/lib/formato';
-import { ESTADO_METODO_AUTORIZADO, nombrePasarela } from '@/lib/pagos-en-linea';
+import { formatearFechaHora } from '@/lib/formato';
+import { leerPanelCliente } from '@/lib/panel-cliente';
+import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Mis métodos de pago' };
+export const metadata: Metadata = { title: 'Métodos guardados' };
 
-export default async function MetodosDePago() {
+const ESTADO: Record<MetodoAutorizadoPublico['estado'], [string, TonoEstado]> = {
+  activo: ['Autorizado', 'exito'],
+  revocado: ['Revocado', 'neutro'],
+  invalido: ['No válido', 'peligro'],
+};
+
+type Servicios = Map<string, ResumenCliente['suscripciones'][number]>;
+
+export default async function MetodosGuardados() {
   await requerirSesion({ roles: ['cliente'] });
-  const { datos } = await leerApi<MetodoAutorizadoPublico[]>('/mi/metodos-autorizados');
+  const panel = await leerPanelCliente();
+  const cabecera = (
+    <CabeceraCuenta
+      titulo="Métodos de pago guardados"
+      descripcion="Solo para cobros automáticos que tú autorizas. Los pagos con comprobante no se guardan."
+    />
+  );
+
+  if (panel?.revendedor) {
+    return (
+      <>
+        {cabecera}
+        <Vacio>Tu revendedor gestiona tus pagos, así que no puedes guardar métodos.</Vacio>
+      </>
+    );
+  }
+
+  const [{ datos }, { datos: resumen }] = await Promise.all([
+    leerApi<MetodoAutorizadoPublico[]>('/mi/metodos-autorizados'),
+    leerApi<ResumenCliente>('/mi/resumen'),
+  ]);
+  const servicios: Servicios = new Map((resumen?.suscripciones ?? []).map((s) => [s.id, s]));
   const activos = datos?.filter((m) => m.estado === 'activo') ?? [];
   const historial = datos?.filter((m) => m.estado !== 'activo') ?? [];
 
   return (
     <>
-      <CabeceraPagina
-        titulo="Mis métodos de pago"
-        descripcion="Los métodos que autorizaste para cobrar solas tus renovaciones. Solo se usan en las suscripciones donde actives el cobro automático, y puedes revocarlos cuando quieras."
-      />
-      <p className="flex items-start gap-2 text-sm text-tinta-suave">
-        <LockKeyhole className="mt-0.5 size-4 shrink-0 text-marca" aria-hidden="true" />
-        Los datos de tu tarjeta o cuenta quedan en la pasarela (PayPal, Mercado Pago): NV Streaming
-        solo guarda una referencia para poder cobrar lo que autorizaste.
-      </p>
-
+      {cabecera}
       {!datos ? (
         <Alerta tono="peligro">
           No pudimos cargar tus métodos de pago. Recarga la página en un momento.
         </Alerta>
+      ) : activos.length === 0 ? (
+        <Vacio
+          icono={<WalletCards className="size-5" aria-hidden="true" />}
+          titulo="No tienes métodos guardados"
+        >
+          Cuando pagues una factura en línea (en dólares, euros, pesos o soles), marca «Guardar este
+          método para cobros automáticos» y aparecerá aquí.
+        </Vacio>
       ) : (
-        <Tarjeta>
-          <CabeceraTarjeta titulo="Autorizados" />
-          {activos.length === 0 ? (
-            <EstadoVacio
-              icono={WalletCards}
-              titulo="No tienes métodos autorizados"
-              accion={
-                <BotonEnlace href="/cuenta/facturas" variante="secundario">
-                  Facturas y pagos
-                </BotonEnlace>
-              }
-            >
-              Cuando pagues una factura en línea (en dólares, euros, pesos o soles) puedes marcar
-              «Guardar este método para cobros automáticos» y aparecerá aquí.
-            </EstadoVacio>
-          ) : (
-            <ul className="divide-y divide-borde">
-              {activos.map((m) => (
-                <Metodo key={m.id} m={m} />
-              ))}
-            </ul>
-          )}
-        </Tarjeta>
+        <ul className="grid gap-3.5">
+          {activos.map((m) => (
+            <Metodo key={m.id} m={m} servicios={servicios} />
+          ))}
+        </ul>
       )}
 
       {historial.length > 0 && (
-        <Tarjeta>
-          <CabeceraTarjeta
-            titulo="Revocados o no válidos"
-            descripcion="Ya no se cobra con ellos. Se guardan como constancia de lo que autorizaste."
-          />
-          <ul className="divide-y divide-borde">
+        <section aria-labelledby="titulo-revocados" className="grid gap-3.5">
+          <h2 id="titulo-revocados" className="text-lg">
+            Revocados o no válidos
+          </h2>
+          <ul className="grid gap-3.5">
             {historial.map((m) => (
-              <Metodo key={m.id} m={m} />
+              <Metodo key={m.id} m={m} servicios={servicios} />
             ))}
           </ul>
-        </Tarjeta>
+        </section>
       )}
+      <p className="text-[0.8rem] text-tinta-tenue">
+        Los datos de tu tarjeta o cuenta quedan en la pasarela: NV Streaming solo guarda una
+        referencia para cobrar lo que autorizaste. Los pagos en bolívares no tienen cobro
+        automático: se pagan con comprobante o con tu saldo.
+      </p>
     </>
   );
 }
 
-function Metodo({ m }: { m: MetodoAutorizadoPublico }) {
-  const e = ESTADO_METODO_AUTORIZADO[m.estado];
+function Metodo({ m, servicios }: { m: MetodoAutorizadoPublico; servicios: Servicios }) {
+  const [estado, tono] = ESTADO[m.estado];
   return (
-    <li className="grid gap-3 px-5 py-5 sm:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid min-w-0 gap-1">
-          <p className="flex flex-wrap items-center gap-2">
-            <span className="font-medium break-words">{m.descripcion}</span>
-            <Insignia tono={e.tono}>{e.texto}</Insignia>
-          </p>
-          <p className="text-sm text-tinta-suave">
-            {nombrePasarela(m.pasarela)} · {m.moneda} · autorizado el{' '}
-            {formatearFecha(m.autorizadoEn)}
-          </p>
-          {m.revocadoEn && (
-            <p className="text-sm text-tinta-tenue">
-              {m.estado === 'revocado' ? 'Revocado' : 'Desactivado'} el{' '}
-              {formatearFechaHora(m.revocadoEn)}
-              {m.motivoEstado ? ` · ${m.motivoEstado}` : ''}
-            </p>
-          )}
-          {!m.revocadoEn && m.motivoEstado && (
-            <p className="text-sm text-tinta-tenue">{m.motivoEstado}</p>
-          )}
+    <li className="grid min-w-0 gap-3 rounded-[1.25rem] border border-borde bg-[rgb(10_14_32/0.6)] p-4">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+        <span
+          className="orbe orbe-sm size-[2.875rem] after:hidden"
+          style={{ '--c': '#4f8dff' } as CSSProperties}
+          aria-hidden="true"
+        >
+          <WalletCards className="size-5" />
+        </span>
+        <div className="grid min-w-0 gap-0.5">
+          <small className="truncate text-xs text-tinta-suave">
+            {nombrePasarela(m.pasarela)} · {m.moneda} · guardado el {fechaLarga(m.autorizadoEn)}
+          </small>
+          <h3 className="text-[1.0625rem] leading-tight break-words">{m.descripcion}</h3>
         </div>
-        {m.estado === 'activo' && (
-          <RevocarMetodo
-            ruta={`/mi/metodos-autorizados/${m.id}/revocar`}
-            descripcion={m.descripcion}
-            suscripciones={m.suscripciones.length}
-          />
-        )}
+        <span className="col-start-2 -mt-1 sm:col-start-auto sm:mt-0 sm:self-start">
+          <PildoraEstado texto={estado} tono={tono} />
+        </span>
       </div>
 
-      {m.estado === 'activo' && (
-        <div className="grid gap-1 text-sm">
-          <p className="text-xs font-medium text-tinta-tenue">Se usa en</p>
-          {m.suscripciones.length === 0 ? (
-            <p className="text-tinta-suave">
-              Ninguna suscripción todavía. Actívalo desde{' '}
-              <Link href="/cuenta" className="font-medium text-marca hover:underline">
-                Mis servicios
-              </Link>
-              .
-            </p>
-          ) : (
-            <ul className="grid gap-1">
-              {m.suscripciones.map((s) => (
-                <li key={s.id} className="text-tinta-suave">
-                  <span className="text-tinta">{s.plan}</span>
-                  {s.venceEn ? ` · próximo cobro el ${formatearFecha(s.venceEn)}` : ''}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {m.revocadoEn && (
+        <p className="text-[0.84rem] text-tinta-tenue">
+          {m.estado === 'revocado' ? 'Revocado' : 'Desactivado'} el{' '}
+          {formatearFechaHora(m.revocadoEn)}
+          {m.motivoEstado ? ` · ${m.motivoEstado}` : ''}
+        </p>
+      )}
+      {!m.revocadoEn && m.motivoEstado && (
+        <p className="text-[0.84rem] text-tinta-tenue">{m.motivoEstado}</p>
       )}
 
-      <details className="group rounded-xl border border-borde bg-hundida">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-2.5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+      {m.estado === 'activo' &&
+        (m.suscripciones.length === 0 ? (
+          <p className="text-[0.84rem] text-tinta-suave">
+            Todavía no cobra ninguna renovación. Actívalo en un servicio desde{' '}
+            <Link href="/cuenta" className="font-semibold text-cian hover:underline">
+              Mis servicios
+            </Link>
+            .
+          </p>
+        ) : (
+          <ul className={claseLista} aria-label="Renovaciones que cobra">
+            {m.suscripciones.map((s) => {
+              const sus = servicios.get(s.id);
+              return (
+                <li key={s.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                  {sus && (
+                    <MiniaturaServicio
+                      slug={sus.plan.servicioSlug}
+                      categoria={sus.plan.categoria}
+                      nombre={sus.plan.servicio}
+                      className="size-[2.125rem] rounded-[0.625rem]"
+                    />
+                  )}
+                  <span className="grid min-w-0 gap-0.5">
+                    <b className="truncate text-[0.9rem] font-semibold">
+                      {sus ? `${sus.plan.servicio} · ${s.plan}` : s.plan}
+                    </b>
+                    {s.venceEn && (
+                      <small className="text-[0.8rem] text-tinta-suave">
+                        Próximo cobro el {fechaLarga(s.venceEn)}
+                      </small>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ))}
+
+      <details className="group text-[0.84rem] text-tinta-suave">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold text-cian [&::-webkit-details-marker]:hidden">
           Texto que aceptaste
           <ChevronDown
-            className="size-4 shrink-0 text-tinta-tenue transition-transform group-open:rotate-180"
+            className="size-4 transition-transform group-open:rotate-180"
             aria-hidden="true"
           />
         </summary>
-        <div className="grid gap-2 border-t border-borde px-3.5 py-3 text-sm">
-          <blockquote className="leading-relaxed break-words text-tinta-suave">
-            {m.textoAceptado}
-          </blockquote>
+        <div className="mt-2 grid gap-1.5 rounded-xl border border-borde bg-white/[0.03] px-3 py-2.5">
+          <blockquote className="leading-relaxed break-words">{m.textoAceptado}</blockquote>
           <p className="text-xs text-tinta-tenue">
             Aceptado el {formatearFechaHora(m.autorizadoEn)} · versión {m.versionTexto}
           </p>
         </div>
       </details>
+
+      {m.estado === 'activo' && (
+        <RevocarMetodoCliente
+          id={m.id}
+          descripcion={m.descripcion}
+          suscripciones={m.suscripciones.length}
+        />
+      )}
     </li>
   );
 }

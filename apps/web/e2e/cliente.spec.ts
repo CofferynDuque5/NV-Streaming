@@ -5,6 +5,20 @@ test('el cliente entra a su cuenta y no puede abrir la administración', async (
   await ingresar(page, 'cliente@nv.test');
   await expect(page).toHaveURL(/\/cuenta$/);
   await expect(page.getByRole('heading', { name: 'Mis servicios' })).toBeVisible();
+  // El menú de la cuenta (pastillas en el teléfono) no desborda la página.
+  const menu = page.getByRole('navigation', { name: 'Mi cuenta' });
+  await expect(menu.getByRole('link', { name: 'Mis servicios' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await menu.getByRole('link', { name: 'Perfil y seguridad' }).click();
+  await expect(page).toHaveURL(/\/ajustes$/);
+  await expect(menu.getByRole('link', { name: 'Perfil y seguridad' })).toBeInViewport();
+  const ancho = await page.evaluate(() => [
+    document.documentElement.scrollWidth,
+    window.innerWidth,
+  ]);
+  expect(ancho[0]).toBeLessThanOrEqual(ancho[1]!);
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/cuenta$/);
   await page.goto('/revendedor');

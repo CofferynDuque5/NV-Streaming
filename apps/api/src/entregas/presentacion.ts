@@ -91,7 +91,12 @@ export function entregaDetalle(
 }
 
 export const INCLUIR_ACCESO = {
-  plan: { select: { nombre: true, servicio: { select: { nombre: true } } } },
+  plan: {
+    select: {
+      nombre: true,
+      servicio: { select: { nombre: true, slug: true, categoria: true } },
+    },
+  },
   cliente: { select: { id: true, nombre: true } },
   suscripcion: { select: { id: true, estado: true, venceEn: true } },
   compraRevendedor: {
@@ -110,6 +115,8 @@ export function accesoServicio(e: EntregaAcceso, conCliente: boolean): AccesoSer
     estado: e.estado,
     motivo: e.motivo,
     servicio: e.plan.servicio.nombre,
+    servicioSlug: e.plan.servicio.slug,
+    categoria: e.plan.servicio.categoria,
     plan: e.plan.nombre,
     cliente: conCliente ? e.cliente : null,
     suscripcion: s ? { id: s.id, estado: s.estado, venceEn: iso(s.venceEn) } : null,

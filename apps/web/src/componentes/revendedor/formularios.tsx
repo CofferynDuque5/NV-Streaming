@@ -4,7 +4,6 @@ import {
   type ClienteCartera,
   INFO_MONEDA,
   type MetodoCobroPublico,
-  type MiSolicitudRevendedor,
   type Moneda,
   type PlanMayorista,
   type ResultadoCompra,
@@ -15,84 +14,13 @@ import { ErrorGeneral, hoyLocal, textoDe, useAccion } from '@/componentes/admin/
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
-import { AreaTexto, Selector } from '@/componentes/ui/selector';
+import { Selector } from '@/componentes/ui/selector';
 import { formatearMonto } from '@/lib/formato';
 
 const TIPOS_COMPROBANTE = 'image/jpeg,image/png,image/webp,application/pdf';
 
 /** Clave nueva por intento de compra: si la red falla y se reintenta, no se cobra dos veces. */
 const nuevaClave = () => crypto.randomUUID();
-
-// ── Solicitud ────────────────────────────────────────────────────────────────
-
-export function FormularioSolicitud({ previa }: { previa: MiSolicitudRevendedor | null }) {
-  const { cargando, error, campos, ejecutar } = useAccion();
-
-  async function enviar(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const d = new FormData(e.currentTarget);
-    await ejecutar('POST', '/revendedor/solicitud', {
-      nombreComercial: textoDe(d, 'nombreComercial') ?? '',
-      documento: textoDe(d, 'documento'),
-      telefono: textoDe(d, 'telefono'),
-      pais: textoDe(d, 'pais') ?? 'VE',
-      mensaje: textoDe(d, 'mensaje'),
-    });
-  }
-
-  return (
-    <form onSubmit={enviar} className="grid gap-4" noValidate>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo
-          etiqueta="Nombre de tu negocio"
-          name="nombreComercial"
-          required
-          maxLength={120}
-          defaultValue={previa?.nombreComercial}
-          placeholder="Ej. Streaming Caracas"
-          error={campos.nombreComercial}
-          className="sm:col-span-2"
-        />
-        <Campo
-          etiqueta="RIF o cédula (opcional)"
-          name="documento"
-          maxLength={40}
-          defaultValue={previa?.documento ?? ''}
-          error={campos.documento}
-        />
-        <Campo
-          etiqueta="Teléfono o WhatsApp (opcional)"
-          name="telefono"
-          type="tel"
-          defaultValue={previa?.telefono ?? ''}
-          placeholder="+58 414 000 0000"
-          error={campos.telefono}
-        />
-        <Campo
-          etiqueta="País"
-          name="pais"
-          maxLength={2}
-          defaultValue={previa?.pais ?? 'VE'}
-          ayuda="Código de 2 letras: VE, CO, PE..."
-          error={campos.pais}
-        />
-      </div>
-      <AreaTexto
-        etiqueta="Cuéntanos de tu negocio (opcional)"
-        name="mensaje"
-        rows={3}
-        maxLength={1000}
-        defaultValue={previa?.mensaje ?? ''}
-        placeholder="Dónde vendes, cuántos clientes atiendes, desde cuándo..."
-        error={campos.mensaje}
-      />
-      <ErrorGeneral error={error} />
-      <Boton type="submit" cargando={cargando} className="justify-self-start">
-        {previa ? 'Enviar de nuevo' : 'Enviar solicitud'}
-      </Boton>
-    </form>
-  );
-}
 
 // ── Recarga de saldo ─────────────────────────────────────────────────────────
 

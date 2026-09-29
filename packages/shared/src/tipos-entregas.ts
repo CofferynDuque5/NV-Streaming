@@ -5,6 +5,7 @@ import type {
   LineaInvalida,
   MotivoEntrega,
 } from './entregas.js';
+import type { CategoriaServicio } from './categorias.js';
 import type { TipoProveedor } from './esquemas/catalogo.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
 import type { Referencia } from './tipos-negocio.js';
@@ -68,6 +69,9 @@ export interface AccesoServicio {
   estado: EstadoEntrega;
   motivo: MotivoEntrega;
   servicio: string;
+  /** Slug y universo del servicio: eligen su imagen o su orbe. */
+  servicioSlug: string;
+  categoria: CategoriaServicio | null;
   plan: string;
   /** Cliente final (solo en la vista del revendedor). */
   cliente: Referencia | null;

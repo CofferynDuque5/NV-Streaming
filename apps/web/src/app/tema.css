@@ -3,6 +3,8 @@
 /* Punto donde la cabecera pasa de teléfono (menú lateral) a escritorio (franja). */
 @theme {
   --breakpoint-nav: 53.75rem;
+  /* Cuenta del cliente: desde aquí el menú pasa de pastillas a columna lateral. */
+  --breakpoint-cuenta: 61.25rem;
 }
 
 @theme inline {

@@ -88,13 +88,29 @@ test('el cliente paga NV Originals, operación completa la entrega y el cliente 
   const acceso = page.getByRole('article').filter({ hasText: 'Pase 30 días' });
   await expect(acceso.getByText('Listo', { exact: true })).toBeVisible();
   await expect(acceso.getByText(CODIGO)).toHaveCount(0);
+  await expect(acceso.getByText('Aún no lo has visto')).toBeVisible();
+  // Antes de mostrarlo se confirma, en la misma tarjeta, que es personal.
   await acceso.getByRole('button', { name: 'Mostrar código' }).click();
-  const dialogo = page.getByRole('dialog', { name: '¿Mostrar el acceso?' });
-  await expect(dialogo.getByText(/No compartas este código/)).toBeVisible();
-  await dialogo.getByRole('button', { name: 'Mostrar', exact: true }).click();
+  const confirmar = acceso.getByRole('group', { name: '¿Mostrar el código?' });
+  await expect(confirmar.getByText('Este código es solo para ti.')).toBeVisible();
+  await expect(acceso.getByText(CODIGO)).toHaveCount(0);
+  await confirmar.getByRole('button', { name: 'Volver' }).click();
+  await expect(confirmar).toHaveCount(0);
+  await acceso.getByRole('button', { name: 'Mostrar código' }).click();
+  await confirmar.getByRole('button', { name: 'Mostrar código' }).click();
   await expect(acceso.getByText(CODIGO)).toBeVisible();
+  await expect(acceso.getByText('Cómo activarlo')).toBeVisible();
   await expect(acceso.getByRole('button', { name: 'Copiar el código' })).toBeVisible();
-  await expect(acceso.getByText(/No compartas este código/)).toBeVisible();
+  await expect(acceso.getByText(/Visto por primera vez el .*no lo compartas/)).toBeVisible();
+  // El aviso de «acceso listo» desaparece del menú y del inicio.
+  await expect(
+    page.getByRole('navigation', { name: 'Mi cuenta' }).getByText('accesos listos sin ver'),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('navigation', { name: 'Mi cuenta' }).getByText('acceso listo sin ver'),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(acceso.getByText(/^Lo viste el /)).toBeVisible();
 
   // En un teléfono de 360 px la página no se desborda.
   await page.setViewportSize({ width: 360, height: 740 });

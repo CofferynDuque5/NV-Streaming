@@ -1,27 +1,50 @@
 import type { AccesoServicio } from '@nv/shared';
-import { KeyRound } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
-import { TarjetaAcceso } from '@/componentes/accesos';
+import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
+import {
+  CabeceraCuenta,
+  fechaLarga,
+  NotaSeguridad,
+  Vacio,
+} from '@/componentes/cliente/piezas-cuenta';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { MOTIVO_ENTREGA } from '@/lib/entregas';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Mis accesos' };
+
+function detalle(a: AccesoServicio): string {
+  const partes = [MOTIVO_ENTREGA[a.motivo]];
+  if (a.entregadaEn) partes.push(`entregado el ${fechaLarga(a.entregadaEn)}`);
+  const s = a.suscripcion;
+  if (s?.venceEn && !['pendiente_pago', 'cancelada'].includes(s.estado))
+    partes.push(`vence el ${fechaLarga(s.venceEn)}`);
+  return partes.join(' · ');
+}
 
 export default async function MisAccesos() {
   await requerirSesion({ roles: ['cliente'] });
   const { datos } = await leerApi<AccesoServicio[]>('/mi/accesos');
   const accesos = datos ?? [];
+  const nota = (
+    <NotaSeguridad>
+      Te damos un código o un enlace para activar el servicio en <b>tu propia cuenta</b>. Nunca te
+      enviamos usuarios ni contraseñas, y nunca te los vamos a pedir.
+    </NotaSeguridad>
+  );
 
   return (
     <>
-      <CabeceraPagina
+      <CabeceraCuenta
         titulo="Mis accesos"
-        descripcion="Cómo activar cada servicio que pagaste: pasos, enlace o código de activación oficial. El código solo se muestra aquí, cuando lo pides."
+        descripcion={
+          accesos.length
+            ? 'Tus códigos y enlaces para activar cada servicio.'
+            : 'Aquí aparecen los códigos y enlaces de tus servicios cuando estén listos.'
+        }
       />
       {!datos && (
         <Alerta tono="peligro" titulo="No pudimos cargar tus accesos">
@@ -29,21 +52,34 @@ export default async function MisAccesos() {
         </Alerta>
       )}
       {datos && accesos.length === 0 ? (
-        <Tarjeta>
-          <EstadoVacio
-            icono={KeyRound}
+        <>
+          <Vacio
+            icono={<Zap className="size-5" aria-hidden="true" />}
+            color="#22d3ee"
             titulo="Todavía no tienes accesos"
-            accion={<BotonEnlace href="/cuenta/planes">Ver planes</BotonEnlace>}
+            accion={
+              <BotonEnlace href="/catalogo" variante="secundario">
+                Ver el catálogo
+              </BotonEnlace>
+            }
           >
-            Cuando confirmemos el pago de un servicio, aquí verás cómo activarlo.
-          </EstadoVacio>
-        </Tarjeta>
+            Aparecen aquí cuando pagas un servicio.
+          </Vacio>
+          {nota}
+        </>
       ) : (
-        <div className="grid gap-4">
+        <>
+          {nota}
           {accesos.map((a) => (
-            <TarjetaAcceso key={a.id} acceso={a} vista="cliente" />
+            <TarjetaAccesoCliente
+              key={a.id}
+              acceso={a}
+              detalle={detalle(a)}
+              visto={a.vistaEn ? fechaLarga(a.vistaEn) : null}
+              pagoPendiente={a.suscripcion?.estado === 'pendiente_pago'}
+            />
           ))}
-        </div>
+        </>
       )}
     </>
   );

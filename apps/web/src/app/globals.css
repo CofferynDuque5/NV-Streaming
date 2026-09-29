@@ -12,7 +12,7 @@
 @source not '../componentes/cliente';
 @source not '../componentes/editor';
 @source not '../componentes/revendedor';
-@source not '../componentes/panel/{acciones-usuario,ajustes,barra-lateral,equipo,hoja-de-ruta,marco,paginacion}.tsx';
+@source not '../componentes/panel/{acciones-usuario,ajustes,barra-lateral,equipo,hoja-de-ruta,marco,marco-cliente,menu-cuenta,paginacion}.tsx';
 
 /*
  * Sistema de diseño NV «cosmos». Toda la interfaz usa estos tokens semánticos:

@@ -25,6 +25,7 @@ import {
   recotizarSchema,
   renovarSchema,
   reportarPagoSchema,
+  type PanelCliente,
   type ResumenCliente,
   uuidSchema,
 } from '@nv/shared';
@@ -95,6 +96,13 @@ export class AutoservicioController {
       facturasPendientes: facturas.elementos,
       ticketsAbiertos: tickets.total,
     };
+  }
+
+  /** Lo que el menú de la cuenta muestra en cada página (revendedor y pendientes). */
+  @Get('panel')
+  @RequierePermiso('autoservicio.usar')
+  panel(@Auth() auth: ContextoAuth): Promise<PanelCliente> {
+    return this.clientes.panelPropio(auth.usuario);
   }
 
   @Patch('perfil')

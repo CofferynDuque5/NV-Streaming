@@ -1,4 +1,4 @@
-import type { EventoSuscripcion, Plan, Suscripcion } from '@nv/db';
+import type { CategoriaServicio, EventoSuscripcion, Plan, Suscripcion } from '@nv/db';
 import type { SuscripcionDetalle, SuscripcionPublica } from '@nv/shared';
 import { iso, numeroFactura } from '../comun/formato.js';
 
@@ -11,7 +11,7 @@ export const INCLUIR_SUSCRIPCION = {
       duracionCantidad: true,
       duracionUnidad: true,
       renovable: true,
-      servicio: { select: { nombre: true } },
+      servicio: { select: { nombre: true, slug: true, categoria: true } },
     },
   },
   facturas: { where: { estado: 'emitida' }, select: { id: true, numero: true }, take: 1 },
@@ -21,7 +21,7 @@ export const INCLUIR_SUSCRIPCION = {
 export type SuscripcionBase = Suscripcion & {
   cliente: { id: string; nombre: string };
   plan: Pick<Plan, 'id' | 'nombre' | 'duracionCantidad' | 'duracionUnidad' | 'renovable'> & {
-    servicio: { nombre: string };
+    servicio: { nombre: string; slug: string; categoria: CategoriaServicio | null };
   };
   facturas: { id: string; numero: number }[];
   metodoAutorizado?: { id: string; descripcion: string; estado: string } | null;
@@ -36,6 +36,8 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
       id: s.plan.id,
       nombre: s.plan.nombre,
       servicio: s.plan.servicio.nombre,
+      servicioSlug: s.plan.servicio.slug,
+      categoria: s.plan.servicio.categoria,
       duracionCantidad: s.plan.duracionCantidad,
       duracionUnidad: s.plan.duracionUnidad,
       renovable: s.plan.renovable,

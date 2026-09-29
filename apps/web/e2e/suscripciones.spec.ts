@@ -87,13 +87,10 @@ test('el cliente contrata un plan, paga en bolívares y el equipo concilia el pa
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).first().click();
   await ingresar(page, 'cliente@nv.test');
-  const servicio = page
-    .locator('section')
-    .filter({
-      has: page.getByRole('heading', { name: 'Individual' }),
-    })
-    .last();
+  const servicio = page.getByRole('article').filter({
+    has: page.getByRole('heading', { name: 'Individual' }),
+  });
   await expect(servicio.getByText('Activa')).toBeVisible();
   await page.goto('/cuenta/facturas');
-  await expect(page.getByRole('row').filter({ hasText: numero })).toContainText('Pagada');
+  await expect(page.getByRole('link').filter({ hasText: numero })).toContainText('Pagada');
 });

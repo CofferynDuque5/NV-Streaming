@@ -125,6 +125,9 @@ export interface SuscripcionPublica {
     id: string;
     nombre: string;
     servicio: string;
+    /** Slug y universo del servicio: eligen su imagen o su orbe. */
+    servicioSlug: string;
+    categoria: CategoriaServicio | null;
     duracionCantidad: number;
     duracionUnidad: UnidadDuracion;
     renovable: boolean;
@@ -186,6 +189,8 @@ export interface FacturaPublica {
   pagoEnRevision: boolean;
   /** Pedido del carrito al que pertenece (null en renovaciones y altas sueltas). */
   pedidoId: string | null;
+  /** Plan facturado (el de su primera línea con plan); null si no tiene. */
+  plan: PlanDeFactura | null;
 }
 
 /** Plan facturado y su servicio, para mostrarlo con su imagen. */
@@ -198,8 +203,6 @@ export interface PlanDeFactura {
 export interface FacturaDetalle extends FacturaPublica {
   lineas: LineaFacturaPublica[];
   pagos: PagoPublico[];
-  /** Plan de la factura; null si no tiene (entonces no se puede recalcular). */
-  plan: PlanDeFactura | null;
 }
 
 export interface PagoPublico {
@@ -311,6 +314,23 @@ export interface MetricasPanel {
   ticketsSlaIncumplido: number;
   proximosVencimientos: SuscripcionPublica[];
   tasasFaltantes: MonedaConTasa[];
+}
+
+/**
+ * Lo que el menú de la cuenta del cliente muestra en todas sus páginas: quién
+ * gestiona la cuenta y cuántas cosas esperan algo de él.
+ */
+export interface PanelCliente {
+  /** Revendedor que gestiona la cuenta; null si el cliente compra directo en NV. */
+  revendedor: { nombre: string } | null;
+  pendientes: {
+    /** Accesos listos con código o enlace que aún no ha mostrado. */
+    accesosSinVer: number;
+    /** Facturas emitidas sin un pago en revisión. */
+    facturasPorPagar: number;
+    /** Solicitudes de soporte que esperan su respuesta. */
+    ticketsPorResponder: number;
+  };
 }
 
 export interface ResumenCliente {

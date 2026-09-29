@@ -85,12 +85,11 @@ test('el cliente paga en línea, guarda el método y autoriza el cobro automáti
   // La suscripción queda activa y el método aparece en «Mis métodos de pago».
   await page.goto('/cuenta');
   const servicio = page
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) })
-    .last();
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) });
   await expect(servicio.getByText('Activa', { exact: true })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Mis métodos de pago' }).first().click();
+  await page.getByRole('link', { name: 'Métodos guardados' }).first().click();
   await expect(page).toHaveURL(/\/cuenta\/metodos-pago$/);
   const metodo = page.getByRole('listitem').filter({ hasText: 'Pasarela de pruebas · USD' });
   await expect(metodo).toHaveCount(1);
@@ -106,31 +105,36 @@ test('el cliente apaga y vuelve a encender el cobro automático de su suscripci�
   await ingresar(page, 'cliente@nv.test');
   await expect(page).toHaveURL(/\/cuenta$/);
   const servicio = page
-    .locator('section')
-    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) })
-    .last();
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) });
   const control = servicio.getByRole('region', { name: 'Cobro automático' });
   const selector = control.getByLabel('Método para cobrar la renovación');
-  await expect(control.getByText(/día del vencimiento/)).toBeVisible();
 
   // Si ya quedó activado al pagar con «guardar», se apaga primero.
-  if (await control.getByText(/^Activo · /).isVisible()) {
+  if (await control.getByText(/^Cobro automático con /).isVisible()) {
+    await control.getByRole('button', { name: 'Cambiar' }).click();
+    await expect(control.getByText(/día del vencimiento/)).toBeVisible();
     await selector.selectOption('');
     await control.getByRole('button', { name: 'Desactivar' }).click();
     await expect(
       control.getByText('Cobro automático desactivado.', { exact: false }),
     ).toBeVisible();
-    await expect(control.getByText('Desactivado', { exact: true })).toBeVisible();
+    await expect(control.getByText('Sin cobro automático', { exact: true })).toBeVisible();
+  } else {
+    await control.getByRole('button', { name: 'Activar' }).click();
   }
 
+  await expect(control.getByText(/día del vencimiento/)).toBeVisible();
   await selector.selectOption({ index: 1 });
   await control.getByRole('button', { name: 'Activar' }).click();
   await expect(control.getByText('Cobro automático activado.')).toBeVisible();
   await page.reload();
-  await expect(control.getByText(/^Activo · /)).toBeVisible();
+  await expect(control.getByText(/^Cobro automático con /)).toBeVisible();
 
   await page.goto('/cuenta/metodos-pago');
-  await expect(page.getByText(/Trimestral · próximo cobro el/)).toBeVisible();
+  const renovaciones = page.getByRole('list', { name: 'Renovaciones que cobra' });
+  await expect(renovaciones.getByText('NV Cine · Trimestral')).toBeVisible();
+  await expect(renovaciones.getByText(/^Próximo cobro el/)).toBeVisible();
 });
 
 test('un pago rechazado o cancelado en la pasarela deja la factura pendiente', async ({ page }) => {

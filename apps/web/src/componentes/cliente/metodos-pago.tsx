@@ -1,14 +1,15 @@
 'use client';
 
-import type { MetodoAutorizadoPublico, SuscripcionPublica } from '@nv/shared';
 import { Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useId, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
+import { useNotificar } from '@/componentes/ui/notificaciones';
 import { AreaTexto } from '@/componentes/ui/selector';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
-import { formatearFecha } from '@/lib/formato';
+import { Mensaje, MensajeError } from './pago';
+import { claseArea, claseEnlace } from './piezas-cuenta';
 
 /**
  * Revocar una autorización de cobro automático, con confirmación. Sirve al
@@ -93,108 +94,97 @@ export function RevocarMetodo({
 }
 
 /**
- * Cobro automático de una suscripción: elegir un método autorizado activo de la
- * misma moneda o apagarlo. Explica cuándo se cobra.
+ * «Revocar» en la cuenta del cliente: un enlace rojo que abre la confirmación
+ * en el lugar, con motivo opcional.
  */
-export function CobroAutomatico({
-  s,
-  metodos,
+export function RevocarMetodoCliente({
+  id,
+  descripcion,
+  suscripciones,
 }: {
-  s: SuscripcionPublica;
-  metodos: MetodoAutorizadoPublico[];
+  id: string;
+  descripcion: string;
+  suscripciones: number;
 }) {
   const router = useRouter();
-  const id = useId();
-  const actual = s.cobroAutomatico ?? null;
-  const [eleccion, setEleccion] = useState(actual?.metodoId ?? '');
+  const notificar = useNotificar();
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
-  const [guardado, setGuardado] = useState<string | null>(null);
-  const aptos = metodos.filter((m) => m.estado === 'activo' && m.moneda === s.moneda);
 
-  async function guardar(metodoAutorizadoId: string | null) {
+  async function revocar(e: FormEvent) {
+    e.preventDefault();
     setCargando(true);
     setError(null);
-    setGuardado(null);
-    const r = await llamarApi('PUT', `/mi/suscripciones/${s.id}/cobro-automatico`, {
-      metodoAutorizadoId,
-    });
+    const m = motivo.trim();
+    const r = await llamarApi(
+      'POST',
+      `/mi/metodos-autorizados/${id}/revocar`,
+      m ? { motivo: m } : {},
+    );
     setCargando(false);
     if (!r.ok) return setError(r.error);
-    setGuardado(
-      metodoAutorizadoId
-        ? 'Cobro automático activado.'
-        : 'Cobro automático desactivado. Te enviaremos la factura para pagarla a mano.',
-    );
+    setAbierto(false);
+    notificar('Revocamos la autorización. No volveremos a cobrar con este método.');
     router.refresh();
   }
 
-  const cuando = s.venceEn
-    ? `el ${formatearFecha(s.venceEn)}, día del vencimiento`
-    : 'el día del vencimiento';
+  if (!abierto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAbierto(true)}
+        aria-label={`Revocar ${descripcion}`}
+        className="justify-self-start text-sm font-semibold text-peligro hover:underline"
+      >
+        Revocar
+      </button>
+    );
+  }
 
+  const campos = erroresPorCampo(error);
   return (
-    <section
-      aria-labelledby={`${id}-titulo`}
-      className="grid gap-2.5 rounded-xl border border-borde bg-hundida/60 p-3.5"
+    <form
+      noValidate
+      onSubmit={revocar}
+      aria-label={`Revocar ${descripcion}`}
+      className="grid gap-2.5 rounded-2xl border border-peligro/35 bg-peligro/[0.05] p-3.5"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 id={`${id}-titulo`} className="text-sm font-medium">
-          Cobro automático
-        </h4>
-        <span className={actual ? 'text-xs font-medium text-exito' : 'text-xs text-tinta-tenue'}>
-          {actual ? `Activo · ${actual.descripcion}` : 'Desactivado'}
-        </span>
+      <p className="text-[0.84rem] text-tinta-suave">
+        {suscripciones > 0
+          ? `Si lo revocas, ${suscripciones === 1 ? 'esa renovación se pagará' : 'esas renovaciones se pagarán'} a mano con factura.`
+          : 'Si lo revocas, no se usará más.'}{' '}
+        Puedes guardarlo otra vez cuando pagues en línea.
+      </p>
+      <div className="grid gap-1.5">
+        <label htmlFor={`motivo-${id}`} className="text-sm font-semibold">
+          Motivo (opcional)
+        </label>
+        <textarea
+          id={`motivo-${id}`}
+          rows={2}
+          maxLength={500}
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          className={claseArea(campos.motivo ? 'mal' : '')}
+        />
+        {campos.motivo && <Mensaje id={`motivo-${id}-error`} estado="mal" texto={campos.motivo} />}
       </div>
-      {aptos.length === 0 && !actual ? (
-        <p className="text-xs text-tinta-suave">
-          Para activarlo, paga una factura en línea en {s.moneda} y marca «Guardar este método para
-          cobros automáticos».
-        </p>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="grid min-w-0 flex-1 basis-48 gap-1">
-              <label htmlFor={`${id}-metodo`} className="text-xs text-tinta-suave">
-                Método para cobrar la renovación
-              </label>
-              <select
-                id={`${id}-metodo`}
-                value={eleccion}
-                onChange={(e) => setEleccion(e.target.value)}
-                className="h-9 w-full min-w-0 rounded-lg border border-borde-fuerte bg-superficie px-2.5 text-sm"
-              >
-                <option value="">Sin cobro automático (pago manual)</option>
-                {aptos.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.descripcion}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Boton
-              tamano="sm"
-              variante="secundario"
-              cargando={cargando}
-              disabled={eleccion === (actual?.metodoId ?? '')}
-              onClick={() => void guardar(eleccion || null)}
-            >
-              {!eleccion ? 'Desactivar' : actual ? 'Guardar' : 'Activar'}
-            </Boton>
-          </div>
-          <p className="text-xs text-tinta-tenue">
-            {actual || eleccion
-              ? `Se cobra solo ${cuando}. Te avisamos antes de cobrar; si el cobro falla, lo reintentamos en los días siguientes y te escribimos. Puedes desactivarlo cuando quieras.`
-              : 'Con el cobro automático no tienes que pagar a mano cada renovación: se cobra el día del vencimiento, con aviso previo.'}
-          </p>
-        </>
-      )}
-      {guardado && (
-        <p role="status" className="text-xs text-exito">
-          {guardado}
-        </p>
-      )}
-      {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
-    </section>
+      {error && !error.campos && <MensajeError error={error} />}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Boton type="submit" tamano="sm" variante="peligro" cargando={cargando}>
+          Revocar autorización
+        </Boton>
+        <button
+          type="button"
+          className={claseEnlace}
+          disabled={cargando}
+          onClick={() => setAbierto(false)}
+        >
+          Volver
+        </button>
+      </div>
+    </form>
   );
 }
