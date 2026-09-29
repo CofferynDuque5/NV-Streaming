@@ -1,5 +1,11 @@
 import { expect, type Page, test } from '@playwright/test';
-import { entrarEquipo, ingresar, reiniciarLimiteIngreso } from './ayudas';
+import {
+  entrarEquipo,
+  enviarComprobante,
+  ingresar,
+  numeroFacturaEnPago,
+  reiniciarLimiteIngreso,
+} from './ayudas';
 
 /** PNG mínimo válido de 1×1 píxel, como comprobante de pago. */
 const PNG_1X1 = Buffer.from(
@@ -32,18 +38,12 @@ test('el cliente paga NV Originals, operación completa la entrega y el cliente 
   await plan.getByRole('button', { name: 'Contratar' }).click();
   await plan.getByRole('button', { name: 'Confirmar y ver cómo pagar' }).click();
   await expect(page).toHaveURL(/\/cuenta\/facturas\/[0-9a-f-]{36}$/);
-  await page.getByLabel('Número de referencia').fill('00778899');
-  await page.locator('input[type=file]').setInputFiles({
+  const numero = await numeroFacturaEnPago(page);
+  await enviarComprobante(page, /Pago Móvil/, '00778899', {
     name: 'pago.png',
     mimeType: 'image/png',
     buffer: PNG_1X1,
   });
-  await page.getByRole('button', { name: 'Enviar comprobante' }).click();
-  await expect(page.getByText('Recibimos tu comprobante')).toBeVisible();
-  const numero = (await page.getByRole('heading', { name: /^Factura NV-/ }).innerText()).replace(
-    'Factura ',
-    '',
-  );
   await salir(page);
 
   // 2. Operación concilia el pago: se crea la entrega manual.

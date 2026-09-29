@@ -1,5 +1,5 @@
 import type { Archivo, Cupon, Factura, LineaFactura, MetodoCobro, Pago, Usuario } from '@nv/db';
-import type { FacturaDetalle, FacturaPublica, PagoPublico } from '@nv/shared';
+import type { FacturaDetalle, FacturaPublica, PagoPublico, PlanDeFactura } from '@nv/shared';
 import { dec, dec2, iso, numeroFactura } from '../comun/formato.js';
 import { esPasarela } from '../pagos-en-linea/pasarelas.js';
 
@@ -37,6 +37,7 @@ export function facturaPublica(f: FacturaBase, ahora = new Date()): FacturaPubli
     motivoAnulacion: f.motivoAnulacion,
     creadoEn: iso(f.creadoEn)!,
     pagoEnRevision: f.pagos.length > 0,
+    pedidoId: f.pedidoId,
   };
 }
 
@@ -93,8 +94,22 @@ export function pagoPublico(p: PagoBase, equipo: boolean): PagoPublico {
   };
 }
 
+export const INCLUIR_LINEAS_FACTURA = {
+  lineas: {
+    include: {
+      plan: {
+        select: {
+          id: true,
+          nombre: true,
+          servicio: { select: { nombre: true, slug: true, categoria: true } },
+        },
+      },
+    },
+  },
+} as const;
+
 export function facturaDetalle(
-  f: FacturaBase & { lineas: LineaFactura[] },
+  f: FacturaBase & { lineas: (LineaFactura & { plan: PlanDeFactura | null })[] },
   pagos: PagoBase[],
   equipo: boolean,
 ): FacturaDetalle {
@@ -108,5 +123,6 @@ export function facturaDetalle(
       total: dec2(l.total),
     })),
     pagos: pagos.map((p) => pagoPublico(p, equipo)),
+    plan: f.lineas.find((l) => l.plan)?.plan ?? null,
   };
 }

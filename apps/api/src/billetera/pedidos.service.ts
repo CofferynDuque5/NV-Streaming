@@ -179,7 +179,7 @@ export class PedidosService {
       }),
     ]);
     return {
-      elementos: filas.map(pedidoPublico),
+      elementos: filas.map((p) => pedidoPublico(p)),
       total,
       pagina: filtro.pagina,
       porPagina: filtro.porPagina,

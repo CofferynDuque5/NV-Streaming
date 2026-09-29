@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec/,
+        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -85,6 +85,13 @@ export default defineConfig({
       name: 'carrito',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /carrito\.spec/,
+    },
+    // Página de pago: después del carrito (el cliente queda sin pedidos por pagar y con un
+    // resto de saldo); administración rechaza un comprobante y acredita saldo.
+    {
+      name: 'pago',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /\/pago\.spec/,
     },
   ],
   webServer: [

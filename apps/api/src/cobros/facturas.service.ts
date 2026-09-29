@@ -9,7 +9,13 @@ import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { REGLAS_COBRO } from '@nv/shared';
 import { descripcionLinea, FacturacionService } from './facturacion.service.js';
-import { facturaDetalle, facturaPublica, INCLUIR_FACTURA, INCLUIR_PAGO } from './presentacion.js';
+import {
+  facturaDetalle,
+  facturaPublica,
+  INCLUIR_FACTURA,
+  INCLUIR_LINEAS_FACTURA,
+  INCLUIR_PAGO,
+} from './presentacion.js';
 
 type Tx = Prisma.TransactionClient;
 const DIA_MS = 24 * 3600_000;
@@ -50,7 +56,7 @@ export class FacturasService {
   async obtener(auth: ContextoAuth, id: string): Promise<FacturaDetalle> {
     const f = await this.prisma.factura.findFirst({
       where: { id, cliente: alcanceClientes(auth) },
-      include: { ...INCLUIR_FACTURA, lineas: true },
+      include: { ...INCLUIR_FACTURA, ...INCLUIR_LINEAS_FACTURA },
     });
     if (!f) throw Errores.noEncontrado('La factura');
     const pagos = await this.prisma.pago.findMany({

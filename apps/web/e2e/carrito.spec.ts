@@ -136,10 +136,18 @@ test('pagar cada factura aparte: crea el pedido y lleva a su página', async () 
 
   await cliente.getByRole('link', { name: 'Ver mi pedido' }).click();
   await expect(cliente).toHaveURL(/\/cuenta\/carrito\/[0-9a-f-]{36}$/);
-  await expect(cliente.getByRole('heading', { name: 'Facturas del pedido' })).toBeVisible();
-  await expect(cliente.getByRole('link', { name: /NV Cine · .*Factura NV-\d+/ })).toBeVisible();
-  const pedido = cliente.getByRole('complementary', { name: 'Resumen' });
-  await expect(pedido.getByText(usd(17.88), { exact: true }).first()).toBeVisible();
+  // Es la página de pago del pedido: una factura por plan, con la primera elegida.
+  await expect(cliente.getByRole('heading', { name: 'Paga tu pedido' })).toBeVisible();
+  const facturas = cliente.getByRole('navigation', { name: 'Facturas del pedido' });
+  await expect(facturas.getByRole('link')).toHaveCount(2);
+  await expect(facturas.getByRole('link', { name: /NV Cine/ })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  const pedido = cliente.getByRole('complementary', { name: 'Resumen de la factura' });
+  // NV Cine con el cupón (15,99 − 1,60) y lo que falta del pedido (17,88).
+  await expect(pedido.getByText(usd(14.39), { exact: true })).toBeVisible();
+  await expect(pedido.getByText(usd(17.88), { exact: true })).toBeVisible();
   await expect(pedido.getByRole('button', { name: 'Cancelar el pedido' })).toBeVisible();
 });
 

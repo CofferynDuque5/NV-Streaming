@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { entrarEquipo, ingresar } from './ayudas';
+import { entrarEquipo, enviarComprobante, ingresar, numeroFacturaEnPago } from './ayudas';
 
 /** PNG mínimo válido de 1×1 píxel, como comprobante de pago. */
 const PNG_1X1 = Buffer.from(
@@ -62,20 +62,13 @@ test('el cliente contrata un plan, paga en bolívares y el equipo concilia el pa
   await plan.getByRole('button', { name: 'Confirmar y ver cómo pagar' }).click();
 
   await expect(page).toHaveURL(/\/cuenta\/facturas\/[0-9a-f-]{36}$/);
-  await expect(page.getByRole('heading', { name: /^Factura NV-/ })).toBeVisible();
-  await expect(page.getByText('Datos para pagar con Pago Móvil')).toBeVisible();
-  await page.getByLabel('Número de referencia').fill('00123456');
-  await page.locator('input[type=file]').setInputFiles({
+  await expect(page.getByRole('heading', { name: 'Paga tu factura' })).toBeVisible();
+  const numero = await numeroFacturaEnPago(page);
+  await enviarComprobante(page, /Pago Móvil/, '00123456', {
     name: 'pago.png',
     mimeType: 'image/png',
     buffer: PNG_1X1,
   });
-  await page.getByRole('button', { name: 'Enviar comprobante' }).click();
-  await expect(page.getByText('Recibimos tu comprobante')).toBeVisible();
-  const numero = (await page.getByRole('heading', { name: /^Factura NV-/ }).innerText()).replace(
-    'Factura ',
-    '',
-  );
 
   await page.goto('/cuenta');
   await expect(page.getByText('Estamos revisando tu pago')).toBeVisible();

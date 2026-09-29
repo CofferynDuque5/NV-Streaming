@@ -1,13 +1,9 @@
 'use client';
 
-import { formatearMonto, type Moneda } from '@nv/shared';
+import type { Moneda } from '@nv/shared';
 import { Check, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Alerta } from '@/componentes/ui/alerta';
 import { Boton, clasesBoton } from '@/componentes/ui/boton';
-import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
 import { MAX_CARRITO, RUTA_CARRITO, useCarrito, useCarritoListo } from '@/lib/carrito';
 
 /** Botón para sumar un plan al carrito (o quitarlo si ya está). */
@@ -86,53 +82,6 @@ export function ResumenCarritoCuenta({ moneda }: { moneda: Moneda }) {
       >
         {n === 0 ? 'Ver catálogo' : 'Ir al carrito'}
       </Link>
-    </div>
-  );
-}
-
-/** Pagar una factura con el saldo de la billetera. */
-export function PagarConSaldo({
-  facturaId,
-  totalUsd,
-  saldoUsd,
-}: {
-  facturaId: string;
-  totalUsd: string;
-  saldoUsd: string;
-}) {
-  const router = useRouter();
-  const [cargando, setCargando] = useState(false);
-  const [error, setError] = useState<ErrorLlamada | null>(null);
-  const alcanza = Number(saldoUsd) >= Number(totalUsd);
-
-  async function pagar() {
-    setCargando(true);
-    setError(null);
-    const r = await llamarApi('POST', `/mi/facturas/${facturaId}/pagar-con-saldo`);
-    setCargando(false);
-    if (!r.ok) return setError(r.error);
-    router.refresh();
-  }
-
-  return (
-    <div className="grid gap-3">
-      <p className="text-sm text-tinta-suave">
-        Tienes {formatearMonto(saldoUsd, 'USD')} en tu billetera. Esta factura equivale a{' '}
-        {formatearMonto(totalUsd, 'USD')}.
-      </p>
-      {alcanza ? (
-        <Boton className="justify-self-start" cargando={cargando} onClick={() => void pagar()}>
-          Pagar con mi saldo
-        </Boton>
-      ) : (
-        <Link
-          href="/cuenta/billetera"
-          className={clasesBoton('secundario', 'md', 'justify-self-start')}
-        >
-          Recargar mi billetera
-        </Link>
-      )}
-      {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
     </div>
   );
 }

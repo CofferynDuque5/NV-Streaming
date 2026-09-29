@@ -184,11 +184,22 @@ export interface FacturaPublica {
   motivoAnulacion: string | null;
   creadoEn: string;
   pagoEnRevision: boolean;
+  /** Pedido del carrito al que pertenece (null en renovaciones y altas sueltas). */
+  pedidoId: string | null;
+}
+
+/** Plan facturado y su servicio, para mostrarlo con su imagen. */
+export interface PlanDeFactura {
+  id: string;
+  nombre: string;
+  servicio: { nombre: string; slug: string; categoria: CategoriaServicio | null };
 }
 
 export interface FacturaDetalle extends FacturaPublica {
   lineas: LineaFacturaPublica[];
   pagos: PagoPublico[];
+  /** Plan de la factura; null si no tiene (entonces no se puede recalcular). */
+  plan: PlanDeFactura | null;
 }
 
 export interface PagoPublico {

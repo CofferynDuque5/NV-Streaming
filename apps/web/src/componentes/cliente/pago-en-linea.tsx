@@ -3,50 +3,47 @@
 import {
   formatearMonto,
   type IntentoPagoPublico,
+  type OpcionPagoEnLinea,
   type OpcionesPagoEnLinea,
   type Pasarela,
 } from '@nv/shared';
-import { ExternalLink, LockKeyhole, ShieldCheck } from 'lucide-react';
+import clsx from 'clsx';
+import { CircleAlert, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { type FormEvent, useId, useState } from 'react';
-import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
-import { Casilla } from '@/componentes/ui/selector';
-import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
+import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
 
 /**
- * Pago de una factura en la pasarela: el cliente elige la pasarela y, si quiere,
- * guarda el método para cobros automáticos aceptando el texto de autorización
- * completo. Los datos de la tarjeta o de la cuenta se escriben en la pasarela,
- * nunca aquí.
+ * Pago de una factura en la pasarela elegida. Si la pasarela lo admite, el
+ * cliente puede guardar el método para cobros automáticos: el texto de la
+ * autorización lo da la API y hay que aceptarlo de forma expresa. Los datos de
+ * la tarjeta o de la cuenta se escriben en la pasarela, nunca aquí.
  */
-export function PagarEnLinea({ datos }: { datos: OpcionesPagoEnLinea }) {
+export function AccionPagoEnLinea({
+  datos,
+  opcion,
+}: {
+  datos: OpcionesPagoEnLinea;
+  opcion: OpcionPagoEnLinea;
+}) {
   const idTexto = useId();
-  const { factura, opciones, textosAutorizacion } = datos;
-  const [metodoId, setMetodoId] = useState(opciones[0]?.metodoCobroId ?? '');
+  const idError = useId();
+  const { factura, textosAutorizacion } = datos;
   const [guardar, setGuardar] = useState(false);
   const [acepto, setAcepto] = useState(false);
+  const [intento, setIntento] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
-  const opcion = opciones.find((o) => o.metodoCobroId === metodoId);
-  const texto = opcion ? textosAutorizacion[opcion.pasarela as Pasarela] : undefined;
-  const puedeGuardar = Boolean(opcion?.admiteGuardar && texto);
+  const texto = textosAutorizacion[opcion.pasarela as Pasarela];
+  const puedeGuardar = Boolean(opcion.admiteGuardar && texto);
   const guardando = puedeGuardar && guardar;
+  const faltaAceptar = guardando && !acepto;
+  const pasarela = nombrePasarela(opcion.pasarela);
 
   async function pagar(e: FormEvent) {
     e.preventDefault();
-    if (!opcion) return;
-    if (guardando && !acepto) {
-      setError({
-        estado: 0,
-        codigo: 'VALIDACION',
-        mensaje: 'Para guardar el método tienes que aceptar la autorización de cobro.',
-        campos: {
-          aceptoAutorizacion: ['Para guardar el método tienes que aceptar la autorización.'],
-        },
-      });
-      return;
-    }
+    if (faltaAceptar) return setIntento(true);
     setCargando(true);
     setError(null);
     const r = await llamarApi<IntentoPagoPublico>(
@@ -64,118 +61,118 @@ export function PagarEnLinea({ datos }: { datos: OpcionesPagoEnLinea }) {
     }
     if (!r.datos.urlPago) {
       setCargando(false);
-      setError({
+      return setError({
         estado: 0,
         codigo: 'SIN_URL',
         mensaje: 'La pasarela no devolvió un enlace de pago. Inténtalo de nuevo en unos minutos.',
       });
-      return;
     }
-    // Se sale del sitio: el cliente paga en la página de la pasarela y vuelve a /cuenta/pagos/retorno.
+    // Se sale del sitio: el cliente paga en la pasarela y vuelve a /cuenta/pagos/retorno.
     window.location.assign(r.datos.urlPago);
   }
 
-  const campos = erroresPorCampo(error);
-
   return (
-    <form onSubmit={pagar} className="grid gap-5" aria-label="Pagar en línea">
-      <fieldset className="grid gap-2">
-        <legend className="mb-1 text-sm font-medium">Elige la pasarela</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {opciones.map((o) => (
-            <label
-              key={o.metodoCobroId}
-              className="flex cursor-pointer items-center gap-3 rounded-xl border border-borde-fuerte bg-hundida px-3.5 py-3 text-sm transition-colors has-checked:border-marca has-checked:bg-marca-suave"
-            >
-              <input
-                type="radio"
-                name="pasarela"
-                value={o.metodoCobroId}
-                checked={o.metodoCobroId === metodoId}
-                onChange={() => {
-                  setMetodoId(o.metodoCobroId);
-                  setAcepto(false);
-                }}
-                className="accent-[var(--nv-marca)]"
-              />
-              <span className="grid min-w-0 gap-0.5">
-                <span className="font-medium">{o.nombre}</span>
-                <span className="text-xs text-tinta-tenue">
-                  {nombrePasarela(o.pasarela)} · {o.moneda}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <p className="flex items-start gap-2 text-sm text-tinta-suave">
-        <LockKeyhole className="mt-0.5 size-4 shrink-0 text-marca" aria-hidden="true" />
-        <span>
-          Te llevaremos a la página segura de {nombrePasarela(opcion?.pasarela)} para pagar{' '}
-          <span className="font-medium text-tinta">
-            {formatearMonto(factura.total, factura.moneda)}
-          </span>
-          . Los datos de tu tarjeta o de tu cuenta los escribes allí: NV Streaming nunca los ve ni
-          los guarda.
-        </span>
+    <form onSubmit={pagar} className="grid gap-4" aria-label="Pagar en línea" noValidate>
+      <p className="text-sm text-tinta-suave">
+        Te llevamos a {pasarela} para pagar{' '}
+        <b className="text-tinta">{formatearMonto(factura.total, factura.moneda)}</b>. Al volver, la
+        factura queda pagada sin enviar comprobante.
       </p>
 
-      {puedeGuardar && (
-        <div className="grid gap-3 rounded-xl border border-borde bg-elevada p-4">
-          <Casilla
-            name="guardarMetodo"
-            checked={guardar}
-            onChange={(e) => {
-              setGuardar(e.currentTarget.checked);
-              if (!e.currentTarget.checked) setAcepto(false);
-            }}
-            etiqueta="Guardar este método para cobros automáticos"
-            ayuda="Opcional. Solo se usa en las suscripciones en las que tú actives el cobro automático, y puedes revocarlo cuando quieras."
-          />
+      {puedeGuardar ? (
+        <div
+          className={clsx(
+            'grid gap-3 rounded-2xl border bg-hundida/60 p-4',
+            intento && faltaAceptar ? 'border-peligro' : 'border-borde-fuerte',
+          )}
+        >
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={guardar}
+              onChange={(e) => {
+                setGuardar(e.currentTarget.checked);
+                if (!e.currentTarget.checked) {
+                  setAcepto(false);
+                  setIntento(false);
+                }
+              }}
+              className="mt-0.5 size-4.5 shrink-0 accent-[var(--nv-marca)]"
+            />
+            <span>
+              Guardar {opcion.nombre} para cobrar solas mis renovaciones
+              <small className="block text-xs text-tinta-suave">
+                Opcional. Solo se usa en las suscripciones donde actives el cobro automático, y lo
+                revocas cuando quieras.
+              </small>
+            </span>
+          </label>
           {guardar && texto && (
-            <div className="grid gap-3 border-t border-borde pt-3">
-              <div className="grid gap-1.5">
-                <p id={idTexto} className="flex items-center gap-1.5 text-sm font-medium">
-                  <ShieldCheck className="size-4 text-marca" aria-hidden="true" />
-                  Autorización de cobro automático
-                </p>
-                <blockquote
-                  aria-labelledby={idTexto}
-                  className="rounded-lg border border-borde bg-hundida px-3.5 py-3 text-sm leading-relaxed break-words text-tinta-suave"
+            <>
+              <p id={idTexto} className="flex items-center gap-1.5 text-sm font-semibold">
+                <ShieldCheck className="size-4 text-marca" aria-hidden="true" />
+                Autorización de cobro automático
+              </p>
+              <blockquote
+                aria-labelledby={idTexto}
+                className="rounded-xl border-l-[3px] border-marca bg-marca-suave px-3.5 py-3 text-[0.82rem] leading-relaxed break-words text-tinta-suave"
+              >
+                {texto}
+              </blockquote>
+              <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={acepto}
+                  onChange={(e) => setAcepto(e.currentTarget.checked)}
+                  aria-invalid={intento && faltaAceptar ? true : undefined}
+                  aria-describedby={intento && faltaAceptar ? idError : undefined}
+                  className="mt-0.5 size-4.5 shrink-0 accent-[var(--nv-marca)]"
+                />
+                <span>Acepto y autorizo los cobros automáticos en estos términos</span>
+              </label>
+              {intento && faltaAceptar && (
+                <p
+                  id={idError}
+                  role="alert"
+                  className="flex items-center gap-1.5 text-xs font-medium text-peligro"
                 >
-                  {texto}
-                </blockquote>
-              </div>
-              <Casilla
-                name="aceptoAutorizacion"
-                required
-                checked={acepto}
-                onChange={(e) => setAcepto(e.currentTarget.checked)}
-                etiqueta="Acepto y autorizo los cobros automáticos en estos términos"
-                aria-invalid={campos.aceptoAutorizacion ? true : undefined}
-              />
-              {campos.aceptoAutorizacion && (
-                <p className="text-xs font-medium text-peligro">{campos.aceptoAutorizacion}</p>
+                  <CircleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                  Para guardar el método acepta la autorización, o desmarca la casilla de arriba.
+                </p>
               )}
-            </div>
+            </>
           )}
         </div>
+      ) : (
+        <p className="flex items-start gap-2.5 rounded-xl border border-borde bg-marca-suave/60 px-3.5 py-3 text-sm text-tinta-suave">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-cian" aria-hidden="true" />
+          {opcion.nombre} no guarda el método para cobros automáticos: cada renovación la pagas tú.
+        </p>
       )}
 
-      {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
-      {error?.campos && !campos.aceptoAutorizacion && (
-        <Alerta tono="peligro">{error.mensaje}</Alerta>
+      {error && (
+        <p
+          role="alert"
+          className="flex gap-2 rounded-xl border border-peligro/30 bg-peligro-suave px-3.5 py-2.5 text-sm"
+        >
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-peligro" aria-hidden="true" />
+          <span>{error.mensaje} Inténtalo de nuevo o elige otro método.</span>
+        </p>
       )}
-      <Boton
-        type="submit"
-        cargando={cargando}
-        disabled={!opcion || (guardando && !acepto)}
-        icono={<ExternalLink className="size-4" aria-hidden="true" />}
-        className="sm:justify-self-start"
-      >
-        Pagar {formatearMonto(factura.total, factura.moneda)} en línea
-      </Boton>
+      <div className="grid gap-2">
+        <Boton
+          type="submit"
+          tamano="lg"
+          className="w-full"
+          cargando={cargando}
+          icono={<LockKeyhole className="size-4" aria-hidden="true" />}
+        >
+          {cargando ? `Te llevamos a ${pasarela}…` : `Pagar con ${opcion.nombre}`}
+        </Boton>
+        <p className="text-center text-xs text-tinta-tenue">
+          Tus datos de pago quedan en {pasarela}. NV Streaming no los ve ni los guarda.
+        </p>
+      </div>
     </form>
   );
 }

@@ -1,5 +1,6 @@
 import type { Factura, MetodoCobro, MovimientoBilletera, Pedido, RecargaBilletera } from '@nv/db';
 import type {
+  EstadoPago,
   EstadoPedido,
   MovimientoBilleteraPublico,
   PedidoPublico,
@@ -31,13 +32,17 @@ export const INCLUIR_PEDIDO = {
         },
         take: 1,
       },
+      pagos: { orderBy: { creadoEn: 'desc' }, select: { estado: true }, take: 1 },
     },
   },
 } as const;
 
 type PedidoBase = Pedido & {
   cliente: Ref;
-  facturas: (Factura & { lineas: { descripcion: string; plan: PlanDeFactura | null }[] })[];
+  facturas: (Factura & {
+    lineas: { descripcion: string; plan: PlanDeFactura | null }[];
+    pagos: { estado: EstadoPago }[];
+  })[];
 };
 
 /** El estado de un pedido se deduce de sus facturas. */
@@ -47,7 +52,7 @@ export function estadoPedido(facturas: Pick<Factura, 'estado'>[]): EstadoPedido 
   return 'anulado';
 }
 
-export function pedidoPublico(p: PedidoBase): PedidoPublico {
+export function pedidoPublico(p: PedidoBase, ahora = new Date()): PedidoPublico {
   const vivas = p.facturas.filter((f) => f.estado !== 'anulada');
   const total = vivas.reduce((a, f) => a.add(f.total), CERO);
   const totalUsd = vivas.reduce((a, f) => a.add(f.totalUsd), CERO);
@@ -73,6 +78,8 @@ export function pedidoPublico(p: PedidoBase): PedidoPublico {
       descripcion: f.lineas[0]?.descripcion ?? '',
       suscripcionId: f.suscripcionId,
       plan: f.lineas[0]?.plan ?? null,
+      vencida: f.estado === 'emitida' && f.venceEn < ahora,
+      ultimoPago: f.pagos[0]?.estado ?? null,
     })),
     cliente: p.cliente,
     creadoEn: iso(p.creadoEn)!,

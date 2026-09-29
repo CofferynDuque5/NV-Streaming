@@ -71,7 +71,7 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   const pedido = cliente.getByRole('link', { name: /Pedido PED-\d{6} · 2 planes/ });
   await expect(pedido.getByText('Pagado')).toBeVisible();
   await pedido.click();
-  await expect(cliente.getByText('Pedido pagado')).toBeVisible();
+  await expect(cliente.getByRole('heading', { name: /^¡Pedido PED-\d{6} pagado!$/ })).toBeVisible();
   await cliente.goto('/cuenta/billetera');
   await expect(cliente.locator('[data-prueba="saldo"]')).toHaveText(usd(0));
   await expect(cliente.getByText('Pago de factura').first()).toBeVisible();

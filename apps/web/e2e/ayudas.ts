@@ -50,6 +50,30 @@ export async function codigoSinUsar(page: Page, correo: string, secreto: string)
 
 export const CONTRASENA_DEMO = 'NvDemo-2026!';
 
+/** Número de la factura que muestra la página de pago (en su resumen). */
+export async function numeroFacturaEnPago(page: Page): Promise<string> {
+  const resumen = page.getByRole('complementary', { name: 'Resumen de la factura' });
+  const texto = resumen.getByText(/^Factura NV-\d+$/);
+  await expect(texto).toBeVisible();
+  return (await texto.innerText()).replace('Factura ', '');
+}
+
+/** En la página de pago: elige un método con comprobante y envía uno válido. */
+export async function enviarComprobante(
+  page: Page,
+  metodo: RegExp,
+  referencia: string,
+  archivo: { name: string; mimeType: string; buffer: Buffer },
+) {
+  await page.getByRole('radio', { name: metodo }).check();
+  const monto = page.getByLabel(/^Monto que pagaste/);
+  await monto.fill((await monto.getAttribute('placeholder')) ?? '');
+  await page.getByLabel('Número de referencia').fill(referencia);
+  await page.locator('input[type=file]').setInputFiles(archivo);
+  await page.getByRole('button', { name: 'Enviar comprobante' }).click();
+  await expect(page.getByRole('heading', { name: 'Recibimos tu comprobante' })).toBeVisible();
+}
+
 export async function ingresar(page: Page, correo: string) {
   await page.goto('/ingresar');
   await page.getByLabel('Correo').fill(correo);

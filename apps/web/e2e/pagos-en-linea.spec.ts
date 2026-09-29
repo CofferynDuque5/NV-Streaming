@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { entrarEquipo, ingresar } from './ayudas';
+import { entrarEquipo, ingresar, numeroFacturaEnPago } from './ayudas';
 
 // Se ejecuta después de roles.spec.ts (proyecto propio en playwright.config.ts): la
 // administración ya tiene la verificación en dos pasos. La pasarela de pruebas está
@@ -23,9 +23,7 @@ async function contratarEnDolares(page: Page, plan: string): Promise<string> {
   await tarjeta.getByRole('button', { name: 'Contratar' }).click();
   await tarjeta.getByRole('button', { name: 'Confirmar y ver cómo pagar' }).click();
   await expect(page).toHaveURL(/\/cuenta\/facturas\/[0-9a-f-]{36}$/);
-  const titulo = page.getByRole('heading', { name: /^Factura NV-/ });
-  await expect(titulo).toBeVisible();
-  return (await titulo.innerText()).replace('Factura ', '');
+  return numeroFacturaEnPago(page);
 }
 
 test('administración crea un método de pago en línea con la pasarela de pruebas', async ({
@@ -55,16 +53,19 @@ test('el cliente paga en línea, guarda el método y autoriza el cobro automáti
   await expect(page).toHaveURL(/\/cuenta$/);
   facturaPagada = await contratarEnDolares(page, 'Trimestral');
 
+  // Métodos agrupados: al instante (en línea) y con comprobante (los manuales siguen ahí).
+  await expect(page.getByText('Con comprobante', { exact: true })).toBeVisible();
+  await page.getByRole('radio', { name: new RegExp(METODO) }).check();
   const formulario = page.getByRole('form', { name: 'Pagar en línea' });
-  await formulario.getByRole('radio', { name: new RegExp(METODO) }).check();
-  await expect(formulario.getByText('NV Streaming nunca los ve ni los guarda')).toBeVisible();
-  // El pago manual sigue disponible debajo.
-  await expect(page.getByRole('heading', { name: 'O paga por transferencia' })).toBeVisible();
+  await expect(formulario.getByText('NV Streaming no los ve ni los guarda')).toBeVisible();
 
-  await formulario.getByLabel('Guardar este método para cobros automáticos').check();
+  await formulario.getByLabel(/^Guardar .* para cobrar solas mis renovaciones/).check();
   await expect(formulario.getByText(/autorizo a NV Streaming a cobrar/)).toBeVisible();
-  const pagar = formulario.getByRole('button', { name: /en línea$/ });
-  await expect(pagar).toBeDisabled();
+  // Sin aceptar la autorización no se va a la pasarela: lo dice y no sale de la página.
+  const pagar = formulario.getByRole('button', { name: `Pagar con ${METODO}` });
+  await pagar.click();
+  await expect(formulario.getByRole('alert')).toContainText('acepta la autorización');
+  await expect(page).toHaveURL(/\/cuenta\/facturas\//);
   await formulario.getByLabel('Acepto y autorizo los cobros automáticos').check();
   await pagar.click();
 
@@ -78,7 +79,7 @@ test('el cliente paga en línea, guarda el método y autoriza el cobro automáti
   await expect(page.getByRole('heading', { name: '¡Pago aprobado!' })).toBeVisible();
   await expect(page.getByText('Guardamos tu método de pago')).toBeVisible();
   await page.getByRole('link', { name: 'Ver la factura' }).click();
-  await expect(page.getByText('Factura pagada')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^¡Factura NV-\d+ pagada!$/ })).toBeVisible();
   await expect(page.getByText(/Pago en línea \(Pasarela de pruebas\)/)).toBeVisible();
 
   // La suscripción queda activa y el método aparece en «Mis métodos de pago».
@@ -139,16 +140,19 @@ test('un pago rechazado o cancelado en la pasarela deja la factura pendiente', a
   await contratarEnDolares(page, 'Anual');
 
   const formulario = page.getByRole('form', { name: 'Pagar en línea' });
-  await formulario.getByRole('button', { name: /en línea$/ }).click();
+  await page.getByRole('radio', { name: new RegExp(METODO) }).check();
+  await formulario.getByRole('button', { name: `Pagar con ${METODO}` }).click();
   await expect(page).toHaveURL(/\/pago-sandbox\//);
   await page.getByRole('button', { name: 'Rechazar' }).click();
   await expect(page.getByRole('heading', { name: 'El pago fue rechazado' })).toBeVisible();
   await page.getByRole('link', { name: 'Volver a intentarlo' }).click();
   await expect(page).toHaveURL(/\/cuenta\/facturas\/[0-9a-f-]{36}$/);
-  await expect(page.getByText('Pendiente', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Paga tu factura' })).toBeVisible();
+  await expect(page.getByText(/^Págala antes del/)).toBeVisible();
 
   // Cancelar en la pasarela: no se cobra nada y se puede volver a la factura.
-  await formulario.getByRole('button', { name: /en línea$/ }).click();
+  await page.getByRole('radio', { name: new RegExp(METODO) }).check();
+  await formulario.getByRole('button', { name: `Pagar con ${METODO}` }).click();
   await expect(page).toHaveURL(/\/pago-sandbox\//);
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('heading', { name: 'Cancelaste el pago' })).toBeVisible();

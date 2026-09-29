@@ -233,6 +233,8 @@ describe('alta, pago manual y conciliación', () => {
       total: '180.00',
       totalUsd: '4.50',
       cupon: 'BIENVENIDA10',
+      pedidoId: null,
+      plan: { servicio: { slug: expect.any(String) } },
     });
     const metodos = await e.cliente.get('/mi/metodos-cobro?moneda=VES');
     expect(metodos.cuerpo.map((m: { nombre: string }) => m.nombre)).toEqual(['Pago Móvil']);
