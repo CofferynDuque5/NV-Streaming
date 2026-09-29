@@ -168,12 +168,10 @@ export function ServiciosCuenta({
       <Vacio
         icono={<Clapperboard className="size-5" aria-hidden="true" />}
         titulo="Todavía no tienes servicios"
-        accion={
-          conRevendedor ? undefined : <BotonEnlace href="/catalogo">Ver el catálogo</BotonEnlace>
-        }
+        accion={<BotonEnlace href="/catalogo">Ver el catálogo</BotonEnlace>}
       >
         {conRevendedor
-          ? 'Cuando tu revendedor active un servicio para ti, lo verás aquí.'
+          ? 'Cuando tu revendedor active un servicio para ti, lo verás aquí. También puedes contratar directo en la tienda.'
           : 'Elige un plan, paga en tu moneda y lo activamos en tu propia cuenta en cuanto confirmemos el pago.'}
       </Vacio>
     );
@@ -205,7 +203,6 @@ export function ServiciosCuenta({
               key={v.s.id}
               v={v}
               metodos={metodos}
-              conRevendedor={conRevendedor}
               resaltado={resaltado === v.s.id}
             />
           ))}
@@ -231,15 +228,15 @@ const COLOR_BARRA = {
 function TarjetaServicio({
   v,
   metodos,
-  conRevendedor,
   resaltado,
 }: {
   v: VistaServicio;
   metodos: MetodoAutorizadoPublico[];
-  conRevendedor: boolean;
   resaltado: boolean;
 }) {
   const { s } = v;
+  // Lo activó su revendedor: el cliente lo ve, pero lo renueva y lo paga el revendedor.
+  const gestionada = s.gestionadaPorRevendedor;
   const router = useRouter();
   const notificar = useNotificar();
   const titulo = useId();
@@ -279,7 +276,7 @@ function TarjetaServicio({
 
   // Una sola acción principal por tarjeta; las demás, como enlaces.
   let principal = null;
-  if (s.facturaAbierta && !conRevendedor) {
+  if (s.facturaAbierta && !gestionada) {
     principal = v.pagoEnRevision ? (
       <span className="text-sm text-tinta-suave">Estamos revisando tu pago</span>
     ) : (
@@ -287,7 +284,7 @@ function TarjetaServicio({
         Pagar factura {s.facturaAbierta.numero}
       </BotonEnlace>
     );
-  } else if (s.cancelarAlVencer && !v.fin) {
+  } else if (s.cancelarAlVencer && !v.fin && !gestionada) {
     principal = (
       <Boton
         tamano="sm"
@@ -380,13 +377,13 @@ function TarjetaServicio({
               Ver mi acceso
             </Link>
           )}
-          {v.fin && !conRevendedor && (
+          {v.fin && !gestionada && (
             <Link href="/catalogo" className={claseEnlace}>
               Volver a contratar
             </Link>
           )}
-          {conRevendedor && !v.fin && (
-            <span className="text-[0.8rem] text-tinta-tenue">Renuévalo con tu revendedor</span>
+          {gestionada && !v.fin && (
+            <span className="text-[0.8rem] text-tinta-tenue">Lo gestiona tu revendedor</span>
           )}
           {v.puedeCancelar && (
             <button

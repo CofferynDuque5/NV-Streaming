@@ -30,6 +30,7 @@ import { sumarDuracion } from '../dinero/dinero.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
+import { exigirGestionDelCliente } from './canal-revendedor.js';
 
 type Tx = Prisma.TransactionClient;
 const DIA_MS = 24 * 3600_000;
@@ -273,6 +274,7 @@ export class SuscripcionesService {
   ): Promise<ResultadoAlta> {
     return this.prisma.$transaction(async (tx) => {
       const s = await this.bloquear(tx, auth, id);
+      exigirGestionDelCliente(auth, s);
       const factura = await this.facturarRenovacion(
         tx,
         s,
@@ -400,6 +402,7 @@ export class SuscripcionesService {
     cliente: InfoCliente,
   ) {
     return this.transicion(auth, id, cliente, async (tx, s) => {
+      exigirGestionDelCliente(auth, s);
       if (s.estado === 'cancelada') throw transicionInvalida('La suscripción ya está cancelada.');
       const puedeInmediata = tienePermiso(auth.usuario.rol, 'suscripciones.gestionar');
       const programable = ['activa', 'en_gracia'].includes(s.estado);
@@ -438,6 +441,7 @@ export class SuscripcionesService {
 
   async revertirCancelacion(auth: ContextoAuth, id: string, cliente: InfoCliente) {
     return this.transicion(auth, id, cliente, async (tx, s) => {
+      exigirGestionDelCliente(auth, s);
       if (!s.cancelarAlVencer || !['activa', 'en_gracia'].includes(s.estado)) {
         throw transicionInvalida('No hay una cancelación programada que revertir.');
       }

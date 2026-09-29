@@ -8,6 +8,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { REGLAS_COBRO } from '@nv/shared';
+import { exigirGestionDelCliente } from '../suscripciones/canal-revendedor.js';
 import { descripcionLinea, FacturacionService } from './facturacion.service.js';
 import {
   facturaDetalle,
@@ -201,7 +202,13 @@ export class FacturasService {
     });
     if (!visible) throw Errores.noEncontrado('La factura');
     await tx.$queryRaw`SELECT id FROM facturas WHERE id = ${id}::uuid FOR UPDATE`;
-    return tx.factura.findUniqueOrThrow({ where: { id } });
+    const { suscripcion, ...factura } = await tx.factura.findUniqueOrThrow({
+      where: { id },
+      include: { suscripcion: { select: { revendedorId: true } } },
+    });
+    // El cliente no paga ni recalcula facturas de un servicio que gestiona su revendedor.
+    exigirGestionDelCliente(auth, suscripcion);
+    return factura;
   }
 
   private async exigirSinPagoEnRevision(tx: Tx, facturaId: string) {

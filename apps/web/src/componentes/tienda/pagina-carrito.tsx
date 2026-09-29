@@ -65,8 +65,6 @@ export type CuentaCarrito =
       /** Métodos con los que se recarga la billetera (nombres del panel). */
       metodosRecarga: string[];
     }
-  /** Cliente de un revendedor: la API no le deja usar el carrito (403). */
-  | { tipo: 'gestionada'; mensaje: string }
   | { tipo: 'revendedor' }
   | { tipo: 'equipo'; panel: string }
   /** Hay sesión de cliente pero la billetera no respondió. */
@@ -1137,7 +1135,7 @@ function AvisoPedidoAbierto({
   );
 }
 
-/** Resumen de quien no puede pagar aquí: visitante, revendedor, equipo o cliente de un revendedor. */
+/** Resumen de quien no puede pagar aquí: visitante, revendedor o equipo. */
 function ResumenSinCompra({ cuenta, nPlanes }: { cuenta: CuentaCarrito; nPlanes: string }) {
   const router = useRouter();
   if (cuenta.tipo === 'invitado') {
@@ -1174,21 +1172,19 @@ function ResumenSinCompra({ cuenta, nPlanes }: { cuenta: CuentaCarrito; nPlanes:
     );
   }
   const [texto, enlace, destino] =
-    cuenta.tipo === 'gestionada'
-      ? [cuenta.mensaje, 'Ir a mi panel', '/cuenta']
-      : cuenta.tipo === 'revendedor'
+    cuenta.tipo === 'revendedor'
+      ? [
+          'Como revendedor, compras con tu saldo al precio mayorista desde tu catálogo.',
+          'Ir al catálogo mayorista',
+          '/revendedor/catalogo',
+        ]
+      : cuenta.tipo === 'equipo'
         ? [
-            'Como revendedor, compras con tu saldo al precio mayorista desde tu catálogo.',
-            'Ir al catálogo mayorista',
-            '/revendedor/catalogo',
+            'El carrito es para clientes. Para comprar, entra con una cuenta de cliente.',
+            'Ir a mi panel',
+            cuenta.panel,
           ]
-        : cuenta.tipo === 'equipo'
-          ? [
-              'El carrito es para clientes. Para comprar, entra con una cuenta de cliente.',
-              'Ir a mi panel',
-              cuenta.panel,
-            ]
-          : ['', '', ''];
+        : ['', '', ''];
   return (
     <>
       <p className="flex justify-between gap-3 border-t border-borde pt-3.5 text-sm text-tinta-suave">

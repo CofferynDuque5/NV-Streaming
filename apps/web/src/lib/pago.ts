@@ -27,7 +27,8 @@ export async function cargarPago(
   if (estado === 404 || estado === 400) return { estado: 'no-existe' };
   if (!factura) return { estado: 'error' };
 
-  const porPagar = factura.estado === 'emitida' && !factura.pagoEnRevision;
+  const porPagar =
+    factura.estado === 'emitida' && !factura.pagoEnRevision && !factura.gestionadaPorRevendedor;
   const [pedido, billetera, manuales, catalogo, enLinea] = await Promise.all([
     pedidoLeido
       ? Promise.resolve({ datos: pedidoLeido })

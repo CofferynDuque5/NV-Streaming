@@ -151,7 +151,7 @@ export interface ElementoCuenta {
   href: string;
   icono: IconoCuenta;
   contador?: ContadorCuenta;
-  /** Solo para clientes directos de NV: los de un revendedor no lo usan. */
+  /** Solo para quien no tiene revendedor: el cliente de un revendedor no lo usa. */
   soloDirecto?: boolean;
   permiso?: Permiso;
 }
@@ -167,8 +167,8 @@ const CUENTA: ElementoCuenta[][] = [
       icono: 'facturas',
       contador: 'facturas',
     },
-    { etiqueta: 'Billetera', href: '/cuenta/billetera', icono: 'billetera', soloDirecto: true },
-    { etiqueta: 'Carrito y pedidos', href: '/cuenta/carrito', icono: 'carrito', soloDirecto: true },
+    { etiqueta: 'Billetera', href: '/cuenta/billetera', icono: 'billetera' },
+    { etiqueta: 'Carrito y pedidos', href: '/cuenta/carrito', icono: 'carrito' },
     { etiqueta: 'Soporte', href: '/cuenta/soporte', icono: 'soporte', contador: 'soporte' },
   ],
   [
@@ -190,8 +190,8 @@ const CUENTA: ElementoCuenta[][] = [
 ];
 
 /**
- * Grupos del menú de la cuenta del cliente. Al cliente de un revendedor no se
- * le muestran la billetera, el carrito, los métodos guardados ni «Ser revendedor».
+ * Grupos del menú de la cuenta del cliente. El cliente de un revendedor tiene
+ * billetera y carrito como todos, pero no métodos guardados ni «Ser revendedor».
  */
 export function navegacionCuenta(
   permisos: readonly Permiso[],

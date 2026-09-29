@@ -355,9 +355,9 @@ export class ClientesService {
   }
 
   /**
-   * Menú de la cuenta del propio cliente: quién la gestiona y cuántas cosas
-   * esperan algo de él (accesos sin ver, facturas por pagar y solicitudes que
-   * esperan su respuesta). Solo cuenta lo suyo.
+   * Menú de la cuenta del propio cliente: su revendedor, si tiene, y cuántas
+   * cosas esperan algo de él (accesos sin ver, facturas que le toca pagar y
+   * solicitudes que esperan su respuesta). Solo cuenta lo suyo.
    */
   async panelPropio(usuario: Usuario): Promise<PanelCliente> {
     const propio = await this.deUsuario(usuario);
@@ -381,6 +381,8 @@ export class ClientesService {
           clienteId: propio.id,
           estado: 'emitida',
           pagos: { none: { estado: 'en_revision' } },
+          // Las de un servicio que gestiona su revendedor no las paga él.
+          OR: [{ suscripcionId: null }, { suscripcion: { revendedorId: null } }],
         },
       }),
       this.prisma.ticket.count({ where: { clienteId: propio.id, estado: 'esperando_cliente' } }),

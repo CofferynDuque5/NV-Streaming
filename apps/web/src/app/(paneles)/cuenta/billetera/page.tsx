@@ -8,12 +8,9 @@ import type {
   PedidoPublico,
   RecargaBilleteraPublica,
 } from '@nv/shared';
-import { UserRound } from 'lucide-react';
-import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { VistaBilletera } from '@/componentes/cliente/billetera';
 import { Alerta } from '@/componentes/ui/alerta';
-import { BotonEnlace } from '@/componentes/ui/boton';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
 import { ubicacionVisitante } from '@/lib/ubicacion';
@@ -98,7 +95,7 @@ function Preguntas() {
 export default async function Billetera({ searchParams }: { searchParams: Promise<Crudo> }) {
   const sesion = await requerirSesion({ roles: ['cliente'] });
   const crudo = await searchParams;
-  const [{ estado, datos: billetera }, recargas, movimientos, metodos, catalogo, ubicacion] =
+  const [{ datos: billetera }, recargas, movimientos, metodos, catalogo, ubicacion] =
     await Promise.all([
       leerApi<BilleteraPublica>('/mi/billetera'),
       leerApi<Pagina<RecargaBilleteraPublica>>(
@@ -112,35 +109,6 @@ export default async function Billetera({ searchParams }: { searchParams: Promis
       ubicacionVisitante(),
     ]);
 
-  if (estado === 403) {
-    return (
-      <>
-        <Titulo />
-        <section
-          aria-labelledby="titulo-revendedor"
-          className="grid justify-items-center gap-3 rounded-[1.625rem] border border-borde-fuerte bg-[rgb(8_11_26/0.7)] px-4.5 py-8.5 text-center"
-        >
-          <span
-            className="orbe orbe-xl after:hidden"
-            style={{ '--c': '#8b5cf6' } as CSSProperties}
-            aria-hidden="true"
-          >
-            <UserRound />
-          </span>
-          <h2 id="titulo-revendedor" className="text-[1.4rem]">
-            Tu cuenta la gestiona tu revendedor
-          </h2>
-          <p className="max-w-md text-tinta-suave">
-            Tus servicios y renovaciones se los pides a él. La billetera NV es para clientes que
-            compran directo en la tienda.
-          </p>
-          <BotonEnlace href="/cuenta" variante="secundario">
-            Ver mis servicios
-          </BotonEnlace>
-        </section>
-      </>
-    );
-  }
   if (!billetera || !recargas || !movimientos) {
     return (
       <>

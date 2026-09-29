@@ -21,6 +21,7 @@ export const INCLUIR_FACTURA = {
     orderBy: { id: 'asc' },
     take: 1,
   },
+  suscripcion: { select: { revendedorId: true } },
 } as const;
 
 type FacturaBase = Factura & {
@@ -28,6 +29,7 @@ type FacturaBase = Factura & {
   cupon: Pick<Cupon, 'codigo'> | null;
   pagos: { id: string }[];
   lineas: { plan: PlanDeFactura | null }[];
+  suscripcion: { revendedorId: string | null } | null;
 };
 
 export function facturaPublica(f: FacturaBase, ahora = new Date()): FacturaPublica {
@@ -54,6 +56,7 @@ export function facturaPublica(f: FacturaBase, ahora = new Date()): FacturaPubli
     pagoEnRevision: f.pagos.length > 0,
     pedidoId: f.pedidoId,
     plan: f.lineas.find((l) => l.plan)?.plan ?? null,
+    gestionadaPorRevendedor: (f.suscripcion?.revendedorId ?? null) !== null,
   };
 }
 

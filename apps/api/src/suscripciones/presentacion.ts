@@ -55,6 +55,7 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
       s.metodoAutorizado?.estado === 'activo'
         ? { metodoId: s.metodoAutorizado.id, descripcion: s.metodoAutorizado.descripcion }
         : null,
+    gestionadaPorRevendedor: s.revendedorId !== null,
   };
 }
 

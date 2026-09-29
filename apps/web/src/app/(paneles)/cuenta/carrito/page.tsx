@@ -23,7 +23,7 @@ export default async function Carrito({
   searchParams: Promise<{ moneda?: string }>;
 }) {
   await requerirSesion({ roles: ['cliente'] });
-  const [{ datos: catalogo }, { estado, datos: billetera }, { datos: pedidos }, filtro, ubicacion] =
+  const [{ datos: catalogo }, { datos: billetera }, { datos: pedidos }, filtro, ubicacion] =
     await Promise.all([
       leerApi<CatalogoPublico>('/catalogo'),
       leerApi<BilleteraPublica>('/mi/billetera'),
@@ -40,11 +40,6 @@ export default async function Carrito({
         titulo="Carrito y pedidos"
         descripcion="Junta varios planes en un solo pedido y págalos juntos, con tu saldo o por factura."
       />
-      {estado === 403 && (
-        <Alerta tono="info">
-          Tu cuenta la gestiona tu revendedor: pídele a él tus servicios y renovaciones.
-        </Alerta>
-      )}
       {pendiente && (
         <Alerta tono="aviso" titulo={`Tienes el pedido ${pendiente.numero} por pagar`}>
           Págalo o cancélalo antes de hacer otro pedido.{' '}
@@ -53,12 +48,10 @@ export default async function Carrito({
           </Link>
         </Alerta>
       )}
-      {estado !== 403 && (
-        <Tarjeta>
-          <CabeceraTarjeta titulo="Tu carrito" />
-          <ResumenCarritoCuenta moneda={moneda} />
-        </Tarjeta>
-      )}
+      <Tarjeta>
+        <CabeceraTarjeta titulo="Tu carrito" />
+        <ResumenCarritoCuenta moneda={moneda} />
+      </Tarjeta>
 
       <Tarjeta>
         <CabeceraTarjeta titulo="Tus pedidos" descripcion="Los 10 más recientes." />

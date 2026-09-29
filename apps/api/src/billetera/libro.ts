@@ -20,17 +20,12 @@ export async function bloquearCliente(tx: Tx, id: string): Promise<Cliente> {
 }
 
 /**
- * La billetera y el carrito son para clientes directos de NV. Los clientes de
- * un revendedor los atiende su revendedor, y un cliente archivado no compra.
+ * La billetera y el carrito son para todo cliente activo, también el de un
+ * revendedor: compra en la tienda al precio público y paga con su propio
+ * saldo, que nunca se mezcla con el saldo del revendedor. Un cliente
+ * archivado no compra.
  */
 export function exigirBilleteraDisponible(c: Cliente): void {
-  if (c.revendedorId) {
-    throw new ErrorApp(
-      403,
-      'CLIENTE_DE_REVENDEDOR',
-      'Tu cuenta la gestiona tu revendedor: pídele a él tus servicios y renovaciones.',
-    );
-  }
   if (c.estado !== 'activo') {
     throw new ErrorApp(409, 'CLIENTE_ARCHIVADO', 'Esta cuenta está archivada. Escribe a soporte.');
   }

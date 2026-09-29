@@ -143,6 +143,11 @@ export interface SuscripcionPublica {
   facturaAbierta: { id: string; numero: string } | null;
   /** Método autorizado con el que se cobra sola al vencer (fase 4); null = pago manual. */
   cobroAutomatico?: { metodoId: string; descripcion: string } | null;
+  /**
+   * La activó un revendedor con su saldo: la renueva, cancela y paga él, no el
+   * cliente. Lo que el cliente compra directo en la tienda es `false`.
+   */
+  gestionadaPorRevendedor: boolean;
 }
 
 export interface EventoSuscripcionPublico {
@@ -191,6 +196,8 @@ export interface FacturaPublica {
   pedidoId: string | null;
   /** Plan facturado (el de su primera línea con plan); null si no tiene. */
   plan: PlanDeFactura | null;
+  /** Es de una suscripción que gestiona un revendedor: el cliente no la paga. */
+  gestionadaPorRevendedor: boolean;
 }
 
 /** Plan facturado y su servicio, para mostrarlo con su imagen. */
@@ -321,12 +328,15 @@ export interface MetricasPanel {
  * gestiona la cuenta y cuántas cosas esperan algo de él.
  */
 export interface PanelCliente {
-  /** Revendedor que gestiona la cuenta; null si el cliente compra directo en NV. */
+  /**
+   * Revendedor del cliente; null si solo compra directo en NV. Aun con
+   * revendedor, el cliente tiene billetera y carrito para comprar directo.
+   */
   revendedor: { nombre: string } | null;
   pendientes: {
     /** Accesos listos con código o enlace que aún no ha mostrado. */
     accesosSinVer: number;
-    /** Facturas emitidas sin un pago en revisión. */
+    /** Facturas emitidas sin un pago en revisión (sin las de servicios de su revendedor). */
     facturasPorPagar: number;
     /** Solicitudes de soporte que esperan su respuesta. */
     ticketsPorResponder: number;

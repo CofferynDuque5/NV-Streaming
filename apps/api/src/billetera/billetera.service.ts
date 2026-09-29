@@ -26,6 +26,7 @@ import { PRISMA } from '../comun/tokens.js';
 import { aUsd, D } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { LimitesService } from '../limites/limites.service.js';
+import { exigirGestionDelCliente } from '../suscripciones/canal-revendedor.js';
 import {
   bloquearCliente,
   exigirBilleteraDisponible,
@@ -78,7 +79,6 @@ export class BilleteraService {
 
   async resumen(auth: ContextoAuth): Promise<BilleteraPublica> {
     const c = await this.clientes.deUsuario(auth.usuario);
-    if (c.revendedorId) exigirBilleteraDisponible(c);
     const desde = new Date(Date.now() - 30 * 24 * 3600_000);
     const recientes = { clienteId: c.id, creadoEn: { gte: desde } };
     const [porEstado, pedido, totalMovimientos, entradas, salidas] = await Promise.all([
@@ -241,8 +241,14 @@ export class BilleteraService {
       const propio = await this.clientes.deUsuario(auth.usuario, tx);
       const c = await bloquearCliente(tx, propio.id);
       exigirBilleteraDisponible(c);
-      const factura = await tx.factura.findFirst({ where: { id: facturaId, clienteId: c.id } });
-      if (!factura) throw Errores.noEncontrado('La factura');
+      const encontrada = await tx.factura.findFirst({
+        where: { id: facturaId, clienteId: c.id },
+        include: { suscripcion: { select: { revendedorId: true } } },
+      });
+      if (!encontrada) throw Errores.noEncontrado('La factura');
+      const { suscripcion, ...factura } = encontrada;
+      // Lo que activó su revendedor lo paga el revendedor, nunca el saldo del cliente.
+      exigirGestionDelCliente(auth, suscripcion);
       const pagos = await this.pagarConSaldo(tx, c, [factura], auth.usuario.id, cliente);
       return { pagos, saldo: c.saldoUsd };
     });

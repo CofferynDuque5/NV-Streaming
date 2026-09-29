@@ -80,18 +80,8 @@ export async function MarcoCliente({
               </span>
             </div>
           </div>
-          <MenuCuenta
-            grupos={grupos}
-            pendientes={
-              panel
-                ? // Las facturas del cliente de un revendedor las cobra el revendedor.
-                  {
-                    ...panel.pendientes,
-                    facturasPorPagar: revendedor ? 0 : panel.pendientes.facturasPorPagar,
-                  }
-                : null
-            }
-          />
+          {/* La API ya no cuenta las facturas de lo que gestiona su revendedor. */}
+          <MenuCuenta grupos={grupos} pendientes={panel?.pendientes ?? null} />
         </aside>
         <main id="contenido" className="grid min-w-0 content-start gap-5.5">
           {children}

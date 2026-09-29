@@ -437,24 +437,161 @@ describe('carrito', () => {
     const intruso = await conectar(ctx, 'cliente');
     expect((await intruso.n.get(`/mi/pedidos/${pedido.cuerpo.id}`)).estado).toBe(404);
   });
+});
 
-  it('los clientes de un revendedor no usan el carrito ni la billetera', async () => {
+/**
+ * Liga al cliente del escenario a un revendedor aprobado con saldo propio y un
+ * precio mayorista de 3 USD para el plan mensual (que al público cuesta 5 USD).
+ */
+async function deRevendedor(e: Escenario) {
+  await e.cliente.get('/mi/billetera');
+  const ficha = await ctx.prisma.cliente.findFirstOrThrow({ where: { usuarioId: e.usuarioId } });
+  const rev = await conectar(ctx, 'revendedor');
+  const nivel = await ctx.prisma.nivelRevendedor.create({ data: { nombre: 'Plata' } });
+  await ctx.prisma.precioMayorista.create({
+    data: { planId: e.planId, nivelId: nivel.id, precioUsd: '3' },
+  });
+  const revendedor = await ctx.prisma.revendedor.create({
+    data: {
+      usuarioId: rev.usuario.id,
+      nombreComercial: 'Tienda Luna',
+      estado: 'aprobado',
+      nivelId: nivel.id,
+      saldoUsd: '25',
+    },
+  });
+  await ctx.prisma.cliente.update({
+    where: { id: ficha.id },
+    data: { revendedorId: revendedor.id },
+  });
+  return { clienteId: ficha.id, revendedorId: revendedor.id };
+}
+
+describe('clientes de un revendedor', () => {
+  it('recargan su billetera y compran en el carrito al precio público; el saldo del revendedor no cambia', async () => {
     const e = await escenario();
-    await e.cliente.get('/mi/billetera');
-    const ficha = await ctx.prisma.cliente.findFirstOrThrow({ where: { usuarioId: e.usuarioId } });
-    const rev = await conectar(ctx, 'revendedor');
-    const revendedor = await ctx.prisma.revendedor.create({
-      data: { usuarioId: rev.usuario.id, nombreComercial: 'Tienda', estado: 'aprobado' },
+    const { clienteId, revendedorId } = await deRevendedor(e);
+
+    expect((await e.cliente.get('/mi/billetera')).cuerpo).toMatchObject({
+      saldoUsd: '0.00',
+      pedidoPendiente: null,
     });
-    await ctx.prisma.cliente.update({
-      where: { id: ficha.id },
-      data: { revendedorId: revendedor.id },
+    await conSaldo(e, '20');
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('20.00');
+
+    // Precio público (5 USD), nunca el mayorista del nivel de su revendedor (3 USD).
+    const cot = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
+    expect(cot.estado).toBe(200);
+    expect(cot.cuerpo).toMatchObject({ total: '5.00', totalUsd: '5.00', saldoUsd: '20.00' });
+
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [e.planId],
+      moneda: 'USD',
+      pago: 'billetera',
     });
-    const r = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
-    expect(r.cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
-    const resumen = await e.cliente.get('/mi/billetera');
-    expect(resumen.estado).toBe(403);
-    expect(resumen.cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
-    expect((await recargar(e, e.cliente, '5')).cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
+    expect(pedido.estado).toBe(201);
+    expect(pedido.cuerpo).toMatchObject({ estado: 'pagado', totalUsd: '5.00' });
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('15.00');
+
+    // La compra es suya: sin revendedor, y la renueva y cancela él.
+    const s = await ctx.prisma.suscripcion.findFirstOrThrow({ where: { clienteId } });
+    expect(s).toMatchObject({ estado: 'activa', revendedorId: null });
+    const vista = await e.cliente.get(`/mi/suscripciones/${s.id}`);
+    expect(vista.cuerpo.gestionadaPorRevendedor).toBe(false);
+    const ren = await e.cliente.post(`/mi/suscripciones/${s.id}/renovar`, {});
+    expect(ren.estado).toBe(200);
+    const pagoRen = await e.cliente.post(`/mi/facturas/${ren.cuerpo.factura.id}/pagar-con-saldo`);
+    expect(pagoRen.cuerpo).toEqual({ saldoUsd: '10.00' });
+
+    // El saldo del revendedor y su libro mayor quedan intactos: son cuentas aparte.
+    const r = await ctx.prisma.revendedor.findUniqueOrThrow({ where: { id: revendedorId } });
+    expect(r.saldoUsd.toFixed(2)).toBe('25.00');
+    expect(await ctx.prisma.movimientoSaldo.count()).toBe(0);
+    expect(await ctx.prisma.compraRevendedor.count()).toBe(0);
+    const movs = await ctx.prisma.movimientoBilletera.findMany({
+      where: { clienteId },
+      orderBy: { creadoEn: 'asc' },
+    });
+    expect(movs.map((m) => [m.tipo, m.montoUsd.toFixed(2)])).toEqual([
+      ['recarga', '20.00'],
+      ['pago', '-5.00'],
+      ['pago', '-5.00'],
+    ]);
+  });
+
+  it('lo que activó su revendedor no lo renueva, cancela ni paga el cliente', async () => {
+    const e = await escenario();
+    const { clienteId, revendedorId } = await deRevendedor(e);
+    await conSaldo(e, '20');
+    const s = await ctx.prisma.suscripcion.create({
+      data: {
+        clienteId,
+        planId: e.planId,
+        moneda: 'USD',
+        revendedorId,
+        estado: 'activa',
+        inicioEn: new Date(Date.now() - 25 * 24 * 3600_000),
+        venceEn: new Date(Date.now() + 5 * 24 * 3600_000),
+      },
+    });
+    const vista = await e.cliente.get(`/mi/suscripciones/${s.id}`);
+    expect(vista.cuerpo.gestionadaPorRevendedor).toBe(true);
+
+    for (const ruta of ['renovar', 'cancelar', 'revertir-cancelacion']) {
+      const r = await e.cliente.post(
+        `/mi/suscripciones/${s.id}/${ruta}`,
+        ruta === 'cancelar' ? { motivo: 'Ya no lo uso' } : {},
+      );
+      expect(r.estado).toBe(403);
+      expect(r.cuerpo.error.codigo).toBe('GESTIONA_REVENDEDOR');
+    }
+
+    // Si el equipo le emite una factura, el cliente no la paga ni la ve como pendiente suya.
+    const ren = await e.admin.post(`/suscripciones/${s.id}/renovar`, {});
+    expect(ren.estado).toBe(200);
+    const facturaId = ren.cuerpo.factura.id as string;
+    const factura = await e.cliente.get(`/mi/facturas/${facturaId}`);
+    expect(factura.cuerpo.gestionadaPorRevendedor).toBe(true);
+    const conSaldoNo = await e.cliente.post(`/mi/facturas/${facturaId}/pagar-con-saldo`);
+    expect(conSaldoNo.cuerpo.error.codigo).toBe('GESTIONA_REVENDEDOR');
+    const reporte = await e.cliente.formulario(
+      `/mi/facturas/${facturaId}/pagos`,
+      { metodoCobroId: e.zelleId, monto: '5', fechaPago: hoy() },
+      comprobante,
+    );
+    expect(reporte.cuerpo.error.codigo).toBe('GESTIONA_REVENDEDOR');
+    const recotizar = await e.cliente.post(`/mi/facturas/${facturaId}/recotizar`, {
+      moneda: 'VES',
+    });
+    expect(recotizar.cuerpo.error.codigo).toBe('GESTIONA_REVENDEDOR');
+    expect((await e.cliente.get('/mi/panel')).cuerpo).toMatchObject({
+      revendedor: { nombre: 'Tienda Luna' },
+      pendientes: { facturasPorPagar: 0 },
+    });
+
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('20.00');
+    expect(await ctx.prisma.pago.count({ where: { facturaId } })).toBe(0);
+    const intacta = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: s.id } });
+    expect(intacta).toMatchObject({ estado: 'activa', cancelarAlVencer: false });
+    // El equipo sí puede gestionarla.
+    const anular = await e.admin.post(`/facturas/${facturaId}/anular`, { motivo: 'Prueba' });
+    expect(anular.estado).toBe(200);
+  });
+
+  it('un cliente archivado, con o sin revendedor, no recarga ni compra', async () => {
+    const e = await escenario();
+    const { clienteId } = await deRevendedor(e);
+    await ctx.prisma.cliente.update({ where: { id: clienteId }, data: { estado: 'archivado' } });
+    const cot = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
+    expect(cot.cuerpo.error.codigo).toBe('CLIENTE_ARCHIVADO');
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [e.planId],
+      moneda: 'USD',
+      pago: 'facturas',
+    });
+    expect(pedido.cuerpo.error.codigo).toBe('CLIENTE_ARCHIVADO');
+    expect((await recargar(e, e.cliente, '5')).cuerpo.error.codigo).toBe('CLIENTE_ARCHIVADO');
+    expect(await ctx.prisma.recargaBilletera.count()).toBe(0);
+    expect(await ctx.prisma.pedido.count()).toBe(0);
   });
 });

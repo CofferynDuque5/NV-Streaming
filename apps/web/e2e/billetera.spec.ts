@@ -218,7 +218,7 @@ test('reportar una recarga: validación en vivo, errores, éxito, rechazo y env�
   await admin.context().close();
 });
 
-test('un cliente de un revendedor ve que su cuenta la gestiona el revendedor', async ({
+test('un cliente de un revendedor también tiene billetera y carrito, al precio público', async ({
   browser,
 }) => {
   const ligar = (revendedor: string) =>
@@ -233,12 +233,22 @@ test('un cliente de un revendedor ve que su cuenta la gestiona el revendedor', a
   );
   try {
     await cliente.goto('/cuenta/billetera');
-    await expect(
-      cliente.getByRole('heading', { name: 'Tu cuenta la gestiona tu revendedor' }),
-    ).toBeVisible();
-    await expect(cliente.getByRole('button', { name: 'Recargar saldo' })).toHaveCount(0);
-    await cliente.getByRole('link', { name: 'Ver mis servicios' }).click();
-    await expect(cliente).toHaveURL(/\/cuenta$/);
+    await expect(cliente.getByRole('heading', { level: 1, name: 'Tu billetera' })).toBeVisible();
+    await expect(cliente.getByRole('button', { name: 'Recargar saldo' }).first()).toBeVisible();
+    await expect(cliente.getByText('Tu cuenta la gestiona tu revendedor')).toHaveCount(0);
+
+    // El carrito cotiza en la API con el precio al público del plan, como a cualquier cliente.
+    const cat = await (await cliente.request.get('/api/v1/catalogo')).json();
+    const plan = cat.planes[0] as { id: string; precioUsd: string };
+    const cot = await cliente.request.post('/api/v1/mi/pedidos/cotizar', {
+      headers: { origin: new URL(cliente.url()).origin },
+      data: { planes: [plan.id], moneda: 'USD' },
+    });
+    expect(cot.ok()).toBe(true);
+    expect((await cot.json()).totalUsd).toBe(Number(plan.precioUsd).toFixed(2));
+
+    await cliente.goto('/cuenta/carrito');
+    await expect(cliente.getByRole('heading', { name: 'Tu carrito' })).toBeVisible();
   } finally {
     ligar('NULL');
     await cliente.context().close();

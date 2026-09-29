@@ -36,7 +36,7 @@ import {
 export interface DatosPago {
   factura: FacturaDetalle;
   pedido: PedidoPublico | null;
-  /** null: la billetera no está disponible (cuenta gestionada) o no se pudo leer. */
+  /** null: la billetera no se pudo leer. */
   billetera: BilleteraPublica | null;
   /** Solo si la factura se puede pagar ahora. */
   manuales: MetodoCobroPublico[];
@@ -537,6 +537,13 @@ export function VistaPago({ datos }: { datos: DatosPago }) {
         </Aviso>
         <PagarSiguiente datos={datos} />
       </section>
+    );
+  } else if (f.gestionadaPorRevendedor) {
+    cuerpo = (
+      <Aviso tono="marca" titulo="Esta factura la gestiona tu revendedor">
+        Es de un servicio que te activó tu revendedor: pídele a él que la pague o que renueve el
+        servicio. Lo que compras directo en la tienda sí lo pagas aquí.
+      </Aviso>
     );
   } else if (f.pagoEnRevision) {
     cuerpo = <EnRevision datos={datos} />;

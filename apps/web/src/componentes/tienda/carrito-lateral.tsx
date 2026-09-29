@@ -176,7 +176,7 @@ export function CarritoLateral({
   const actual = resultado?.clave === clave ? resultado : null;
   const cotizacion = actual?.cotizacion ?? null;
   const cotizando = cliente && ids.length > 0 && !actual;
-  // Sin cotización (visitante, cliente de un revendedor o un error): precio de catálogo.
+  // Sin cotización (visitante o un error): precio de catálogo.
   const referencia = !cotizando && !cotizacion;
 
   function quitar(e: Elegido) {

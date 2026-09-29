@@ -43,7 +43,10 @@ export default async function MetodosGuardados() {
     return (
       <>
         {cabecera}
-        <Vacio>Tu revendedor gestiona tus pagos, así que no puedes guardar métodos.</Vacio>
+        <Vacio>
+          Como cliente de {panel.revendedor.nombre} no puedes guardar métodos para cobros
+          automáticos. Paga tus compras de la tienda con tu billetera o desde cada factura.
+        </Vacio>
       </>
     );
   }

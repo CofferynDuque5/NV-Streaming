@@ -254,29 +254,49 @@ test('perfil: la contraseña nueva se revisa en vivo antes de cambiarla', async 
   await expect(nueva).toHaveValue('');
 });
 
-test('un cliente de un revendedor no ve pagos, billetera ni «Ser revendedor»', async () => {
+test('un cliente de un revendedor compra con su billetera; lo que activó su revendedor lo gestiona él', async () => {
   const ligar = (revendedor: string) =>
     ejecutarSql(
-      `UPDATE clientes SET revendedor_id = ${revendedor} WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}');`,
+      `UPDATE clientes SET revendedor_id = ${revendedor} WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}');
+       UPDATE suscripciones SET revendedor_id = ${revendedor} WHERE estado = 'en_gracia' AND cliente_id = (SELECT id FROM clientes WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}'));`,
     );
+  // El plan en gracia (Individual) pasa a ser del revendedor; el Trimestral sigue siendo suyo.
   ligar(
     "(SELECT r.id FROM revendedores r JOIN usuarios u ON u.id = r.usuario_id WHERE u.correo = 'revendedor@nv.test')",
   );
   try {
     await page.goto('/cuenta');
-    await expect(page.getByText('Tu cuenta la gestiona tu revendedor')).toBeVisible();
-    await expect(page.getByText('Tu revendedor', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Contratar otro plan' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Cancelar/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Renovar ahora' })).toHaveCount(0);
-    await expect(page.getByText('Renuévalo con tu revendedor').first()).toBeVisible();
+    await expect(page.getByText(/^Eres cliente de /)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Contratar otro plan' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Saldo/ })).toBeVisible();
+
+    const servicios = page.getByRole('region', { name: 'Mis servicios' }).getByRole('article');
+    const delRevendedor = servicios.filter({
+      has: page.getByRole('heading', { name: 'Individual' }),
+    });
+    await expect(delRevendedor.getByText('Lo gestiona tu revendedor')).toBeVisible();
+    await expect(delRevendedor.getByRole('button', { name: 'Renovar ahora' })).toHaveCount(0);
+    await expect(delRevendedor.getByRole('button', { name: /^Cancelar/ })).toHaveCount(0);
+    const revisar = page.getByRole('region', { name: 'Para revisar' });
+    await expect(revisar.getByText('Pídele la renovación a tu revendedor.').first()).toBeVisible();
+
+    const propio = servicios.filter({ has: page.getByRole('heading', { name: 'Trimestral' }) });
+    await expect(propio.getByRole('button', { name: 'Renovar ahora' })).toBeVisible();
+    await expect(propio.getByRole('button', { name: 'Cancelar suscripción' })).toBeVisible();
+    await expect(propio.getByText('Lo gestiona tu revendedor')).toHaveCount(0);
+
     const menu = page.getByRole('navigation', { name: 'Mi cuenta' });
-    for (const nombre of ['Billetera', 'Carrito y pedidos', 'Métodos guardados', 'Ser revendedor'])
+    for (const nombre of ['Billetera', 'Carrito y pedidos', 'Mis servicios'])
+      await expect(menu.getByRole('link', { name: nombre })).toBeVisible();
+    for (const nombre of ['Métodos guardados', 'Ser revendedor'])
       await expect(menu.getByRole('link', { name: nombre })).toHaveCount(0);
-    await expect(menu.getByRole('link', { name: 'Mis servicios' })).toBeVisible();
+
+    await menu.getByRole('link', { name: 'Billetera' }).click();
+    await expect(page).toHaveURL(/\/cuenta\/billetera$/);
+    await expect(page.getByRole('button', { name: 'Recargar saldo' }).first()).toBeVisible();
 
     await page.goto('/cuenta/metodos-pago');
-    await expect(page.getByText('Tu revendedor gestiona tus pagos')).toBeVisible();
+    await expect(page.getByText(/no puedes guardar métodos para cobros/)).toBeVisible();
   } finally {
     ligar('NULL');
   }

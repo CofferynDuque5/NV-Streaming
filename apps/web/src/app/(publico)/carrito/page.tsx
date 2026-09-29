@@ -33,12 +33,6 @@ async function cuentaDe(sesion: SesionTienda | null): Promise<CuentaCarrito> {
       billeteraTienda(),
       leerApi<MetodoCobroPublico[]>('/mi/billetera/metodos-cobro'),
     ]);
-    if (billetera.estado === 403) {
-      return {
-        tipo: 'gestionada',
-        mensaje: 'Tu cuenta la gestiona tu revendedor: pídele a él tus servicios y renovaciones.',
-      };
-    }
     if (billetera.estado === 401) return { tipo: 'invitado' };
     if (!billetera.datos) return { tipo: 'error' };
     return {
