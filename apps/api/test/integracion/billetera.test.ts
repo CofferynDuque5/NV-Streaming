@@ -180,6 +180,75 @@ describe('billetera del cliente', () => {
     expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('2.00');
   });
 
+  it('el resumen cuenta recargas por estado y lo que entró y salió en 30 días; los movimientos se filtran por tipo', async () => {
+    const e = await escenario();
+    expect((await e.cliente.get('/mi/billetera')).cuerpo).toMatchObject({
+      recargasPorEstado: { en_revision: 0, confirmada: 0, rechazada: 0 },
+      totalMovimientos: 0,
+      ultimos30Dias: { entradasUsd: '0.00', salidasUsd: '0.00' },
+    });
+    await conSaldo(e, '10');
+    const mala = await recargar(e, e.cliente, '4');
+    await e.operador.post(`/billeteras/recargas/${mala.cuerpo.id}/rechazar`, {
+      motivo: 'No llegó el pago',
+    });
+    await recargar(e, e.cliente, '3');
+    // Una factura de 200 VES a 40 = 5 USD pagada con saldo.
+    const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'VES' });
+    const pagada = await e.cliente.post(
+      `/mi/facturas/${alta.cuerpo.factura.id as string}/pagar-con-saldo`,
+    );
+    expect(pagada.estado).toBe(200);
+    const ficha = await ctx.prisma.cliente.findFirstOrThrow({ where: { usuarioId: e.usuarioId } });
+    await e.admin.post(`/billeteras/clientes/${ficha.id}/ajustes`, {
+      montoUsd: '-1.5',
+      motivo: 'Corrección',
+    });
+    // Un movimiento de hace 40 días no cuenta en las cifras del mes.
+    await ctx.prisma.movimientoBilletera.create({
+      data: {
+        clienteId: ficha.id,
+        tipo: 'ajuste',
+        montoUsd: '8',
+        saldoResultanteUsd: '8',
+        motivo: 'Antiguo',
+        creadoEn: new Date(Date.now() - 40 * 24 * 3600_000),
+      },
+    });
+
+    const r = await e.cliente.get('/mi/billetera');
+    expect(r.cuerpo).toMatchObject({
+      saldoUsd: '3.50',
+      recargasEnRevision: 1,
+      recargasPorEstado: { en_revision: 1, confirmada: 1, rechazada: 1 },
+      totalMovimientos: 4,
+      ultimos30Dias: { entradasUsd: '10.00', salidasUsd: '6.50' },
+    });
+
+    const pagos = await e.cliente.get('/mi/billetera/movimientos?tipo=pago');
+    expect(pagos.estado).toBe(200);
+    expect(pagos.cuerpo).toMatchObject({
+      total: 1,
+      elementos: [{ tipo: 'pago', montoUsd: '-5.00' }],
+    });
+    expect(pagos.cuerpo.elementos[0].factura).toMatchObject({ numero: expect.any(String) });
+    const ajustes = await e.cliente.get('/mi/billetera/movimientos?tipo=ajuste&porPagina=1');
+    expect(ajustes.cuerpo).toMatchObject({ total: 2, porPagina: 1 });
+    expect(ajustes.cuerpo.elementos).toHaveLength(1);
+    const todos = await e.cliente.get('/mi/billetera/movimientos');
+    expect(todos.cuerpo.total).toBe(4);
+    const malo = await e.cliente.get('/mi/billetera/movimientos?tipo=retiro');
+    expect(malo.estado).toBe(400);
+
+    // Otro cliente no ve nada de esta billetera.
+    const otro = await conectar(ctx, 'cliente');
+    expect((await otro.n.get('/mi/billetera')).cuerpo).toMatchObject({
+      recargasPorEstado: { en_revision: 0, confirmada: 0, rechazada: 0 },
+      totalMovimientos: 0,
+    });
+    expect((await otro.n.get('/mi/billetera/movimientos?tipo=pago')).cuerpo.total).toBe(0);
+  });
+
   it('el equipo ve el saldo y lo ajusta con motivo, sin dejarlo nunca en negativo', async () => {
     const e = await escenario();
     await conSaldo(e, '3');
@@ -383,6 +452,9 @@ describe('carrito', () => {
     });
     const r = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
     expect(r.cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
+    const resumen = await e.cliente.get('/mi/billetera');
+    expect(resumen.estado).toBe(403);
+    expect(resumen.cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
     expect((await recargar(e, e.cliente, '5')).cuerpo.error.codigo).toBe('CLIENTE_DE_REVENDEDOR');
   });
 });

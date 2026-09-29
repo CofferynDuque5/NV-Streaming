@@ -5,6 +5,8 @@ import {
   type AjusteSaldoEntrada,
   type BilleteraPublica,
   type ConfirmarRecargaEntrada,
+  type EstadoRecarga,
+  type ListarMovimientosBilleteraEntrada,
   type ListarRecargasBilleteraEntrada,
   type MovimientoBilleteraPublico,
   type Pagina,
@@ -77,24 +79,51 @@ export class BilleteraService {
   async resumen(auth: ContextoAuth): Promise<BilleteraPublica> {
     const c = await this.clientes.deUsuario(auth.usuario);
     if (c.revendedorId) exigirBilleteraDisponible(c);
-    const [recargasEnRevision, pedido] = await Promise.all([
-      this.prisma.recargaBilletera.count({ where: { clienteId: c.id, estado: 'en_revision' } }),
+    const desde = new Date(Date.now() - 30 * 24 * 3600_000);
+    const recientes = { clienteId: c.id, creadoEn: { gte: desde } };
+    const [porEstado, pedido, totalMovimientos, entradas, salidas] = await Promise.all([
+      this.prisma.recargaBilletera.groupBy({
+        by: ['estado'],
+        where: { clienteId: c.id },
+        _count: { _all: true },
+      }),
       this.prisma.pedido.findFirst({
         where: { clienteId: c.id, facturas: { some: { estado: 'emitida' } } },
         include: INCLUIR_PEDIDO,
         orderBy: { creadoEn: 'desc' },
       }),
+      this.prisma.movimientoBilletera.count({ where: { clienteId: c.id } }),
+      this.prisma.movimientoBilletera.aggregate({
+        where: { ...recientes, montoUsd: { gt: 0 } },
+        _sum: { montoUsd: true },
+      }),
+      this.prisma.movimientoBilletera.aggregate({
+        where: { ...recientes, montoUsd: { lt: 0 } },
+        _sum: { montoUsd: true },
+      }),
     ]);
+    const recargasPorEstado: Record<EstadoRecarga, number> = {
+      en_revision: 0,
+      confirmada: 0,
+      rechazada: 0,
+    };
+    for (const g of porEstado) recargasPorEstado[g.estado] = g._count._all;
     return {
       saldoUsd: c.saldoUsd.toFixed(2),
-      recargasEnRevision,
+      recargasEnRevision: recargasPorEstado.en_revision,
+      recargasPorEstado,
+      totalMovimientos,
+      ultimos30Dias: {
+        entradasUsd: (entradas._sum.montoUsd ?? D(0)).toFixed(2),
+        salidasUsd: (salidas._sum.montoUsd ?? D(0)).abs().toFixed(2),
+      },
       pedidoPendiente: pedido ? pedidoPublico(pedido) : null,
     };
   }
 
   async misMovimientos(
     auth: ContextoAuth,
-    filtro: FiltroPagina,
+    filtro: ListarMovimientosBilleteraEntrada,
   ): Promise<Pagina<MovimientoBilleteraPublico>> {
     const c = await this.clientes.deUsuario(auth.usuario);
     return this.paginaMovimientos(c.id, filtro, false);
@@ -541,10 +570,13 @@ export class BilleteraService {
 
   private async paginaMovimientos(
     clienteId: string,
-    filtro: FiltroPagina,
+    filtro: FiltroPagina & Pick<ListarMovimientosBilleteraEntrada, 'tipo'>,
     equipo: boolean,
   ): Promise<Pagina<MovimientoBilleteraPublico>> {
-    const where = { clienteId };
+    const where: Prisma.MovimientoBilleteraWhereInput = {
+      clienteId,
+      ...(filtro.tipo ? { tipo: filtro.tipo } : {}),
+    };
     const [total, filas] = await this.prisma.$transaction([
       this.prisma.movimientoBilletera.count({ where }),
       this.prisma.movimientoBilletera.findMany({

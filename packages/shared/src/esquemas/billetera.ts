@@ -52,6 +52,12 @@ export const reportarRecargaBilleteraSchema = reportarRecargaSchema.extend({
 });
 export type ReportarRecargaBilleteraEntrada = z.infer<typeof reportarRecargaBilleteraSchema>;
 
+/** Movimientos del libro mayor del cliente, opcionalmente de un solo tipo. */
+export const listarMovimientosBilleteraSchema = paginacionSchema.extend({
+  tipo: z.enum(TIPOS_MOVIMIENTO_BILLETERA).optional(),
+});
+export type ListarMovimientosBilleteraEntrada = z.infer<typeof listarMovimientosBilleteraSchema>;
+
 export const listarRecargasBilleteraSchema = paginacionSchema.extend({
   estado: z.enum(ESTADOS_RECARGA).optional(),
   clienteId: uuidSchema.optional(),

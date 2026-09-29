@@ -13,7 +13,7 @@ import {
   type PlanDeFactura,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { ArrowLeft, Check, Clock, Eye, FileText, ReceiptText, Wallet } from 'lucide-react';
+import { ArrowLeft, Check, Clock, FileText, ReceiptText, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { ArteServicio } from '@/componentes/tienda/arte';
@@ -26,7 +26,10 @@ import {
   BloquePago,
   CancelarPedido,
   ElegirPago,
+  LineaTiempo,
   PagarPedidoConSaldo,
+  PildoraEstado,
+  type TonoEstado,
 } from './pago';
 
 /** Datos que la página de pago ya leyó de la API. */
@@ -46,22 +49,12 @@ export interface DatosPago {
   ahora: number;
 }
 
-type Tono = 'aviso' | 'cian' | 'exito' | 'peligro' | 'neutro';
-
-const TONOS: Record<Tono, string> = {
-  aviso: 'border-aviso/40 text-aviso',
-  cian: 'border-cian/40 text-cian',
-  exito: 'border-exito/40 text-exito',
-  peligro: 'border-peligro/45 text-peligro',
-  neutro: 'border-borde-fuerte text-tinta-suave',
-};
-
 /** Estado de una factura tal como lo ve quien paga. */
 function estadoVisible(
   estado: EstadoFactura,
   vencida: boolean,
   ultimoPago: EstadoPago | null,
-): [string, Tono] {
+): [string, TonoEstado] {
   if (estado === 'pagada') return ['Pagada', 'exito'];
   if (estado === 'anulada') return ['Anulada', 'neutro'];
   if (ultimoPago === 'en_revision') return ['En revisión', 'cian'];
@@ -70,25 +63,12 @@ function estadoVisible(
   return ['Por pagar', 'aviso'];
 }
 
-const ESTADO_PAGO_VISIBLE: Record<EstadoPago, [string, Tono]> = {
+const ESTADO_PAGO_VISIBLE: Record<EstadoPago, [string, TonoEstado]> = {
   en_revision: ['En revisión', 'cian'],
   confirmado: ['Confirmado', 'exito'],
   rechazado: ['Rechazado', 'peligro'],
   reembolsado: ['Devuelto', 'neutro'],
 };
-
-function Estado({ texto, tono }: { texto: string; tono: Tono }) {
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1.5 justify-self-start rounded-full border px-2 py-0.5 text-[0.64rem] font-bold tracking-[0.06em] whitespace-nowrap uppercase before:size-1.5 before:rounded-full before:bg-current',
-        TONOS[tono],
-      )}
-    >
-      {texto}
-    </span>
-  );
-}
 
 const Titulillo = ({ children }: { children: ReactNode }) => (
   <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
@@ -157,7 +137,7 @@ function Historial({ pagos }: { pagos: PagoPublico[] }) {
                   <b className="truncate font-semibold tabular-nums">
                     {formatearMonto(p.montoRecibido ?? p.montoDeclarado, p.moneda)} · {via}
                   </b>
-                  <Estado texto={texto} tono={tono} />
+                  <PildoraEstado texto={texto} tono={tono} />
                 </span>
                 <span className="text-tinta-suave">
                   {formatearFecha(p.fechaPago)} · código {p.referencia}
@@ -274,7 +254,7 @@ function Resumen({ datos, ahora }: { datos: DatosPago; ahora: number }) {
               return (
                 <li key={x.id} className="flex items-center justify-between gap-2 text-tinta-suave">
                   <span className="truncate">{nombreDe(x.plan, x.descripcion)}</span>
-                  <Estado texto={texto} tono={tono} />
+                  <PildoraEstado texto={texto} tono={tono} />
                 </li>
               );
             })}
@@ -334,7 +314,7 @@ function Selector({ datos }: { datos: DatosPago }) {
                     {x.plan ? `${x.plan.nombre} · ` : ''}
                     {formatearMonto(x.total, x.moneda)}
                   </small>
-                  <Estado texto={texto} tono={tono} />
+                  <PildoraEstado texto={texto} tono={tono} />
                 </span>
               </Link>
             </li>
@@ -406,8 +386,9 @@ function EnRevision({ datos }: { datos: DatosPago }) {
       <p className="text-sm text-tinta-suave">
         Guarda este código por si necesitas escribirnos. Te avisamos por correo apenas lo revisemos.
       </p>
-      <ol className="grid" aria-label="Estado del pago">
-        {[
+      <LineaTiempo
+        etiqueta="Estado del pago"
+        pasos={[
           {
             estado: 'hecho',
             titulo: 'Comprobante enviado',
@@ -425,38 +406,8 @@ function EnRevision({ datos }: { datos: DatosPago }) {
             titulo: 'Factura pagada',
             texto: 'Tu plan se activa y lo ves en Mis servicios',
           },
-        ].map((paso, i) => (
-          <li
-            key={paso.titulo}
-            aria-current={paso.estado === 'ahora' ? 'step' : undefined}
-            className={clsx(
-              'relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3 pb-4 last:pb-0',
-              i < 2 &&
-                'before:absolute before:top-7 before:bottom-0.5 before:left-[13px] before:w-0.5 before:bg-borde-fuerte',
-            )}
-          >
-            <em
-              className={clsx(
-                'relative grid size-7 place-items-center rounded-full border-[1.5px] not-italic',
-                paso.estado === 'hecho' && 'border-exito bg-exito text-fondo',
-                paso.estado === 'ahora' &&
-                  'border-cian bg-fondo text-cian shadow-[0_0_16px_-4px_var(--nv-cian)]',
-                paso.estado === 'luego' && 'border-borde-fuerte bg-fondo text-tinta-tenue',
-              )}
-            >
-              {paso.estado === 'ahora' ? (
-                <Eye className="size-3.5" aria-hidden="true" />
-              ) : (
-                <Check className="size-3.5" aria-hidden="true" />
-              )}
-            </em>
-            <span className="grid gap-0.5">
-              <b className="text-[0.92rem]">{paso.titulo}</b>
-              <span className="text-[0.8rem] text-tinta-suave">{paso.texto}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
+        ]}
+      />
       {siguiente(datos) ? (
         <PagarSiguiente datos={datos} />
       ) : (

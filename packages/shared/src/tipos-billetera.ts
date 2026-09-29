@@ -105,6 +105,12 @@ export interface BilleteraPublica {
   saldoUsd: Decimal;
   /** Recargas reportadas que el equipo aún no revisa. */
   recargasEnRevision: number;
+  /** Cuántas recargas hay en cada estado (para los filtros de la lista). */
+  recargasPorEstado: Record<EstadoRecarga, number>;
+  /** Movimientos del libro mayor desde que se abrió la billetera. */
+  totalMovimientos: number;
+  /** Lo que entró y salió del saldo en los últimos 30 días, en USD (salidas en positivo). */
+  ultimos30Dias: { entradasUsd: Decimal; salidasUsd: Decimal };
   /** Pedido del carrito que espera pago, si hay uno. */
   pedidoPendiente: PedidoPublico | null;
 }

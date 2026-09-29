@@ -137,11 +137,16 @@ export async function entrarEquipo(page: Page, correo: string) {
  * 15 min): los proyectos que corren al final lo llaman antes de empezar.
  */
 export function reiniciarLimiteIngreso(): void {
+  ejecutarSql("DELETE FROM limites_uso WHERE clave LIKE 'login:ip:%';");
+}
+
+/** Ejecuta SQL en la base de pruebas e2e (nunca en la de desarrollo). */
+export function ejecutarSql(sql: string): void {
   const { url } = entornoE2e();
   execFileSync('pnpm', ['exec', 'prisma', 'db', 'execute', '--stdin'], {
     cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
     env: { ...process.env, DATABASE_URL: url },
-    input: "DELETE FROM limites_uso WHERE clave LIKE 'login:ip:%';",
+    input: sql,
     stdio: ['pipe', 'ignore', 'inherit'],
   });
 }

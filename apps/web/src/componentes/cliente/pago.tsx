@@ -14,6 +14,7 @@ import {
   Check,
   CircleAlert,
   Copy,
+  Eye,
   FileText,
   Globe,
   Landmark,
@@ -33,7 +34,6 @@ import {
   useContext,
   useEffect,
   useId,
-  useRef,
   useState,
 } from 'react';
 import { Bandera } from '@/componentes/tienda/iconos';
@@ -100,7 +100,7 @@ export function BloquePago({
   );
 }
 
-function MensajeError({ error, extra }: { error: ErrorLlamada; extra?: string }) {
+export function MensajeError({ error, extra }: { error: ErrorLlamada; extra?: string }) {
   return (
     <p
       role="alert"
@@ -112,6 +112,75 @@ function MensajeError({ error, extra }: { error: ErrorLlamada; extra?: string })
         {extra ? ` ${extra}` : ''}
       </span>
     </p>
+  );
+}
+
+export type TonoEstado = 'aviso' | 'cian' | 'exito' | 'peligro' | 'neutro';
+
+const TONOS_ESTADO: Record<TonoEstado, string> = {
+  aviso: 'border-aviso/40 text-aviso',
+  cian: 'border-cian/40 text-cian',
+  exito: 'border-exito/40 text-exito',
+  peligro: 'border-peligro/45 text-peligro',
+  neutro: 'border-borde-fuerte text-tinta-suave',
+};
+
+/** Pastilla de estado (factura, pago o recarga) con un punto del color del tono. */
+export function PildoraEstado({ texto, tono }: { texto: string; tono: TonoEstado }) {
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center gap-1.5 justify-self-start rounded-full border px-2 py-0.5 text-[0.64rem] font-bold tracking-[0.06em] whitespace-nowrap uppercase before:size-1.5 before:rounded-full before:bg-current',
+        TONOS_ESTADO[tono],
+      )}
+    >
+      {texto}
+    </span>
+  );
+}
+
+export interface PasoLinea {
+  estado: 'hecho' | 'ahora' | 'luego';
+  titulo: string;
+  texto: string;
+}
+
+/** Línea de tiempo de lo que pasa después de enviar un comprobante. */
+export function LineaTiempo({ pasos, etiqueta }: { pasos: PasoLinea[]; etiqueta: string }) {
+  return (
+    <ol className="grid" aria-label={etiqueta}>
+      {pasos.map((paso, i) => (
+        <li
+          key={paso.titulo}
+          aria-current={paso.estado === 'ahora' ? 'step' : undefined}
+          className={clsx(
+            'relative grid grid-cols-[1.75rem_minmax(0,1fr)] gap-3 pb-4 last:pb-0',
+            i < pasos.length - 1 &&
+              'before:absolute before:top-7 before:bottom-0.5 before:left-[13px] before:w-0.5 before:bg-borde-fuerte',
+          )}
+        >
+          <em
+            className={clsx(
+              'relative grid size-7 place-items-center rounded-full border-[1.5px] not-italic',
+              paso.estado === 'hecho' && 'border-exito bg-exito text-fondo',
+              paso.estado === 'ahora' &&
+                'border-cian bg-fondo text-cian shadow-[0_0_16px_-4px_var(--nv-cian)]',
+              paso.estado === 'luego' && 'border-borde-fuerte bg-fondo text-tinta-tenue',
+            )}
+          >
+            {paso.estado === 'ahora' ? (
+              <Eye className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Check className="size-3.5" aria-hidden="true" />
+            )}
+          </em>
+          <span className="grid gap-0.5">
+            <b className="text-[0.92rem]">{paso.titulo}</b>
+            <span className="text-[0.8rem] text-tinta-suave">{paso.texto}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -138,7 +207,7 @@ async function copiarTexto(texto: string): Promise<boolean> {
   }
 }
 
-function BotonCopiar({ texto, etiqueta }: { texto: string; etiqueta: string }) {
+export function BotonCopiar({ texto, etiqueta }: { texto: string; etiqueta: string }) {
   const notificar = useNotificar();
   const [copiado, setCopiado] = useState(false);
   return (
@@ -191,7 +260,7 @@ export function partirInstrucciones(texto: string): [string, string][] | null {
 }
 
 /** Importe tal como se escribe en el banco: sin símbolo ni separador de miles. */
-function montoParaCopiar(total: string, moneda: Moneda) {
+export function montoParaCopiar(total: string, moneda: Moneda) {
   const info = INFO_MONEDA[moneda];
   return new Intl.NumberFormat(info.region, {
     useGrouping: false,
@@ -264,11 +333,11 @@ function AccionSaldo({
 
 /* ──────────────────────── Paga: con comprobante ──────────────────────── */
 
-const TIPOS_COMPROBANTE = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const PATRON_REFERENCIA = /^[\w\s#./-]+$/;
+export const TIPOS_COMPROBANTE = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+export const PATRON_REFERENCIA = /^[\w\s#./-]+$/;
 const DIA_MS = 24 * 3600_000;
 
-function hoyLocal(desplazamientoDias = 0) {
+export function hoyLocal(desplazamientoDias = 0) {
   const d = new Date(Date.now() + desplazamientoDias * DIA_MS);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 10);
@@ -282,15 +351,15 @@ export function normalizarMonto(texto: string): string | null {
   return /^\d{1,12}(\.\d{1,2})?$/.test(s) ? s : null;
 }
 
-const pesoTexto = (b: number) =>
+export const pesoTexto = (b: number) =>
   b >= 1048576
     ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB`
     : `${Math.max(1, Math.round(b / 1024))} KB`;
 
-type Estado = 'ok' | 'aviso' | 'mal' | '';
-type Validacion = [Estado, string];
+export type Estado = 'ok' | 'aviso' | 'mal' | '';
+export type Validacion = [Estado, string];
 
-function Mensaje({ id, estado, texto }: { id: string; estado: Estado; texto: string }) {
+export function Mensaje({ id, estado, texto }: { id: string; estado: Estado; texto: string }) {
   if (!texto) return null;
   return (
     <p
@@ -311,7 +380,7 @@ function Mensaje({ id, estado, texto }: { id: string; estado: Estado; texto: str
   );
 }
 
-const claseEntrada = (estado: Estado) =>
+export const claseEntrada = (estado: Estado) =>
   clsx(
     'h-12 w-full min-w-0 rounded-xl border bg-hundida px-3.5 text-[0.95rem] text-tinta outline-none transition-colors placeholder:text-tinta-tenue focus-visible:border-cian [color-scheme:dark]',
     estado === 'mal' && 'border-peligro',
@@ -319,6 +388,102 @@ const claseEntrada = (estado: Estado) =>
     estado === 'ok' && 'border-exito/70',
     estado === '' && 'border-borde-fuerte',
   );
+
+/**
+ * Comprobante: zona para tocar o soltar el archivo y, ya elegido, su vista
+ * previa con «Quitar». Quien lo usa valida el archivo en `onArchivo`.
+ */
+export function CampoComprobante({
+  id,
+  archivo,
+  vista,
+  mal,
+  maxMb,
+  onArchivo,
+  onQuitar,
+}: {
+  /** Id de la etiqueta «Comprobante»; el mensaje va en `${id}-m`. */
+  id: string;
+  archivo: File | null;
+  /** URL local de la imagen elegida (vacía para un PDF). */
+  vista: string;
+  mal: boolean;
+  maxMb: number;
+  onArchivo: (f: File | undefined) => void;
+  onQuitar: () => void;
+}) {
+  const [encima, setEncima] = useState(false);
+
+  function soltar(e: DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setEncima(false);
+    onArchivo(e.dataTransfer.files[0]);
+  }
+
+  if (archivo) {
+    return (
+      <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-exito/45 bg-exito-suave p-2.5">
+        <span className="grid size-14 place-items-center overflow-hidden rounded-[0.625rem] bg-hundida text-tinta-suave">
+          {vista ? (
+            // Vista previa local (objeto del navegador): next/image no aplica.
+            <img
+              src={vista}
+              alt="Vista previa del comprobante"
+              className="size-full object-cover"
+            />
+          ) : (
+            <FileText className="size-6" aria-hidden="true" />
+          )}
+        </span>
+        <span className="grid min-w-0">
+          <b className="truncate text-sm" title={archivo.name}>
+            {archivo.name}
+          </b>
+          <span className="text-xs text-tinta-suave">
+            {pesoTexto(archivo.size)} · listo para enviar
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={onQuitar}
+          className="px-1 text-sm font-medium text-peligro hover:underline"
+        >
+          Quitar
+        </button>
+      </div>
+    );
+  }
+  return (
+    <label
+      onDragOver={(e) => {
+        e.preventDefault();
+        setEncima(true);
+      }}
+      onDragLeave={() => setEncima(false)}
+      onDrop={soltar}
+      className={clsx(
+        'relative grid cursor-pointer justify-items-center gap-1 rounded-2xl border-[1.5px] border-dashed px-3.5 py-5 text-center transition-colors focus-within:border-cian',
+        encima ? 'border-cian bg-cian/[0.06]' : 'bg-hundida/60 hover:border-cian',
+        !encima && (mal ? 'border-peligro' : 'border-borde-fuerte'),
+      )}
+    >
+      <input
+        type="file"
+        accept={TIPOS_COMPROBANTE.join(',')}
+        aria-labelledby={id}
+        aria-describedby={`${id}-m ${id}-a`}
+        aria-invalid={mal ? true : undefined}
+        onChange={(e) => onArchivo(e.target.files?.[0])}
+        className="absolute size-px opacity-0"
+      />
+      <Upload className="size-6 text-cian" aria-hidden="true" />
+      <b className="text-sm">Toca para subir la captura</b>
+      <span id={`${id}-a`} className="text-xs text-tinta-suave">
+        o arrástrala aquí · JPG, PNG, WEBP o PDF · hasta {maxMb} MB
+      </span>
+    </label>
+  );
+}
 
 function FormularioComprobante({
   facturaId,
@@ -336,14 +501,12 @@ function FormularioComprobante({
   const actualizar = useActualizarPago();
   const notificar = useNotificar();
   const id = useId();
-  const entradaArchivo = useRef<HTMLInputElement>(null);
   const [monto, setMonto] = useState('');
   const [fecha, setFecha] = useState(hoyLocal);
   const [referencia, setReferencia] = useState('');
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vista, setVista] = useState('');
   const [errorArchivo, setErrorArchivo] = useState('');
-  const [encima, setEncima] = useState(false);
   const [tocados, setTocados] = useState<Record<string, boolean>>({});
   const [intento, setIntento] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -427,13 +590,6 @@ function FormularioComprobante({
     setArchivo(null);
     setVista('');
     setErrorArchivo('');
-    if (entradaArchivo.current) entradaArchivo.current.value = '';
-  }
-
-  function soltar(e: DragEvent<HTMLLabelElement>) {
-    e.preventDefault();
-    setEncima(false);
-    tomarArchivo(e.dataTransfer.files[0]);
   }
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
@@ -556,67 +712,15 @@ function FormularioComprobante({
         <span id={`${id}-comp`} className="text-sm font-semibold">
           Comprobante
         </span>
-        {archivo ? (
-          <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-exito/45 bg-exito-suave p-2.5">
-            <span className="grid size-14 place-items-center overflow-hidden rounded-[0.625rem] bg-hundida text-tinta-suave">
-              {vista ? (
-                // Vista previa local (objeto del navegador): next/image no aplica.
-                <img
-                  src={vista}
-                  alt="Vista previa del comprobante"
-                  className="size-full object-cover"
-                />
-              ) : (
-                <FileText className="size-6" aria-hidden="true" />
-              )}
-            </span>
-            <span className="grid min-w-0">
-              <b className="truncate text-sm" title={archivo.name}>
-                {archivo.name}
-              </b>
-              <span className="text-xs text-tinta-suave">
-                {pesoTexto(archivo.size)} · listo para enviar
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={quitarArchivo}
-              className="px-1 text-sm font-medium text-peligro hover:underline"
-            >
-              Quitar
-            </button>
-          </div>
-        ) : (
-          <label
-            onDragOver={(e) => {
-              e.preventDefault();
-              setEncima(true);
-            }}
-            onDragLeave={() => setEncima(false)}
-            onDrop={soltar}
-            className={clsx(
-              'relative grid cursor-pointer justify-items-center gap-1 rounded-2xl border-[1.5px] border-dashed px-3.5 py-5 text-center transition-colors focus-within:border-cian',
-              encima ? 'border-cian bg-cian/[0.06]' : 'bg-hundida/60 hover:border-cian',
-              !encima && (eArchivo === 'mal' ? 'border-peligro' : 'border-borde-fuerte'),
-            )}
-          >
-            <input
-              ref={entradaArchivo}
-              type="file"
-              accept={TIPOS_COMPROBANTE.join(',')}
-              aria-labelledby={`${id}-comp`}
-              aria-describedby={`${id}-comp-m ${id}-comp-a`}
-              aria-invalid={eArchivo === 'mal' ? true : undefined}
-              onChange={(e) => tomarArchivo(e.target.files?.[0])}
-              className="absolute size-px opacity-0"
-            />
-            <Upload className="size-6 text-cian" aria-hidden="true" />
-            <b className="text-sm">Toca para subir la captura</b>
-            <span id={`${id}-comp-a`} className="text-xs text-tinta-suave">
-              o arrástrala aquí · JPG, PNG, WEBP o PDF · hasta {maxMb} MB
-            </span>
-          </label>
-        )}
+        <CampoComprobante
+          id={`${id}-comp`}
+          archivo={archivo}
+          vista={vista}
+          mal={eArchivo === 'mal'}
+          maxMb={maxMb}
+          onArchivo={tomarArchivo}
+          onQuitar={quitarArchivo}
+        />
         <Mensaje id={`${id}-comp-m`} estado={eArchivo as Estado} texto={tArchivo as string} />
       </div>
 
@@ -719,7 +823,7 @@ function AccionComprobante({
   );
 }
 
-function CopiarTodo({ texto }: { texto: string }) {
+export function CopiarTodo({ texto }: { texto: string }) {
   const notificar = useNotificar();
   return (
     <button
@@ -769,7 +873,7 @@ function Velocidad({ ya }: { ya: boolean }) {
   );
 }
 
-function OpcionMetodo({
+export function OpcionMetodo({
   nombre,
   ya,
   descripcion,

@@ -1,14 +1,27 @@
 import { formatearMonto } from '@nv/shared';
-import { expect, test } from '@playwright/test';
-import { entrarEquipo, ingresar } from './ayudas';
+import { expect, type Page, test } from '@playwright/test';
+import { ejecutarSql, entrarEquipo, ingresar } from './ayudas';
 
 /** PNG mínimo válido de 1×1 píxel, como comprobante de la recarga. */
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
+const comprobante = (name: string) => ({ name, mimeType: 'image/png', buffer: PNG_1X1 });
 
 const usd = (v: number) => formatearMonto(v.toFixed(2), 'USD');
+/** Tasa de ejemplo de la semilla: 1 USD = 150 VES. */
+const TASA_VES = 150;
+
+// Los tres casos van en orden: el segundo parte de lo que dejó el primero.
+test.describe.configure({ mode: 'serial' });
+
+/** Id de la recarga más reciente del cliente, leída desde su sesión. */
+async function ultimaRecarga(cliente: Page): Promise<string> {
+  const r = await cliente.request.get('/api/v1/mi/billetera/recargas?porPagina=1');
+  const { elementos } = (await r.json()) as { elementos: { id: string }[] };
+  return elementos[0]!.id;
+}
 
 // Se ejecuta después de roles.spec.ts (proyecto propio): administración ya tiene la
 // verificación en dos pasos.
@@ -43,16 +56,26 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   // 3. Reporta la recarga por lo que falta, ligada al pedido.
   await expect(cliente).toHaveURL(/\/cuenta\/billetera\?pedido=/);
   await expect(cliente.getByText(/Pedido PED-\d{6} por pagar/)).toBeVisible();
-  await cliente.getByLabel('Moneda en la que pagas').selectOption('USD');
-  await expect(cliente.getByLabel('Monto que pagaste (USD)')).toHaveValue(total.toFixed(2));
+  await expect(cliente.getByText(`Te faltan ${usd(total)}.`, { exact: false })).toBeVisible();
+  await expect(cliente.getByRole('button', { name: /Lo que falta/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await cliente
+    .getByRole('group', { name: 'Moneda del pago' })
+    .getByRole('button', { name: 'USD' })
+    .click();
+  await expect(
+    cliente.getByRole('checkbox', { name: /Usar esta recarga para pagar el pedido PED-\d{6}/ }),
+  ).toBeChecked();
+  await cliente.getByRole('radio', { name: /Transferencia en dólares/ }).check();
   await cliente.getByLabel('Referencia (opcional)').fill('E2E-BIL-001');
-  await cliente.locator('#comprobante-recarga').setInputFiles({
-    name: 'recarga.png',
-    mimeType: 'image/png',
-    buffer: PNG_1X1,
-  });
-  await cliente.getByRole('button', { name: 'Reportar recarga' }).click();
-  await expect(cliente.getByText('Recibimos tu recarga')).toBeVisible();
+  await cliente.locator('input[type=file]').setInputFiles(comprobante('recarga.png'));
+  await cliente.getByRole('button', { name: `Reportar recarga de ${usd(total)}` }).click();
+  await expect(cliente.getByRole('heading', { name: 'Recibimos tu recarga' })).toBeVisible();
+  await expect(cliente.getByLabel(/^Código de la recarga B-[2-9A-Z]{8}$/)).toBeVisible();
+  await expect(cliente.getByText(/Y pagamos tu pedido PED-\d{6} con ese saldo/)).toBeVisible();
+  await expect(cliente.getByText('1 recarga en revisión')).toBeVisible();
 
   // 4. La administración la concilia desde Cobros.
   await entrarEquipo(admin, 'admin@nv.test');
@@ -75,4 +98,149 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   await cliente.goto('/cuenta/billetera');
   await expect(cliente.locator('[data-prueba="saldo"]')).toHaveText(usd(0));
   await expect(cliente.getByText('Pago de factura').first()).toBeVisible();
+  await cliente.context().close();
+  await admin.context().close();
+});
+
+test('reportar una recarga: validación en vivo, errores, éxito, rechazo y envío de nuevo, y filtros', async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const cliente = await (await browser.newContext()).newPage();
+  const admin = await (await browser.newContext()).newPage();
+  await ingresar(cliente, 'cliente@nv.test');
+  await expect(cliente).toHaveURL(/\/cuenta$/);
+  await cliente.goto('/cuenta/billetera');
+  await expect(cliente.getByRole('heading', { level: 1, name: 'Tu billetera' })).toBeVisible();
+
+  // Cifras del mes con los movimientos reales de la prueba anterior.
+  await expect(cliente.getByText('Entró en 30 días')).toBeVisible();
+  await expect(cliente.getByText(`+${usd(15.99 + 54.99)}`).first()).toBeVisible();
+
+  // Filtros de las recargas (con cuántas hay de cada estado) y de los movimientos.
+  const recargas = cliente.getByRole('region', { name: 'Tus recargas' });
+  await expect(recargas.getByRole('button', { name: 'Todas · 1' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await recargas.getByRole('button', { name: 'Rechazadas · 0' }).click();
+  await expect(recargas.getByText('No hay recargas con ese estado.')).toBeVisible();
+  await recargas.getByRole('button', { name: 'Ver todas' }).click();
+  await expect(recargas.getByText(/E2E-BIL-001/)).toBeVisible();
+  await recargas.getByRole('button', { name: 'Confirmadas · 1' }).click();
+  await expect(recargas.getByText('Confirmada', { exact: true })).toBeVisible();
+
+  const movimientos = cliente.getByRole('region', { name: 'Movimientos' });
+  const filas = movimientos.getByRole('listitem');
+  await expect(filas).toHaveCount(3);
+  await movimientos.getByRole('button', { name: 'Pagos' }).click();
+  await expect(filas).toHaveCount(2);
+  await expect(filas.filter({ hasText: 'Pago de factura' })).toHaveCount(2);
+  await movimientos.getByRole('button', { name: 'Recargas' }).click();
+  await expect(filas).toHaveCount(1);
+  await expect(filas.first()).toContainText('Recarga confirmada');
+  await movimientos.getByRole('button', { name: 'Ajustes' }).click();
+  await expect(movimientos.getByText('No hay movimientos de ese tipo.')).toBeVisible();
+
+  // Monto: validación en vivo.
+  const otro = cliente.getByLabel('Otro monto en dólares');
+  await otro.fill('abc');
+  await expect(cliente.getByText('Usa solo números con hasta 2 decimales')).toBeVisible();
+  await otro.fill('12,5');
+  await expect(cliente.getByText('Monto listo')).toBeVisible();
+  await cliente
+    .getByRole('group', { name: 'Moneda del pago' })
+    .getByRole('button', { name: 'VES' })
+    .click();
+  const enBs = formatearMonto((12.5 * TASA_VES).toFixed(2), 'VES');
+  await expect(cliente.getByText(enBs).first()).toBeVisible();
+  await expect(cliente.getByText('+$12.50').first()).toBeVisible();
+
+  // Pago Móvil pide referencia: enviar sin ella ni comprobante marca los dos campos.
+  await cliente.getByRole('radio', { name: /Pago Móvil/ }).check();
+  const reportar = cliente.getByRole('button', { name: `Reportar recarga de ${enBs}` });
+  await reportar.click();
+  await expect(cliente.getByText('Revisa los 2 campos marcados en rojo.')).toBeVisible();
+  await expect(cliente.getByText('Escribe el número de referencia del pago.')).toBeVisible();
+  await expect(cliente.getByText('Adjunta la captura o el PDF del pago.')).toBeVisible();
+  await cliente.getByLabel('Número de referencia').fill('E2E#BIL');
+  await expect(cliente.getByText('Referencia lista')).toBeVisible();
+  await cliente.locator('input[type=file]').setInputFiles(comprobante('pago-movil.png'));
+  await expect(cliente.getByText('pago-movil.png')).toBeVisible();
+  await expect(cliente.getByText('Revisa el campo marcado en rojo.')).toHaveCount(0);
+  await reportar.click();
+  await expect(cliente.getByRole('heading', { name: 'Recibimos tu recarga' })).toBeVisible();
+  await expect(cliente.getByText(`Pago Móvil · ${enBs} · tasa fijada`)).toBeVisible();
+  await expect(recargas.getByRole('button', { name: 'En revisión · 1' })).toBeVisible();
+
+  // La administración la rechaza con un motivo.
+  await entrarEquipo(admin, 'admin@nv.test');
+  await expect(admin).toHaveURL(/\/admin$/);
+  const origen = { origin: new URL(admin.url()).origin };
+  const id = await ultimaRecarga(cliente);
+  const no = await admin.request.post(`/api/v1/billeteras/recargas/${id}/rechazar`, {
+    headers: origen,
+    data: { motivo: 'No encontramos esa referencia en el banco.' },
+  });
+  expect(no.ok()).toBe(true);
+
+  // El cliente ve el aviso y la envía de nuevo con el formulario ya lleno.
+  await cliente.goto('/cuenta/billetera');
+  await expect(cliente.getByText(/Rechazamos tu recarga B-[2-9A-Z]{8}/)).toBeVisible();
+  await expect(
+    cliente.getByText('No encontramos esa referencia en el banco.').first(),
+  ).toBeVisible();
+  await recargas.getByRole('button', { name: 'Rechazadas · 1' }).click();
+  await expect(
+    recargas.getByText('Motivo: No encontramos esa referencia en el banco.'),
+  ).toBeVisible();
+  await cliente.getByRole('alert').getByRole('button', { name: 'Enviar de nuevo' }).click();
+  await expect(cliente.getByRole('radio', { name: /Pago Móvil/ })).toBeChecked();
+  await expect(
+    cliente.getByRole('group', { name: 'Moneda del pago' }).getByRole('button', { name: 'VES' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(cliente.getByText(`Mismo monto que reportaste: ${enBs}.`)).toBeVisible();
+  await cliente.getByLabel('Número de referencia').fill('E2E-BIL-003');
+  await cliente.locator('input[type=file]').setInputFiles(comprobante('pago-movil.png'));
+  await cliente.getByRole('button', { name: `Reportar recarga de ${enBs}` }).click();
+  await expect(cliente.getByRole('heading', { name: 'Recibimos tu recarga' })).toBeVisible();
+  await expect(cliente.getByText(/Rechazamos tu recarga/)).toHaveCount(0);
+  await expect(recargas.getByRole('button', { name: 'Todas · 3' })).toBeVisible();
+
+  // Limpieza: el saldo del cliente queda en cero para las pruebas del carrito.
+  const otraId = await ultimaRecarga(cliente);
+  const fin = await admin.request.post(`/api/v1/billeteras/recargas/${otraId}/rechazar`, {
+    headers: origen,
+    data: { motivo: 'Cierre de la prueba e2e.' },
+  });
+  expect(fin.ok()).toBe(true);
+  await cliente.context().close();
+  await admin.context().close();
+});
+
+test('un cliente de un revendedor ve que su cuenta la gestiona el revendedor', async ({
+  browser,
+}) => {
+  const ligar = (revendedor: string) =>
+    ejecutarSql(
+      `UPDATE clientes SET revendedor_id = ${revendedor} WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = 'cliente@nv.test');`,
+    );
+  const cliente = await (await browser.newContext()).newPage();
+  await ingresar(cliente, 'cliente@nv.test');
+  await expect(cliente).toHaveURL(/\/cuenta$/);
+  ligar(
+    "(SELECT r.id FROM revendedores r JOIN usuarios u ON u.id = r.usuario_id WHERE u.correo = 'revendedor@nv.test')",
+  );
+  try {
+    await cliente.goto('/cuenta/billetera');
+    await expect(
+      cliente.getByRole('heading', { name: 'Tu cuenta la gestiona tu revendedor' }),
+    ).toBeVisible();
+    await expect(cliente.getByRole('button', { name: 'Recargar saldo' })).toHaveCount(0);
+    await cliente.getByRole('link', { name: 'Ver mis servicios' }).click();
+    await expect(cliente).toHaveURL(/\/cuenta$/);
+  } finally {
+    ligar('NULL');
+    await cliente.context().close();
+  }
 });

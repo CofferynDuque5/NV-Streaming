@@ -17,6 +17,7 @@ import {
   confirmarRecargaSchema,
   cotizarPedidoSchema,
   crearPedidoSchema,
+  listarMovimientosBilleteraSchema,
   listarPedidosSchema,
   listarRecargasBilleteraSchema,
   paginacionSchema,
@@ -68,10 +69,11 @@ export class MiBilleteraController {
 
   @Get('billetera/movimientos')
   @RequierePermiso('autoservicio.usar')
-  @DocConsulta(paginacionSchema)
+  @DocConsulta(listarMovimientosBilleteraSchema)
   movimientos(
     @Auth() auth: ContextoAuth,
-    @Query(validar(paginacionSchema)) filtro: z.output<typeof paginacionSchema>,
+    @Query(validar(listarMovimientosBilleteraSchema))
+    filtro: z.output<typeof listarMovimientosBilleteraSchema>,
   ) {
     return this.billetera.misMovimientos(auth, filtro);
   }
