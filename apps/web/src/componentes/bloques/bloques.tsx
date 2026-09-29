@@ -500,7 +500,7 @@ export function BloquesSitio({
   const principal = vistaPrevia ? -1 : bloques.findIndex((b) => b.tipo === 'portada');
   const ctx = vistaPrevia ? { ...contexto, vistaPrevia: true } : contexto;
   return (
-    <div className="@container">
+    <div className={vistaPrevia ? '@container' : '@container bloques-diferidos'}>
       {principal < 0 && !vistaPrevia && <h1 className="sr-only">{titulo}</h1>}
       {bloques.map((b, i) => (
         <Bloque key={b.id || i} bloque={b} contexto={ctx} principal={i === principal} />

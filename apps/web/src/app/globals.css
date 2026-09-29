@@ -1,4 +1,18 @@
 @import 'tailwindcss';
+@import './tema.css';
+
+/*
+ * Esta hoja se carga en todas las páginas, también en la portada (cuenta para el
+ * LCP). Por eso no genera las clases que solo usan los paneles: esas vienen en
+ * (paneles)/paneles.css, que genera todas las utilidades y se carga después.
+ * Si una página pública empieza a usar un archivo de esta lista, sácalo de aquí.
+ */
+@source not '../app/(paneles)';
+@source not '../componentes/admin';
+@source not '../componentes/cliente';
+@source not '../componentes/editor';
+@source not '../componentes/revendedor';
+@source not '../componentes/panel/{acciones-usuario,ajustes,barra-lateral,equipo,hoja-de-ruta,marco,paginacion}.tsx';
 
 /*
  * Sistema de diseño NV «cosmos». Toda la interfaz usa estos tokens semánticos:
@@ -42,46 +56,6 @@
   --nv-degradado: linear-gradient(95deg, #22d3ee 0%, #3b82f6 35%, #8b5cf6 70%, #e879f9 100%);
   --nv-degradado-texto: linear-gradient(95deg, #8fb6ff 0%, #22d3ee 35%, #b69cff 70%, #e879f9 100%);
   --nv-sombra: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 18px 40px -24px rgb(0 0 0 / 0.8);
-}
-
-/* Punto donde la cabecera pasa de teléfono (menú lateral) a escritorio (franja). */
-@theme {
-  --breakpoint-nav: 53.75rem;
-}
-
-@theme inline {
-  --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
-  --font-titulo: var(--fuente-titulo), var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
-
-  --color-fondo: var(--nv-fondo);
-  --color-superficie: var(--nv-superficie);
-  --color-elevada: var(--nv-elevada);
-  --color-hundida: var(--nv-hundida);
-  --color-vidrio: var(--nv-vidrio);
-  --color-borde: var(--nv-borde);
-  --color-borde-fuerte: var(--nv-borde-fuerte);
-  --color-tinta: var(--nv-tinta);
-  --color-tinta-suave: var(--nv-tinta-suave);
-  --color-tinta-tenue: var(--nv-tinta-tenue);
-  --color-marca: var(--nv-marca);
-  --color-marca-fuerte: var(--nv-marca-fuerte);
-  --color-marca-tinta: var(--nv-marca-tinta);
-  --color-marca-suave: var(--nv-marca-suave);
-  --color-acento: var(--nv-acento);
-  --color-acento-suave: var(--nv-acento-suave);
-  --color-cian: var(--nv-cian);
-  --color-violeta: var(--nv-violeta);
-  --color-rosa: var(--nv-rosa);
-  --color-exito: var(--nv-exito);
-  --color-exito-suave: var(--nv-exito-suave);
-  --color-aviso: var(--nv-aviso);
-  --color-aviso-suave: var(--nv-aviso-suave);
-  --color-peligro: var(--nv-peligro);
-  --color-peligro-suave: var(--nv-peligro-suave);
-  --color-foco: var(--nv-foco);
-
-  --shadow-nv: var(--nv-sombra);
-  --radius-nv: 1.125rem;
 }
 
 @layer base {
@@ -181,6 +155,16 @@
 }
 
 @layer components {
+  /*
+   * Páginas del sitio: desde la tercera sección, el navegador no las maqueta ni
+   * las pinta hasta que se acercan a la pantalla. Menos trabajo antes del primer
+   * pintado (LCP de la portada en móviles); siguen en el árbol de accesibilidad.
+   */
+  .bloques-diferidos > section:nth-of-type(n + 3) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 40rem;
+  }
+
   /* Texto con el degradado de la marca (títulos destacados). */
   .texto-degradado {
     background: var(--nv-degradado-texto);

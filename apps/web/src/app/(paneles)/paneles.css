@@ -1,0 +1,8 @@
+/*
+ * Utilidades de los paneles. globals.css no genera las clases que solo usan los
+ * paneles (para que la portada cargue menos CSS); esta hoja genera todas y, al
+ * cargarse después, mantiene el orden correcto entre ellas.
+ */
+@reference 'tailwindcss';
+@reference '../tema.css';
+@import 'tailwindcss/utilities' layer(utilities);
