@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { codigoSinUsar, configurarDosPasos, ingresar } from './ayudas';
+import { codigoSinUsar, configurarDosPasos, escribirCodigo, ingresar } from './ayudas';
 
 test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con código', async ({
   page,
@@ -24,10 +24,7 @@ test('administración: 2FA obligatoria, equipo, auditoría y nuevo ingreso con c
   await expect(page).toHaveURL(/\/ingresar/);
   await ingresar(page, 'admin@nv.test');
   await expect(page).toHaveURL(/\/verificacion-2fa/);
-  await page
-    .getByLabel('Código de 6 dígitos')
-    .fill(await codigoSinUsar(page, 'admin@nv.test', secreto));
-  await page.getByRole('button', { name: 'Verificar' }).click();
+  await escribirCodigo(page, await codigoSinUsar(page, 'admin@nv.test', secreto));
   await expect(page).toHaveURL(/\/admin$/);
 });
 

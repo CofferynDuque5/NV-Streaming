@@ -1,9 +1,10 @@
 import { rutaInicio } from '@nv/shared';
+import { ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { BotonCerrarSesion } from '@/componentes/panel/boton-cerrar-sesion';
 import { ConfiguradorDosPasos } from '@/componentes/acceso/dos-pasos';
-import { PanelAcceso } from '@/componentes/acceso/panel-acceso';
+import { EncabezadoAcceso, OrbeAcceso, PanelAcceso } from '@/componentes/acceso/panel-acceso';
 import { destinoSeguro } from '@/lib/destino';
 import { obtenerSesion } from '@/lib/sesion';
 
@@ -21,11 +22,16 @@ export default async function ConfigurarDosPasos({
   const { siguiente } = await searchParams;
 
   return (
-    <PanelAcceso
-      titulo="Protege tu cuenta"
-      descripcion={`Hola, ${sesion.usuario.nombre}. Tu rol exige verificación en dos pasos: además de tu contraseña, pediremos un código de tu teléfono.`}
-      pie={<BotonCerrarSesion variante="enlace" />}
-    >
+    <PanelAcceso pie={<BotonCerrarSesion variante="enlace" />}>
+      <EncabezadoAcceso
+        icono={
+          <OrbeAcceso color="#22d3ee" className="size-[3.25rem] text-[1.4rem]">
+            <ShieldCheck />
+          </OrbeAcceso>
+        }
+        titulo="Protege tu cuenta"
+        descripcion={`Hola, ${sesion.usuario.nombre}. Tu rol exige verificación en dos pasos: además de tu contraseña, pediremos un código de tu teléfono.`}
+      />
       <ConfiguradorDosPasos destino={destinoSeguro(siguiente, sesion.usuario.rol)} />
     </PanelAcceso>
   );

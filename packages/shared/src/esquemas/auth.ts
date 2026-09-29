@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contrasenaContieneCorreo } from '../contrasenas.js';
 import {
   codigo2faSchema,
   codigoRespaldoSchema,
@@ -17,7 +18,7 @@ export const registroSchema = z
       error: 'Debes aceptar los términos y la política de privacidad.',
     }),
   })
-  .refine((d) => !d.contrasena.toLowerCase().includes(d.correo.split('@')[0] ?? '\u0000'), {
+  .refine((d) => !contrasenaContieneCorreo(d.contrasena, d.correo), {
     error: 'La contraseña no puede contener tu correo.',
     path: ['contrasena'],
   });

@@ -17,13 +17,13 @@ test('la portada presenta NV con datos reales y lleva al catálogo', async ({ pa
 
 test('el registro valida en español y confirma el envío del correo', async ({ page }) => {
   await page.goto('/registro');
-  await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(page.getByText('Escribe tu nombre.')).toBeVisible();
   await page.getByLabel('Nombre').fill('Persona de Prueba');
   await page.getByLabel('Correo').fill(`e2e-${Date.now()}@nv.test`);
   await page.getByLabel('Contraseña', { exact: true }).fill('Una frase larga y segura');
   await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible();
 });
 

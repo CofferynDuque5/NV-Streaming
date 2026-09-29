@@ -43,6 +43,17 @@ describe('registro', () => {
   it('exige aceptar los términos', () => {
     expect(registroSchema.safeParse({ ...base, aceptaTerminos: false }).success).toBe(false);
   });
+
+  it.each([
+    ['Una-Clave-Larga-9', true],
+    ['mi clave ana 2026', false],
+    ['MI CLAVE ANA 2026', false],
+  ])('la lista en vivo con el correo coincide con el registro para "%s"', (contrasena, ok) => {
+    const lista = requisitosContrasena(contrasena, base.correo);
+    expect(lista.map((r) => r.clave)).toEqual(['largo', 'variedad', 'comun', 'correo']);
+    expect(lista.every((r) => r.cumple)).toBe(ok);
+    expect(registroSchema.safeParse({ ...base, contrasena }).success).toBe(ok);
+  });
 });
 
 describe('verificación en dos pasos', () => {

@@ -8,7 +8,7 @@ import { entornoE2e } from './entorno';
 /** Secretos TOTP que crean las pruebas, para volver a entrar en otra prueba. Se borra al preparar. */
 export const ARCHIVO_SECRETOS = 'test-results/secretos-2fa.json';
 
-function leerSecretos(): Record<string, string> {
+export function leerSecretos(): Record<string, string> {
   try {
     return JSON.parse(readFileSync(ARCHIVO_SECRETOS, 'utf8')) as Record<string, string>;
   } catch {
@@ -74,6 +74,11 @@ export async function enviarComprobante(
   await expect(page.getByRole('heading', { name: 'Recibimos tu comprobante' })).toBeVisible();
 }
 
+/** Escribe el código de 6 dígitos (se reparte en las casillas y se envía solo). */
+export async function escribirCodigo(page: Page, codigo: string) {
+  await page.getByLabel('Dígito 1').fill(codigo);
+}
+
 export async function ingresar(page: Page, correo: string) {
   await page.goto('/ingresar');
   await page.getByLabel('Correo').fill(correo);
@@ -89,10 +94,11 @@ export async function configurarDosPasos(page: Page, correo?: string) {
   await page.getByText('¿No puedes escanearlo?').click();
   const secreto = (await page.locator('details code').innerText()).replace(/\s/g, '');
   const paso = Math.floor(Date.now() / PERIODO_MS);
-  await page
-    .getByLabel('Código de 6 dígitos')
-    .fill(await generate({ secret: secreto, epoch: paso * (PERIODO_MS / 1000) }));
-  await page.getByRole('button', { name: 'Activar verificación' }).click();
+  // Las seis casillas reparten lo escrito en la primera y se envían solas al completarse.
+  await escribirCodigo(
+    page,
+    await generate({ secret: secreto, epoch: paso * (PERIODO_MS / 1000) }),
+  );
   if (correo) guardarPaso(correo, paso);
   await expect(page.getByText('Verificación en dos pasos activada')).toBeVisible();
   await expect(
@@ -120,8 +126,8 @@ export async function entrarEquipo(page: Page, correo: string) {
   } else if (page.url().includes('/verificacion-2fa')) {
     const secreto = leerSecretos()[correo];
     if (!secreto) throw new Error(`No hay secreto 2FA guardado para ${correo}.`);
-    await page.getByLabel('Código de 6 dígitos').fill(await codigoSinUsar(page, correo, secreto));
-    await page.getByRole('button', { name: 'Verificar' }).click();
+    await escribirCodigo(page, await codigoSinUsar(page, correo, secreto));
+    await page.waitForURL((url) => !url.pathname.startsWith('/verificacion-2fa'));
   }
 }
 
@@ -138,4 +144,32 @@ export function reiniciarLimiteIngreso(): void {
     input: "DELETE FROM limites_uso WHERE clave LIKE 'login:ip:%';",
     stdio: ['pipe', 'ignore', 'inherit'],
   });
+}
+
+/**
+ * Último enlace de un solo uso que la API envió a `correo` hacia `ruta`. En
+ * las pruebas el correo es el sandbox: guarda el texto en correos_salientes.
+ */
+export function enlaceDelCorreo(correo: string, ruta: string): string {
+  const { url } = entornoE2e();
+  const script = [
+    "const pg = require('pg');",
+    'const c = new pg.Client({ connectionString: process.env.DATABASE_URL });',
+    'c.connect()',
+    "  .then(() => c.query('SELECT texto FROM correos_salientes WHERE para = $1 ORDER BY creado_en DESC LIMIT 5', [process.argv[1]]))",
+    '  .then((r) => { console.log(JSON.stringify(r.rows.map((f) => f.texto))); return c.end(); });',
+  ].join('\n');
+  const salida = execFileSync('node', ['-e', script, correo], {
+    cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
+    env: { ...process.env, DATABASE_URL: url },
+    encoding: 'utf8',
+  });
+  for (const texto of JSON.parse(salida) as (string | null)[]) {
+    const enlace = texto?.match(/https?:\/\/\S+/g)?.find((u) => new URL(u).pathname === ruta);
+    if (enlace) {
+      const { pathname, search } = new URL(enlace);
+      return pathname + search;
+    }
+  }
+  throw new Error(`No hay un correo para ${correo} con un enlace a ${ruta}.`);
 }

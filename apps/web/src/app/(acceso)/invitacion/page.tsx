@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
+import { FaltaEnlace } from '@/componentes/acceso/falta-enlace';
 import { FormularioInvitacion } from '@/componentes/acceso/formularios';
 import { PanelAcceso } from '@/componentes/acceso/panel-acceso';
-import { Alerta } from '@/componentes/ui/alerta';
 
 export const metadata: Metadata = { title: 'Invitación', referrer: 'no-referrer' };
 
@@ -12,13 +12,11 @@ export default async function Pagina({
 }) {
   const { token } = await searchParams;
   return (
-    <PanelAcceso titulo="Acepta tu invitación">
+    <PanelAcceso>
       {token ? (
         <FormularioInvitacion token={token} />
       ) : (
-        <Alerta tono="peligro" titulo="Falta el enlace">
-          Abre esta página desde el enlace que te enviamos por correo.
-        </Alerta>
+        <FaltaEnlace titulo="Acepta tu invitación" />
       )}
     </PanelAcceso>
   );

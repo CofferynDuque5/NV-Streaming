@@ -5,21 +5,25 @@ import { PanelAcceso } from '@/componentes/acceso/panel-acceso';
 
 export const metadata: Metadata = { title: 'Crear cuenta' };
 
-export default function Registro() {
+export default async function Registro({
+  searchParams,
+}: {
+  searchParams: Promise<{ siguiente?: string }>;
+}) {
+  const { siguiente } = await searchParams;
+  const ingresar = siguiente ? `/ingresar?siguiente=${encodeURIComponent(siguiente)}` : '/ingresar';
   return (
     <PanelAcceso
-      titulo="Crea tu cuenta"
-      descripcion="Gestiona tus servicios, pagos y soporte desde un solo lugar."
       pie={
         <>
           ¿Ya tienes cuenta?{' '}
-          <Link href="/ingresar" className="font-medium text-marca hover:underline">
+          <Link href={ingresar} className="font-semibold text-cian hover:underline">
             Ingresa
           </Link>
         </>
       }
     >
-      <FormularioRegistro />
+      <FormularioRegistro siguiente={siguiente} />
     </PanelAcceso>
   );
 }

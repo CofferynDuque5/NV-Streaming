@@ -8,10 +8,8 @@ export const metadata: Metadata = { title: 'Recuperar contraseña' };
 export default function Recuperar() {
   return (
     <PanelAcceso
-      titulo="Recupera tu contraseña"
-      descripcion="Escribe el correo de tu cuenta y te enviaremos un enlace para elegir una nueva."
       pie={
-        <Link href="/ingresar" className="font-medium text-marca hover:underline">
+        <Link href="/ingresar" className="font-semibold text-cian hover:underline">
           Volver a ingresar
         </Link>
       }
