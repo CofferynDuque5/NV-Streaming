@@ -17,49 +17,21 @@ import { type CSSProperties, useEffect, useId, useRef, useState } from 'react';
 import { clasesBoton } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
-import { EVENTO_ABRIR_CARRITO, MAX_CARRITO, useCarrito, useRecienAgregado } from '@/lib/carrito';
+import {
+  EVENTO_ABRIR_CARRITO,
+  MAX_CARRITO,
+  RUTA_CARRITO,
+  useCarrito,
+  useRecienAgregado,
+} from '@/lib/carrito';
 import { precioTexto } from '@/lib/precios';
 import { ArteServicio } from './arte';
 import { useAgregarAlCarrito } from './boton-carrito';
+import { Esqueleto, nombreOpcion, porPopularidad } from './carrito-comun';
 
 interface Elegido {
   plan: PlanPublico;
   item: ServicioTienda;
-}
-
-/** Servicios por popularidad (lo más pedido primero) y luego en el orden del catálogo. */
-function porPopularidad(servicios: ServicioTienda[]): ServicioTienda[] {
-  return servicios
-    .map((s, i) => ({ s, i }))
-    .sort(
-      (a, b) =>
-        (a.s.ranking ?? Number.POSITIVE_INFINITY) - (b.s.ranking ?? Number.POSITIVE_INFINITY) ||
-        a.i - b.i,
-    )
-    .map(({ s }) => s);
-}
-
-function Esqueleto({ ancho = 'w-16' }: { ancho?: string }) {
-  return (
-    <span
-      className={clsx(
-        'inline-block h-4 animate-pulse rounded-md bg-[linear-gradient(90deg,rgb(140_160_255/0.12),rgb(140_160_255/0.28),rgb(140_160_255/0.12))]',
-        ancho,
-      )}
-    />
-  );
-}
-
-/** Nombre de la opción de un plan: su duración (y su nombre si hay dos con la misma). */
-function nombreOpcion(p: PlanPublico, planes: PlanPublico[]) {
-  const d = etiquetaDuracion(p.duracionCantidad, p.duracionUnidad);
-  const repetida = planes.some(
-    (x) =>
-      x.id !== p.id &&
-      x.duracionCantidad === p.duracionCantidad &&
-      x.duracionUnidad === p.duracionUnidad,
-  );
-  return repetida ? `${d} · ${p.nombre}` : d;
 }
 
 /**
@@ -67,7 +39,7 @@ function nombreOpcion(p: PlanPublico, planes: PlanPublico[]) {
  * la barra inferior. Guarda solo ids de planes; el subtotal y el precio de
  * cada plan salen de POST /mi/pedidos/cotizar. Sin sesión de cliente, muestra
  * el precio del catálogo solo como referencia. Cupón y forma de pago van en
- * /cuenta/carrito.
+ * la página del carrito (/carrito).
  */
 export function CarritoLateral({
   servicios,
@@ -565,7 +537,7 @@ export function CarritoLateral({
                 </p>
               )}
               <Link
-                href={`/cuenta/carrito?moneda=${moneda}`}
+                href={`${RUTA_CARRITO}?moneda=${moneda}`}
                 onClick={cerrar}
                 className={clasesBoton('primario', 'lg', 'w-full')}
               >

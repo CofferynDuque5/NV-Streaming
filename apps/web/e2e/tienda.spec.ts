@@ -186,10 +186,10 @@ test('el carrito lateral se abre desde la cabecera, agrega, quita y deshace', as
   await expect(carrito.getByText('1 de 5 planes')).toBeVisible();
   await expect(carrito.getByRole('listitem').filter({ hasText: 'NV Cine' })).toBeVisible();
 
-  // «Ir a pagar» lleva al carrito del panel; Escape cierra.
+  // «Ir a pagar» lleva a la página del carrito; Escape cierra.
   await expect(carrito.getByRole('link', { name: 'Ir a pagar' })).toHaveAttribute(
     'href',
-    '/cuenta/carrito?moneda=USD',
+    '/carrito?moneda=USD',
   );
   await page.keyboard.press('Escape');
   await expect(carrito).toHaveCount(0);

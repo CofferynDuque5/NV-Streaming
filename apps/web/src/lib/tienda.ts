@@ -62,6 +62,12 @@ export const monedaTienda = cache(async (pedida?: string): Promise<Moneda> => {
   return monedaValida(catalogo?.monedas ?? ['USD'], pedida, ubicacion.moneda);
 });
 
+/**
+ * Billetera del cliente con sesión (saldo y pedido por pagar), una sola vez
+ * por petición. Solo se llama con sesión de cliente.
+ */
+export const billeteraTienda = cache(() => leerApi<BilleteraPublica>('/mi/billetera'));
+
 export interface SesionTienda {
   nombre: string;
   rol: Rol;
@@ -88,7 +94,7 @@ export const sesionTienda = cache(async (): Promise<SesionTienda | null> => {
   const base = { nombre, rol, panel: rutaInicio(rol), saldoUsd: null, enlaceSaldo: null };
   try {
     if (rol === 'cliente') {
-      const r = await leerApi<BilleteraPublica>('/mi/billetera');
+      const r = await billeteraTienda();
       if (r.datos) return { ...base, saldoUsd: r.datos.saldoUsd, enlaceSaldo: '/cuenta/billetera' };
     }
     if (rol === 'revendedor') {

@@ -81,8 +81,34 @@ export function useRecienAgregado(): string | null {
 /** Evento que abre el carrito lateral desde cualquier parte de la tienda. */
 export const EVENTO_ABRIR_CARRITO = 'nv-abrir-carrito';
 
+/** Página del carrito (revisar, cupón, forma de pago y pedido). */
+export const RUTA_CARRITO = '/carrito';
+
+/** Id del título de la página del carrito (recibe el foco al volver arriba). */
+export const ID_TITULO_CARRITO = 'titulo-carrito';
+
+/**
+ * Abre el carrito lateral. En la página del carrito no se abre encima: vuelve
+ * arriba, al título, porque el carrito ya está en pantalla.
+ */
 export function abrirCarrito() {
+  if (window.location.pathname === RUTA_CARRITO) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById(ID_TITULO_CARRITO)?.focus({ preventScroll: true });
+    return;
+  }
   window.dispatchEvent(new Event(EVENTO_ABRIR_CARRITO));
+}
+
+const sinCambios = () => () => {};
+
+/** `false` al renderizar en el servidor y al hidratar; `true` cuando ya se lee el carrito guardado. */
+export function useCarritoListo(): boolean {
+  return useSyncExternalStore(
+    sinCambios,
+    () => true,
+    () => false,
+  );
 }
 
 export function useCarrito() {

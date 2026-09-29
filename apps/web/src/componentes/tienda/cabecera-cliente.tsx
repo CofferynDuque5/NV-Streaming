@@ -28,7 +28,7 @@ import {
   useState,
 } from 'react';
 import { clasesBoton } from '@/componentes/ui/boton';
-import { abrirCarrito, useCarrito } from '@/lib/carrito';
+import { abrirCarrito, RUTA_CARRITO, useCarrito } from '@/lib/carrito';
 import { ArteServicio } from './arte';
 import { Bandera, IconoCategoria, Orbe } from './iconos';
 import {
@@ -377,12 +377,13 @@ export function ChipsMonedas({ monedas, actual }: { monedas: OpcionMoneda[]; act
 /** Botón del carrito: abre el carrito lateral y muestra cuántos planes tiene. */
 export function IconoCarrito() {
   const { planes } = useCarrito();
+  const enCarrito = usePathname() === RUTA_CARRITO;
   const n = planes.length;
   return (
     <button
       type="button"
       onClick={abrirCarrito}
-      aria-haspopup="dialog"
+      aria-haspopup={enCarrito ? undefined : 'dialog'}
       aria-label={`Carrito, ${n} ${n === 1 ? 'plan' : 'planes'}`}
       className="relative grid size-11 place-items-center rounded-[0.9rem] border border-borde bg-white/[0.02] transition-colors hover:border-borde-fuerte"
     >
@@ -708,7 +709,13 @@ export function BarraInferior({ billetera, cuenta }: { billetera: string; cuenta
     >
       {enlace('/', 'Inicio', House, ruta === '/')}
       {enlace('/catalogo', 'Catálogo', LayoutGrid, ruta.startsWith('/catalogo'))}
-      <button type="button" onClick={abrirCarrito} aria-haspopup="dialog" className={clase(false)}>
+      <button
+        type="button"
+        onClick={abrirCarrito}
+        aria-haspopup={ruta === RUTA_CARRITO ? undefined : 'dialog'}
+        aria-current={ruta === RUTA_CARRITO ? 'page' : undefined}
+        className={clase(ruta === RUTA_CARRITO)}
+      >
         <ShoppingCart className="size-5" aria-hidden="true" />
         Carrito
         {n > 0 && (

@@ -31,12 +31,14 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   await expect(cliente.getByRole('button', { name: 'Carrito, 2 planes' })).toBeVisible();
 
   // 2. En el carrito: sin saldo, elige "recargar y pagar".
-  await cliente.goto('/cuenta/carrito?moneda=USD');
+  await cliente.goto('/carrito?moneda=USD');
   const total = 15.99 + 54.99;
   await expect(cliente.getByText(usd(total), { exact: true }).first()).toBeVisible();
   await expect(cliente.getByRole('radio', { name: /Pagar con mi saldo/ })).toBeDisabled();
   await expect(cliente.getByRole('radio', { name: /Recargar y pagar/ })).toBeChecked();
   await cliente.getByRole('button', { name: 'Hacer el pedido y recargar' }).click();
+  await expect(cliente.getByRole('heading', { name: /Pedido PED-\d{6} creado/ })).toBeVisible();
+  await cliente.getByRole('link', { name: 'Reportar mi recarga' }).click();
 
   // 3. Reporta la recarga por lo que falta, ligada al pedido.
   await expect(cliente).toHaveURL(/\/cuenta\/billetera\?pedido=/);

@@ -3,8 +3,8 @@ import { formatearMonto } from '@nv/shared';
 import { ShoppingBag } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CajaCarrito } from '@/componentes/cliente/carrito';
-import { monedaValida, SelectorMoneda } from '@/componentes/planes';
+import { ResumenCarritoCuenta } from '@/componentes/cliente/carrito';
+import { monedaValida } from '@/componentes/planes';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoPedidoInsignia } from '@/componentes/ui/estado';
@@ -31,35 +31,32 @@ export default async function Carrito({
       searchParams,
       ubicacionVisitante(),
     ]);
-  const monedas = catalogo?.monedas ?? ['USD'];
-  const moneda = monedaValida(monedas, filtro.moneda, ubicacion.moneda);
+  const moneda = monedaValida(catalogo?.monedas ?? ['USD'], filtro.moneda, ubicacion.moneda);
+  const pendiente = billetera?.pedidoPendiente ?? null;
 
   return (
     <>
       <CabeceraPagina
         titulo="Carrito y pedidos"
         descripcion="Junta varios planes en un solo pedido y págalos juntos, con tu saldo o por factura."
-        acciones={<SelectorMoneda monedas={monedas} actual={moneda} ruta="/cuenta/carrito" />}
       />
       {estado === 403 && (
         <Alerta tono="info">
           Tu cuenta la gestiona tu revendedor: pídele a él tus servicios y renovaciones.
         </Alerta>
       )}
-      {!catalogo && (
-        <Alerta tono="peligro">
-          No pudimos cargar el catálogo. Recarga la página en un momento.
+      {pendiente && (
+        <Alerta tono="aviso" titulo={`Tienes el pedido ${pendiente.numero} por pagar`}>
+          Págalo o cancélalo antes de hacer otro pedido.{' '}
+          <Link href={`/cuenta/carrito/${pendiente.id}`} className="font-medium underline">
+            Ver el pedido
+          </Link>
         </Alerta>
       )}
-      {catalogo && billetera && (
+      {estado !== 403 && (
         <Tarjeta>
           <CabeceraTarjeta titulo="Tu carrito" />
-          <CajaCarrito
-            moneda={moneda}
-            planes={catalogo.planes}
-            saldoUsd={billetera.saldoUsd}
-            pendiente={billetera.pedidoPendiente}
-          />
+          <ResumenCarritoCuenta moneda={moneda} />
         </Tarjeta>
       )}
 

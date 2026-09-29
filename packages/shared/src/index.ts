@@ -29,4 +29,5 @@ export * from './tipos-entregas.js';
 export * from './esquemas/billetera.js';
 export * from './tipos-billetera.js';
 export * from './categorias.js';
+export * from './cupones.js';
 export * from './tienda.js';

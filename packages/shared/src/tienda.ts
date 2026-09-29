@@ -120,6 +120,22 @@ export function planMasBarato(planes: PlanPublico[], moneda: Moneda): PlanPublic
   return mejor;
 }
 
+/** Imagen y color con los que se muestra un servicio, a partir de su slug y su universo. */
+export function aspectoServicio(
+  slug: string,
+  categoria: CategoriaServicio | null,
+): { arte: ClaveArte | null; color: string } {
+  const arte = claveArte(slug);
+  return {
+    arte,
+    color: arte
+      ? ARTE_SERVICIOS[arte]
+      : categoria
+        ? COLOR_CATEGORIA[categoria]
+        : COLOR_SIN_CATEGORIA,
+  };
+}
+
 export interface ServicioTienda {
   servicio: ServicioCatalogo;
   /** Planes visibles del servicio, ordenados de menor a mayor duración. */
@@ -144,17 +160,11 @@ export function serviciosTienda(catalogo: CatalogoPublico): ServicioTienda[] {
       const planes = [...(porServicio.get(s.id) ?? [])].sort(
         (a, b) => dias(a) - dias(b) || a.orden - b.orden,
       );
-      const arte = claveArte(s.slug);
       const posicion = catalogo.masPedidos.indexOf(s.id);
       return {
         servicio: s,
         planes,
-        arte,
-        color: arte
-          ? ARTE_SERVICIOS[arte]
-          : s.categoria
-            ? COLOR_CATEGORIA[s.categoria]
-            : COLOR_SIN_CATEGORIA,
+        ...aspectoServicio(s.slug, s.categoria),
         ranking: posicion === -1 ? null : posicion,
       };
     });

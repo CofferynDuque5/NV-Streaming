@@ -3,6 +3,7 @@ import type {
   EstadoPedido,
   MovimientoBilleteraPublico,
   PedidoPublico,
+  PlanDeFactura,
   RecargaBilleteraPublica,
 } from '@nv/shared';
 import { dec, dec2, iso, numeroFactura } from '../comun/formato.js';
@@ -16,13 +17,27 @@ export const INCLUIR_PEDIDO = {
   cliente: { select: { id: true, nombre: true } },
   facturas: {
     orderBy: { numero: 'asc' },
-    include: { lineas: { select: { descripcion: true }, take: 1 } },
+    include: {
+      lineas: {
+        select: {
+          descripcion: true,
+          plan: {
+            select: {
+              id: true,
+              nombre: true,
+              servicio: { select: { nombre: true, slug: true, categoria: true } },
+            },
+          },
+        },
+        take: 1,
+      },
+    },
   },
 } as const;
 
 type PedidoBase = Pedido & {
   cliente: Ref;
-  facturas: (Factura & { lineas: { descripcion: string }[] })[];
+  facturas: (Factura & { lineas: { descripcion: string; plan: PlanDeFactura | null }[] })[];
 };
 
 /** El estado de un pedido se deduce de sus facturas. */
@@ -57,6 +72,7 @@ export function pedidoPublico(p: PedidoBase): PedidoPublico {
       totalUsd: dec2(f.totalUsd),
       descripcion: f.lineas[0]?.descripcion ?? '',
       suscripcionId: f.suscripcionId,
+      plan: f.lineas[0]?.plan ?? null,
     })),
     cliente: p.cliente,
     creadoEn: iso(p.creadoEn)!,

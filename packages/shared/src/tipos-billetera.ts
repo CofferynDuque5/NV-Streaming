@@ -1,4 +1,5 @@
 /** Tipos que devuelve la API del carrito (pedidos) y de la billetera del cliente. */
+import type { CategoriaServicio } from './categorias.js';
 import type { EstadoPedido, TipoMovimientoBilletera } from './esquemas/billetera.js';
 import type { EstadoRecarga } from './esquemas/revendedores.js';
 import type { Moneda } from './monedas.js';
@@ -38,6 +39,14 @@ export interface FacturaDePedido {
   totalUsd: Decimal;
   descripcion: string;
   suscripcionId: string | null;
+  /** Plan facturado y su servicio (para mostrarlo con su imagen); null si ya no existe. */
+  plan: PlanDeFactura | null;
+}
+
+export interface PlanDeFactura {
+  id: string;
+  nombre: string;
+  servicio: { nombre: string; slug: string; categoria: CategoriaServicio | null };
 }
 
 export interface PedidoPublico {

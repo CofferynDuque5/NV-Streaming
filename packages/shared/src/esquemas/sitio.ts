@@ -27,6 +27,7 @@ export const RUTAS_RESERVADAS = [
   'api',
   'apple-icon',
   'configurar-2fa',
+  'carrito',
   'catalogo',
   'cuenta',
   'favicon',

@@ -429,6 +429,10 @@
   :root:has(.barra-inferior) {
     --nv-barra-inferior: 4.75rem;
   }
+  /* Con la barra del total del carrito encima, los avisos y la ayuda suben otro tanto. */
+  :root:has(.barra-inferior):has([data-barra-carrito]) {
+    --nv-barra-inferior: 9.5rem;
+  }
   body:has(.barra-inferior) {
     padding-bottom: calc(var(--nv-barra-inferior) + env(safe-area-inset-bottom, 0px));
   }

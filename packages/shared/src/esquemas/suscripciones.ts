@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MENSAJE_CUPON, PATRON_CUPON } from '../cupones.js';
 import { paginacionSchema, uuidSchema } from './comunes.js';
 import { monedaSchema } from './dinero.js';
 
@@ -13,11 +14,7 @@ export const ESTADOS_SUSCRIPCION = [
 ] as const;
 export type EstadoSuscripcion = (typeof ESTADOS_SUSCRIPCION)[number];
 
-export const codigoCuponSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .regex(/^[A-Z0-9_-]{3,40}$/, 'El cupón usa letras, números, guiones (3 a 40).');
+export const codigoCuponSchema = z.string().trim().toUpperCase().regex(PATRON_CUPON, MENSAJE_CUPON);
 
 export const cuponOpcional = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),

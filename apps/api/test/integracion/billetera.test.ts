@@ -276,6 +276,15 @@ describe('carrito', () => {
       pendienteUsd: '0.00',
     });
     expect(pedido.cuerpo.facturas).toHaveLength(2);
+    // Cada factura dice qué plan y servicio cobra (la web lo muestra con su imagen).
+    expect(pedido.cuerpo.facturas.map((f: { plan: { id: string } | null }) => f.plan?.id)).toEqual([
+      e.planId,
+      e.anualId,
+    ]);
+    expect(pedido.cuerpo.facturas[1].plan).toMatchObject({
+      nombre: 'Anual',
+      servicio: { slug: expect.any(String), nombre: expect.any(String) },
+    });
     expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('5.00');
     const activas = await ctx.prisma.suscripcion.count({ where: { estado: 'activa' } });
     expect(activas).toBe(2);
