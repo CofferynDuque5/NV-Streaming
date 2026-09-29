@@ -513,6 +513,39 @@ describe('accesos del cliente y del revendedor', () => {
     expect(ultimo).toBe(429);
   });
 
+  it('lo que el cliente de un revendedor compra él mismo se le avisa al entregarse', async () => {
+    const e = await escenario();
+    await configurar(e, { adaptador: 'codigos' });
+    await subirLote(e, 'DEMO-FFFF-0001');
+    const rev = await conectar(ctx, 'revendedor');
+    const r = await ctx.prisma.revendedor.create({
+      data: { usuarioId: rev.usuario.id, estado: 'aprobado', nombreComercial: 'Tienda Sol' },
+    });
+    const c = await conectar(ctx, 'cliente');
+    await c.n.get('/mi/billetera');
+    const ficha = await ctx.prisma.cliente.update({
+      where: { usuarioId: c.usuario.id },
+      data: { revendedorId: r.id },
+    });
+    const pagado = await clientePagado(e, c);
+    await procesar();
+    const entrega = await ctx.prisma.entrega.findUniqueOrThrow({ where: { id: pagado.entregaId } });
+    expect(entrega).toMatchObject({ estado: 'entregada', revendedorId: null });
+    const aviso = await ctx.prisma.notificacion.findFirstOrThrow({
+      where: { plantilla: 'servicioListo', clienteId: ficha.id },
+    });
+    expect(aviso).toMatchObject({ estado: 'enviada', destino: c.usuario.correo });
+    expect(
+      await ctx.prisma.correoSaliente.count({
+        where: { plantilla: 'servicioListo', para: c.usuario.correo },
+      }),
+    ).toBe(1);
+    // Es compra suya: a su revendedor no le llega el aviso de acceso listo.
+    expect(
+      await ctx.prisma.notificacion.count({ where: { plantilla: 'accesoListoRevendedor' } }),
+    ).toBe(0);
+  });
+
   it('la compra de un revendedor se entrega y el revendedor ve el acceso de su cliente', async () => {
     const e = await escenario();
     await configurar(e, { adaptador: 'codigos' });

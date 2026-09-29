@@ -70,7 +70,8 @@ export class TareasEquipoService implements OnModuleInit {
     const { diasSuspendida, prioridad } = config.parametros;
     const limite = new Date(ahora.getTime() - diasSuspendida * DIA_MS);
     const subs = await this.prisma.suscripcion.findMany({
-      where: { estado: 'suspendida', revendedorId: null, cliente: { revendedorId: null } },
+      // Solo las que compró el propio cliente (aunque tenga revendedor): las del revendedor las gestiona él.
+      where: { estado: 'suspendida', revendedorId: null },
       include: {
         cliente: { select: { nombre: true } },
         plan: { include: { servicio: { select: { nombre: true } } } },

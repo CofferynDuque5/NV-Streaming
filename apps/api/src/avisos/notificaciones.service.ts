@@ -41,6 +41,16 @@ export interface ResultadoAviso {
 /** Avisos que el cliente puede apagar con `recibirRecordatorios`. Pagos y suspensiones siempre llegan. */
 const PLANTILLAS_RECORDATORIO: readonly NombrePlantilla[] = ['recordatorioVencimiento'];
 
+/** Avisos de métodos guardados y cobros automáticos: el cliente de un revendedor no los tiene. */
+const PLANTILLAS_COBRO_AUTOMATICO: readonly NombrePlantilla[] = [
+  'cobroAutomaticoProximo',
+  'cobroAutomaticoRealizado',
+  'cobroAutomaticoFallido',
+  'metodoAutorizadoGuardado',
+  'metodoAutorizadoRevocado',
+  'metodoAutorizadoInvalido',
+];
+
 interface Destinatario {
   nombre: string;
   clienteId: string | null;
@@ -48,6 +58,7 @@ interface Destinatario {
   correo: string | null;
   /** Número con consentimiento, o el motivo por el que no hay. */
   whatsapp: { numero: string } | { motivo: string };
+  /** Cliente ligado a un revendedor (no tiene cobros automáticos). */
   deRevendedor: boolean;
   recibirRecordatorios: boolean;
 }
@@ -78,12 +89,17 @@ export class NotificacionesService {
     const d = await this.destinatario(a.destinatario);
     if (!d) return r;
     const contenido = a.contenido(d.nombre);
+    // Lo que activó un revendedor lo cobra y avisa él. Lo que el cliente compró
+    // en la tienda (y su billetera) se le avisa como a cualquier cliente.
+    const gestionaRevendedor = d.clienteId !== null && (await this.gestionaRevendedor(a.entidad));
 
     for (const canal of canales) {
       let destino = '';
       let motivo: string | null = null;
-      if (d.clienteId && d.deRevendedor) {
-        motivo = 'Cliente de un revendedor: el revendedor le cobra y le avisa.';
+      if (gestionaRevendedor) {
+        motivo = 'Servicio de un revendedor: el revendedor le cobra y le avisa.';
+      } else if (d.deRevendedor && PLANTILLAS_COBRO_AUTOMATICO.includes(a.plantilla)) {
+        motivo = 'Cliente de un revendedor: no tiene cobros automáticos.';
       } else if (
         d.clienteId &&
         !d.recibirRecordatorios &&
@@ -185,6 +201,49 @@ export class NotificacionesService {
       },
     });
     return estado;
+  }
+
+  /**
+   * ¿El aviso trata de un servicio que activó un revendedor? Se mira la
+   * suscripción de la entidad (directa, o la de la factura, el pago o la
+   * entrega). Los avisos sin suscripción (p. ej. la billetera) no lo son.
+   */
+  private async gestionaRevendedor(entidad: Aviso['entidad']): Promise<boolean> {
+    if (!entidad) return false;
+    const { id } = entidad;
+    const canal = { select: { revendedorId: true } } as const;
+    switch (entidad.tipo) {
+      case 'suscripcion': {
+        const s = await this.prisma.suscripcion.findUnique({
+          where: { id },
+          select: { revendedorId: true },
+        });
+        return Boolean(s?.revendedorId);
+      }
+      case 'factura': {
+        const f = await this.prisma.factura.findUnique({
+          where: { id },
+          select: { suscripcion: canal },
+        });
+        return Boolean(f?.suscripcion?.revendedorId);
+      }
+      case 'pago': {
+        const p = await this.prisma.pago.findUnique({
+          where: { id },
+          select: { factura: { select: { suscripcion: canal } } },
+        });
+        return Boolean(p?.factura.suscripcion?.revendedorId);
+      }
+      case 'entrega': {
+        const e = await this.prisma.entrega.findUnique({
+          where: { id },
+          select: { revendedorId: true, suscripcion: canal },
+        });
+        return Boolean(e?.revendedorId ?? e?.suscripcion?.revendedorId);
+      }
+      default:
+        return false;
+    }
   }
 
   private async destinatario(

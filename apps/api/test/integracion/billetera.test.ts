@@ -578,6 +578,38 @@ describe('clientes de un revendedor', () => {
     expect(anular.estado).toBe(200);
   });
 
+  it('los avisos de su billetera le llegan como a cualquier cliente', async () => {
+    const e = await escenario();
+    const { clienteId } = await deRevendedor(e);
+    const { correo } = await ctx.prisma.usuario.findUniqueOrThrow({ where: { id: e.usuarioId } });
+    const avisos = () =>
+      ctx.prisma.correoSaliente.count({ where: { para: correo, plantilla: 'pagoConfirmado' } });
+
+    // "Recargar y pagar": al confirmar la recarga se paga el pedido y se le avisa.
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [e.planId],
+      moneda: 'USD',
+      pago: 'recarga',
+    });
+    expect(pedido.cuerpo).toMatchObject({ estado: 'pendiente', pagarAlRecargar: true });
+    await conSaldo(e, '10');
+    expect((await e.cliente.get(`/mi/pedidos/${pedido.cuerpo.id}`)).cuerpo.estado).toBe('pagado');
+    expect(await avisos()).toBe(1);
+
+    // Pagar con el saldo la renovación de lo que compró él también se le avisa.
+    const s = await ctx.prisma.suscripcion.findFirstOrThrow({ where: { clienteId } });
+    const ren = await e.cliente.post(`/mi/suscripciones/${s.id}/renovar`, {});
+    expect(ren.estado).toBe(200);
+    const pago = await e.cliente.post(`/mi/facturas/${ren.cuerpo.factura.id}/pagar-con-saldo`);
+    expect(pago.cuerpo).toEqual({ saldoUsd: '0.00' });
+    expect(await avisos()).toBe(2);
+    // Ningún aviso a su nombre quedó retenido por tener revendedor.
+    const omitidas = await ctx.prisma.notificacion.count({
+      where: { clienteId, estado: 'omitida' },
+    });
+    expect(omitidas).toBe(0);
+  });
+
   it('un cliente archivado, con o sin revendedor, no recarga ni compra', async () => {
     const e = await escenario();
     const { clienteId } = await deRevendedor(e);

@@ -16,10 +16,14 @@ import { mensajeError, plural, Recuento, type ResultadoTarea } from '../recuento
 import { TRABAJO } from '../trabajos.js';
 import { TrabajosService } from '../trabajos.service.js';
 
-/** Suscripciones a las que NV avisa y cobra: sin revendedor de por medio. */
-const SIN_REVENDEDOR = {
+/**
+ * Suscripciones a las que NV avisa y factura: las que compró el propio cliente,
+ * tenga o no un revendedor. Las que activó un revendedor (revendedorId) las
+ * cobra y avisa él.
+ */
+const CANAL_DIRECTO = {
   revendedorId: null,
-  cliente: { revendedorId: null, estado: 'activo' },
+  cliente: { estado: 'activo' },
 } as const;
 
 const INCLUIR_PLAN = { plan: { include: { servicio: { select: { nombre: true } } } } } as const;
@@ -64,7 +68,7 @@ export class TareasClientesService implements OnModuleInit {
     for (const dias of config.parametros.diasAntes) {
       const subs = await this.prisma.suscripcion.findMany({
         where: {
-          ...SIN_REVENDEDOR,
+          ...CANAL_DIRECTO,
           estado: 'activa',
           cancelarAlVencer: false,
           venceEn: { gte: inicioDiaCaracas(ahora, dias), lt: inicioDiaCaracas(ahora, dias + 1) },
@@ -125,7 +129,7 @@ export class TareasClientesService implements OnModuleInit {
     let emitidas = 0;
     const subs = await this.prisma.suscripcion.findMany({
       where: {
-        ...SIN_REVENDEDOR,
+        ...CANAL_DIRECTO,
         estado: 'activa',
         cancelarAlVencer: false,
         plan: { renovable: true, activo: true },

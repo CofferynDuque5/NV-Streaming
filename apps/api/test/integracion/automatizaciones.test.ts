@@ -213,7 +213,7 @@ describe('programador', () => {
 });
 
 describe('avisos a clientes', () => {
-  it('recordatorio de vencimiento: una vez por vencimiento y día de aviso, sin clientes de revendedor', async () => {
+  it('recordatorio de vencimiento: una vez por vencimiento y día de aviso, no por lo que activó un revendedor', async () => {
     const e = await escenario();
     const ahora = new Date();
     const vence = new Date(inicioDiaCaracas(ahora, 3).getTime() + 15 * 3600_000);
@@ -223,9 +223,11 @@ describe('avisos a clientes', () => {
     const r = await revendedor();
     const deRevendedor = await cliente({ revendedorId: r.r.id });
     const cancela = await cliente();
-    for (const c of [ana, beto, sinRecordatorios, deRevendedor]) {
+    for (const c of [ana, beto, sinRecordatorios]) {
       await suscripcion(c.id, e.planId, { venceEn: vence });
     }
+    // La activó su revendedor: se la cobra y avisa él.
+    await suscripcion(deRevendedor.id, e.planId, { venceEn: vence, revendedorId: r.r.id });
     await suscripcion(cancela.id, e.planId, { venceEn: vence, cancelarAlVencer: true });
     // Otro día de aviso: no toca hoy.
     await suscripcion(ana.id, e.planId, { venceEn: new Date(vence.getTime() + 2 * DIA) });
@@ -270,7 +272,7 @@ describe('avisos a clientes', () => {
     expect(await ctx.prisma.notificacion.count()).toBe(6);
   });
 
-  it('factura de renovación: la emite una vez, con instrucciones de pago, y no a clientes de revendedor', async () => {
+  it('factura de renovación: la emite una vez, con instrucciones de pago, y no por lo que activó un revendedor', async () => {
     const e = await escenario();
     const ahora = new Date();
     const ana = await cliente();
@@ -279,7 +281,10 @@ describe('avisos a clientes', () => {
     const sub = await suscripcion(ana.id, e.planId, {
       venceEn: new Date(ahora.getTime() + 2 * DIA),
     });
-    await suscripcion(deRevendedor.id, e.planId, { venceEn: new Date(ahora.getTime() + 2 * DIA) });
+    await suscripcion(deRevendedor.id, e.planId, {
+      venceEn: new Date(ahora.getTime() + 2 * DIA),
+      revendedorId: r.r.id,
+    });
     await suscripcion(ana.id, e.planId, { venceEn: new Date(ahora.getTime() + 10 * DIA) });
 
     const primera = await s().ejecutor.ejecutar('factura_renovacion', { disparo: 'manual', ahora });
@@ -315,19 +320,16 @@ describe('avisos a clientes', () => {
     const deRevendedor = await cliente({ revendedorId: r.r.id });
     const vence = new Date(Date.now() - 1000);
     const sub = await suscripcion(ana.id, e.planId, { venceEn: vence });
-    await suscripcion(deRevendedor.id, e.planId, { venceEn: vence });
+    // La activó su revendedor: ni se encola su aviso.
+    await suscripcion(deRevendedor.id, e.planId, { venceEn: vence, revendedorId: r.r.id });
     const { suscripciones, trabajos } = s();
 
     expect(await suscripciones.aplicarVencimientos(new Date(vence.getTime() + 1000))).toBe(2);
     // El aviso se encoló en la misma transacción que el cambio de estado.
-    expect(await ctx.prisma.trabajo.count({ where: { tipo: 'aviso.suscripcion' } })).toBe(2);
+    expect(await ctx.prisma.trabajo.count({ where: { tipo: 'aviso.suscripcion' } })).toBe(1);
     await trabajos.procesarTodo();
     expect(await correosA(ana.correo!, 'avisoGracia')).toHaveLength(1);
-    const omitida = await ctx.prisma.notificacion.findFirstOrThrow({
-      where: { clienteId: deRevendedor.id },
-    });
-    expect(omitida.estado).toBe('omitida');
-    expect(omitida.motivo).toMatch(/revendedor/);
+    expect(await ctx.prisma.notificacion.count({ where: { clienteId: deRevendedor.id } })).toBe(0);
 
     const finGracia = new Date(vence.getTime() + (REGLAS_COBRO.diasGracia + 1) * DIA);
     expect(await suscripciones.aplicarVencimientos(finGracia)).toBe(2);
@@ -380,6 +382,90 @@ describe('avisos a clientes', () => {
     await ctx.prisma.suscripcion.update({ where: { id: sub.id }, data: { estado: 'activa' } });
     await s().trabajos.procesarTodo();
     expect(await correosA(ana.correo!)).toHaveLength(0);
+  });
+});
+
+describe('clientes de un revendedor', () => {
+  it('lo que compró él mismo recibe recordatorio, factura, gracia, suspensión y escalado; lo que activó su revendedor, nada', async () => {
+    const e = await escenario();
+    const r = await revendedor();
+    const luis = await cliente({ revendedorId: r.r.id });
+    const ahora = new Date();
+    const vence = new Date(inicioDiaCaracas(ahora, 3).getTime() + 15 * 3600_000);
+    const propia = await suscripcion(luis.id, e.planId, { venceEn: vence });
+    const delRevendedor = await suscripcion(luis.id, e.planId, {
+      venceEn: vence,
+      revendedorId: r.r.id,
+    });
+    const { ejecutor, suscripciones, trabajos } = s();
+    const avisosDelRevendedor = () =>
+      ctx.prisma.notificacion.findMany({ where: { entidadId: delRevendedor.id } });
+
+    // Recordatorio y factura de renovación: solo por la suya.
+    const rec = await ejecutor.ejecutar('recordatorio_vencimiento', { disparo: 'manual', ahora });
+    expect(rec).toMatchObject({ procesados: 1, omitidos: 0, errores: 0 });
+    const [recordatorio] = await correosA(luis.correo!, 'recordatorioVencimiento');
+    expect(recordatorio).toBeDefined();
+    const ren = await ejecutor.ejecutar('factura_renovacion', { disparo: 'manual', ahora });
+    expect(ren).toMatchObject({ procesados: 1, omitidos: 0, errores: 0 });
+    const facturas = await ctx.prisma.factura.findMany();
+    expect(facturas.map((f) => f.suscripcionId)).toEqual([propia.id]);
+    const [factura] = await correosA(luis.correo!, 'facturaRenovacion');
+    expect(factura?.texto).toContain(`/cuenta/facturas/${facturas[0]!.id}`);
+
+    // Gracia y suspensión: las dos cambian de estado, pero solo se avisa la suya.
+    expect(await suscripciones.aplicarVencimientos(new Date(vence.getTime() + 1000))).toBe(2);
+    await trabajos.procesarTodo();
+    const finGracia = new Date(vence.getTime() + (REGLAS_COBRO.diasGracia + 1) * DIA);
+    expect(await suscripciones.aplicarVencimientos(finGracia)).toBe(2);
+    await trabajos.procesarTodo();
+    const [gracia] = await correosA(luis.correo!, 'avisoGracia');
+    expect(gracia?.texto).toContain(`/cuenta/facturas/${facturas[0]!.id}`);
+    expect(await correosA(luis.correo!, 'avisoSuspension')).toHaveLength(1);
+    const encolados = await ctx.prisma.trabajo.count({
+      where: { carga: { path: ['suscripcionId'], equals: delRevendedor.id } },
+    });
+    expect(encolados).toBe(0);
+
+    // Escalado a soporte: un ticket por la suya, ninguno por la del revendedor.
+    const esc = await ejecutor.ejecutar('escalado_suspension', {
+      disparo: 'manual',
+      ahora: new Date(Date.now() + 4 * DIA),
+    });
+    expect(esc).toMatchObject({ procesados: 1, errores: 0 });
+    const tickets = await ctx.prisma.ticket.findMany();
+    expect(tickets.map((t) => t.suscripcionId)).toEqual([propia.id]);
+
+    // Reactivación: al pagar la suya se le avisa; si el revendedor renueva la suya, no.
+    for (const id of [propia.id, delRevendedor.id]) {
+      await ctx.prisma.$transaction((tx) =>
+        suscripciones.aplicarPeriodo(tx, id, 'renovacion', null, {}),
+      );
+    }
+    await trabajos.procesarTodo();
+    expect(await correosA(luis.correo!, 'avisoRecuperacion')).toHaveLength(1);
+    expect(await avisosDelRevendedor()).toHaveLength(0);
+
+    // Aunque llegara a encolarse un aviso de la del revendedor, no sale.
+    await ctx.prisma.suscripcion.update({
+      where: { id: delRevendedor.id },
+      data: { estado: 'suspendida' },
+    });
+    await trabajos.encolar({
+      tipo: 'aviso.suscripcion',
+      carga: { automatizacion: 'aviso_suspension', suscripcionId: delRevendedor.id },
+    });
+    await trabajos.procesarTodo();
+    const omitidos = await avisosDelRevendedor();
+    expect(omitidos.length).toBeGreaterThan(0);
+    for (const n of omitidos) {
+      expect(n).toMatchObject({
+        estado: 'omitida',
+        motivo: 'Servicio de un revendedor: el revendedor le cobra y le avisa.',
+      });
+    }
+    // Solo los cinco avisos de lo suyo: recordatorio, factura, gracia, suspensión y reactivación.
+    expect(await correosA(luis.correo!)).toHaveLength(5);
   });
 });
 
