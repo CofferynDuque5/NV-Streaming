@@ -1,0 +1,211 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  calidad:
+    name: Lint, tipos y pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm build
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  integracion:
+    name: Pruebas de integración (API + PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nv
+          POSTGRES_PASSWORD: nv_ci
+          POSTGRES_DB: nv_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nv -d nv_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_PRUEBAS: postgresql://nv:nv_ci@localhost:5432/nv_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test:integration
+
+  e2e:
+    name: Pruebas de extremo a extremo (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nv
+          POSTGRES_PASSWORD: nv_ci
+          POSTGRES_DB: nv_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nv -d nv_e2e" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_E2E: postgresql://nv:nv_ci@localhost:5432/nv_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm --filter @nv/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: informe-playwright
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  velocidad:
+    name: Velocidad (Lighthouse, móvil)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Medir la portada y las pantallas de acceso
+        working-directory: apps/web
+        run: |
+          # Salida a un archivo: un proceso en segundo plano con la salida del paso abierta lo deja colgado.
+          pnpm exec next start -p 3100 > "$RUNNER_TEMP/web.log" 2>&1 &
+          WEB_PID=$!
+          npx --yes wait-on@8 http://localhost:3100 --timeout 60000
+          set +e
+          pnpm lighthouse
+          RESULTADO=$?
+          kill $WEB_PID
+          exit $RESULTADO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-lighthouse
+          path: apps/web/.lighthouseci
+          retention-days: 7
+
+  produccion:
+    name: Imágenes de producción y prueba de humo (Docker Compose)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NV_IMAGEN: nv-streaming
+      NV_VERSION: ci
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revisar los scripts de infra con shellcheck
+        run: shellcheck -x infra/*.sh infra/respaldos/*.sh
+      - uses: docker/setup-buildx-action@v3
+      - name: Imagen de la API y el trabajador
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: api
+          tags: nv-streaming/api:ci
+          load: true
+          cache-from: type=gha,scope=nv-api
+          cache-to: type=gha,mode=max,scope=nv-api
+      - name: Imagen de migraciones
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: migrar
+          tags: nv-streaming/migrar:ci
+          load: true
+          cache-from: type=gha,scope=nv-api
+      - name: Imagen de la web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          tags: nv-streaming/web:ci
+          build-args: WEB_ORIGEN=https://localhost
+          load: true
+          cache-from: type=gha,scope=nv-web
+          cache-to: type=gha,mode=max,scope=nv-web
+      - name: Imagen de copias de seguridad
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/respaldos/Dockerfile
+          tags: nv-streaming/respaldos:ci
+          load: true
+          cache-from: type=gha,scope=nv-respaldos
+          cache-to: type=gha,mode=max,scope=nv-respaldos
+      - name: Tamaño de las imágenes
+        run: docker images nv-streaming
+      - name: Entorno desechable (claves aleatorias; se borra con el runner)
+        run: |
+          mkdir -p "$RUNNER_TEMP/respaldos"
+          NV_DOMINIO=localhost NV_CORREO_ADMIN=ci@nv-streaming.dev NV_CADDY_TLS=interno \
+            NV_WEB_ORIGEN=https://localhost NV_SMTP_HOST=localhost \
+            NV_CORREO_REMITENTE='NV CI <ci@nv-streaming.dev>' NV_RESPALDO_DIR="$RUNNER_TEMP/respaldos" \
+            bash infra/generar-entorno.sh .env.produccion
+      - name: Arrancar la pila de producción
+        run: |
+          docker compose -f docker-compose.prod.yml --env-file .env.produccion up -d --no-build \
+            --wait --wait-timeout 300 postgres api trabajador web caddy respaldos
+      - name: Prueba de humo (salud, portada, ingreso, migraciones, administrador y copias)
+        run: |
+          set -euo pipefail
+          c() { curl -fsS -k --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null -w "$1 %{http_code} %{time_total}s\n" "https://localhost$1"; }
+          curl -fsSk https://localhost/api/v1/salud | grep -q '"ok"'
+          c / && c /planes && c /ingresar
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/panel)" = 307
+          migraciones="$(docker compose -f docker-compose.prod.yml --env-file .env.produccion exec -T postgres \
+            psql -XAtq -U nv -d nv -c 'SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL')"
+          echo "Migraciones aplicadas: $migraciones"
+          test "$migraciones" -ge 1
+          salida="$(bash infra/crear-admin.sh ci@nv-streaming.dev "Administración CI")"
+          grep -q '/invitacion?token=' <<<"$salida"
+          bash infra/respaldar.sh
+          bash infra/restaurar.sh probar ultima
+          bash infra/estado.sh --breve || true
+      - name: Logs si algo falló
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml --env-file .env.produccion logs --tail=200
+      - name: Apagar y borrar todo
+        if: always()
+        run: docker compose -f docker-compose.prod.yml --env-file .env.produccion down -v --remove-orphans

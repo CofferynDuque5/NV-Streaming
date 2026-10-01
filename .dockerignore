@@ -1,0 +1,29 @@
+# Lo que nunca entra en las imágenes de Docker (se compila todo dentro).
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+**/test-results
+**/playwright-report
+**/.lighthouseci
+packages/db/src/generated
+apps/api/almacen
+almacen
+
+# Secretos y datos del servidor
+.env
+.env.*
+!.env.example
+respaldos
+infra/caddy/certs
+
+# Git y herramientas locales
+.git
+.github
+.vscode
+.idea
+*.log
+.DS_Store
+docs

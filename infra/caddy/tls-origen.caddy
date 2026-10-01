@@ -1,0 +1,4 @@
+# Certificado de origen de Cloudflare (gratis, 15 años). Solo si Let's Encrypt no
+# funciona detrás de Cloudflare: ver docs/INSTALACION.md, «Problemas frecuentes».
+# Copia los archivos en infra/caddy/certs/origen.pem y infra/caddy/certs/origen.key.
+tls /etc/caddy/certs/origen.pem /etc/caddy/certs/origen.key

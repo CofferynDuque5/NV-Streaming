@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddy: la puerta de entrada de NV Streaming (puertos 80 y 443).
+#   · Certificado HTTPS automático y renovado solo (Let's Encrypt).
+#   · Envía /api/* a la API y todo lo demás a la web.
+#   · Toma la IP real del visitante de la cabecera CF-Connecting-IP SOLO cuando la
+#     petición llega desde Cloudflare (lista en cloudflare-ips.caddy). Cualquier otro
+#     origen no puede falsificar su IP.
+# Variables (de .env.produccion): DOMINIO, CORREO_ADMIN, CADDY_TLS (acme | origen | interno).
+# ─────────────────────────────────────────────────────────────────────────────
+{
+	email {$CORREO_ADMIN}
+	servers {
+		import cloudflare-ips.caddy
+		client_ip_headers CF-Connecting-IP
+		# Sin HTTP/3: Cloudflare habla con el servidor por HTTP/1.1 o HTTP/2 y el puerto
+		# UDP 443 no se abre.
+		protocols h1 h2
+	}
+}
+
+# Reenvío común: la IP real del visitante y reintentos mientras un servicio se reinicia
+# (durante una actualización las peticiones esperan unos segundos en vez de fallar).
+(reenviar) {
+	reverse_proxy {args[0]} {
+		header_up X-Forwarded-For {client_ip}
+		header_up X-Real-IP {client_ip}
+		lb_try_duration 30s
+		lb_try_interval 500ms
+	}
+}
+
+{$DOMINIO} {
+	import tls-{$CADDY_TLS:acme}.caddy
+
+	encode zstd gzip
+
+	# La web y la API ya envían nosniff, X-Frame-Options, Referrer-Policy, etc.
+	# Aquí se añade HSTS (el navegador siempre usará HTTPS) y se ocultan versiones.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		?X-Content-Type-Options "nosniff"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+		-Via
+		-X-Powered-By
+	}
+
+	# Comprobantes de hasta COMPROBANTE_MAX_MB (máx. 20 MB) más el resto del formulario.
+	request_body {
+		max_size 25MB
+	}
+
+	handle /api/* {
+		import reenviar api:4000
+	}
+	handle {
+		import reenviar web:3000
+	}
+
+	log {
+		output stdout
+		format json
+		level ERROR
+	}
+}
+
+# www.tudominio.com → tudominio.com
+www.{$DOMINIO} {
+	import tls-{$CADDY_TLS:acme}.caddy
+	redir https://{$DOMINIO}{uri} permanent
+}

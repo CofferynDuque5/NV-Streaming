@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+**/dist
+**/.next
+**/generated
+**/migrations/**/*.sql
+**/.lighthouseci
+**/test-results
+**/playwright-report
+**/next-env.d.ts
