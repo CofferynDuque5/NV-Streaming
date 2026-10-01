@@ -6,3 +6,157 @@
 @reference 'tailwindcss';
 @reference '../tema.css';
 @import 'tailwindcss/utilities' layer(utilities);
+
+/*
+ * Tablas del panel del revendedor (resumen, nueva venta, renovaciones, clientes
+ * y ventas). En el teléfono cada fila pasa a ser una tarjeta: la primera celda
+ * ocupa todo el ancho y las demás se rotulan con su `data-l`.
+ */
+@layer components {
+  .t-tab {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .t-tab th {
+    padding: 0.7rem 0.875rem;
+    border-bottom: 1px solid var(--nv-borde-fuerte);
+    color: var(--nv-tinta-tenue);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .t-tab td {
+    padding: 0.7rem 0.875rem;
+    border-bottom: 1px solid var(--nv-borde);
+    vertical-align: middle;
+  }
+  .t-tab tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .t-tab .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .t-tab td small {
+    display: block;
+    color: var(--nv-tinta-tenue);
+    font-size: 0.75rem;
+  }
+  .t-tab tfoot :is(th, td) {
+    border-top: 1px solid var(--nv-borde-fuerte);
+    border-bottom: 0;
+    color: var(--nv-tinta);
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .t-tab tr[data-sel] td {
+    background: rgb(34 211 238 / 0.06);
+  }
+  .t-tab tr[data-reembolsada] td {
+    color: var(--nv-tinta-tenue);
+  }
+  .t-tab td.chk,
+  .t-tab th.chk {
+    width: 2.75rem;
+    padding-right: 0;
+  }
+  .t-tab td.acc {
+    text-align: right;
+  }
+
+  @media (width < 43.75rem) {
+    .t-tab,
+    .t-tab tbody,
+    .t-tab tfoot {
+      display: block;
+    }
+    .t-tab thead {
+      display: none;
+    }
+    .t-tab tr {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.5rem 0.75rem;
+      padding: 0.8rem 0.875rem;
+      border-bottom: 1px solid var(--nv-borde);
+    }
+    .t-tab tbody tr:last-child {
+      border-bottom: 0;
+    }
+    .t-tab td {
+      display: grid;
+      align-content: start;
+      gap: 1px;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+    }
+    .t-tab td[data-l]::before {
+      content: attr(data-l);
+      color: var(--nv-tinta-tenue);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .t-tab tr > td:first-child[data-l],
+    .t-tab tr > td.chk + td {
+      grid-column: 1 / -1;
+    }
+    .t-tab tr > td:first-child[data-l]::before,
+    .t-tab tr > td.chk + td::before {
+      content: none;
+    }
+    .t-tab td[data-ancha] {
+      grid-column: span 2;
+    }
+    .t-tab .num {
+      text-align: left;
+    }
+    .t-tab td.chk {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.875rem;
+      width: auto;
+    }
+    .t-tab tr > td.chk + td {
+      padding-right: 2.5rem;
+    }
+    .t-tab td.acc {
+      position: absolute;
+      top: 0.625rem;
+      right: 0.75rem;
+    }
+    .t-tab tr:has(td.acc) > td:first-child {
+      padding-right: 5.75rem;
+    }
+    .t-tab td:empty {
+      display: none;
+    }
+    .t-tab tr[data-sel] {
+      background: rgb(34 211 238 / 0.07);
+    }
+    .t-tab tr[data-sel] td {
+      background: none;
+    }
+    .t-tab tfoot tr {
+      background: rgb(148 163 184 / 0.05);
+    }
+    .t-tab tfoot th {
+      grid-column: 1 / -1;
+      padding: 0;
+      border: 0;
+    }
+    .t-tab tfoot td {
+      border: 0;
+    }
+  }
+}

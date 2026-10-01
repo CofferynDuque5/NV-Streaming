@@ -1,17 +1,19 @@
 'use client';
 
-import type { PanelCliente } from '@nv/shared';
 import clsx from 'clsx';
 import {
+  Clock,
   House,
   LoaderCircle,
   LogOut,
   type LucideIcon,
   MessageCircle,
+  Plus,
   ShieldCheck,
   ShoppingCart,
   Tag,
   UserRound,
+  UsersRound,
   Wallet,
   WalletCards,
   Zap,
@@ -32,37 +34,44 @@ const ICONOS: Record<IconoCuenta, LucideIcon> = {
   metodos: WalletCards,
   perfil: ShieldCheck,
   revendedor: UserRound,
+  vender: Plus,
+  renovaciones: Clock,
+  clientes: UsersRound,
 };
 
 const QUE_CUENTA: Record<ContadorCuenta, [string, string]> = {
   accesos: ['acceso listo sin ver', 'accesos listos sin ver'],
   facturas: ['factura por pagar', 'facturas por pagar'],
   soporte: ['respuesta esperando', 'respuestas esperando'],
+  renovaciones: ['renovación urgente', 'renovaciones urgentes'],
+  saldo: ['recarga en revisión', 'recargas en revisión'],
 };
 
-function contadorDe(clave: ContadorCuenta | undefined, p: PanelCliente['pendientes'] | null) {
-  if (!clave || !p) return 0;
-  if (clave === 'accesos') return p.accesosSinVer;
-  if (clave === 'facturas') return p.facturasPorPagar;
-  return p.ticketsPorResponder;
-}
+/** Raíces de cada panel: solo se marcan en su propia página, no en las de dentro. */
+const RAICES = ['/cuenta', '/revendedor'];
 
 /**
- * Menú de la cuenta del cliente. En escritorio es una lista vertical con un
+ * Menú de la cuenta del cliente (y del panel del revendedor). En escritorio es una lista vertical con un
  * separador; en el teléfono, una fila de pastillas que se desliza y mantiene a
  * la vista la sección abierta.
  */
 export function MenuCuenta({
   grupos,
-  pendientes,
+  contadores,
+  etiqueta = 'Mi cuenta',
+  titulos = [],
 }: {
   grupos: ElementoCuenta[][];
-  pendientes: PanelCliente['pendientes'] | null;
+  /** Pendientes de cada contador (los que no vienen no se muestran). */
+  contadores: Partial<Record<ContadorCuenta, number>>;
+  etiqueta?: string;
+  /** Rótulo de cada grupo en escritorio (sin rótulo, se separa con una línea). */
+  titulos?: (string | null)[];
 }) {
   const ruta = usePathname();
   const fila = useRef<HTMLElement>(null);
   const activo = (href: string) =>
-    ruta === href || (href !== '/cuenta' && ruta.startsWith(`${href}/`));
+    ruta === href || (!RAICES.includes(href) && ruta.startsWith(`${href}/`));
 
   // En el teléfono, la pastilla abierta queda centrada en la fila (sin mover la página).
   useEffect(() => {
@@ -78,17 +87,23 @@ export function MenuCuenta({
   return (
     <nav
       ref={fila}
-      aria-label="Mi cuenta"
+      aria-label={etiqueta}
       className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:-mx-6 sm:px-6 cuenta:mx-0 cuenta:grid cuenta:gap-0.5 cuenta:overflow-visible cuenta:rounded-[1.25rem] cuenta:border cuenta:border-borde cuenta:bg-[rgb(8_11_26/0.7)] cuenta:p-2 [&::-webkit-scrollbar]:hidden"
     >
       {grupos.map((grupo, i) => (
         <Fragment key={i}>
-          {i > 0 && grupo.length > 0 && (
-            <hr className="hidden border-0 border-t border-borde cuenta:mx-1 cuenta:my-1.5 cuenta:block" />
-          )}
+          {i > 0 &&
+            grupo.length > 0 &&
+            (titulos[i] ? (
+              <span className="hidden px-3 pt-3 pb-1 text-[0.66rem] font-bold tracking-[0.14em] text-tinta-tenue uppercase cuenta:block">
+                {titulos[i]}
+              </span>
+            ) : (
+              <hr className="hidden border-0 border-t border-borde cuenta:mx-1 cuenta:my-1.5 cuenta:block" />
+            ))}
           {grupo.map((e) => {
             const Icono = ICONOS[e.icono];
-            const n = contadorDe(e.contador, pendientes);
+            const n = (e.contador && contadores[e.contador]) || 0;
             const esActivo = activo(e.href);
             return (
               <Link
@@ -106,7 +121,14 @@ export function MenuCuenta({
                 <Icono className="size-[1.05rem] shrink-0" aria-hidden="true" />
                 {e.etiqueta}
                 {n > 0 && (
-                  <em className="ml-auto rounded-full bg-marca/20 px-[0.45rem] py-px font-mono text-[0.7rem] font-bold text-[#bcd3ff] not-italic">
+                  <em
+                    className={clsx(
+                      'ml-auto rounded-full px-[0.45rem] py-px font-mono text-[0.7rem] font-bold not-italic',
+                      e.contador === 'renovaciones'
+                        ? 'bg-aviso/20 text-[#fde68a]'
+                        : 'bg-marca/20 text-[#bcd3ff]',
+                    )}
+                  >
                     {n}
                     <span className="sr-only"> {QUE_CUENTA[e.contador!][n === 1 ? 0 : 1]}</span>
                   </em>

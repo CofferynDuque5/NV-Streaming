@@ -31,7 +31,8 @@ export function Logo({ href = '/', className }: { href?: string; className?: str
 }
 
 /** Logo de la tienda: la marca NV y «Streaming · Nathan y Valeryn». */
-export function LogoTienda({ className }: { className?: string }) {
+/** `compacto`: en el teléfono, sin el subtítulo (deja sitio a un sello al lado). */
+export function LogoTienda({ className, compacto }: { className?: string; compacto?: boolean }) {
   return (
     <Link
       href="/"
@@ -47,10 +48,20 @@ export function LogoTienda({ className }: { className?: string }) {
         className="h-10 w-auto nav:h-12"
       />
       <span className="grid leading-none">
-        <b className="font-titulo text-[0.95rem] font-extrabold tracking-[0.28em] nav:text-[1.05rem]">
+        <b
+          className={clsx(
+            'font-titulo text-[0.95rem] font-extrabold tracking-[0.28em] nav:text-[1.05rem]',
+            compacto && 'max-[26.25rem]:tracking-[0.2em]',
+          )}
+        >
           STREAMING
         </b>
-        <span className="texto-degradado mt-1 text-[0.58rem] font-bold tracking-[0.2em] whitespace-nowrap">
+        <span
+          className={clsx(
+            'texto-degradado mt-1 text-[0.58rem] font-bold tracking-[0.2em] whitespace-nowrap',
+            compacto && 'max-sm:hidden',
+          )}
+        >
           NATHAN Y VALERYN
         </span>
       </span>

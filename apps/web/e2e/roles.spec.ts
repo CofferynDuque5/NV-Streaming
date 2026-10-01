@@ -52,5 +52,5 @@ test('revendedor: 2FA obligatoria y su propio panel', async ({ page }) => {
   await configurarDosPasos(page, 'revendedor@nv.test');
   await expect(page).toHaveURL(/\/revendedor$/);
   await expect(page.getByText('Saldo disponible')).toBeVisible();
-  await expect(page.getByText('Panel de revendedor').first()).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Panel de revendedor' })).toBeVisible();
 });

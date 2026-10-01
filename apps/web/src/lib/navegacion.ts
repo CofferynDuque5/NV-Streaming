@@ -98,10 +98,11 @@ const EQUIPO: ElementoNavegacion[] = [
 
 const REVENDEDOR: ElementoNavegacion[] = [
   { etiqueta: 'Resumen', href: '/revendedor', icono: 'inicio' },
+  { etiqueta: 'Nueva venta', href: '/revendedor/catalogo', icono: 'catalogo' },
+  { etiqueta: 'Renovaciones', href: '/revendedor/renovaciones', icono: 'suscripciones' },
+  { etiqueta: 'Clientes', href: '/revendedor/clientes', icono: 'clientes' },
+  { etiqueta: 'Ventas', href: '/revendedor/ventas', icono: 'compras' },
   { etiqueta: 'Saldo y recargas', href: '/revendedor/saldo', icono: 'saldo' },
-  { etiqueta: 'Catálogo mayorista', href: '/revendedor/catalogo', icono: 'catalogo' },
-  { etiqueta: 'Mis clientes', href: '/revendedor/clientes', icono: 'clientes' },
-  { etiqueta: 'Mis compras', href: '/revendedor/compras', icono: 'compras' },
   { etiqueta: 'Accesos de clientes', href: '/revendedor/accesos', icono: 'accesos' },
 ];
 
@@ -134,7 +135,7 @@ const AJUSTES: ElementoNavegacion = {
 };
 
 /** Qué contador de pendientes lleva un elemento del menú de la cuenta. */
-export type ContadorCuenta = 'accesos' | 'facturas' | 'soporte';
+export type ContadorCuenta = 'accesos' | 'facturas' | 'soporte' | 'renovaciones' | 'saldo';
 export type IconoCuenta =
   | 'servicios'
   | 'accesos'
@@ -144,7 +145,10 @@ export type IconoCuenta =
   | 'soporte'
   | 'metodos'
   | 'perfil'
-  | 'revendedor';
+  | 'revendedor'
+  | 'vender'
+  | 'renovaciones'
+  | 'clientes';
 
 export interface ElementoCuenta {
   etiqueta: string;
@@ -188,6 +192,44 @@ const CUENTA: ElementoCuenta[][] = [
     },
   ],
 ];
+
+/**
+ * Menú del panel del revendedor (mismo diseño que la cuenta del cliente): el
+ * resumen, lo de vender, el dinero, las entregas y, aparte, el perfil.
+ */
+export const MENU_REVENDEDOR: ElementoCuenta[][] = [
+  [{ etiqueta: 'Resumen', href: '/revendedor', icono: 'servicios' }],
+  [
+    { etiqueta: 'Nueva venta', href: '/revendedor/catalogo', icono: 'vender' },
+    {
+      etiqueta: 'Renovaciones',
+      href: '/revendedor/renovaciones',
+      icono: 'renovaciones',
+      contador: 'renovaciones',
+    },
+    { etiqueta: 'Clientes', href: '/revendedor/clientes', icono: 'clientes' },
+  ],
+  [
+    { etiqueta: 'Ventas', href: '/revendedor/ventas', icono: 'carrito' },
+    {
+      etiqueta: 'Saldo y recargas',
+      href: '/revendedor/saldo',
+      icono: 'billetera',
+      contador: 'saldo',
+    },
+  ],
+  [
+    {
+      etiqueta: 'Accesos de clientes',
+      href: '/revendedor/accesos',
+      icono: 'accesos',
+      contador: 'accesos',
+    },
+  ],
+  [{ etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil' }],
+];
+/** Rótulo de cada grupo del menú del revendedor (en escritorio); sin rótulo, una línea. */
+export const TITULOS_MENU_REVENDEDOR = [null, 'Vender', 'Dinero', 'Entregas', null];
 
 /**
  * Grupos del menú de la cuenta del cliente. El cliente de un revendedor tiene

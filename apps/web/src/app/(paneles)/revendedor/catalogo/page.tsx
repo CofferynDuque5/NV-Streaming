@@ -1,169 +1,133 @@
-import {
-  type CatalogoMayorista,
-  type ClienteCartera,
-  formatearMonto,
-  type Pagina,
-  type ResumenRevendedor,
-} from '@nv/shared';
-import clsx from 'clsx';
-import { Check, Package } from 'lucide-react';
+import type { ClienteCarteraDetalle, PaginaCartera } from '@nv/shared';
+import { Package, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ComprarPlan } from '@/componentes/revendedor/formularios';
-import { AvisosRevendedor, motivoBloqueo, SinFicha } from '@/componentes/revendedor/piezas';
+import { claseEnlace, Vacio } from '@/componentes/cliente/piezas-cuenta';
+import {
+  AvisosRevendedor,
+  CabeceraPanel,
+  NivelChip,
+  Nota,
+  SinResumen,
+  usd,
+} from '@/componentes/revendedor/panel';
+import { NuevaVenta } from '@/componentes/revendedor/venta';
 import { Alerta } from '@/componentes/ui/alerta';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
-import { formatearDuracion } from '@/lib/formato';
+import { bloqueoVenta, leerCatalogoMayorista, leerResumenRevendedor } from '@/lib/panel-revendedor';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Catálogo mayorista' };
+export const metadata: Metadata = { title: 'Nueva venta' };
 
-export default async function Catalogo({
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function NuevaVentaPagina({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string | string[] }>;
+  searchParams: Promise<{ plan?: string | string[]; cliente?: string | string[] }>;
 }) {
   await requerirSesion({ roles: ['revendedor'] });
-  const { plan: planPedido } = await searchParams;
-  const [{ estado, datos: resumen }, { datos: catalogo }, { datos: cartera }] = await Promise.all([
-    leerApi<ResumenRevendedor>('/revendedor/resumen'),
-    leerApi<CatalogoMayorista>('/revendedor/catalogo'),
-    leerApi<Pagina<ClienteCartera>>('/revendedor/clientes?porPagina=100'),
+  const { plan: pedido, cliente: deFicha } = await searchParams;
+  const clienteId = typeof deFicha === 'string' && UUID.test(deFicha) ? deFicha : null;
+  const [{ estado, datos: resumen }, catalogo, cartera, elegido] = await Promise.all([
+    leerResumenRevendedor(),
+    leerCatalogoMayorista(),
+    leerApi<PaginaCartera>('/revendedor/clientes?porPagina=100&orden=nombre').then((x) => x.datos),
+    clienteId
+      ? leerApi<ClienteCarteraDetalle>(`/revendedor/clientes/${clienteId}`).then((x) => x.datos)
+      : null,
   ]);
-  const cabecera = (
-    <CabeceraPagina
-      titulo="Catálogo mayorista"
-      descripcion="Compra activaciones con tu saldo al precio de tu nivel. El servicio queda activo al momento."
-    />
-  );
-  if (estado === 404) {
-    return (
-      <>
-        {cabecera}
-        <SinFicha />
-      </>
-    );
-  }
+
   if (!resumen || !catalogo) {
     return (
       <>
-        {cabecera}
-        <Alerta tono="peligro">No pudimos cargar el catálogo. Recarga la página.</Alerta>
+        <CabeceraPanel titulo="Nueva venta" />
+        <SinResumen estado={resumen ? 500 : estado} />
       </>
     );
   }
+
   const r = resumen.revendedor;
-  const bloqueo = motivoBloqueo(r);
+  if (!catalogo.nivel) {
+    return (
+      <>
+        <CabeceraPanel titulo="Nueva venta" descripcion="Tus precios dependen de tu nivel." />
+        <AvisosRevendedor revendedor={r} soloEstado />
+        <Vacio
+          icono={<Star className="size-5" aria-hidden="true" />}
+          color="#f59e0b"
+          titulo="Aún no tienes nivel"
+        >
+          Cuando el equipo te asigne tu nivel verás aquí tus precios y podrás vender.
+        </Vacio>
+      </>
+    );
+  }
+
+  const planPedido = typeof pedido === 'string' ? pedido : null;
+  const planElegido = catalogo.planes.find((p) => p.id === planPedido) ?? null;
   const clientes = (cartera?.elementos ?? []).map((c) => ({ id: c.id, nombre: c.nombre }));
-  // ?plan= (desde "Comprar con saldo" en el sitio): ese plan va primero y con la compra abierta.
-  const elegido =
-    typeof planPedido === 'string' ? catalogo.planes.find((p) => p.id === planPedido) : undefined;
-  const planes = elegido
-    ? [elegido, ...catalogo.planes.filter((p) => p !== elegido)]
-    : catalogo.planes;
+  // El cliente elegido desde su ficha puede no estar entre los 100 primeros.
+  if (elegido && !clientes.some((c) => c.id === elegido.id)) {
+    clientes.unshift({ id: elegido.id, nombre: elegido.nombre });
+  }
+  const limite = r.limiteDiarioCompras;
 
   return (
     <>
-      {cabecera}
-      <AvisosRevendedor revendedor={r} />
+      <CabeceraPanel
+        titulo="Nueva venta"
+        descripcion={`Precios de nivel ${catalogo.nivel.nombre}. Elige el plan y para quién; se activa al instante.`}
+      />
+      <AvisosRevendedor revendedor={r} soloEstado />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borde bg-superficie px-4 py-3 text-sm">
-        <span>
-          Saldo disponible:{' '}
-          <strong className="tabular-nums">{formatearMonto(r.saldoUsd, 'USD')}</strong>
-          {catalogo.nivel && (
-            <span className="text-tinta-suave"> · Nivel {catalogo.nivel.nombre}</span>
-          )}
-        </span>
-        <Link href="/revendedor/saldo" className="font-medium text-marca hover:underline">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 rounded-[1.125rem] border border-borde-fuerte bg-[rgb(8_11_26/0.7)] px-4 py-3">
+        <div className="grid gap-0.5">
+          <span className="text-[0.78rem] text-tinta-suave">Saldo</span>
+          <b className="font-titulo text-lg font-extrabold tabular-nums">{usd(r.saldoUsd)}</b>
+        </div>
+        <div className="grid gap-1">
+          <span className="text-[0.78rem] text-tinta-suave">Nivel</span>
+          <NivelChip nivel={catalogo.nivel} />
+        </div>
+        <div className="grid gap-0.5">
+          <span className="text-[0.78rem] text-tinta-suave">Ventas de hoy</span>
+          <b className="font-titulo text-lg font-extrabold tabular-nums">
+            {limite === null ? resumen.comprasHoy : `${resumen.comprasHoy} de ${limite}`}
+          </b>
+        </div>
+        <Link href="/revendedor/saldo" className={`${claseEnlace} sm:ml-auto`}>
           Recargar saldo
         </Link>
       </div>
 
-      {typeof planPedido === 'string' &&
-        (elegido ? (
-          <Alerta tono="info" titulo={`Comprar ${elegido.servicio.nombre} · ${elegido.nombre}`}>
-            Indica para quién es y confirma: se cobra de tu saldo al precio de tu nivel.
-          </Alerta>
-        ) : (
-          <Alerta tono="aviso">Ese plan no está disponible para tu nivel. Elige otro.</Alerta>
-        ))}
+      {planPedido && !planElegido && (
+        <Alerta tono="aviso">Ese plan no está disponible para tu nivel. Elige otro.</Alerta>
+      )}
 
       {catalogo.planes.length === 0 ? (
-        <Tarjeta>
-          <EstadoVacio icono={Package} titulo="No hay planes disponibles para tu nivel">
-            {catalogo.nivel
-              ? 'El equipo de NV todavía no publicó precios mayoristas para tu nivel.'
-              : 'Cuando el equipo te asigne un nivel verás aquí los planes que puedes vender.'}
-          </EstadoVacio>
-        </Tarjeta>
+        <Vacio
+          icono={<Package className="size-5" aria-hidden="true" />}
+          titulo="No hay planes para tu nivel"
+        >
+          El equipo de NV todavía no publicó precios mayoristas para tu nivel.
+        </Vacio>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {planes.map((p) => {
-            const margen = Number(p.precioPublicoUsd) - Number(p.precioUsd);
-            return (
-              <li key={p.id} className="min-w-0">
-                <Tarjeta
-                  className={clsx(
-                    'flex h-full flex-col',
-                    p === elegido && 'border-marca/50 ring-2 ring-marca/30',
-                  )}
-                  aria-labelledby={`plan-${p.id}`}
-                >
-                  <div className="grid flex-1 content-start gap-3 px-5 py-5 sm:px-6">
-                    <div className="grid gap-0.5">
-                      <p className="text-xs font-medium text-tinta-tenue">{p.servicio.nombre}</p>
-                      <h2 id={`plan-${p.id}`} className="text-base font-semibold">
-                        {p.nombre}
-                      </h2>
-                      <p className="text-sm text-tinta-suave">
-                        {formatearDuracion(p.duracionCantidad, p.duracionUnidad)}
-                        {p.renovable ? ' · renovable' : ''}
-                      </p>
-                    </div>
-                    <div className="grid gap-0.5">
-                      <p className="font-titulo text-2xl font-semibold tabular-nums">
-                        {formatearMonto(p.precioUsd, 'USD')}
-                      </p>
-                      <p className="text-xs text-tinta-suave">
-                        {p.precioVes ? `≈ ${formatearMonto(p.precioVes, 'VES')} · ` : ''}
-                        Precio al público {formatearMonto(p.precioPublicoUsd, 'USD')}
-                        {margen > 0 ? ` (margen ${formatearMonto(margen.toFixed(2), 'USD')})` : ''}
-                      </p>
-                    </div>
-                    {p.descripcion && <p className="text-sm text-tinta-suave">{p.descripcion}</p>}
-                    {p.beneficios.length > 0 && (
-                      <ul className="grid gap-1.5 text-sm">
-                        {p.beneficios.map((b) => (
-                          <li key={b} className="flex gap-2">
-                            <Check
-                              className="mt-0.5 size-4 shrink-0 text-exito"
-                              aria-hidden="true"
-                            />
-                            <span className="min-w-0">{b}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="border-t border-borde px-5 py-4 sm:px-6">
-                    <ComprarPlan
-                      plan={p}
-                      clientes={clientes}
-                      saldoUsd={r.saldoUsd}
-                      bloqueado={bloqueo}
-                      abiertoInicial={p === elegido}
-                    />
-                  </div>
-                </Tarjeta>
-              </li>
-            );
-          })}
-        </ul>
+        <NuevaVenta
+          planes={catalogo.planes}
+          nivel={catalogo.nivel.nombre}
+          clientes={clientes}
+          saldoUsd={r.saldoUsd}
+          bloqueo={bloqueoVenta(r)}
+          planInicial={planElegido?.id ?? null}
+          clienteInicial={elegido ? { id: elegido.id, nombre: elegido.nombre } : null}
+        />
       )}
+      <Nota>
+        El margen es la diferencia con el precio al público de NV: tú decides cuánto le cobras a tu
+        cliente. Siempre se activa en la cuenta propia de tu cliente; nunca entregamos usuarios ni
+        contraseñas.
+      </Nota>
     </>
   );
 }

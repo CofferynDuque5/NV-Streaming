@@ -1,49 +1,75 @@
 import type { AccesoServicio } from '@nv/shared';
-import { KeyRound } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
-import { TarjetaAcceso } from '@/componentes/accesos';
+import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
+import { fechaLarga, NotaSeguridad, Vacio } from '@/componentes/cliente/piezas-cuenta';
+import { CabeceraPanel } from '@/componentes/revendedor/panel';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
+import { MOTIVO_ENTREGA } from '@/lib/entregas';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Accesos de clientes' };
+
+/** «Para María · Alta · 3 de octubre». */
+function detalle(a: AccesoServicio): string {
+  const partes = [`Para ${a.cliente?.nombre ?? 'tu cliente'}`, MOTIVO_ENTREGA[a.motivo]];
+  if (a.entregadaEn) partes.push(fechaLarga(a.entregadaEn));
+  return partes.join(' · ');
+}
 
 export default async function AccesosClientes() {
   await requerirSesion({ roles: ['revendedor'] });
   const { datos } = await leerApi<AccesoServicio[]>('/revendedor/accesos');
   const accesos = datos ?? [];
+  const nota = (
+    <NotaSeguridad>
+      Son códigos o enlaces para activar el servicio en <b>la cuenta propia de tu cliente</b>.
+      Entrégaselos solo a él. Nunca entregamos usuarios ni contraseñas.
+    </NotaSeguridad>
+  );
 
   return (
     <>
-      <CabeceraPagina
+      <CabeceraPanel
         titulo="Accesos de clientes"
-        descripcion="Las activaciones de las compras que hiciste para tus clientes. Muestra el código solo cuando vayas a entregárselo a tu cliente."
+        descripcion={
+          accesos.length
+            ? 'Los códigos y enlaces para entregar a cada cliente.'
+            : 'Aquí aparecen los códigos y enlaces de lo que actives.'
+        }
       />
       {!datos && (
         <Alerta tono="peligro" titulo="No pudimos cargar los accesos">
           Recarga la página en unos segundos.
         </Alerta>
       )}
+      {nota}
       {datos && accesos.length === 0 ? (
-        <Tarjeta>
-          <EstadoVacio
-            icono={KeyRound}
-            titulo="Todavía no hay accesos"
-            accion={<BotonEnlace href="/revendedor/catalogo">Ver catálogo mayorista</BotonEnlace>}
-          >
-            Cuando compres una activación para un cliente, aquí verás cómo activarla.
-          </EstadoVacio>
-        </Tarjeta>
+        <Vacio
+          icono={<Zap className="size-5" aria-hidden="true" />}
+          color="#22d3ee"
+          titulo="Todavía no hay accesos"
+          accion={
+            <BotonEnlace href="/revendedor/catalogo" variante="secundario">
+              Nueva venta
+            </BotonEnlace>
+          }
+        >
+          Cuando vendas una activación, aquí verás cómo la activa tu cliente.
+        </Vacio>
       ) : (
-        <div className="grid gap-4">
-          {accesos.map((a) => (
-            <TarjetaAcceso key={a.id} acceso={a} vista="revendedor" />
-          ))}
-        </div>
+        accesos.map((a) => (
+          <TarjetaAccesoCliente
+            key={a.id}
+            acceso={a}
+            vista="revendedor"
+            detalle={detalle(a)}
+            visto={a.vistaEn ? fechaLarga(a.vistaEn) : null}
+            pagoPendiente={false}
+          />
+        ))
       )}
     </>
   );

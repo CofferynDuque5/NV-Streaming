@@ -23,14 +23,14 @@ const TONO: Record<AccesoServicio['estado'], TonoEstado> = {
 const larga = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' });
 
 /** Pasos de activación: una lista si vienen en varias líneas. */
-function Instrucciones({ texto }: { texto: string }) {
+function Instrucciones({ texto, titulo }: { texto: string; titulo: string }) {
   const lineas = texto
     .split('\n')
     .map((l) => l.replace(/^\s*(\d+[.)]|[-•*])\s*/, '').trim())
     .filter(Boolean);
   return (
     <div className="rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3 text-sm text-tinta-suave">
-      <b className="text-tinta">Cómo activarlo</b>
+      <b className="text-tinta">{titulo}</b>
       {lineas.length > 1 ? (
         <ol className="mt-1.5 grid list-decimal gap-1 pl-4.5">
           {lineas.map((l, i) => (
@@ -46,13 +46,16 @@ function Instrucciones({ texto }: { texto: string }) {
 
 /**
  * Un acceso del cliente: el código o enlace se muestra solo tras confirmar
- * que es personal, y entonces aparecen los pasos y el botón de copiar.
+ * que es personal, y entonces aparecen los pasos y el botón de copiar. En el
+ * panel del revendedor (`vista="revendedor"`) es el acceso de un cliente suyo:
+ * se confirma que se lo entregará solo a esa persona.
  */
 export function TarjetaAccesoCliente({
   acceso,
   detalle,
   visto,
   pagoPendiente,
+  vista = 'cliente',
 }: {
   acceso: AccesoServicio;
   /** «Alta · entregado el 3 de octubre · vence el 2 de noviembre». */
@@ -60,7 +63,11 @@ export function TarjetaAccesoCliente({
   /** Fecha en que lo vio por primera vez, ya formateada. */
   visto: string | null;
   pagoPendiente: boolean;
+  vista?: 'cliente' | 'revendedor';
 }) {
+  const deRevendedor = vista === 'revendedor';
+  const cliente = acceso.cliente?.nombre ?? 'tu cliente';
+  const tituloPasos = deRevendedor ? 'Cómo lo activa tu cliente' : 'Cómo activarlo';
   const router = useRouter();
   const titulo = useId();
   const [fase, setFase] = useState<'cerrado' | 'confirmar' | 'visto'>('cerrado');
@@ -74,7 +81,8 @@ export function TarjetaAccesoCliente({
   async function mostrar() {
     setCargando(true);
     setError(null);
-    const r = await llamarApi<AccesoRevelado>('POST', `/mi/accesos/${acceso.id}/revelar`, {});
+    const base = deRevendedor ? '/revendedor/accesos' : '/mi/accesos';
+    const r = await llamarApi<AccesoRevelado>('POST', `${base}/${acceso.id}/revelar`, {});
     setCargando(false);
     if (!r.ok) return setError(r.error);
     setRevelado(r.datos);
@@ -86,8 +94,9 @@ export function TarjetaAccesoCliente({
   if (acceso.estado === 'revocada') {
     cuerpo = (
       <p className="text-sm text-tinta-suave">
-        Este acceso terminó con la suscripción. Renueva desde «Mis servicios» para recibir uno
-        nuevo.
+        {deRevendedor
+          ? 'Este acceso terminó con el servicio. Renuévalo desde Renovaciones para recibir uno nuevo.'
+          : 'Este acceso terminó con la suscripción. Renueva desde «Mis servicios» para recibir uno nuevo.'}
       </p>
     );
   } else if (acceso.estado === 'anulada') {
@@ -103,12 +112,16 @@ export function TarjetaAccesoCliente({
       </p>
     );
   } else if (!secreto) {
-    cuerpo = acceso.instrucciones ? <Instrucciones texto={acceso.instrucciones} /> : null;
+    cuerpo = acceso.instrucciones ? (
+      <Instrucciones texto={acceso.instrucciones} titulo={tituloPasos} />
+    ) : null;
   } else if (fase === 'visto' && revelado) {
     const vistaEn = larga.format(new Date(revelado.vistaEn));
     cuerpo = (
       <>
-        {revelado.instrucciones && <Instrucciones texto={revelado.instrucciones} />}
+        {revelado.instrucciones && (
+          <Instrucciones texto={revelado.instrucciones} titulo={tituloPasos} />
+        )}
         {revelado.codigo && (
           <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-[0.875rem] border border-dashed border-cian bg-cian/[0.06] px-3.5 py-3">
             <b className="font-mono text-[1.1875rem] tracking-[0.08em] break-all select-all">
@@ -133,7 +146,8 @@ export function TarjetaAccesoCliente({
           </div>
         )}
         <p className="text-[0.8rem] text-tinta-tenue">
-          Visto por primera vez el {visto ?? vistaEn}. Es solo para ti: no lo compartas.
+          Visto por primera vez el {visto ?? vistaEn}.
+          {deRevendedor ? '' : ' Es solo para ti: no lo compartas.'}
         </p>
       </>
     );
@@ -144,11 +158,18 @@ export function TarjetaAccesoCliente({
         aria-label={`¿Mostrar el ${que}?`}
         className="grid gap-2.5 rounded-2xl border border-aviso/40 bg-aviso/[0.06] p-3.5"
       >
-        <p className="text-[0.84rem]">
-          <b>Este {que} es solo para ti.</b> Úsalo en tu propia cuenta y no lo compartas: es
-          personal y solo sirve para activar tu servicio. Asegúrate de que nadie más vea tu
-          pantalla.
-        </p>
+        {deRevendedor ? (
+          <p className="text-[0.84rem]">
+            <b>Entrégaselo solo a {cliente}.</b> Si otra persona lo usa, tu cliente pierde el
+            servicio.
+          </p>
+        ) : (
+          <p className="text-[0.84rem]">
+            <b>Este {que} es solo para ti.</b> Úsalo en tu propia cuenta y no lo compartas: es
+            personal y solo sirve para activar tu servicio. Asegúrate de que nadie más vea tu
+            pantalla.
+          </p>
+        )}
         <p className="text-xs text-tinta-tenue">Queda registrado cada vez que se muestra.</p>
         {error && <MensajeError error={error} />}
         <div className="flex flex-wrap items-center gap-2.5">

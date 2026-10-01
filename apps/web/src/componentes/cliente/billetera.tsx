@@ -8,10 +8,13 @@ import {
   type MetodoCobroPublico,
   type Moneda,
   type MovimientoBilleteraPublico,
+  type MovimientoSaldoPublico,
   type Pagina,
   type PedidoPublico,
   type RecargaBilleteraPublica,
+  type RecargaPublica,
   type TipoMovimientoBilletera,
+  type TipoMovimientoSaldo,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -22,6 +25,7 @@ import {
   Landmark,
   LoaderCircle,
   Plus,
+  RotateCcw,
   Send,
   ShoppingCart,
   Sparkles,
@@ -65,13 +69,28 @@ import {
   type Validacion,
 } from './pago';
 
+/** Recarga de la billetera de un cliente o del saldo de un revendedor (misma forma). */
+type RecargaVista = RecargaBilleteraPublica | RecargaPublica;
+/** Movimiento de la billetera de un cliente o del saldo de un revendedor. */
+type MovimientoVista = MovimientoBilleteraPublico | MovimientoSaldoPublico;
+
+/**
+ * Saldo de un revendedor: la misma pantalla, con sus rutas de la API, sus
+ * movimientos (compras y reembolsos) y sin pedidos del carrito.
+ */
+export interface ModoRevendedor {
+  nombreComercial: string;
+  /** Por qué no puede recargar ahora (cuenta suspendida), o null. */
+  bloqueo: string | null;
+}
+
 /** Datos que la página de la billetera ya leyó de la API. */
 export interface DatosBilletera {
   billetera: BilleteraPublica;
   /** Primera página de recargas (todas, de la más nueva a la más antigua). */
-  recargas: Pagina<RecargaBilleteraPublica>;
+  recargas: Pagina<RecargaVista>;
   /** Primera página de movimientos (todos). */
-  movimientos: Pagina<MovimientoBilleteraPublico>;
+  movimientos: Pagina<MovimientoVista>;
   /** Métodos que el equipo activó para recargar (manuales, con comprobante). */
   metodos: MetodoCobroPublico[];
   /** Unidades de cada moneda por 1 USD (la tasa de hoy del catálogo). */
@@ -82,7 +101,12 @@ export interface DatosBilletera {
   monedaSugerida: Moneda;
   nombre: string;
   maxMb: number;
+  /** Con esto es el saldo de un revendedor en vez de la billetera de un cliente. */
+  revendedor?: ModoRevendedor | null;
 }
+
+/** Ruta de la API del saldo: la billetera del cliente o el saldo del revendedor. */
+const rutaSaldo = (revendedor: boolean) => (revendedor ? '/revendedor' : '/mi/billetera');
 
 const MONTOS_RAPIDOS = ['5.00', '10.00', '20.00', '50.00'];
 const ID_FORMULARIO = 'recargar';
@@ -167,6 +191,69 @@ const claseEnlace = 'text-sm font-semibold whitespace-nowrap text-cian hover:und
 
 /* ───────────────────────────── cabecera ───────────────────────────── */
 
+/**
+ * Tarjeta del saldo en dólares con su equivalente y, abajo, las recargas en
+ * revisión (o el nombre). La usan la billetera y el resumen del revendedor.
+ */
+export function TarjetaSaldo({
+  titulo,
+  saldoUsd,
+  equivalente,
+  pie,
+  nombre,
+  enRevision,
+}: {
+  titulo: string;
+  saldoUsd: string;
+  /** El saldo en otra moneda con la tasa de hoy, ya formateado (o null). */
+  equivalente: string | null;
+  pie: string;
+  nombre: string;
+  enRevision: number;
+}) {
+  return (
+    <div className="relative isolate grid min-h-44 content-between gap-3.5 overflow-hidden rounded-[1.375rem] border border-white/20 bg-[linear-gradient(135deg,#1d4ed8_0%,#6d28d9_55%,#be185d_100%)] p-5 text-white shadow-[0_30px_60px_-20px_rgb(109_40_217/0.7)] before:absolute before:inset-0 before:-z-10 before:bg-[radial-gradient(60%_50%_at_80%_10%,rgb(255_255_255/0.35),transparent_60%),repeating-linear-gradient(115deg,rgb(255_255_255/0.05)_0_2px,transparent_2px_9px)] md:min-h-[14.375rem]">
+      <div className="flex items-center justify-between gap-2.5">
+        <small className="text-[0.66rem] font-bold tracking-[0.16em] uppercase opacity-80">
+          {titulo}
+        </small>
+        <img src="/marca/marca.webp" alt="" width={39} height={30} className="h-7.5 w-auto" />
+      </div>
+      <div className="grid gap-1">
+        <strong
+          className="font-titulo text-[clamp(2.125rem,8vw,2.75rem)] leading-none font-extrabold tabular-nums"
+          data-prueba="saldo"
+        >
+          {usd(saldoUsd)}
+        </strong>
+        {equivalente && (
+          <small className="text-[0.8rem] font-medium opacity-85">
+            ≈ {equivalente} con la tasa de hoy
+          </small>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-2.5">
+        <small className="text-[0.66rem] font-bold tracking-[0.16em] whitespace-nowrap uppercase opacity-80">
+          {pie}
+        </small>
+        {enRevision > 0 ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
+            <i
+              className="size-[7px] animate-pulse rounded-full bg-[#a5f3fc] shadow-[0_0_8px_#22d3ee]"
+              aria-hidden="true"
+            />
+            {enRevision === 1 ? '1 recarga en revisión' : `${enRevision} recargas en revisión`}
+          </span>
+        ) : (
+          <small className="truncate text-[0.66rem] font-bold tracking-[0.16em] uppercase opacity-80">
+            {nombre}
+          </small>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Cabecera({
   datos,
   moneda,
@@ -178,11 +265,11 @@ function Cabecera({
   datos: DatosBilletera;
   moneda: Moneda;
   faltante: number;
-  rechazada: RecargaBilleteraPublica | null;
+  rechazada: RecargaVista | null;
   onRecargar: () => void;
-  onReenviar: (r: RecargaBilleteraPublica) => void;
+  onReenviar: (r: RecargaVista) => void;
 }) {
-  const { billetera, pedido } = datos;
+  const { billetera, pedido, revendedor } = datos;
   const enRevision = billetera.recargasPorEstado.en_revision;
   // Equivalente del saldo: en la moneda elegida o, si es dólares, en bolívares.
   const monedaEq: Moneda = moneda === 'USD' ? 'VES' : moneda;
@@ -191,46 +278,18 @@ function Cabecera({
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] items-stretch gap-4.5 md:grid-cols-2 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:gap-5.5">
-      <div className="relative isolate grid min-h-44 content-between gap-3.5 overflow-hidden rounded-[1.375rem] border border-white/20 bg-[linear-gradient(135deg,#1d4ed8_0%,#6d28d9_55%,#be185d_100%)] p-5 text-white shadow-[0_30px_60px_-20px_rgb(109_40_217/0.7)] before:absolute before:inset-0 before:-z-10 before:bg-[radial-gradient(60%_50%_at_80%_10%,rgb(255_255_255/0.35),transparent_60%),repeating-linear-gradient(115deg,rgb(255_255_255/0.05)_0_2px,transparent_2px_9px)] md:min-h-[14.375rem]">
-        <div className="flex items-center justify-between gap-2.5">
-          <small className="text-[0.66rem] font-bold tracking-[0.16em] uppercase opacity-80">
-            Saldo disponible
-          </small>
-          <img src="/marca/marca.webp" alt="" width={39} height={30} className="h-7.5 w-auto" />
-        </div>
-        <div className="grid gap-1">
-          <strong
-            className="font-titulo text-[clamp(2.125rem,8vw,2.75rem)] leading-none font-extrabold tabular-nums"
-            data-prueba="saldo"
-          >
-            {usd(billetera.saldoUsd)}
-          </strong>
-          {tasaEq && Number(billetera.saldoUsd) > 0 && (
-            <small className="text-[0.8rem] font-medium opacity-85">
-              ≈ {formatearMonto(aMoneda(Number(billetera.saldoUsd), monedaEq, tasaEq), monedaEq)}{' '}
-              con la tasa de hoy
-            </small>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2.5">
-          <small className="text-[0.66rem] font-bold tracking-[0.16em] uppercase opacity-80">
-            NV · USD
-          </small>
-          {enRevision > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-xs font-semibold whitespace-nowrap">
-              <i
-                className="size-[7px] animate-pulse rounded-full bg-[#a5f3fc] shadow-[0_0_8px_#22d3ee]"
-                aria-hidden="true"
-              />
-              {enRevision === 1 ? '1 recarga en revisión' : `${enRevision} recargas en revisión`}
-            </span>
-          ) : (
-            <small className="truncate text-[0.66rem] font-bold tracking-[0.16em] uppercase opacity-80">
-              {datos.nombre}
-            </small>
-          )}
-        </div>
-      </div>
+      <TarjetaSaldo
+        titulo="Saldo disponible"
+        saldoUsd={billetera.saldoUsd}
+        equivalente={
+          tasaEq && Number(billetera.saldoUsd) > 0
+            ? formatearMonto(aMoneda(Number(billetera.saldoUsd), monedaEq, tasaEq), monedaEq)
+            : null
+        }
+        pie={revendedor ? 'Saldo revendedor · USD' : 'NV · USD'}
+        nombre={revendedor?.nombreComercial ?? datos.nombre}
+        enRevision={enRevision}
+      />
 
       <div className="grid content-start gap-3">
         {pedido && (
@@ -296,16 +355,26 @@ function Cabecera({
             tamano="lg"
             className="flex-[1_1_12.5rem]"
             icono={<Plus className="size-4" aria-hidden="true" />}
+            disabled={Boolean(revendedor?.bloqueo)}
+            title={revendedor?.bloqueo ?? undefined}
             onClick={onRecargar}
           >
             Recargar saldo
           </Boton>
-          <Link href="/catalogo" className={claseEnlace}>
-            Usar mi saldo en la tienda
-          </Link>
+          {revendedor ? (
+            <Link href="/revendedor/catalogo" className={claseEnlace}>
+              Comprar activación
+            </Link>
+          ) : (
+            <Link href="/catalogo" className={claseEnlace}>
+              Usar mi saldo en la tienda
+            </Link>
+          )}
         </div>
         <p className="text-[0.8rem] text-tinta-tenue">
-          Tu saldo está en dólares. Pagas facturas y pedidos completos con él, al instante.
+          {revendedor
+            ? 'Con tu saldo activas y renuevas a tus clientes al instante, al precio de tu nivel.'
+            : 'Tu saldo está en dólares. Pagas facturas y pedidos completos con él, al instante.'}
         </p>
       </div>
     </div>
@@ -321,7 +390,7 @@ type Monto =
   | { tipo: 'fijo'; monto: string; moneda: Moneda };
 
 interface Reportada {
-  recarga: RecargaBilleteraPublica;
+  recarga: RecargaVista;
 }
 
 function validarMonto(
@@ -352,6 +421,7 @@ function Reportar({
   montoMal,
   pedidoId,
   maxMb,
+  revendedor,
   onIntento,
   onErrorMonto,
   onListo,
@@ -364,9 +434,10 @@ function Reportar({
   montoMal: boolean;
   pedidoId: string | null;
   maxMb: number;
+  revendedor: boolean;
   onIntento: () => void;
   onErrorMonto: (mensaje: string | undefined) => void;
-  onListo: (r: RecargaBilleteraPublica) => void;
+  onListo: (r: RecargaVista) => void;
 }) {
   const id = useId();
   const [fecha, setFecha] = useState(hoyLocal);
@@ -481,7 +552,7 @@ function Reportar({
     d.set('comprobante', archivo as File);
     setCargando(true);
     setError(null);
-    const r = await llamarApi<RecargaBilleteraPublica>('POST', '/mi/billetera/recargas', d);
+    const r = await llamarApi<RecargaVista>('POST', `${rutaSaldo(revendedor)}/recargas`, d);
     setCargando(false);
     if (!r.ok) {
       setError(r.error);
@@ -647,7 +718,8 @@ function Reportar({
           </Boton>
           <p className="text-center text-xs text-tinta-tenue">
             {montoUsd !== null && moneda !== 'USD' ? `Unos ${usd(montoUsd)} de saldo. ` : ''}
-            El saldo aparece cuando el equipo confirma el pago. Te avisamos por correo.
+            El saldo aparece cuando el equipo confirma el pago.
+            {revendedor ? '' : ' Te avisamos por correo.'}
           </p>
         </div>
       </form>
@@ -656,7 +728,8 @@ function Reportar({
 }
 
 /** Recarga enviada: el código real y lo que pasa después. */
-function Listo({ recarga, onOtra }: { recarga: RecargaBilleteraPublica; onOtra: () => void }) {
+function Listo({ recarga, onOtra }: { recarga: RecargaVista; onOtra: () => void }) {
+  const pedido = 'pedido' in recarga ? recarga.pedido : null;
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -687,7 +760,10 @@ function Listo({ recarga, onOtra }: { recarga: RecargaBilleteraPublica; onOtra: 
         </span>
       </div>
       <p className="text-sm text-tinta-suave">
-        Guarda este código por si necesitas escribirnos. Te avisamos por correo cuando se acredite.
+        Guarda este código por si necesitas escribirnos.{' '}
+        {'revendedor' in recarga
+          ? 'La verás confirmada en Tus recargas.'
+          : 'Te avisamos por correo cuando se acredite.'}
       </p>
       <LineaTiempo
         etiqueta="Estado de la recarga"
@@ -705,8 +781,8 @@ function Listo({ recarga, onOtra }: { recarga: RecargaBilleteraPublica; onOtra: 
           {
             estado: 'luego',
             titulo: `Saldo acreditado: +${usd(recarga.montoUsdEstimado)}`,
-            texto: recarga.pedido
-              ? `Y pagamos tu pedido ${recarga.pedido.numero} con ese saldo`
+            texto: pedido
+              ? `Y pagamos tu pedido ${pedido.numero} con ese saldo`
               : 'Lo ves arriba y en tus movimientos',
           },
         ]}
@@ -877,17 +953,20 @@ type FiltroRecargas = 'todas' | EstadoRecarga;
 function ListaRecargas({
   inicial,
   conteo,
+  revendedor,
   onReenviar,
 }: {
-  inicial: Pagina<RecargaBilleteraPublica>;
+  inicial: Pagina<RecargaVista>;
   conteo: Record<EstadoRecarga, number>;
-  onReenviar: (r: RecargaBilleteraPublica) => void;
+  revendedor: boolean;
+  onReenviar: (r: RecargaVista) => void;
 }) {
+  const base = rutaSaldo(revendedor);
   const { lista, cargando, error, filtrar, verMas, reintentar, hayMas } = useListaPaginada(
     inicial,
     'todas',
     (f, pagina) =>
-      `/mi/billetera/recargas?porPagina=${inicial.porPagina}&pagina=${pagina}${f === 'todas' ? '' : `&estado=${f}`}`,
+      `${base}/recargas?porPagina=${inicial.porPagina}&pagina=${pagina}${f === 'todas' ? '' : `&estado=${f}`}`,
   );
   const total = conteo.en_revision + conteo.confirmada + conteo.rechazada;
   const opciones: [FiltroRecargas, string][] = [
@@ -954,7 +1033,7 @@ function ListaRecargas({
                       : `Estimado: +${usd(r.montoUsdEstimado)}`}{' '}
                     · <Fecha iso={r.creadoEn} /> · código {r.referencia}
                     {r.referenciaExterna ? ` · ref. ${r.referenciaExterna}` : ''}
-                    {r.pedido ? ` · para el pedido ${r.pedido.numero}` : ''}
+                    {'pedido' in r && r.pedido ? ` · para el pedido ${r.pedido.numero}` : ''}
                   </small>
                   {r.estado === 'rechazada' && r.motivoRechazo && (
                     <small className="text-[0.78rem] text-peligro">Motivo: {r.motivoRechazo}</small>
@@ -973,7 +1052,7 @@ function ListaRecargas({
                   )}
                   {r.tieneComprobante && (
                     <a
-                      href={`/api/v1/mi/billetera/recargas/${r.id}/comprobante`}
+                      href={`/api/v1${base}/recargas/${r.id}/comprobante`}
                       target="_blank"
                       rel="noopener"
                       className="inline-flex items-center gap-1 text-[0.8rem] font-medium text-cian hover:underline"
@@ -1019,9 +1098,10 @@ function ListaRecargas({
   );
 }
 
-type FiltroMovimientos = 'todos' | TipoMovimientoBilletera;
+type TipoMovimiento = TipoMovimientoBilletera | TipoMovimientoSaldo;
+type FiltroMovimientos = 'todos' | TipoMovimiento;
 
-const TIPO_MOVIMIENTO: Record<TipoMovimientoBilletera, [string, string, ReactNode]> = {
+const TIPO_MOVIMIENTO: Record<TipoMovimiento, [string, string, ReactNode]> = {
   recarga: [
     'Recarga confirmada',
     'border-exito/40 bg-exito/[0.08] text-exito',
@@ -1037,32 +1117,64 @@ const TIPO_MOVIMIENTO: Record<TipoMovimientoBilletera, [string, string, ReactNod
     'border-violeta/40 bg-violeta/[0.08] text-violeta',
     <Sparkles key="a" className="size-4" />,
   ],
+  compra: [
+    'Compra',
+    'border-peligro/35 bg-peligro/[0.06] text-peligro',
+    <ShoppingCart key="c" className="size-4" />,
+  ],
+  reembolso: [
+    'Reembolso',
+    'border-exito/40 bg-exito/[0.08] text-exito',
+    <RotateCcw key="e" className="size-4" />,
+  ],
 };
+
+/** «Activación · NV Cine · Mensual» para una compra; el nombre del tipo para lo demás. */
+function tituloMovimiento(m: MovimientoVista): string {
+  if ('compra' in m && m.compra) {
+    if (m.tipo === 'reembolso') return `Reembolso · ${m.compra.plan}`;
+    return `${m.compra.tipo === 'renovacion' ? 'Renovación' : 'Activación'} · ${m.compra.plan}`;
+  }
+  return TIPO_MOVIMIENTO[m.tipo][0];
+}
 
 function ListaMovimientos({
   inicial,
   totalMovimientos,
+  revendedor,
 }: {
-  inicial: Pagina<MovimientoBilleteraPublico>;
+  inicial: Pagina<MovimientoVista>;
   totalMovimientos: number;
+  revendedor: boolean;
 }) {
   const { lista, cargando, error, filtrar, verMas, reintentar, hayMas } = useListaPaginada(
     inicial,
     'todos',
     (f, pagina) =>
-      `/mi/billetera/movimientos?porPagina=${inicial.porPagina}&pagina=${pagina}${f === 'todos' ? '' : `&tipo=${f}`}`,
+      `${rutaSaldo(revendedor)}/movimientos?porPagina=${inicial.porPagina}&pagina=${pagina}${f === 'todos' ? '' : `&tipo=${f}`}`,
   );
-  const opciones: [FiltroMovimientos, string][] = [
-    ['todos', 'Todos'],
-    ['recarga', 'Recargas'],
-    ['pago', 'Pagos'],
-    ['ajuste', 'Ajustes'],
-  ];
+  const opciones: [FiltroMovimientos, string][] = revendedor
+    ? [
+        ['todos', 'Todos'],
+        ['recarga', 'Recargas'],
+        ['compra', 'Compras'],
+        ['reembolso', 'Reembolsos'],
+        ['ajuste', 'Ajustes'],
+      ]
+    : [
+        ['todos', 'Todos'],
+        ['recarga', 'Recargas'],
+        ['pago', 'Pagos'],
+        ['ajuste', 'Ajustes'],
+      ];
 
   let cuerpo: ReactNode;
   if (totalMovimientos === 0) {
     cuerpo = (
-      <Vacio>Sin movimientos todavía. Cuando recargues o pagues con tu saldo, lo verás aquí.</Vacio>
+      <Vacio>
+        Sin movimientos todavía. Cuando recargues o {revendedor ? 'compres' : 'pagues'} con tu
+        saldo, lo verás aquí.
+      </Vacio>
     );
   } else if (cargando === 'filtro') {
     cuerpo = <Cargando texto="Cargando movimientos…" />;
@@ -1075,7 +1187,8 @@ function ListaMovimientos({
       <>
         <ul className="grid overflow-hidden rounded-[1.25rem] border border-borde bg-[rgb(10_14_32/0.6)]">
           {lista.elementos.map((m) => {
-            const [titulo, clases, icono] = TIPO_MOVIMIENTO[m.tipo];
+            const [, clases, icono] = TIPO_MOVIMIENTO[m.tipo];
+            const titulo = tituloMovimiento(m);
             const positivo = Number(m.montoUsd) > 0;
             return (
               <li
@@ -1092,7 +1205,13 @@ function ListaMovimientos({
                   <b className="truncate text-[0.88rem] font-semibold">{titulo}</b>
                   <small className="truncate text-[0.78rem] text-tinta-suave">
                     <Fecha iso={m.creadoEn} /> ·{' '}
-                    {m.factura ? (
+                    {'compra' in m && m.compra ? (
+                      m.tipo === 'reembolso' && m.motivo ? (
+                        m.motivo
+                      ) : (
+                        m.compra.cliente
+                      )
+                    ) : 'factura' in m && m.factura ? (
                       <Link
                         href={`/cuenta/facturas/${m.factura.id}`}
                         className="text-cian hover:underline"
@@ -1143,7 +1262,11 @@ function ListaMovimientos({
     <Seccion
       id="titulo-movimientos"
       titulo="Movimientos"
-      nota="Cada recarga, pago o ajuste con el saldo que quedó"
+      nota={
+        revendedor
+          ? 'Cada recarga, compra, reembolso o ajuste con el saldo que quedó'
+          : 'Cada recarga, pago o ajuste con el saldo que quedó'
+      }
     >
       {totalMovimientos > 0 && (
         <Chips
@@ -1167,6 +1290,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
   const router = useRouter();
   const notificar = useNotificar();
   const { billetera, pedido, metodos, tasas } = datos;
+  const revendedor = datos.revendedor ?? null;
 
   // Solo las monedas de los métodos activos que tienen tasa hoy.
   const monedas = [...new Set(metodos.map((m) => m.moneda))].filter((m) => tasaDe(m, tasas));
@@ -1266,7 +1390,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
     if (!window.matchMedia('(min-width: 80rem)').matches) setTimeout(() => irA(ID_ACCION), 60);
   }
 
-  function reenviar(r: RecargaBilleteraPublica) {
+  function reenviar(r: RecargaVista) {
     setListo(null);
     setIntento(false);
     setErrorMonto(undefined);
@@ -1277,7 +1401,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
     }
     setMoneda(r.moneda);
     setMonto({ tipo: 'fijo', monto: r.montoDeclarado, moneda: r.moneda });
-    if (pedido && r.pedido?.id === pedido.id) setLigar(true);
+    if (pedido && 'pedido' in r && r.pedido?.id === pedido.id) setLigar(true);
     const activo = metodos.some((m) => m.id === r.metodo.id);
     setMetodoId(activo ? r.metodo.id : null);
     notificar(
@@ -1289,7 +1413,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
     setTimeout(() => irA(activo ? ID_ACCION : ID_METODO), 80);
   }
 
-  function reportada(r: RecargaBilleteraPublica) {
+  function reportada(r: RecargaVista) {
     setListo({ recarga: r });
     setIntento(false);
     setTocadoMonto(false);
@@ -1311,18 +1435,31 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
   const pedidoId = pedido && ligar ? pedido.id : null;
 
   let formulario: ReactNode;
-  if (listo) {
+  if (revendedor?.bloqueo) {
+    formulario = (
+      <section id={ID_FORMULARIO} className="grid gap-3">
+        <h2 className="text-[clamp(1.25rem,2.6vw,1.6rem)]">Recargar saldo</h2>
+        <Vacio>Mientras tu cuenta esté suspendida no puedes recargar.</Vacio>
+      </section>
+    );
+  } else if (listo) {
     formulario = <Listo recarga={listo.recarga} onOtra={otraRecarga} />;
   } else if (monedas.length === 0) {
     formulario = (
       <section id={ID_FORMULARIO} className="grid gap-3">
         <h2 className="text-[clamp(1.25rem,2.6vw,1.6rem)]">Recargar saldo</h2>
         <p className="rounded-xl border border-aviso/35 bg-aviso-suave px-3.5 py-3 text-sm">
-          Por ahora no hay formas de recargar. Escríbenos desde{' '}
-          <Link href="/cuenta/soporte/nueva" className="font-semibold underline">
-            Soporte
-          </Link>{' '}
-          y te ayudamos.
+          {revendedor ? (
+            'Por ahora no hay formas de recargar. Escribe al equipo de NV y te ayudamos.'
+          ) : (
+            <>
+              Por ahora no hay formas de recargar. Escríbenos desde{' '}
+              <Link href="/cuenta/soporte/nueva" className="font-semibold underline">
+                Soporte
+              </Link>{' '}
+              y te ayudamos.
+            </>
+          )}
         </p>
       </section>
     );
@@ -1505,6 +1642,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
               montoMal={montoMal}
               pedidoId={pedidoId}
               maxMb={datos.maxMb}
+              revendedor={Boolean(revendedor)}
               onIntento={() => setIntento(true)}
               onErrorMonto={setErrorMonto}
               onListo={reportada}
@@ -1520,7 +1658,8 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
     );
   }
 
-  const barraVisible = barra.enFormulario && !barra.enAccion && !listo && monedas.length > 0;
+  const barraVisible =
+    barra.enFormulario && !barra.enAccion && !listo && monedas.length > 0 && !revendedor?.bloqueo;
 
   return (
     <>
@@ -1540,12 +1679,14 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
             key={`r-${datos.recargas.total}-${datos.recargas.elementos[0]?.id ?? ''}-${datos.recargas.elementos[0]?.estado ?? ''}`}
             inicial={datos.recargas}
             conteo={billetera.recargasPorEstado}
+            revendedor={Boolean(revendedor)}
             onReenviar={reenviar}
           />
           <ListaMovimientos
             key={`m-${billetera.totalMovimientos}`}
             inicial={datos.movimientos}
             totalMovimientos={billetera.totalMovimientos}
+            revendedor={Boolean(revendedor)}
           />
         </aside>
       </div>
@@ -1554,7 +1695,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
       <div
         inert={!barraVisible}
         className={clsx(
-          'flotante fixed inset-x-2.5 bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-3 rounded-[1.25rem] py-2.5 pr-2.5 pl-3.5 backdrop-blur-md transition-[translate,opacity] duration-300 lg:hidden',
+          'flotante fixed inset-x-2.5 bottom-[calc(var(--nv-barra-inferior,0px)+0.5rem+env(safe-area-inset-bottom,0px))] z-30 flex items-center gap-3 rounded-[1.25rem] py-2.5 pr-2.5 pl-3.5 backdrop-blur-md transition-[translate,opacity] duration-300 lg:hidden',
           barraVisible
             ? 'translate-y-0 opacity-100'
             : 'pointer-events-none translate-y-[140%] opacity-0',

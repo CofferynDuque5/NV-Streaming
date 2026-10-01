@@ -10,6 +10,8 @@ import {
   TusDatos,
 } from '@/componentes/cliente/perfil-cuenta';
 import { CabeceraCuenta } from '@/componentes/cliente/piezas-cuenta';
+import { CabeceraPanel, NivelChip } from '@/componentes/revendedor/panel';
+import { NombreRevendedor } from '@/componentes/revendedor/perfil';
 import {
   FormularioContrasena,
   FormularioPerfil,
@@ -20,7 +22,8 @@ import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
-import { haceCuanto } from '@/lib/formato';
+import { haceCuanto, nombrePais } from '@/lib/formato';
+import { leerResumenRevendedor } from '@/lib/panel-revendedor';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Perfil y seguridad' };
@@ -37,6 +40,7 @@ export default async function Ajustes() {
     leerApi<SesionListada[]>('/cuenta/sesiones'),
   ]);
   const esCliente = sesion.usuario.rol === 'cliente';
+  const esRevendedor = sesion.usuario.rol === 'revendedor';
   const [cliente, preferencias] = esCliente
     ? await Promise.all([
         leerApi<ResumenCliente>('/mi/resumen').then((r) => r.datos?.cliente),
@@ -46,16 +50,83 @@ export default async function Ajustes() {
       ])
     : [null, null];
   const whatsapp = cliente?.contactos.find((c) => c.tipo === 'whatsapp');
+  const lista = [...(sesiones.datos ?? [])]
+    .sort((a, b) => Number(b.actual) - Number(a.actual))
+    .map((s) => ({
+      ...s,
+      detalle: `${s.ip ? `IP ${s.ip}` : 'IP desconocida'} · ${
+        s.actual ? 'activa ahora' : `activa ${haceCuanto(s.ultimaActividadEn)}`
+      }`,
+    }));
+  const sesionesAbiertas = (
+    <CajaPerfil
+      titulo="Dónde tienes la sesión abierta"
+      descripcion="Si no reconoces un dispositivo, ciérralo y cambia tu contraseña."
+      accion={lista.length > 1 ? <CerrarOtrasSesiones /> : undefined}
+    >
+      <SesionesCliente sesiones={lista} />
+    </CajaPerfil>
+  );
+
+  if (esRevendedor) {
+    const r = (await leerResumenRevendedor()).datos?.revendedor;
+    const negocio: [string, string | null | undefined][] = [
+      ['Nombre comercial', r?.nombreComercial],
+      ['Cédula o RIF', r?.documento],
+      ['Teléfono', r?.telefono],
+      ['País', r?.pais ? nombrePais(r.pais) : null],
+    ];
+    return (
+      <>
+        <CabeceraPanel
+          titulo="Perfil y seguridad"
+          descripcion="Tus datos, tu contraseña y la verificación en dos pasos."
+        />
+        <CajaPerfil
+          titulo="Tu negocio"
+          descripcion="Son los datos de tu solicitud aprobada. Para cambiarlos escríbele al equipo de NV."
+          accion={r ? <NivelChip nivel={r.nivel} /> : undefined}
+        >
+          {r ? (
+            <dl className="grid gap-3 sm:grid-cols-2">
+              {negocio.map(([e, v]) => (
+                <div
+                  key={e}
+                  className="grid gap-0.5 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-2.5"
+                >
+                  <dt className="text-[0.75rem] font-semibold text-tinta-tenue">{e}</dt>
+                  <dd className="text-[0.95rem] font-semibold break-words">{v || '—'}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <Alerta tono="peligro">
+              No pudimos cargar los datos de tu negocio. Recarga la página.
+            </Alerta>
+          )}
+        </CajaPerfil>
+        <CajaPerfil titulo="Tu nombre" descripcion="Así te saludamos en el panel.">
+          <NombreRevendedor nombre={sesion.usuario.nombre} correo={sesion.usuario.correo} />
+        </CajaPerfil>
+        <CajaPerfil titulo="Contraseña" descripcion="Al cambiarla cerramos tus otras sesiones.">
+          <CambiarContrasena correo={sesion.usuario.correo} />
+        </CajaPerfil>
+        <CajaPerfil
+          titulo="Verificación en dos pasos"
+          descripcion="Es obligatoria para revendedores porque manejas saldo y accesos."
+        >
+          {dosPasos.datos ? (
+            <DosPasos estado={dosPasos.datos} />
+          ) : (
+            <Alerta tono="peligro">No pudimos cargar este ajuste. Recarga la página.</Alerta>
+          )}
+        </CajaPerfil>
+        {sesionesAbiertas}
+      </>
+    );
+  }
 
   if (esCliente) {
-    const lista = [...(sesiones.datos ?? [])]
-      .sort((a, b) => Number(b.actual) - Number(a.actual))
-      .map((s) => ({
-        ...s,
-        detalle: `${s.ip ? `IP ${s.ip}` : 'IP desconocida'} · ${
-          s.actual ? 'activa ahora' : `activa ${haceCuanto(s.ultimaActividadEn)}`
-        }`,
-      }));
     return (
       <>
         <CabeceraCuenta
@@ -92,13 +163,7 @@ export default async function Ajustes() {
             <Alerta tono="peligro">No pudimos cargar este ajuste. Recarga la página.</Alerta>
           )}
         </CajaPerfil>
-        <CajaPerfil
-          titulo="Dónde tienes la sesión abierta"
-          descripcion="Si no reconoces un dispositivo, ciérralo y cambia tu contraseña."
-          accion={lista.length > 1 ? <CerrarOtrasSesiones /> : undefined}
-        >
-          <SesionesCliente sesiones={lista} />
-        </CajaPerfil>
+        {sesionesAbiertas}
         <CajaPerfil
           titulo="Avisos"
           descripcion="Las facturas y los avisos de pago te llegan siempre."

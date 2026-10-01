@@ -18,7 +18,7 @@ async function entrar(page: Page, correo: string, destino: RegExp) {
 
 // Se ejecuta después de roles.spec.ts (proyecto propio en playwright.config.ts):
 // el revendedor y la administración ya tienen la verificación en dos pasos.
-test('el revendedor recarga saldo, el equipo lo confirma y compra una activación', async ({
+test('el revendedor recarga saldo, el equipo lo confirma, vende una activación y la renueva en lote', async ({
   browser,
 }) => {
   test.setTimeout(150_000);
@@ -27,23 +27,29 @@ test('el revendedor recarga saldo, el equipo lo confirma y compra una activació
 
   // 1. El revendedor ve su saldo inicial (la semilla le acredita 25 USD) y reporta una recarga.
   await entrar(revendedor, 'revendedor@nv.test', /\/revendedor$/);
-  await expect(revendedor.getByRole('heading', { name: /Hola, Revendedor/ })).toBeVisible();
-  await expect(revendedor.getByText(usd(25), { exact: true })).toBeVisible();
+  await expect(
+    revendedor.getByRole('heading', { level: 1, name: 'Streaming Demo C.A.' }),
+  ).toBeVisible();
+  await expect(revendedor.getByText(/Hola, Revendedor/)).toBeVisible();
+  await expect(revendedor.getByText(usd(25), { exact: true }).first()).toBeVisible();
+  await expect(revendedor.getByText('Empieza en 3 pasos')).toBeVisible();
 
   await revendedor.getByRole('link', { name: 'Saldo y recargas' }).first().click();
   await expect(revendedor.getByRole('heading', { name: 'Saldo y recargas' })).toBeVisible();
-  await revendedor.getByLabel('Moneda en la que pagas').selectOption('USD');
-  await expect(revendedor.getByText('Datos para pagar con Transferencia en dólares')).toBeVisible();
-  await revendedor.getByLabel('Monto que pagaste (USD)').fill('10');
+  await revendedor
+    .getByRole('group', { name: 'Moneda del pago' })
+    .getByRole('button', { name: 'USD' })
+    .click();
+  await revendedor.getByRole('radio', { name: /Transferencia en dólares/ }).check();
   await revendedor.getByLabel('Referencia (opcional)').fill('E2E-REV-001');
-  await revendedor.locator('#comprobante-recarga').setInputFiles({
+  await revendedor.locator('input[type=file]').setInputFiles({
     name: 'recarga.png',
     mimeType: 'image/png',
     buffer: PNG_1X1,
   });
-  await revendedor.getByRole('button', { name: 'Reportar recarga' }).click();
-  await expect(revendedor.getByText('Recibimos tu recarga')).toBeVisible();
-  await expect(revendedor.getByText('En revisión').first()).toBeVisible();
+  await revendedor.getByRole('button', { name: `Reportar recarga de ${usd(10)}` }).click();
+  await expect(revendedor.getByRole('heading', { name: 'Recibimos tu recarga' })).toBeVisible();
+  await expect(revendedor.locator('#contenido').getByText('1 recarga en revisión')).toBeVisible();
 
   // 2. La administración la concilia desde la cola de recargas.
   await entrar(admin, 'admin@nv.test', /\/admin$/);
@@ -58,37 +64,65 @@ test('el revendedor recarga saldo, el equipo lo confirma y compra una activació
   await recarga.getByRole('button', { name: 'Confirmar recarga' }).click();
   await expect(admin.getByText('No hay recargas pendientes')).toBeVisible();
 
-  // 3. El revendedor ve el saldo acreditado y compra una activación para un cliente nuevo.
+  // 3. El revendedor ve el saldo acreditado y vende una activación a un cliente nuevo.
   await revendedor.goto('/revendedor/saldo');
-  await expect(revendedor.getByText(usd(35), { exact: true }).first()).toBeVisible();
+  await expect(revendedor.locator('[data-prueba="saldo"]')).toHaveText(usd(35));
   await expect(revendedor.getByText('Confirmada').first()).toBeVisible();
 
   const catalogo = (await (
     await revendedor.request.get('/api/v1/revendedor/catalogo')
   ).json()) as CatalogoMayorista;
   const plan = catalogo.planes[0]!;
-  const saldoFinal = 35 - Number(plan.precioUsd);
+  const nombrePlan = `${plan.servicio.nombre} ${plan.nombre}`;
+  const precio = Number(plan.precioUsd);
+  const saldoFinal = 35 - precio;
 
-  await revendedor.getByRole('link', { name: 'Catálogo mayorista' }).first().click();
-  const tarjeta = revendedor
-    .getByRole('listitem')
-    .filter({ has: revendedor.getByRole('heading', { name: plan.nombre, exact: true }) });
-  await tarjeta.getByRole('button', { name: 'Comprar' }).click();
-  await tarjeta.getByLabel('Nombre del cliente').fill('Cliente de Reventa E2E');
-  await tarjeta.getByRole('button', { name: 'Confirmar compra' }).click();
-  await expect(tarjeta.getByText('Compra realizada')).toBeVisible();
-  await expect(tarjeta.getByText(`Tu saldo ahora es ${usd(saldoFinal)}`)).toBeVisible();
+  await revendedor.getByRole('link', { name: 'Nueva venta' }).first().click();
+  await expect(revendedor.getByRole('heading', { level: 1, name: 'Nueva venta' })).toBeVisible();
+  await revendedor.getByRole('button', { name: `Vender ${nombrePlan}` }).click();
+  const venta = revendedor.getByRole('dialog', { name: 'Nueva venta' });
+  await venta.getByLabel('Nombre del cliente').fill('Cliente de Reventa E2E');
+  await venta.getByRole('button', { name: `Vender por ${usd(precio)}` }).click();
+  await expect(venta.getByText(`Listo: ${nombrePlan} para Cliente de Reventa E2E`)).toBeVisible();
+  await expect(venta.getByText(`Te quedan ${usd(saldoFinal)}`)).toBeVisible();
+  await expect(venta.getByRole('link', { name: 'Ver accesos' })).toBeVisible();
+  await venta.getByRole('button', { name: 'Seguir vendiendo' }).click();
+  await expect(venta).toBeHidden();
 
-  // 4. El saldo bajó y el cliente aparece en su cartera con el servicio activo.
+  // 4. El saldo bajó, la venta suma en el resumen y el cliente aparece en su cartera.
   await revendedor.getByRole('link', { name: 'Resumen' }).first().click();
   await expect(revendedor).toHaveURL(/\/revendedor$/);
-  await expect(revendedor.getByText(usd(saldoFinal), { exact: true })).toBeVisible();
-  await revendedor.getByRole('link', { name: 'Mis clientes' }).first().click();
-  const cliente = revendedor.getByRole('listitem').filter({ hasText: 'Cliente de Reventa E2E' });
-  await expect(cliente.getByText('Activa').first()).toBeVisible();
-  await revendedor.getByRole('link', { name: 'Mis compras' }).first().click();
+  await expect(revendedor.getByText(usd(saldoFinal), { exact: true }).first()).toBeVisible();
+  await expect(revendedor.getByText('Empieza en 3 pasos')).toHaveCount(0);
+  await expect(revendedor.getByRole('img', { name: /Ventas por día/ })).toBeVisible();
+
+  await revendedor.getByRole('link', { name: 'Clientes' }).first().click();
+  await revendedor.getByRole('button', { name: 'Cliente de Reventa E2E' }).click();
+  const ficha = revendedor.getByRole('dialog', { name: 'Cliente de Reventa E2E' });
+  await expect(ficha.getByText('Activa').first()).toBeVisible();
+  await expect(ficha.getByRole('link', { name: 'Vender otro plan a Cliente' })).toHaveAttribute(
+    'href',
+    /\/revendedor\/catalogo\?cliente=/,
+  );
+  await ficha.getByRole('button', { name: 'Cerrar' }).click();
+
+  await revendedor.getByRole('link', { name: 'Ventas' }).first().click();
   await expect(
     revendedor.getByRole('row').filter({ hasText: 'Cliente de Reventa E2E' }),
+  ).toBeVisible();
+
+  // 5. Renovación en lote: elige el servicio, ve lo que le queda y lo renueva.
+  await revendedor.goto('/revendedor/renovaciones?filtro=todos');
+  await revendedor
+    .getByRole('checkbox', { name: `Elegir Cliente de Reventa E2E · ${plan.servicio.nombre}` })
+    .check();
+  await expect(revendedor.getByText(`1 elegido · ${usd(precio)}`)).toBeVisible();
+  await expect(revendedor.getByText(`Te quedan ${usd(saldoFinal - precio)}`)).toBeVisible();
+  await revendedor.getByRole('button', { name: 'Renovar 1' }).click();
+  await expect(
+    revendedor.getByText(
+      `Renovaste 1 servicio por ${usd(precio)}. Saldo: ${usd(saldoFinal - precio)}`,
+    ),
   ).toBeVisible();
 });
 
@@ -211,11 +245,10 @@ test('el revendedor ve sus precios mayoristas en el sitio público; el resto, lo
     tarjetaVes.getByText(formatearMonto(plan.precioVes!, 'VES'), { exact: true }),
   ).toBeVisible();
 
-  // "Comprar con saldo" lleva al catálogo mayorista con ese plan listo para comprar.
+  // "Comprar con saldo" lleva a Nueva venta con ese plan listo para vender.
   await tarjetaVes.getByRole('link', { name: 'Comprar con saldo' }).click();
   await expect(revendedor).toHaveURL(new RegExp(`/revendedor/catalogo\\?plan=${plan.id}$`));
-  await expect(
-    revendedor.getByText(`Comprar ${plan.servicio.nombre} · ${plan.nombre}`),
-  ).toBeVisible();
-  await expect(revendedor.getByLabel('Nombre del cliente')).toBeVisible();
+  const venta = revendedor.getByRole('dialog', { name: 'Nueva venta' });
+  await expect(venta.getByText(`${plan.servicio.nombre} ${plan.nombre}`).first()).toBeVisible();
+  await expect(venta.getByLabel('Nombre del cliente')).toBeVisible();
 });
