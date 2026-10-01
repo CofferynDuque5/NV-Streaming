@@ -5,9 +5,11 @@ import {
   etiquetaDuracion,
   formatearMonto,
   type Moneda,
+  type Pagina,
   type PlanPublico,
   planMasBarato,
   type ServicioTienda,
+  type SuscripcionPublica,
 } from '@nv/shared';
 import clsx from 'clsx';
 import { ChevronDown, Info, Plus, ShoppingCart, Trash2, Wallet, X, Zap } from 'lucide-react';
@@ -27,7 +29,13 @@ import {
 import { precioTexto } from '@/lib/precios';
 import { ArteServicio } from './arte';
 import { useAgregarAlCarrito } from './boton-carrito';
-import { Esqueleto, nombreOpcion, porPopularidad } from './carrito-comun';
+import {
+  Esqueleto,
+  nombreOpcion,
+  porPopularidad,
+  RUTA_MIS_SUSCRIPCIONES,
+  serviciosContratados,
+} from './carrito-comun';
 
 interface Elegido {
   plan: PlanPublico;
@@ -173,6 +181,21 @@ export function CarritoLateral({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `clave` resume planes y moneda.
   }, [abierto, clave, cliente]);
 
+  // Servicios que el cliente ya tiene activos: se leen cada vez que se abre el carrito
+  // (pudo comprar algo desde la última vez); mientras, queda la lista anterior.
+  const [contratados, setContratados] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!abierto || !cliente) return;
+    let vigente = true;
+    void llamarApi<Pagina<SuscripcionPublica>>('GET', RUTA_MIS_SUSCRIPCIONES).then((r) => {
+      // Si no responde, se sugiere como a cualquier visitante.
+      if (vigente) setContratados(r.ok ? serviciosContratados(r.datos) : []);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [abierto, cliente]);
+
   const actual = resultado?.clave === clave ? resultado : null;
   const cotizacion = actual?.cotizacion ?? null;
   const cotizando = cliente && ids.length > 0 && !actual;
@@ -197,7 +220,14 @@ export function CarritoLateral({
   }
 
   const enCarrito = new Set(elegidos.map((e) => e.item.servicio.id));
-  const populares = porPopularidad(servicios).filter((s) => !enCarrito.has(s.servicio.id));
+  // Con sesión de cliente, no se sugiere lo que ya tiene activo (se espera a saberlo).
+  const yaActivos = new Set(contratados ?? []);
+  const populares =
+    cliente && contratados === null
+      ? []
+      : porPopularidad(servicios).filter(
+          (s) => !enCarrito.has(s.servicio.id) && !yaActivos.has(s.servicio.slug),
+        );
   const sugerencias = populares.slice(0, 2).flatMap((s) => {
     const plan = planMasBarato(s.planes, moneda);
     return plan ? [{ item: s, plan }] : [];

@@ -153,6 +153,7 @@ export async function CabeceraTienda() {
       <BarraInferior
         billetera={sesionMenu?.enlaceSaldo ?? '/cuenta/billetera'}
         cuenta={sesionMenu?.panel ?? '/ingresar'}
+        saldo={sesionMenu?.enlaceSaldo ? sesionMenu.saldo : null}
       />
     </>
   );

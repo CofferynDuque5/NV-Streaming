@@ -172,6 +172,8 @@ function Historial({ pagos }: { pagos: PagoPublico[] }) {
 
 function Resumen({ datos, ahora }: { datos: DatosPago; ahora: number }) {
   const { factura: f, pedido } = datos;
+  // La paga su revendedor: sin plazo para pagar ni «pagos enviados» vacío.
+  const gestionada = f.gestionadaPorRevendedor;
   return (
     <aside
       aria-label="Resumen de la factura"
@@ -189,7 +191,7 @@ function Resumen({ datos, ahora }: { datos: DatosPago; ahora: number }) {
             </span>
           </span>
         </div>
-        {f.estado === 'emitida' && (
+        {f.estado === 'emitida' && !gestionada && (
           <p
             className={clsx(
               'flex items-center gap-2 text-[0.8rem] text-tinta-suave',
@@ -269,7 +271,7 @@ function Resumen({ datos, ahora }: { datos: DatosPago; ahora: number }) {
         </div>
       )}
 
-      <Historial pagos={f.pagos} />
+      {!(gestionada && f.pagos.length === 0) && <Historial pagos={f.pagos} />}
     </aside>
   );
 }
@@ -600,7 +602,19 @@ export function VistaPago({ datos }: { datos: DatosPago }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="grid gap-1.5">
           <h1 className="text-[clamp(1.9rem,4.5vw,2.9rem)]">
-            Paga tu <span className="texto-degradado">{pedido ? 'pedido' : 'factura'}</span>
+            {pedido ? (
+              <>
+                Paga tu <span className="texto-degradado">pedido</span>
+              </>
+            ) : f.gestionadaPorRevendedor ? (
+              <>
+                Tu <span className="texto-degradado">factura</span>
+              </>
+            ) : (
+              <>
+                Paga tu <span className="texto-degradado">factura</span>
+              </>
+            )}
           </h1>
           <p className="text-tinta-suave">{subtitulo}</p>
         </div>

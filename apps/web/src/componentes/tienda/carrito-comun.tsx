@@ -1,10 +1,30 @@
-import { etiquetaDuracion, type PlanPublico, type ServicioTienda } from '@nv/shared';
+import {
+  etiquetaDuracion,
+  type Pagina,
+  type PlanPublico,
+  type ServicioTienda,
+  type SuscripcionPublica,
+} from '@nv/shared';
 import clsx from 'clsx';
 
 /*
  * Piezas que comparten el carrito lateral y la página del carrito. Sin
  * 'use client': no tienen estado y sirven en ambos lados.
  */
+
+/** Suscripciones del cliente con sesión (una página basta: pocas por cliente). */
+export const RUTA_MIS_SUSCRIPCIONES = '/mi/suscripciones?porPagina=100';
+
+/**
+ * Slugs de los servicios que el cliente ya tiene activos o en gracia (los
+ * suyos y los que le gestiona su revendedor): no se le sugieren en el carrito.
+ */
+export function serviciosContratados(pagina: Pagina<SuscripcionPublica> | null): string[] {
+  const slugs = (pagina?.elementos ?? [])
+    .filter((s) => s.estado === 'activa' || s.estado === 'en_gracia')
+    .map((s) => s.plan.servicioSlug);
+  return [...new Set(slugs)];
+}
 
 /** Servicios por popularidad (lo más pedido primero) y luego en el orden del catálogo. */
 export function porPopularidad(servicios: ServicioTienda[]): ServicioTienda[] {

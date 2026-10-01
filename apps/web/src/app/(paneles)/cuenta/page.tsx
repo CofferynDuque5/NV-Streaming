@@ -139,6 +139,10 @@ export default async function MisServicios() {
         !s.cancelarAlVencer &&
         monedaAdmitePagoEnLinea(s.moneda),
       accesoId: acceso?.id ?? null,
+      renovacionPendiente:
+        !propia && s.facturaAbierta && s.estado !== 'pendiente_pago'
+          ? `Renovación pendiente: pídesela a ${revendedor?.nombre ?? 'tu revendedor'}`
+          : null,
       grupos: [
         'todos',
         ...(['activa', 'en_gracia'].includes(s.estado) ? (['activos'] as const) : []),
@@ -212,6 +216,8 @@ export default async function MisServicios() {
     });
   }
 
+  // Renovaciones que debe pagar su revendedor: no se cuentan como «cosas que revisar».
+  const renovacionesConRevendedor = servicios.filter((v) => v.renovacionPendiente).length;
   const activos = suscripciones.filter((s) => ['activa', 'en_gracia'].includes(s.estado));
   const proxima = suscripciones
     .filter((s) => s.estado === 'activa' && s.venceEn)
@@ -305,7 +311,9 @@ export default async function MisServicios() {
           <p className="max-w-[35rem] text-tinta-suave">
             {avisos.length
               ? `Tienes ${avisos.length} ${avisos.length === 1 ? 'cosa que revisar' : 'cosas que revisar'}.`
-              : 'Todo está al día.'}
+              : renovacionesConRevendedor
+                ? `Nada que revisar aquí. Tienes ${renovacionesConRevendedor === 1 ? 'una renovación pendiente' : `${renovacionesConRevendedor} renovaciones pendientes`} con ${revendedor?.nombre ?? 'tu revendedor'}.`
+                : 'Todo está al día.'}
           </p>
         </div>
         <BotonEnlace href="/catalogo" variante="secundario">

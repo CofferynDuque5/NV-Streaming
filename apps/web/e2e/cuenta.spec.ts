@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import { formatearMonto } from '@nv/shared';
+import { devices, expect, type Page, test } from '@playwright/test';
 import {
   CONTRASENA_DEMO,
   ejecutarSql,
@@ -254,16 +255,20 @@ test('perfil: la contraseña nueva se revisa en vivo antes de cambiarla', async 
   await expect(nueva).toHaveValue('');
 });
 
-test('un cliente de un revendedor compra con su billetera; lo que activó su revendedor lo gestiona él', async () => {
-  const ligar = (revendedor: string) =>
-    ejecutarSql(
-      `UPDATE clientes SET revendedor_id = ${revendedor} WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}');
-       UPDATE suscripciones SET revendedor_id = ${revendedor} WHERE estado = 'en_gracia' AND cliente_id = (SELECT id FROM clientes WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}'));`,
-    );
-  // El plan en gracia (Individual) pasa a ser del revendedor; el Trimestral sigue siendo suyo.
-  ligar(
-    "(SELECT r.id FROM revendedores r JOIN usuarios u ON u.id = r.usuario_id WHERE u.correo = 'revendedor@nv.test')",
+const CLIENTE_SQL = `(SELECT id FROM clientes WHERE usuario_id = (SELECT id FROM usuarios WHERE correo = '${correo}'))`;
+const REVENDEDOR_SQL =
+  "(SELECT r.id FROM revendedores r JOIN usuarios u ON u.id = r.usuario_id WHERE u.correo = 'revendedor@nv.test')";
+
+/** Liga el cliente (y su plan en gracia) a un revendedor, o lo desliga con 'NULL'. */
+const ligar = (revendedor: string) =>
+  ejecutarSql(
+    `UPDATE clientes SET revendedor_id = ${revendedor} WHERE id = ${CLIENTE_SQL};
+     UPDATE suscripciones SET revendedor_id = ${revendedor} WHERE estado = 'en_gracia' AND cliente_id = ${CLIENTE_SQL};`,
   );
+
+test('un cliente de un revendedor compra con su billetera; lo que activó su revendedor lo gestiona él', async () => {
+  // El plan en gracia (Individual) pasa a ser del revendedor; el Trimestral sigue siendo suyo.
+  ligar(REVENDEDOR_SQL);
   try {
     await page.goto('/cuenta');
     await expect(page.getByText(/^Eres cliente de /)).toBeVisible();
@@ -297,6 +302,133 @@ test('un cliente de un revendedor compra con su billetera; lo que activó su rev
 
     await page.goto('/cuenta/metodos-pago');
     await expect(page.getByText(/no puedes guardar métodos para cobros/)).toBeVisible();
+  } finally {
+    ligar('NULL');
+  }
+});
+
+test('la renovación que paga su revendedor se informa sin pedirle el pago, la tienda no le sugiere lo que ya tiene y el teléfono muestra su saldo', async ({
+  browser,
+}) => {
+  // Se pide la renovación del Individual (en gracia) y luego pasa a ser del revendedor.
+  const { elementos } = (await (await page.request.get('/api/v1/mi/suscripciones')).json()) as {
+    elementos: { id: string; plan: { nombre: string } }[];
+  };
+  const individual = elementos.find((s) => s.plan.nombre === 'Individual')!;
+  const renovar = await page.request.post(`/api/v1/mi/suscripciones/${individual.id}/renovar`, {
+    headers: origen,
+    data: { moneda: 'USD' },
+  });
+  expect(renovar.ok()).toBe(true);
+  const { factura } = (await renovar.json()) as { factura: { id: string } };
+  // Nada más que revisar: el Trimestral ya no está por vencer y las solicitudes siguen en curso.
+  ejecutarSql(`
+    UPDATE suscripciones SET vence_en = now() + interval '40 days' WHERE plan_id IN (SELECT id FROM planes WHERE nombre = 'Trimestral') AND cliente_id = ${CLIENTE_SQL};
+    UPDATE tickets SET estado = 'en_progreso' WHERE cliente_id = ${CLIENTE_SQL};
+  `);
+  ligar(REVENDEDOR_SQL);
+  try {
+    const panel = (await (await page.request.get('/api/v1/mi/panel')).json()) as {
+      revendedor: { nombre: string };
+    };
+    const tienda = panel.revendedor.nombre;
+
+    // Mis servicios: la tarjeta lo informa; no cuenta en «Para revisar» ni en el menú.
+    await page.goto('/cuenta');
+    await expect(
+      page.getByText(`Nada que revisar aquí. Tienes una renovación pendiente con ${tienda}.`),
+    ).toBeVisible();
+    await expect(page.getByText('Todo está al día.')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Para revisar' })).toHaveCount(0);
+    const tarjeta = page
+      .getByRole('region', { name: 'Mis servicios' })
+      .getByRole('article')
+      .filter({ has: page.getByRole('heading', { name: 'Individual' }) });
+    await expect(tarjeta.getByText(`Renovación pendiente: pídesela a ${tienda}`)).toBeVisible();
+    await expect(tarjeta.getByRole('button')).toHaveCount(0);
+    await expect(tarjeta.getByRole('link')).toHaveCount(0);
+    await expect(tarjeta.getByText('Lo gestiona tu revendedor')).toHaveCount(0);
+    const menu = page.getByRole('navigation', { name: 'Mi cuenta' });
+    await expect(menu.getByRole('link', { name: /Facturas y pagos/ })).not.toContainText(/\d/);
+
+    // Su factura: sin «Paga tu factura», sin plazo para pagar ni «pagos enviados» vacío.
+    await page.goto(`/cuenta/facturas/${factura.id}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'Tu factura' })).toBeVisible();
+    await expect(page.getByText('Esta factura la gestiona tu revendedor')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Paga tu factura' })).toHaveCount(0);
+    await expect(page.getByText(/Págala antes del/)).toHaveCount(0);
+    await expect(page.getByText('Todavía no has enviado pagos para esta factura.')).toHaveCount(0);
+
+    // Sugerencias del carrito: nunca NV Cine (activo) ni NV Música (en gracia); sí NV Originals.
+    const cat = (await (await page.request.get('/api/v1/catalogo')).json()) as {
+      planes: { id: string; nombre: string }[];
+    };
+    const anual = cat.planes.find((p) => p.nombre === 'Anual')!.id;
+    const llenar = (planes: string[]) =>
+      page.evaluate((v) => localStorage.setItem('nv-carrito', JSON.stringify(v)), planes);
+    const sugerencias = page.locator('section[aria-labelledby="sugerencias-carrito"]');
+    await llenar([]);
+    await page.goto('/carrito?moneda=USD');
+    await expect(sugerencias.getByRole('heading', { name: 'Lo más pedido' })).toBeVisible();
+    await expect(sugerencias.getByRole('article', { name: 'NV Originals' })).toBeVisible();
+    for (const nombre of ['NV Cine', 'NV Música'])
+      await expect(sugerencias.getByRole('article', { name: nombre })).toHaveCount(0);
+    // Con el Anual de NV Cine en el carrito: «Complétalo» tampoco ofrece NV Música.
+    await llenar([anual]);
+    await page.goto('/carrito?moneda=USD');
+    await expect(sugerencias.getByRole('heading', { name: 'Complétalo' })).toBeVisible();
+    await expect(sugerencias.getByRole('article', { name: 'NV Originals' })).toBeVisible();
+    await expect(sugerencias.getByRole('article', { name: 'NV Música' })).toHaveCount(0);
+
+    // El carrito lateral, igual: con el Anual y, al quitarlo, vacío.
+    await page.goto('/catalogo?moneda=USD');
+    await page.getByRole('button', { name: 'Carrito, 1 plan' }).click();
+    const lateral = page.getByRole('dialog', { name: 'Tu carrito' });
+    await expect(lateral.getByText('Complétalo')).toBeVisible();
+    await expect(
+      lateral.getByRole('button', { name: 'Agregar NV Originals al carrito' }),
+    ).toBeVisible();
+    await expect(lateral.getByRole('button', { name: 'Agregar NV Música al carrito' })).toHaveCount(
+      0,
+    );
+    await lateral.getByRole('button', { name: 'Quitar NV Cine del carrito' }).click();
+    await expect(lateral.getByText('Tu carrito está vacío')).toBeVisible();
+    await expect(lateral.getByText('Lo más pedido')).toBeVisible();
+    await expect(lateral.getByRole('button', { name: 'Agregar NV Originals' })).toBeVisible();
+    for (const nombre of ['NV Cine', 'NV Música'])
+      await expect(
+        lateral.getByRole('button', { name: `Agregar ${nombre}`, exact: true }),
+      ).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await llenar([]);
+
+    // En el teléfono, la tienda muestra su saldo en la barra de abajo y en el menú.
+    const { saldoUsd } = (await (await page.request.get('/api/v1/mi/billetera')).json()) as {
+      saldoUsd: string;
+    };
+    const saldo = formatearMonto(saldoUsd, 'USD');
+    const telefono = await (
+      await browser.newContext({
+        ...devices['Pixel 7'],
+        storageState: await page.context().storageState(),
+      })
+    ).newPage();
+    try {
+      await telefono.goto('/catalogo?moneda=USD');
+      const barra = telefono.getByRole('navigation', { name: 'Accesos rápidos' });
+      const billetera = barra.getByRole('link', { name: `Billetera: saldo ${saldo}` });
+      await expect(billetera).toBeVisible();
+      await expect(billetera).toHaveText(saldo);
+      await expect(billetera).toHaveAttribute('href', '/cuenta/billetera');
+      await telefono.getByRole('button', { name: 'Abrir menú' }).click();
+      const enMenu = telefono.getByRole('dialog', { name: 'Menú' }).getByRole('link', {
+        name: /Billetera/,
+      });
+      await expect(enMenu).toBeVisible();
+      await expect(enMenu).toContainText(saldo);
+    } finally {
+      await telefono.context().close();
+    }
   } finally {
     ligar('NULL');
   }

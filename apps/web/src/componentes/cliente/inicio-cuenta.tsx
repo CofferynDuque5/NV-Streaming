@@ -117,6 +117,11 @@ export interface VistaServicio {
   puedeCancelar: boolean;
   admiteCobroAutomatico: boolean;
   accesoId: string | null;
+  /**
+   * Lo gestiona su revendedor y tiene la renovación por pagar: solo se
+   * informa a quién pedírsela (sin botones ni aviso en «Para revisar»).
+   */
+  renovacionPendiente: string | null;
   grupos: Grupo[];
   fin: boolean;
 }
@@ -382,8 +387,14 @@ function TarjetaServicio({
               Volver a contratar
             </Link>
           )}
-          {gestionada && !v.fin && (
+          {gestionada && !v.fin && !v.renovacionPendiente && (
             <span className="text-[0.8rem] text-tinta-tenue">Lo gestiona tu revendedor</span>
+          )}
+          {v.renovacionPendiente && (
+            <span className="flex items-center gap-1.5 text-[0.8rem] text-tinta-suave">
+              <Clock className="size-3.5 shrink-0 text-aviso" aria-hidden="true" />
+              {v.renovacionPendiente}
+            </span>
           )}
           {v.puedeCancelar && (
             <button

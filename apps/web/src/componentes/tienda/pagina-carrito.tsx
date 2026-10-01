@@ -64,6 +64,8 @@ export type CuentaCarrito =
       pendiente: PedidoPublico | null;
       /** Métodos con los que se recarga la billetera (nombres del panel). */
       metodosRecarga: string[];
+      /** Slugs de los servicios que ya tiene activos: no se le sugieren. */
+      contratados: string[];
     }
   | { tipo: 'revendedor' }
   | { tipo: 'equipo'; panel: string }
@@ -169,6 +171,7 @@ export function PaginaCarrito({
         <Sugerencias
           servicios={servicios}
           elegidos={elegidos}
+          contratados={cuenta.tipo === 'cliente' ? cuenta.contratados : []}
           moneda={moneda}
           mayorista={mayorista}
         />
@@ -217,21 +220,24 @@ function CarritoVacio() {
   );
 }
 
-/** Servicios más pedidos que aún no están en el carrito. */
+/** Servicios más pedidos que aún no están en el carrito ni tiene ya activos. */
 function Sugerencias({
   servicios,
   elegidos,
+  contratados,
   moneda,
   mayorista,
 }: {
   servicios: ServicioTienda[];
   elegidos: Elegido[];
+  contratados: string[];
   moneda: Moneda;
   mayorista: MayoristaTienda | null;
 }) {
   const dentro = new Set(elegidos.map((e) => e.item.servicio.id));
+  const activos = new Set(contratados);
   const tarjetas = porPopularidad(servicios)
-    .filter((s) => !dentro.has(s.servicio.id))
+    .filter((s) => !dentro.has(s.servicio.id) && !activos.has(s.servicio.slug))
     .flatMap((s) => {
       const plan = planMasBarato(s.planes, moneda);
       return plan ? [{ s, plan }] : [];
@@ -250,7 +256,7 @@ function Sugerencias({
             </h2>
             <p className="text-sm text-tinta-suave">
               {elegidos.length > 0
-                ? `Lo más pedido que aún no está en tu carrito. Caben hasta ${MAX_CARRITO} planes por pedido.`
+                ? `Lo más pedido que aún no está en tu carrito${activos.size > 0 ? ' ni tienes activo' : ''}. Caben hasta ${MAX_CARRITO} planes por pedido.`
                 : `Los servicios que más se piden en la tienda. Caben hasta ${MAX_CARRITO} planes por pedido.`}
             </p>
           </div>

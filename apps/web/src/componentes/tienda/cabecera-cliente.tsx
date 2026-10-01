@@ -663,6 +663,19 @@ export function CajonMovil({
                 <ChipsMonedas monedas={monedas} actual={moneda} />
               </div>
             )}
+            {sesion?.saldo && sesion.enlaceSaldo && (
+              <Link
+                href={sesion.enlaceSaldo}
+                className="flex items-center gap-3 rounded-2xl border border-borde p-3 hover:border-borde-fuerte"
+              >
+                <Wallet className="size-5 text-violeta" aria-hidden="true" />
+                <span className="grid flex-1">
+                  <b className="text-sm">Billetera</b>
+                  <span className="text-xs text-tinta-tenue">Tu saldo disponible</span>
+                </span>
+                <b className="font-titulo tabular-nums">{sesion.saldo}</b>
+              </Link>
+            )}
             {sesion ? (
               <Link href={sesion.panel} className={clasesBoton('primario', 'lg')}>
                 Ir a mi panel
@@ -686,8 +699,20 @@ export function CajonMovil({
 
 /* ---------------------------------------------------------- barra inferior */
 
-/** Barra de pestañas del teléfono: inicio, catálogo, carrito, billetera y cuenta. */
-export function BarraInferior({ billetera, cuenta }: { billetera: string; cuenta: string }) {
+/**
+ * Barra de pestañas del teléfono: inicio, catálogo, carrito, billetera y cuenta.
+ * Con sesión y billetera, la pestaña de la billetera muestra el saldo (el mismo
+ * que la cabecera lee en el servidor: no hace otra petición).
+ */
+export function BarraInferior({
+  billetera,
+  cuenta,
+  saldo = null,
+}: {
+  billetera: string;
+  cuenta: string;
+  saldo?: string | null;
+}) {
   const ruta = usePathname();
   const { planes } = useCarrito();
   const n = planes.length;
@@ -725,7 +750,16 @@ export function BarraInferior({ billetera, cuenta }: { billetera: string; cuenta
           </em>
         )}
       </button>
-      {enlace(billetera, 'Billetera', Wallet, false)}
+      {saldo ? (
+        <Link href={billetera} aria-label={`Billetera: saldo ${saldo}`} className={clase(false)}>
+          <Wallet className="size-5" aria-hidden="true" />
+          <b className="max-w-full truncate px-0.5 font-semibold text-tinta tabular-nums">
+            {saldo}
+          </b>
+        </Link>
+      ) : (
+        enlace(billetera, 'Billetera', Wallet, false)
+      )}
       {enlace(cuenta, 'Cuenta', User, false)}
     </nav>
   );

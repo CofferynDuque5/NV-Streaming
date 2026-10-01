@@ -1,4 +1,10 @@
-import { type MetodoCobroPublico, serviciosTienda } from '@nv/shared';
+import {
+  type MetodoCobroPublico,
+  type Pagina,
+  serviciosTienda,
+  type SuscripcionPublica,
+} from '@nv/shared';
+import { RUTA_MIS_SUSCRIPCIONES, serviciosContratados } from '@/componentes/tienda/carrito-comun';
 import type { Metadata } from 'next';
 import { Migas } from '@/componentes/tienda/migas';
 import { type CuentaCarrito, PaginaCarrito } from '@/componentes/tienda/pagina-carrito';
@@ -29,9 +35,10 @@ async function cuentaDe(sesion: SesionTienda | null): Promise<CuentaCarrito> {
   if (sesion.rol === 'revendedor') return { tipo: 'revendedor' };
   if (sesion.rol !== 'cliente') return { tipo: 'equipo', panel: sesion.panel };
   try {
-    const [billetera, metodos] = await Promise.all([
+    const [billetera, metodos, suscripciones] = await Promise.all([
       billeteraTienda(),
       leerApi<MetodoCobroPublico[]>('/mi/billetera/metodos-cobro'),
+      leerApi<Pagina<SuscripcionPublica>>(RUTA_MIS_SUSCRIPCIONES),
     ]);
     if (billetera.estado === 401) return { tipo: 'invitado' };
     if (!billetera.datos) return { tipo: 'error' };
@@ -40,6 +47,7 @@ async function cuentaDe(sesion: SesionTienda | null): Promise<CuentaCarrito> {
       saldoUsd: billetera.datos.saldoUsd,
       pendiente: billetera.datos.pedidoPendiente,
       metodosRecarga: sinRepetir((metodos.datos ?? []).map((m) => m.nombre)),
+      contratados: serviciosContratados(suscripciones.datos),
     };
   } catch {
     return { tipo: 'error' };
