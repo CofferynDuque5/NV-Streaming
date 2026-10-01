@@ -363,7 +363,7 @@ function Cabecera({
           </Boton>
           {revendedor ? (
             <Link href="/revendedor/catalogo" className={claseEnlace}>
-              Comprar activación
+              Nueva venta
             </Link>
           ) : (
             <Link href="/catalogo" className={claseEnlace}>
