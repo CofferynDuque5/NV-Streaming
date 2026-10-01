@@ -25,6 +25,7 @@ import { PagosService } from './cobros/pagos.service.js';
 import { FinanzasController } from './dinero/finanzas.controller.js';
 import { MetodosCobroService } from './dinero/metodos-cobro.service.js';
 import { TasasService } from './dinero/tasas.service.js';
+import { CentroService } from './metricas/centro.service.js';
 import { MetricasController } from './metricas/metricas.controller.js';
 import { MetricasService } from './metricas/metricas.service.js';
 import { TicketsController } from './soporte/tickets.controller.js';
@@ -100,6 +101,7 @@ export class AppModule {
         CuponesService,
         TicketsService,
         MetricasService,
+        CentroService,
         ...PROVEEDORES_REVENDEDORES,
         ...PROVEEDORES_BILLETERA,
         ...PROVEEDORES_SITIO,

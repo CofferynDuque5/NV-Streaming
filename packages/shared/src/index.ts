@@ -32,3 +32,4 @@ export * from './categorias.js';
 export * from './contrasenas.js';
 export * from './cupones.js';
 export * from './tienda.js';
+export * from './tipos-equipo.js';

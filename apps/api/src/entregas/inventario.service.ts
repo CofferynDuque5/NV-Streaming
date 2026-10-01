@@ -366,6 +366,20 @@ export class InventarioService implements OnModuleInit {
     });
   }
 
+  /**
+   * Planes activos que se entregan con códigos y tienen menos de `umbral`
+   * disponibles o entregas esperando un código.
+   */
+  async conPocosCodigos(umbral: number): Promise<InventarioPlan[]> {
+    const inventario = await this.resumen();
+    return inventario.filter(
+      (p) =>
+        p.proveedor.adaptador === 'codigos' &&
+        p.plan.activo &&
+        (p.disponibles < umbral || p.pendientes > 0),
+    );
+  }
+
   /** Automatización «Pocos códigos en inventario»: resumen diario al equipo de inventario. */
   async stockBajo(
     config: ConfigAutomatizacion<'stock_bajo_codigos'>,
@@ -373,13 +387,7 @@ export class InventarioService implements OnModuleInit {
   ): Promise<ResultadoTarea> {
     const r = new Recuento();
     const umbral = config.parametros.umbral;
-    const inventario = await this.resumen();
-    const bajos = inventario.filter(
-      (p) =>
-        p.proveedor.adaptador === 'codigos' &&
-        p.plan.activo &&
-        (p.disponibles < umbral || p.pendientes > 0),
-    );
+    const bajos = await this.conPocosCodigos(umbral);
     if (bajos.length === 0) {
       return r.resultado(
         `Todos los planes con códigos tienen al menos ${plural(umbral, 'código', 'códigos')}.`,
