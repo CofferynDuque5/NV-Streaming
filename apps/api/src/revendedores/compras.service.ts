@@ -2,20 +2,20 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Cliente, CompraRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
 import {
   type CatalogoMayorista,
-  type ClienteCartera,
   type ComprarEntrada,
   type CompraPublica,
   inicioDiaVenezuela,
-  type ListarCarteraEntrada,
   type ListarComprasEntrada,
   type Pagina,
+  type RenovarLoteEntrada,
   type ResultadoCompra,
+  type ResultadoRenovacionLote,
   type ResumenRevendedor,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
-import { esUnicoDuplicado, iso } from '../comun/formato.js';
+import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { solicitarRevocacion } from '../entregas/registro.js';
 import { CERO, type Dec, redondear } from '../dinero/dinero.js';
@@ -32,32 +32,10 @@ import {
 } from './libro-mayor.js';
 import { planRevendible } from './niveles.service.js';
 import { compraPublica, INCLUIR_COMPRA } from './presentacion.js';
+import { serviciosRenovables, urgente } from './renovables.js';
 import { inicioMesVenezuela, RevendedoresService } from './revendedores.service.js';
 
 const DIA_MS = 24 * 3600_000;
-
-const INCLUIR_CARTERA = {
-  contactos: { where: { tipo: { in: ['correo', 'whatsapp'] } } },
-  suscripciones: {
-    include: INCLUIR_SUSCRIPCION,
-    orderBy: [{ creadoEn: 'desc' }, { id: 'asc' }],
-  },
-} as const satisfies Prisma.ClienteInclude;
-
-type ClienteConCartera = Prisma.ClienteGetPayload<{ include: typeof INCLUIR_CARTERA }>;
-
-function clienteCartera(c: ClienteConCartera): ClienteCartera {
-  return {
-    id: c.id,
-    nombre: c.nombre,
-    correo: c.contactos.find((k) => k.tipo === 'correo')?.valor ?? null,
-    whatsapp: c.contactos.find((k) => k.tipo === 'whatsapp')?.valor ?? null,
-    documento: c.documento,
-    pais: c.pais,
-    creadoEn: iso(c.creadoEn)!,
-    suscripciones: c.suscripciones.map(suscripcionPublica),
-  };
-}
 
 /**
  * Compras con saldo: el revendedor compra activaciones (altas) o renovaciones
@@ -81,26 +59,37 @@ export class ComprasService {
   async resumen(auth: ContextoAuth, ahora = new Date()): Promise<ResumenRevendedor> {
     const propio = await revendedorPropio(auth, this.prisma);
     const inicioMes = inicioMesVenezuela(ahora);
-    const [revendedor, tasaVes, delMes, hoy, proximos] = await Promise.all([
-      this.revendedores.obtener(propio.id),
-      this.tasas.mapa().then((m) => m.get('VES') ?? null),
-      this.prisma.compraRevendedor.aggregate({
-        where: { revendedorId: propio.id, estado: 'completada', creadoEn: { gte: inicioMes } },
-        _count: { _all: true },
-        _sum: { precioUsd: true },
-      }),
-      this.comprasDeHoy(this.prisma, propio.id, ahora),
-      this.prisma.suscripcion.findMany({
-        where: {
-          cliente: { revendedorId: propio.id },
-          estado: { in: ['activa', 'en_gracia'] },
-          venceEn: { lte: new Date(ahora.getTime() + 7 * DIA_MS) },
-        },
-        include: INCLUIR_SUSCRIPCION,
-        orderBy: { venceEn: 'asc' },
-        take: 8,
-      }),
-    ]);
+    const [revendedor, tasaVes, delMes, hoy, proximos, accesosSinVer, renovables] =
+      await Promise.all([
+        this.revendedores.obtener(propio.id),
+        this.tasas.mapa().then((m) => m.get('VES') ?? null),
+        this.prisma.compraRevendedor.aggregate({
+          where: { revendedorId: propio.id, estado: 'completada', creadoEn: { gte: inicioMes } },
+          _count: { _all: true },
+          _sum: { precioUsd: true },
+        }),
+        this.comprasDeHoy(this.prisma, propio.id, ahora),
+        this.prisma.suscripcion.findMany({
+          where: {
+            cliente: { revendedorId: propio.id },
+            estado: { in: ['activa', 'en_gracia'] },
+            venceEn: { lte: new Date(ahora.getTime() + 7 * DIA_MS) },
+          },
+          include: INCLUIR_SUSCRIPCION,
+          orderBy: { venceEn: 'asc' },
+          take: 8,
+        }),
+        // El mismo alcance que «Accesos de clientes»: sus compras y los clientes de su cartera.
+        this.prisma.entrega.count({
+          where: {
+            OR: [{ revendedorId: propio.id }, { cliente: { revendedorId: propio.id } }],
+            estado: 'entregada',
+            vistaEn: null,
+            datosCifrados: { not: null },
+          },
+        }),
+        serviciosRenovables(this.prisma, propio),
+      ]);
     return {
       revendedor,
       tasaVes: tasaVes?.toFixed(2) ?? null,
@@ -108,6 +97,10 @@ export class ComprasService {
       comprasMes: delMes._count._all,
       gastoMesUsd: (delMes._sum.precioUsd ?? CERO).toFixed(2),
       comprasHoy: hoy,
+      accesosSinVer,
+      renovacionesUrgentes: renovables.filter(
+        (x) => x.servicio.precioUsd !== null && urgente(x.suscripcion, ahora),
+      ).length,
       proximosVencimientos: proximos.map(suscripcionPublica),
     };
   }
@@ -128,7 +121,7 @@ export class ComprasService {
     const planes = await this.prisma.plan.findMany({
       where: { ...planRevendible, preciosMayoristas: { some: { nivelId: nivel.id } } },
       include: {
-        servicio: { select: { id: true, nombre: true } },
+        servicio: { select: { id: true, nombre: true, slug: true, categoria: true } },
         preciosMayoristas: { where: { nivelId: nivel.id } },
       },
       orderBy: [{ orden: 'asc' }, { precioUsd: 'asc' }],
@@ -153,52 +146,6 @@ export class ComprasService {
         };
       }),
     };
-  }
-
-  async cartera(auth: ContextoAuth, filtro: ListarCarteraEntrada): Promise<Pagina<ClienteCartera>> {
-    const r = await revendedorPropio(auth, this.prisma);
-    const where: Prisma.ClienteWhereInput = {
-      revendedorId: r.id,
-      ...(filtro.busqueda
-        ? {
-            OR: [
-              { nombre: { contains: filtro.busqueda, mode: 'insensitive' } },
-              { documento: { contains: filtro.busqueda, mode: 'insensitive' } },
-              {
-                contactos: {
-                  some: { valor: { contains: filtro.busqueda, mode: 'insensitive' } },
-                },
-              },
-            ],
-          }
-        : {}),
-    };
-    const [total, filas] = await this.prisma.$transaction([
-      this.prisma.cliente.count({ where }),
-      this.prisma.cliente.findMany({
-        where,
-        include: INCLUIR_CARTERA,
-        orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
-        skip: (filtro.pagina - 1) * filtro.porPagina,
-        take: filtro.porPagina,
-      }),
-    ]);
-    return {
-      elementos: filas.map(clienteCartera),
-      total,
-      pagina: filtro.pagina,
-      porPagina: filtro.porPagina,
-    };
-  }
-
-  async clienteDeCartera(auth: ContextoAuth, id: string): Promise<ClienteCartera> {
-    const r = await revendedorPropio(auth, this.prisma);
-    const c = await this.prisma.cliente.findFirst({
-      where: { id, revendedorId: r.id },
-      include: INCLUIR_CARTERA,
-    });
-    if (!c) throw Errores.noEncontrado('El cliente');
-    return clienteCartera(c);
   }
 
   async misCompras(auth: ContextoAuth, filtro: ListarComprasEntrada) {
@@ -247,6 +194,157 @@ export class ComprasService {
       return this.resultado(ganadora.id, true);
     }
     return this.resultado(hecho.id, hecho.repetida);
+  }
+
+  /**
+   * Renueva varios servicios de la cartera en una sola transacción: o se
+   * renuevan todos o ninguno. Antes de cobrar comprueba que cada servicio sea
+   * suyo y se pueda renovar, que el saldo alcance para el total y que el
+   * límite diario admita todas las renovaciones; después cobra cada una con la
+   * misma lógica que una renovación suelta. Repetir la clave no cobra otra vez.
+   */
+  async renovarLote(
+    auth: ContextoAuth,
+    e: RenovarLoteEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoRenovacionLote> {
+    const propio = await revendedorPropio(auth, this.prisma);
+    const pedidos = e.suscripcionIds.map((suscripcionId, i) => ({
+      tipo: 'renovacion' as const,
+      suscripcionId,
+      claveIdempotencia: `${e.claveIdempotencia}-${i}`,
+    }));
+    const previas = await this.lotePrevio(this.prisma, propio.id, pedidos);
+    if (previas) return this.resultadoLote(propio.id, previas, true);
+    let hecho: { ids: string[]; repetida: boolean };
+    try {
+      hecho = await this.prisma.$transaction(
+        async (tx) => {
+          const r = await bloquearRevendedor(tx, propio.id);
+          exigirOperativo(r);
+          const repetidas = await this.lotePrevio(tx, r.id, pedidos);
+          if (repetidas) return { ids: repetidas, repetida: true };
+          await this.validarLote(tx, r, e.suscripcionIds);
+          const ids: string[] = [];
+          for (const p of pedidos) ids.push(await this.comprarRenovacion(tx, auth, r, p, cliente));
+          return { ids, repetida: false };
+        },
+        // Cada renovación escribe varias filas: un lote grande necesita más que los 5 s por defecto.
+        { timeout: 60_000 },
+      );
+    } catch (error) {
+      if (!esUnicoDuplicado(error)) throw error;
+      const ganadoras = await this.lotePrevio(this.prisma, propio.id, pedidos);
+      if (!ganadoras) throw error;
+      return this.resultadoLote(propio.id, ganadoras, true);
+    }
+    return this.resultadoLote(propio.id, hecho.ids, hecho.repetida);
+  }
+
+  /** Comprueba todo el lote antes de cobrar la primera renovación. */
+  private async validarLote(tx: Tx, r: Revendedor, ids: string[]) {
+    const encontrados = new Map(
+      (await serviciosRenovables(tx, r, ids)).map((x) => [x.suscripcion.id, x.servicio]),
+    );
+    const ajenos = ids.filter((id) => !encontrados.has(id));
+    if (ajenos.length > 0) {
+      throw new ErrorApp(
+        404,
+        'NO_ENCONTRADO',
+        ajenos.length === 1
+          ? 'Uno de los servicios no está en tu cartera.'
+          : `${ajenos.length} de los servicios no están en tu cartera.`,
+        Object.fromEntries(ajenos.map((id) => [id, ['Este servicio no está en tu cartera.']])),
+      );
+    }
+    const malos = ids.filter((id) => encontrados.get(id)!.precioUsd === null);
+    if (malos.length > 0) {
+      throw new ErrorApp(
+        409,
+        'NO_RENOVABLE',
+        malos.length === 1
+          ? 'Uno de los servicios no se puede renovar ahora. Quítalo e inténtalo de nuevo.'
+          : `${malos.length} de los servicios no se pueden renovar ahora. Quítalos e inténtalo de nuevo.`,
+        Object.fromEntries(
+          malos.map((id) => [
+            id,
+            [encontrados.get(id)!.noRenovable ?? 'Este servicio no se puede renovar.'],
+          ]),
+        ),
+      );
+    }
+    const total = ids.reduce((t, id) => t.add(encontrados.get(id)!.precioUsd!), CERO);
+    if (r.saldoUsd.lt(total)) {
+      throw new ErrorApp(
+        409,
+        'SALDO_INSUFICIENTE',
+        `Tu saldo (${usd(r.saldoUsd)}) no alcanza para renovar ${ids.length === 1 ? 'este servicio' : `estos ${ids.length} servicios`} (${usd(total)}). Te faltan ${usd(total.sub(r.saldoUsd))}.`,
+      );
+    }
+    if (r.limiteDiarioCompras !== null) {
+      const hoy = await this.comprasDeHoy(tx, r.id);
+      const quedan = Math.max(0, r.limiteDiarioCompras - hoy);
+      if (ids.length > quedan) {
+        throw new ErrorApp(
+          409,
+          'LIMITE_DIARIO',
+          quedan === 0
+            ? `Alcanzaste tu límite de ${r.limiteDiarioCompras} ${r.limiteDiarioCompras === 1 ? 'compra' : 'compras'} por día. Podrás renovar de nuevo mañana (hora de Venezuela).`
+            : `Hoy solo te ${quedan === 1 ? 'queda 1 venta' : `quedan ${quedan} ventas`}: elige menos servicios o pide al equipo que amplíe tu límite.`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Compras de un lote ya hecho con esa clave (en su orden), o null si no se
+   * hizo. Si la clave se usó para otros servicios, se rechaza.
+   */
+  private async lotePrevio(
+    tx: Tx | PrismaClient,
+    revendedorId: string,
+    pedidos: Extract<ComprarEntrada, { tipo: 'renovacion' }>[],
+  ): Promise<string[] | null> {
+    const primera = await this.buscarPorClave(tx, revendedorId, pedidos[0]!);
+    if (!primera) return null;
+    const ids = [primera.id];
+    for (const p of pedidos.slice(1)) {
+      const c = await this.buscarPorClave(tx, revendedorId, p);
+      if (!c) {
+        throw new ErrorApp(
+          409,
+          'CLAVE_REUTILIZADA',
+          'Esta renovación ya se usó para otros servicios. Recarga la página e inténtalo de nuevo.',
+        );
+      }
+      ids.push(c.id);
+    }
+    return ids;
+  }
+
+  private async resultadoLote(
+    revendedorId: string,
+    ids: string[],
+    repetida: boolean,
+  ): Promise<ResultadoRenovacionLote> {
+    const [compras, r] = await Promise.all([
+      this.prisma.compraRevendedor.findMany({
+        where: { id: { in: ids } },
+        include: INCLUIR_COMPRA,
+      }),
+      this.prisma.revendedor.findUniqueOrThrow({ where: { id: revendedorId } }),
+    ]);
+    const porId = new Map(compras.map((c) => [c.id, c]));
+    const ordenadas = ids.map((id) => porId.get(id)!);
+    return {
+      saldoUsd: r.saldoUsd.toFixed(2),
+      totalUsd: ordenadas.reduce((t, c) => t.add(c.precioUsd), CERO).toFixed(2),
+      repetida,
+      renovadas: ordenadas.map((c) => ({
+        suscripcionId: c.suscripcionId,
+        compra: compraPublica(c),
+      })),
+    };
   }
 
   private async comprarAlta(

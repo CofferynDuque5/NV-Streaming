@@ -1,14 +1,20 @@
 /** Tipos de respuesta del programa de revendedores (fase 2). */
+import type { CategoriaServicio } from './categorias.js';
 import type { UnidadDuracion } from './esquemas/catalogo.js';
 import type {
   EstadoCompra,
   EstadoRecarga,
   EstadoRevendedor,
+  FiltroCartera,
+  FiltroRenovaciones,
+  FiltroVentas,
+  PeriodoVentas,
   TipoCompra,
   TipoMovimientoSaldo,
 } from './esquemas/revendedores.js';
 import type { Moneda } from './monedas.js';
 import type { Decimal, Referencia, SuscripcionPublica } from './tipos-negocio.js';
+import type { Pagina } from './tipos.js';
 
 export interface NivelPublico {
   id: string;
@@ -94,7 +100,7 @@ export interface MovimientoSaldoPublico {
   saldoResultanteUsd: Decimal;
   motivo: string | null;
   recarga: { id: string; referencia: string } | null;
-  compra: { id: string; plan: string; cliente: string } | null;
+  compra: { id: string; tipo: TipoCompra; plan: string; cliente: string } | null;
   autor: Referencia | null;
   creadoEn: string;
 }
@@ -104,7 +110,14 @@ export interface CompraPublica {
   tipo: TipoCompra;
   estado: EstadoCompra;
   revendedor: Referencia;
-  plan: { id: string; nombre: string; servicio: string };
+  plan: {
+    id: string;
+    nombre: string;
+    servicio: string;
+    /** Slug y universo del servicio: eligen su imagen o su orbe. */
+    servicioSlug: string;
+    categoria: CategoriaServicio | null;
+  };
   cliente: Referencia;
   suscripcion: { id: string; estado: SuscripcionPublica['estado']; venceEn: string | null };
   precioUsd: Decimal;
@@ -124,7 +137,8 @@ export interface PlanMayorista {
   id: string;
   nombre: string;
   descripcion: string | null;
-  servicio: { id: string; nombre: string };
+  /** Slug y universo del servicio: eligen su imagen, su orbe y su filtro. */
+  servicio: { id: string; nombre: string; slug: string; categoria: CategoriaServicio | null };
   duracionCantidad: number;
   duracionUnidad: UnidadDuracion;
   beneficios: string[];
@@ -150,7 +164,22 @@ export interface ResumenRevendedor {
   comprasMes: number;
   gastoMesUsd: Decimal;
   comprasHoy: number;
+  /** Accesos ya entregados a sus clientes que todavía no ha mostrado. */
+  accesosSinVer: number;
+  /** Servicios renovables vencidos, en gracia o que vencen en 7 días o menos. */
+  renovacionesUrgentes: number;
   proximosVencimientos: SuscripcionPublica[];
+}
+
+/** Saldo del revendedor con las cifras de la pantalla «Saldo y recargas». */
+export interface SaldoRevendedor {
+  saldoUsd: Decimal;
+  /** Cuántas recargas hay en cada estado (para los filtros de la lista). */
+  recargasPorEstado: Record<EstadoRecarga, number>;
+  /** Movimientos del libro mayor desde que se abrió la cuenta. */
+  totalMovimientos: number;
+  /** Lo que entró y salió del saldo en los últimos 30 días, en USD (salidas en positivo). */
+  ultimos30Dias: { entradasUsd: Decimal; salidasUsd: Decimal };
 }
 
 export interface ClienteCartera {
@@ -190,4 +219,110 @@ export interface ResumenProgramaRevendedores {
   recargasMesUsd: Decimal;
   saldoTotalUsd: Decimal;
   comprasMes: number;
+}
+
+// ── Ventas, cartera y renovaciones del panel ────────────────────────────────
+
+/**
+ * Una venta del revendedor (una compra con su saldo) con el precio al público
+ * del plan y la ganancia estimada: precio al público de hoy menos lo que pagó.
+ */
+export interface VentaRevendedor extends CompraPublica {
+  precioPublicoUsd: Decimal;
+  /** null si se reembolsó. */
+  gananciaUsd: Decimal | null;
+}
+
+/** Cifras de un conjunto de ventas. Solo las completadas suman en ventas e importes. */
+export interface TotalesVentas {
+  ventas: number;
+  pagadoUsd: Decimal;
+  publicoUsd: Decimal;
+  /** Estimada: precio al público menos lo pagado. */
+  gananciaUsd: Decimal;
+  reembolsadas: number;
+  /** Lo que volvió al saldo por las reembolsadas. */
+  reembolsadoUsd: Decimal;
+}
+
+/** Un día de la serie (fecha de Venezuela, AAAA-MM-DD), solo con ventas completadas. */
+export interface DiaVentas {
+  fecha: string;
+  ventas: number;
+  pagadoUsd: Decimal;
+  gananciaUsd: Decimal;
+}
+
+export interface PlanMasVendido {
+  plan: CompraPublica['plan'];
+  ventas: number;
+  pagadoUsd: Decimal;
+  gananciaUsd: Decimal;
+}
+
+export interface ResumenVentas {
+  periodo: PeriodoVentas;
+  /** Inicio del periodo (medianoche de Venezuela). */
+  desde: string;
+  /** Un elemento por día del periodo, del más antiguo a hoy (también los días sin ventas). */
+  dias: DiaVentas[];
+  totales: TotalesVentas;
+  /** Los 5 planes con más ventas completadas del periodo. */
+  masVendidos: PlanMasVendido[];
+}
+
+/** Ventas del periodo con el filtro elegido, sus cifras y cuántas hay de cada tipo. */
+export interface PaginaVentas extends Pagina<VentaRevendedor> {
+  totales: TotalesVentas;
+  conteos: Record<FiltroVentas, number>;
+}
+
+/** Un cliente de la cartera con sus cifras (tabla «Clientes»). */
+export interface ClienteCarteraFila extends ClienteCartera {
+  /** Ventas completadas al cliente y lo que pagó el revendedor por ellas. */
+  ventas: number;
+  totalCompradoUsd: Decimal;
+  ultimaVentaEn: string | null;
+  /** El servicio activo, en gracia, vencido o suspendido que vence primero. */
+  proximoVencimiento: SuscripcionPublica | null;
+  /** Servicios activos o en gracia. */
+  serviciosActivos: number;
+}
+
+export interface PaginaCartera extends Pagina<ClienteCarteraFila> {
+  /** Clientes de cada filtro (con la búsqueda aplicada). */
+  conteos: Record<'todos' | FiltroCartera, number>;
+}
+
+/** Un servicio de un cliente con el precio de renovarlo en el nivel, o por qué no se puede. */
+export interface ServicioRenovable {
+  suscripcion: SuscripcionPublica;
+  /** Precio mayorista de la renovación; null si no se puede renovar. */
+  precioUsd: Decimal | null;
+  /** Por qué no se renueva (null si se puede o si no aplica, como una cancelada). */
+  noRenovable: string | null;
+}
+
+/** Ficha del cliente: contacto, cifras, servicios con «Renovar» e historial. */
+export interface ClienteCarteraDetalle extends ClienteCarteraFila {
+  servicios: ServicioRenovable[];
+  /** Las ventas más recientes al cliente (hasta 20). */
+  historial: VentaRevendedor[];
+}
+
+/** Servicios que se pueden renovar con el filtro elegido y las cifras de cada filtro. */
+export interface ListaRenovaciones {
+  filtro: FiltroRenovaciones;
+  /** Todos con `precioUsd`, del que vence primero al último. */
+  elementos: ServicioRenovable[];
+  totales: Record<FiltroRenovaciones, { cantidad: number; totalUsd: Decimal }>;
+}
+
+export interface ResultadoRenovacionLote {
+  /** Saldo después de renovar. */
+  saldoUsd: Decimal;
+  totalUsd: Decimal;
+  /** La clave ya se había usado: se devuelve el lote original sin cobrar otra vez. */
+  repetida: boolean;
+  renovadas: { suscripcionId: string; compra: CompraPublica }[];
 }

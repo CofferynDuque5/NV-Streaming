@@ -8,6 +8,7 @@ import type {
   Usuario,
 } from '@nv/db';
 import type {
+  CategoriaServicio,
   CompraPublica,
   MiSolicitudRevendedor,
   MovimientoSaldoPublico,
@@ -114,6 +115,7 @@ export const INCLUIR_MOVIMIENTO = {
   compra: {
     select: {
       id: true,
+      tipo: true,
       plan: { select: { nombre: true, servicio: { select: { nombre: true } } } },
       cliente: { select: { nombre: true } },
     },
@@ -125,6 +127,7 @@ type MovimientoBase = MovimientoSaldo & {
   recarga: { id: string; referencia: string } | null;
   compra: {
     id: string;
+    tipo: CompraRevendedor['tipo'];
     plan: { nombre: string; servicio: { nombre: string } };
     cliente: { nombre: string };
   } | null;
@@ -143,6 +146,7 @@ export function movimientoPublico(m: MovimientoBase, equipo: boolean): Movimient
     compra: m.compra
       ? {
           id: m.compra.id,
+          tipo: m.compra.tipo,
           plan: `${m.compra.plan.servicio.nombre} · ${m.compra.plan.nombre}`,
           cliente: m.compra.cliente.nombre,
         }
@@ -154,14 +158,24 @@ export function movimientoPublico(m: MovimientoBase, equipo: boolean): Movimient
 
 export const INCLUIR_COMPRA = {
   revendedor: { select: { id: true, nombreComercial: true } },
-  plan: { select: { id: true, nombre: true, servicio: { select: { nombre: true } } } },
+  plan: {
+    select: {
+      id: true,
+      nombre: true,
+      servicio: { select: { nombre: true, slug: true, categoria: true } },
+    },
+  },
   cliente: { select: { id: true, nombre: true } },
   suscripcion: { select: { id: true, estado: true, venceEn: true } },
 } as const;
 
 type CompraBase = CompraRevendedor & {
   revendedor: { id: string; nombreComercial: string };
-  plan: { id: string; nombre: string; servicio: { nombre: string } };
+  plan: {
+    id: string;
+    nombre: string;
+    servicio: { nombre: string; slug: string; categoria: CategoriaServicio | null };
+  };
   cliente: Ref;
   suscripcion: { id: string; estado: CompraPublica['suscripcion']['estado']; venceEn: Date | null };
 };
@@ -172,7 +186,13 @@ export function compraPublica(c: CompraBase): CompraPublica {
     tipo: c.tipo,
     estado: c.estado,
     revendedor: { id: c.revendedor.id, nombre: c.revendedor.nombreComercial },
-    plan: { id: c.plan.id, nombre: c.plan.nombre, servicio: c.plan.servicio.nombre },
+    plan: {
+      id: c.plan.id,
+      nombre: c.plan.nombre,
+      servicio: c.plan.servicio.nombre,
+      servicioSlug: c.plan.servicio.slug,
+      categoria: c.plan.servicio.categoria,
+    },
     cliente: c.cliente,
     suscripcion: {
       id: c.suscripcion.id,

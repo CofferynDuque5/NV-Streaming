@@ -148,7 +148,11 @@ export const montoConSignoSchema = z
 export const ajusteSaldoSchema = z.object({ montoUsd: montoConSignoSchema, motivo });
 export type AjusteSaldoEntrada = z.infer<typeof ajusteSaldoSchema>;
 
-export const listarMovimientosSchema = paginacionSchema;
+/** Movimientos del libro mayor, opcionalmente de un solo tipo. */
+export const listarMovimientosSchema = paginacionSchema.extend({
+  tipo: z.enum(TIPOS_MOVIMIENTO_SALDO).optional(),
+});
+export type ListarMovimientosEntrada = z.infer<typeof listarMovimientosSchema>;
 
 // ── Compras ──────────────────────────────────────────────────────────────────
 
@@ -207,10 +211,80 @@ export const listarComprasSchema = paginacionSchema.extend({
 });
 export type ListarComprasEntrada = z.infer<typeof listarComprasSchema>;
 
+/**
+ * Cartera del revendedor. `filtro`: `por_vencer` (algún servicio activo vence
+ * en 7 días o menos) o `atrasados` (alguno en gracia, vencido o suspendido).
+ */
+export const FILTROS_CARTERA = ['por_vencer', 'atrasados'] as const;
+export type FiltroCartera = (typeof FILTROS_CARTERA)[number];
+/**
+ * Orden de la cartera (lo calcula la API sobre toda la cartera, no solo la
+ * página): nombre, próximo vencimiento, total comprado, última venta o
+ * servicios activos. Sin `dir`, los totales y fechas de venta van de mayor a
+ * menor y el resto de menor a mayor.
+ */
+export const ORDENES_CARTERA = ['nombre', 'vence', 'total', 'ultima', 'servicios'] as const;
+export type OrdenCartera = (typeof ORDENES_CARTERA)[number];
 export const listarCarteraSchema = paginacionSchema.extend({
   busqueda: z.string().trim().max(120).optional(),
+  filtro: z.enum(FILTROS_CARTERA).optional(),
+  orden: z.enum(ORDENES_CARTERA).default('nombre'),
+  dir: z.enum(['asc', 'desc']).optional(),
 });
 export type ListarCarteraEntrada = z.infer<typeof listarCarteraSchema>;
+
+// ── Ventas (lo que el revendedor compró con su saldo) ────────────────────────
+
+/** Periodo de las cifras de ventas: hoy (Venezuela), últimos 7 o 30 días. */
+export const PERIODOS_VENTAS = ['hoy', '7', '30'] as const;
+export type PeriodoVentas = (typeof PERIODOS_VENTAS)[number];
+export const resumenVentasSchema = z.object({
+  periodo: z.enum(PERIODOS_VENTAS).default('30'),
+});
+export type ResumenVentasEntrada = z.infer<typeof resumenVentasSchema>;
+
+/** `todas`, solo activaciones (`alta`), solo renovaciones o solo las reembolsadas. */
+export const FILTROS_VENTAS = ['todas', 'alta', 'renovacion', 'reembolsada'] as const;
+export type FiltroVentas = (typeof FILTROS_VENTAS)[number];
+export const listarVentasSchema = paginacionSchema.extend({
+  periodo: z.enum(PERIODOS_VENTAS).default('30'),
+  tipo: z.enum(FILTROS_VENTAS).default('todas'),
+});
+export type ListarVentasEntrada = z.infer<typeof listarVentasSchema>;
+
+// ── Renovaciones ─────────────────────────────────────────────────────────────
+
+/**
+ * `urgentes`: vencidos, en gracia o suspendidos, o que vencen en 7 días o
+ * menos; `atrasados`: solo vencidos, en gracia o suspendidos; `todos`: todo lo
+ * que se puede renovar.
+ */
+export const FILTROS_RENOVACIONES = ['urgentes', 'atrasados', 'todos'] as const;
+export type FiltroRenovaciones = (typeof FILTROS_RENOVACIONES)[number];
+export const listarRenovacionesSchema = z.object({
+  filtro: z.enum(FILTROS_RENOVACIONES).default('urgentes'),
+});
+export type ListarRenovacionesEntrada = z.infer<typeof listarRenovacionesSchema>;
+
+/** Máximo de servicios por renovación en lote. */
+export const MAXIMO_LOTE_RENOVACIONES = 50;
+
+/**
+ * Renueva varios servicios de una vez (todo o nada). La clave es más corta que
+ * la de una compra porque cada renovación usa `<clave>-<posición>`.
+ */
+export const renovarLoteSchema = z.object({
+  suscripcionIds: z
+    .array(uuidSchema, { error: 'Elige los servicios que quieres renovar.' })
+    .min(1, 'Elige al menos un servicio.')
+    .max(MAXIMO_LOTE_RENOVACIONES, `Renueva hasta ${MAXIMO_LOTE_RENOVACIONES} servicios a la vez.`)
+    .refine((ids) => new Set(ids).size === ids.length, 'Un servicio está repetido.'),
+  claveIdempotencia: z
+    .string({ error: 'Falta la clave de la renovación.' })
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{8,56}$/, 'La clave de la renovación no es válida.'),
+});
+export type RenovarLoteEntrada = z.infer<typeof renovarLoteSchema>;
 
 export const reembolsarCompraSchema = z.object({ motivo });
 

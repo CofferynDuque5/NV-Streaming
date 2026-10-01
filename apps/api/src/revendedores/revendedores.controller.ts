@@ -24,14 +24,18 @@ import {
   listarComprasSchema,
   listarMovimientosSchema,
   listarRecargasSchema,
+  listarRenovacionesSchema,
   listarRevendedoresSchema,
+  listarVentasSchema,
   monedaSchema,
   motivoRevendedorSchema,
   nivelRevendedorSchema,
   precioMayoristaSchema,
   rechazarRecargaSchema,
   reembolsarCompraSchema,
+  renovarLoteSchema,
   reportarRecargaSchema,
+  resumenVentasSchema,
   solicitudRevendedorSchema,
   uuidSchema,
 } from '@nv/shared';
@@ -53,6 +57,7 @@ import { ComprasService } from './compras.service.js';
 import { NivelesService } from './niveles.service.js';
 import { RevendedoresService } from './revendedores.service.js';
 import { SaldoService } from './saldo.service.js';
+import { VentasService } from './ventas.service.js';
 
 const idValido = validar(uuidSchema);
 const filtroMetodos = z.object({ moneda: monedaSchema.optional() });
@@ -96,6 +101,7 @@ export class PanelRevendedorController {
     @Inject(ComprasService) private readonly compras: ComprasService,
     @Inject(SaldoService) private readonly saldo: SaldoService,
     @Inject(MetodosCobroService) private readonly metodos: MetodosCobroService,
+    @Inject(VentasService) private readonly ventas: VentasService,
   ) {}
 
   @Get('resumen')
@@ -114,6 +120,13 @@ export class PanelRevendedorController {
   @RequierePermiso('reventa.usar')
   metodosCobro(@Query(validar(filtroMetodos)) filtro: z.output<typeof filtroMetodos>) {
     return this.metodos.listar({ ...filtro, soloActivos: true, tipo: 'manual' });
+  }
+
+  /** Saldo, recargas por estado y cifras de 30 días de la pantalla «Saldo y recargas». */
+  @Get('saldo')
+  @RequierePermiso('reventa.usar')
+  saldoPropio(@Auth() auth: ContextoAuth) {
+    return this.saldo.miSaldo(auth);
   }
 
   @Get('recargas')
@@ -160,6 +173,7 @@ export class PanelRevendedorController {
     return this.saldo.misMovimientos(auth, filtro);
   }
 
+  /** Cartera con sus cifras, filtros y orden calculados en la API. */
   @Get('clientes')
   @RequierePermiso('reventa.usar')
   @DocConsulta(listarCarteraSchema)
@@ -167,13 +181,60 @@ export class PanelRevendedorController {
     @Auth() auth: ContextoAuth,
     @Query(validar(listarCarteraSchema)) filtro: z.output<typeof listarCarteraSchema>,
   ) {
-    return this.compras.cartera(auth, filtro);
+    return this.ventas.cartera(auth, filtro);
   }
 
+  /** Ficha del cliente: contacto, cifras, servicios con su renovación e historial. */
   @Get('clientes/:id')
   @RequierePermiso('reventa.usar')
   cliente(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
-    return this.compras.clienteDeCartera(auth, id);
+    return this.ventas.cliente(auth, id);
+  }
+
+  /** Serie diaria, totales y planes más vendidos de hoy, 7 o 30 días. */
+  @Get('ventas/resumen')
+  @RequierePermiso('reventa.usar')
+  @DocConsulta(resumenVentasSchema)
+  resumenVentas(
+    @Auth() auth: ContextoAuth,
+    @Query(validar(resumenVentasSchema)) filtro: z.output<typeof resumenVentasSchema>,
+  ) {
+    return this.ventas.resumen(auth, filtro.periodo);
+  }
+
+  /** Ventas del periodo por tipo, con lo pagado, el precio al público y la ganancia estimada. */
+  @Get('ventas')
+  @RequierePermiso('reventa.usar')
+  @DocConsulta(listarVentasSchema)
+  listarVentas(
+    @Auth() auth: ContextoAuth,
+    @Query(validar(listarVentasSchema)) filtro: z.output<typeof listarVentasSchema>,
+  ) {
+    return this.ventas.listar(auth, filtro);
+  }
+
+  /** Servicios de la cartera que se pueden renovar, con el precio del nivel. */
+  @Get('renovaciones')
+  @RequierePermiso('reventa.usar')
+  @DocConsulta(listarRenovacionesSchema)
+  renovaciones(
+    @Auth() auth: ContextoAuth,
+    @Query(validar(listarRenovacionesSchema)) filtro: z.output<typeof listarRenovacionesSchema>,
+  ) {
+    return this.ventas.renovaciones(auth, filtro);
+  }
+
+  /** Renueva varios servicios con saldo: todos o ninguno. Repetir la clave no vuelve a cobrar. */
+  @Post('renovaciones/lote')
+  @RequierePermiso('reventa.usar')
+  @HttpCode(200)
+  @DocCuerpo(renovarLoteSchema)
+  renovarLote(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(renovarLoteSchema)) cuerpo: z.output<typeof renovarLoteSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.compras.renovarLote(auth, cuerpo, cliente);
   }
 
   @Get('compras')

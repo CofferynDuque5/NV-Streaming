@@ -4,11 +4,14 @@ import type { Prisma, PrismaClient } from '@nv/db';
 import {
   type AjusteSaldoEntrada,
   type ConfirmarRecargaEntrada,
+  type EstadoRecarga,
+  type ListarMovimientosEntrada,
   type ListarRecargasEntrada,
   type MovimientoSaldoPublico,
   type Pagina,
   type RecargaPublica,
   type ReportarRecargaEntrada,
+  type SaldoRevendedor,
 } from '@nv/shared';
 import { type ArchivoRecibido, AlmacenService } from '../almacen/almacen.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -45,8 +48,6 @@ export function nuevaReferenciaRecarga(): string {
 
 /** Recargas reportadas por revendedor y hora (evita llenar el almacén de archivos). */
 const LIMITE_REPORTES = { maximo: 10, ventanaSegundos: 3600 };
-
-type FiltroPagina = { pagina: number; porPagina: number };
 
 /**
  * Saldo prepagado de los revendedores: recargas manuales con comprobante que
@@ -137,6 +138,46 @@ export class SaldoService {
     return this.cargarRecarga(creada.id, false);
   }
 
+  /** Saldo, recargas por estado y lo que entró y salió en 30 días (pantalla «Saldo y recargas»). */
+  async miSaldo(auth: ContextoAuth): Promise<SaldoRevendedor> {
+    const r = await revendedorPropio(auth, this.prisma);
+    const recientes = {
+      revendedorId: r.id,
+      creadoEn: { gte: new Date(Date.now() - 30 * 24 * 3600_000) },
+    };
+    const [porEstado, totalMovimientos, entradas, salidas] = await Promise.all([
+      this.prisma.recargaSaldo.groupBy({
+        by: ['estado'],
+        where: { revendedorId: r.id },
+        _count: { _all: true },
+      }),
+      this.prisma.movimientoSaldo.count({ where: { revendedorId: r.id } }),
+      this.prisma.movimientoSaldo.aggregate({
+        where: { ...recientes, montoUsd: { gt: 0 } },
+        _sum: { montoUsd: true },
+      }),
+      this.prisma.movimientoSaldo.aggregate({
+        where: { ...recientes, montoUsd: { lt: 0 } },
+        _sum: { montoUsd: true },
+      }),
+    ]);
+    const recargasPorEstado: Record<EstadoRecarga, number> = {
+      en_revision: 0,
+      confirmada: 0,
+      rechazada: 0,
+    };
+    for (const g of porEstado) recargasPorEstado[g.estado] = g._count._all;
+    return {
+      saldoUsd: r.saldoUsd.toFixed(2),
+      recargasPorEstado,
+      totalMovimientos,
+      ultimos30Dias: {
+        entradasUsd: (entradas._sum.montoUsd ?? D(0)).toFixed(2),
+        salidasUsd: (salidas._sum.montoUsd ?? D(0)).abs().toFixed(2),
+      },
+    };
+  }
+
   async misRecargas(auth: ContextoAuth, filtro: ListarRecargasEntrada) {
     const r = await revendedorPropio(auth, this.prisma);
     return this.paginaRecargas({ ...filtro, revendedorId: r.id }, false);
@@ -157,7 +198,7 @@ export class SaldoService {
 
   async misMovimientos(
     auth: ContextoAuth,
-    filtro: FiltroPagina,
+    filtro: ListarMovimientosEntrada,
   ): Promise<Pagina<MovimientoSaldoPublico>> {
     const r = await revendedorPropio(auth, this.prisma);
     return this.paginaMovimientos(r.id, filtro, false);
@@ -281,7 +322,7 @@ export class SaldoService {
     return { archivo: recarga.comprobante, contenido };
   }
 
-  async movimientos(revendedorId: string, filtro: FiltroPagina) {
+  async movimientos(revendedorId: string, filtro: ListarMovimientosEntrada) {
     if (!(await this.prisma.revendedor.findUnique({ where: { id: revendedorId } }))) {
       throw Errores.noEncontrado('El revendedor');
     }
@@ -376,10 +417,10 @@ export class SaldoService {
 
   private async paginaMovimientos(
     revendedorId: string,
-    filtro: FiltroPagina,
+    filtro: ListarMovimientosEntrada,
     equipo: boolean,
   ): Promise<Pagina<MovimientoSaldoPublico>> {
-    const where = { revendedorId };
+    const where = { revendedorId, ...(filtro.tipo ? { tipo: filtro.tipo } : {}) };
     const [total, filas] = await this.prisma.$transaction([
       this.prisma.movimientoSaldo.count({ where }),
       this.prisma.movimientoSaldo.findMany({

@@ -9,6 +9,7 @@ import {
 } from './revendedores.controller.js';
 import { RevendedoresService } from './revendedores.service.js';
 import { SaldoService } from './saldo.service.js';
+import { VentasService } from './ventas.service.js';
 
 /** Controladores y servicios del programa de revendedores, registrados en AppModule. */
 export const CONTROLADORES_REVENDEDORES: Type[] = [
@@ -22,4 +23,5 @@ export const PROVEEDORES_REVENDEDORES: Provider[] = [
   NivelesService,
   SaldoService,
   ComprasService,
+  VentasService,
 ];
