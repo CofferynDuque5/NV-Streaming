@@ -21,10 +21,13 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { ICONOS_MODULO } from '@/componentes/equipo/iconos';
 import { llamarApi } from '@/lib/api-cliente';
 import type { ContadorCuenta, ElementoCuenta, IconoCuenta } from '@/lib/navegacion';
 
 const ICONOS: Record<IconoCuenta, LucideIcon> = {
+  ...ICONOS_MODULO,
+  centro: House,
   servicios: House,
   accesos: Zap,
   facturas: Tag,
@@ -39,7 +42,8 @@ const ICONOS: Record<IconoCuenta, LucideIcon> = {
   clientes: UsersRound,
 };
 
-const QUE_CUENTA: Record<ContadorCuenta, [string, string]> = {
+/** Qué cuenta cada insignia (para lectores de pantalla); los módulos del equipo, sus pendientes. */
+const QUE_CUENTA: Partial<Record<ContadorCuenta, [string, string]>> = {
   accesos: ['acceso listo sin ver', 'accesos listos sin ver'],
   facturas: ['factura por pagar', 'facturas por pagar'],
   soporte: ['respuesta esperando', 'respuestas esperando'],
@@ -48,7 +52,7 @@ const QUE_CUENTA: Record<ContadorCuenta, [string, string]> = {
 };
 
 /** Raíces de cada panel: solo se marcan en su propia página, no en las de dentro. */
-const RAICES = ['/cuenta', '/revendedor'];
+const RAICES = ['/cuenta', '/revendedor', '/admin'];
 
 /**
  * Menú de la cuenta del cliente (y del panel del revendedor). En escritorio es una lista vertical con un
@@ -60,6 +64,8 @@ export function MenuCuenta({
   contadores,
   etiqueta = 'Mi cuenta',
   titulos = [],
+  insigniasAviso = false,
+  soloEscritorio = false,
 }: {
   grupos: ElementoCuenta[][];
   /** Pendientes de cada contador (los que no vienen no se muestran). */
@@ -67,6 +73,10 @@ export function MenuCuenta({
   etiqueta?: string;
   /** Rótulo de cada grupo en escritorio (sin rótulo, se separa con una línea). */
   titulos?: (string | null)[];
+  /** Todas las insignias en ámbar (el equipo: cada una es trabajo por atender). */
+  insigniasAviso?: boolean;
+  /** Sin la fila de pastillas del teléfono (el equipo usa la barra de abajo y el centro). */
+  soloEscritorio?: boolean;
 }) {
   const ruta = usePathname();
   const fila = useRef<HTMLElement>(null);
@@ -88,7 +98,10 @@ export function MenuCuenta({
     <nav
       ref={fila}
       aria-label={etiqueta}
-      className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:-mx-6 sm:px-6 cuenta:mx-0 cuenta:grid cuenta:gap-0.5 cuenta:overflow-visible cuenta:rounded-[1.25rem] cuenta:border cuenta:border-borde cuenta:bg-[rgb(8_11_26/0.7)] cuenta:p-2 [&::-webkit-scrollbar]:hidden"
+      className={clsx(
+        soloEscritorio && 'max-cuenta:hidden',
+        '-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:-mx-6 sm:px-6 cuenta:mx-0 cuenta:grid cuenta:gap-0.5 cuenta:overflow-visible cuenta:rounded-[1.25rem] cuenta:border cuenta:border-borde cuenta:bg-[rgb(8_11_26/0.7)] cuenta:p-2 [&::-webkit-scrollbar]:hidden',
+      )}
     >
       {grupos.map((grupo, i) => (
         <Fragment key={i}>
@@ -124,13 +137,18 @@ export function MenuCuenta({
                   <em
                     className={clsx(
                       'ml-auto rounded-full px-[0.45rem] py-px font-mono text-[0.7rem] font-bold not-italic',
-                      e.contador === 'renovaciones'
+                      insigniasAviso || e.contador === 'renovaciones'
                         ? 'bg-aviso/20 text-[#fde68a]'
                         : 'bg-marca/20 text-[#bcd3ff]',
                     )}
                   >
                     {n}
-                    <span className="sr-only"> {QUE_CUENTA[e.contador!][n === 1 ? 0 : 1]}</span>
+                    <span className="sr-only">
+                      {' '}
+                      {insigniasAviso
+                        ? 'por atender'
+                        : (QUE_CUENTA[e.contador!] ?? ['pendiente', 'pendientes'])[n === 1 ? 0 : 1]}
+                    </span>
                   </em>
                 )}
               </Link>

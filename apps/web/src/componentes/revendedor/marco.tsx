@@ -6,12 +6,10 @@ import { MarcoCuenta } from '@/componentes/panel/marco-cliente';
 import { MenuCuenta } from '@/componentes/panel/menu-cuenta';
 import { MENU_REVENDEDOR, TITULOS_MENU_REVENDEDOR } from '@/lib/navegacion';
 import { iniciales } from '@/componentes/panel/avatar';
+import { claseEnlaceCabecera } from '@/componentes/panel/piezas-marco';
 import { leerResumenRevendedor } from '@/lib/panel-revendedor';
 import { BarraRevendedor } from './barra';
 import { EstadoCuenta, SelloRevendedor, usd } from './panel';
-
-const claseCabecera =
-  'hidden h-10 items-center gap-2 rounded-[0.9rem] border border-borde px-3 text-sm font-semibold whitespace-nowrap text-tinta-suave hover:border-borde-fuerte hover:text-tinta nav:inline-flex';
 
 /**
  * Panel del revendedor con el marco de la cuenta: el sello «Revendedor» junto
@@ -38,12 +36,12 @@ export async function MarcoRevendedor({
       acciones={
         <>
           {r && (
-            <Link href="/revendedor/saldo" className={claseCabecera}>
+            <Link href="/revendedor/saldo" className={claseEnlaceCabecera}>
               <Wallet className="size-4 text-cian" aria-hidden="true" />
               Saldo <b className="text-tinta tabular-nums">{usd(r.saldoUsd)}</b>
             </Link>
           )}
-          <Link href="/" className={claseCabecera}>
+          <Link href="/" className={claseEnlaceCabecera}>
             <Globe className="size-4 text-cian" aria-hidden="true" />
             Ver tienda
           </Link>

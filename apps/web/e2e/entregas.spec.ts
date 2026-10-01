@@ -56,7 +56,10 @@ test('el cliente paga NV Originals, operación completa la entrega y el cliente 
   await expect(pago).toHaveCount(0);
 
   // 3. Operación la completa desde el cajón de detalle: rechaza credenciales.
-  await page.getByRole('link', { name: 'Entregas', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: /^Entregas/ })
+    .first()
+    .click();
   await expect(page.getByRole('heading', { name: 'Entregas', level: 1 })).toBeVisible();
   const fila = page.getByRole('row').filter({ hasText: 'Pase 30 días' });
   await expect(fila.getByText('Pendiente')).toBeVisible();
@@ -147,5 +150,5 @@ test('administración sube un lote de códigos sin volver a verlos', async ({ pa
   await salir(page);
   await entrarEquipo(page, 'operador@nv.test');
   await expect(page.getByRole('link', { name: 'Inventario de códigos' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Entregas', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Entregas/ }).first()).toBeVisible();
 });

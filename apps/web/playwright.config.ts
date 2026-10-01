@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec/,
+        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -44,6 +44,13 @@ export default defineConfig({
       name: 'revendedores',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /revendedores\.spec/,
+    },
+    // Centro de módulos: administración, operación y ventas entran con la verificación en dos
+    // pasos que dejó roles.spec.ts y ven el inicio de su rol (también en el teléfono).
+    {
+      name: 'centro',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /centro\.spec/,
     },
     // Automatizaciones entra con administración y operación ya configuradas por roles.spec.ts.
     {

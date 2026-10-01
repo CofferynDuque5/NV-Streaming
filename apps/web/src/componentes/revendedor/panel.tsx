@@ -14,6 +14,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PildoraEstado } from '@/componentes/cliente/pago';
 import { Aviso, claseEnlace, MiniaturaServicio } from '@/componentes/cliente/piezas-cuenta';
+import { Sello } from '@/componentes/panel/piezas-marco';
 import { BotonEnlace } from '@/componentes/ui/boton';
 
 export const usd = (v: string | number) => formatearMonto(Number(v).toFixed(2), 'USD');
@@ -78,11 +79,7 @@ export function EstadoCuenta({ revendedor: r }: { revendedor: RevendedorDetalle 
 
 /** Sello «Revendedor» junto al logo de la cabecera. */
 export function SelloRevendedor() {
-  return (
-    <span className="inline-flex items-center rounded-full border border-cian/40 bg-cian/[0.08] px-2.5 py-1 text-[0.68rem] font-bold tracking-[0.12em] whitespace-nowrap text-cian uppercase max-sm:px-1.5 max-sm:py-0.5 max-sm:text-[0.6rem] max-sm:tracking-[0.08em]">
-      Revendedor
-    </span>
-  );
+  return <Sello>Revendedor</Sello>;
 }
 
 /**

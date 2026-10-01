@@ -35,7 +35,10 @@ const NOTA_RECHAZADA = 'Nota de prueba que no se debe guardar.';
 test('administración activa el asistente con el motor de pruebas', async ({ page }) => {
   test.setTimeout(120_000);
   await entrar(page, 'admin@nv.test');
-  await page.getByRole('link', { name: 'Asistente', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: /^Asistente/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/\/admin\/asistente$/);
   await expect(page.getByRole('heading', { name: 'Asistente', level: 1 })).toBeVisible();
   await expect(page.getByText('Nunca ejecuta nada sin tu confirmación.')).toBeVisible();
@@ -91,7 +94,10 @@ test('operación consulta, confirma una acción y rechaza otra', async ({ page }
   await page.waitForURL(/\/admin\/clientes\/[0-9a-f-]{36}$/);
   const clienteId = page.url().split('/').pop()!;
 
-  await page.getByRole('link', { name: 'Asistente', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: /^Asistente/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/\/admin\/asistente$/);
   const pestanas = page.getByRole('navigation', { name: 'Vistas del asistente' });
   await expect(pestanas.getByRole('link', { name: 'Configuración' })).toHaveCount(0);
@@ -175,7 +181,10 @@ test('operación consulta, confirma una acción y rechaza otra', async ({ page }
 test('ventas usa el asistente pero no ve su configuración', async ({ page }) => {
   test.setTimeout(120_000);
   await entrar(page, 'ventas@nv.test');
-  await page.getByRole('link', { name: 'Asistente', exact: true }).first().click();
+  await page
+    .getByRole('link', { name: /^Asistente/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/\/admin\/asistente$/);
   const pestanas = page.getByRole('navigation', { name: 'Vistas del asistente' });
   await expect(pestanas.getByRole('link', { name: 'Conversaciones' })).toBeVisible();

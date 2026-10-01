@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Marco } from '@/componentes/panel/marco';
+import { MarcoEquipo } from '@/componentes/equipo/marco';
 import { MarcoCliente } from '@/componentes/panel/marco-cliente';
 import { MarcoRevendedor } from '@/componentes/revendedor/marco';
 import { requerirSesion } from '@/lib/sesion';
@@ -16,5 +16,5 @@ export default async function Layout({ children }: { children: ReactNode }) {
   if (sesion.usuario.rol === 'revendedor') {
     return <MarcoRevendedor sesion={sesion}>{children}</MarcoRevendedor>;
   }
-  return <Marco sesion={sesion}>{children}</Marco>;
+  return <MarcoEquipo sesion={sesion}>{children}</MarcoEquipo>;
 }
