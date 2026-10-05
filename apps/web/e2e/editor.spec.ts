@@ -184,6 +184,9 @@ test('administración crea una página con la ruta validada en vivo y ve el conf
 test('administración crea «Quiénes somos» con la plantilla, escribe su historia y la publica', async ({
   page,
 }) => {
+  // Entra otra vez con administración: el código de dos pasos debe ser de un periodo nuevo
+  // (hasta 30 s de espera tras la prueba anterior) y después recorre el flujo completo.
+  test.setTimeout(90_000);
   const HISTORIA = 'Empezamos NV para que comprar servicios digitales fuera fácil y seguro.';
   const pie = () => page.getByRole('contentinfo');
 
