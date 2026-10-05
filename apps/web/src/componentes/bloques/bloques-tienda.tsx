@@ -373,7 +373,7 @@ export function Canal({ b, contexto }: { b: BloqueDe<'canal'>; contexto: Context
       <SinDatos
         contexto={contexto}
         titulo={b.titulo}
-        motivo="Falta el enlace del canal de WhatsApp (Editor visual → Contacto y redes)."
+        motivo="Falta el enlace del canal de WhatsApp (Sitio y páginas → Contacto y redes)."
       />
     );
   }

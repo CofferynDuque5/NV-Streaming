@@ -1,20 +1,18 @@
-import type { PaginaSitioResumen, TemaSitio } from '@nv/shared';
-import { ChevronRight, FileText } from 'lucide-react';
+import { ETIQUETAS_ROL, type PaginaSitioResumen, type TemaSitio } from '@nv/shared';
+import { ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { EstadoPagina } from '@/componentes/editor/estado-pagina';
-import { ContactoSitioFormulario, NuevaPagina, SelectorTema } from '@/componentes/editor/paginas';
+import {
+  ContactoSitioSeccion,
+  PaginasSitio,
+  PaletaSitioSeccion,
+} from '@/componentes/editor/paginas';
 import { Alerta } from '@/componentes/ui/alerta';
-import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { EstadoVacio } from '@/componentes/ui/estado-vacio';
-import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
-import { haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Editor visual' };
+export const metadata: Metadata = { title: 'Sitio y páginas' };
 
-export default async function EditorVisual() {
+export default async function SitioYPaginas() {
   const sesion = await requerirSesion({ permiso: 'sitio.editar' });
   const puedePublicar = sesion.permisos.includes('sitio.publicar');
   const [{ datos: paginas }, { datos: tema }] = await Promise.all([
@@ -24,85 +22,39 @@ export default async function EditorVisual() {
 
   return (
     <>
-      <CabeceraPagina
-        titulo="Editor visual"
-        descripcion={
-          puedePublicar
-            ? 'Edita las páginas del sitio con bloques, revisa cómo quedan y publícalas. Cada publicación guarda una versión a la que puedes volver.'
-            : 'Edita los borradores de las páginas del sitio. Administración revisa y publica los cambios.'
-        }
-        acciones={<NuevaPagina />}
-      />
-
-      <Tarjeta>
-        <CabeceraTarjeta
-          titulo="Páginas"
-          descripcion="La página «/» es la portada. Las demás se publican en su ruta."
-        />
-        {!paginas ? (
-          <div className="p-5 sm:p-6">
-            <Alerta tono="peligro">No pudimos cargar las páginas. Recarga la página.</Alerta>
-          </div>
-        ) : paginas.length === 0 ? (
-          <EstadoVacio icono={FileText} titulo="Todavía no hay páginas">
-            Crea la primera con «Nueva página».
-          </EstadoVacio>
-        ) : (
-          <ul className="divide-y divide-borde">
-            {paginas.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/admin/sitio/${p.id}`}
-                  aria-label={`Editar ${p.titulo} (${p.ruta})`}
-                  className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-hundida/60 sm:px-6"
-                >
-                  <div className="grid min-w-0 flex-1 gap-1">
-                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="truncate font-medium">{p.titulo}</span>
-                      <span className="font-mono text-xs text-tinta-tenue">{p.ruta}</span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-tinta-tenue">
-                      <EstadoPagina p={p} />
-                      {p.borradorActualizadoEn && (
-                        <span>Borrador guardado {haceCuanto(p.borradorActualizadoEn)}</span>
-                      )}
-                    </span>
-                  </div>
-                  <ChevronRight className="size-4 shrink-0 text-tinta-tenue" aria-hidden="true" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
-
-      <Tarjeta>
-        <CabeceraTarjeta
-          titulo="Tema del sitio"
-          descripcion="Colores de marca y acento del sitio público, dentro de la identidad de NV. Todas las paletas cumplen el contraste mínimo de accesibilidad (WCAG AA)."
-        />
-        <div className="p-5 sm:p-6">
-          {tema ? (
-            <SelectorTema tema={tema} puedeCambiar={puedePublicar} />
-          ) : (
-            <Alerta tono="peligro">No pudimos cargar el tema. Recarga la página.</Alerta>
-          )}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2.5">
+        <div className="grid min-w-0 gap-1">
+          <h1 className="text-[clamp(1.625rem,4.4vw,2.375rem)] break-words">Sitio y páginas</h1>
+          <p className="text-tinta-suave">
+            Las páginas de la tienda, su paleta de colores y tus datos de contacto.
+          </p>
         </div>
-      </Tarjeta>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-borde-fuerte bg-marca/12 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-[#c7d2fe]">
+          <ShieldCheck className="size-3.5" aria-hidden="true" />
+          {ETIQUETAS_ROL[sesion.usuario.rol]}
+        </span>
+      </div>
 
-      <Tarjeta>
-        <CabeceraTarjeta
-          titulo="Contacto y redes"
-          descripcion="WhatsApp, canal, redes y correo que ve el público. Lo que dejes vacío no aparece en el sitio."
-        />
-        <div className="p-5 sm:p-6">
-          {tema ? (
-            <ContactoSitioFormulario contacto={tema.contacto} puedeCambiar={puedePublicar} />
-          ) : (
-            <Alerta tono="peligro">No pudimos cargar el contacto. Recarga la página.</Alerta>
-          )}
-        </div>
-      </Tarjeta>
+      {paginas ? (
+        <PaginasSitio iniciales={paginas} puedePublicar={puedePublicar} />
+      ) : (
+        <Alerta tono="peligro">No pudimos cargar las páginas. Recarga la página.</Alerta>
+      )}
+
+      {tema ? (
+        <>
+          <PaletaSitioSeccion tema={tema} puedeCambiar={puedePublicar} />
+          <ContactoSitioSeccion contacto={tema.contacto} puedeCambiar={puedePublicar} />
+        </>
+      ) : (
+        <Alerta tono="peligro">
+          No pudimos cargar la paleta ni el contacto. Recarga la página.
+        </Alerta>
+      )}
+
+      <p className="text-xs text-tinta-tenue">
+        La cabecera, el pie y los menús de la tienda no se editan aquí.
+      </p>
     </>
   );
 }

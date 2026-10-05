@@ -269,7 +269,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   {
     clave: 'sitio',
     grupo: 'tienda',
-    nombre: 'Editor visual',
+    nombre: 'Sitio y páginas',
     descripcion: 'Portada, páginas y datos de contacto',
     color: '#d946ef',
     href: '/admin/sitio',

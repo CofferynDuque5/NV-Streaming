@@ -160,3 +160,211 @@
     }
   }
 }
+
+/*
+ * Sitio y páginas (/admin/sitio): tabla de páginas (en el teléfono, cada fila es
+ * una tarjeta) y las muestras de las paletas.
+ */
+@layer components {
+  .ed-ruta {
+    min-width: 0;
+    overflow: hidden;
+    color: #a5b4fc;
+    font:
+      600 0.78rem ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Consolas,
+      monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ed-pags {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--nv-borde);
+    border-radius: 1.25rem;
+    background: rgb(10 14 32 / 0.6);
+  }
+  .ed-pag {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.8rem 0.875rem;
+  }
+  .ed-pag + .ed-pag {
+    border-top: 1px solid var(--nv-borde);
+  }
+  .ed-pag-t {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .ed-pag-t b {
+    overflow: hidden;
+    font-size: 0.94rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ed-pag-m {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 0.375rem 0.75rem;
+    min-width: 0;
+  }
+  .ed-pag-g {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+    color: var(--nv-tinta-suave);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .ed-pag-acc {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+  .ed-pag-cab {
+    display: none;
+  }
+  @media (width < 47.5rem) {
+    .ed-pag-t {
+      grid-row: 1;
+      grid-column: 1;
+    }
+    .ed-pag-acc {
+      grid-row: 1;
+      grid-column: 2;
+    }
+    .ed-pag-m {
+      grid-row: 2;
+    }
+  }
+  @media (width >= 47.5rem) {
+    .ed-pag {
+      grid-template-columns: minmax(0, 1.5fr) 11.875rem minmax(0, 1fr) 11.875rem;
+      padding: 0.75rem 1rem;
+    }
+    .ed-pag-m {
+      display: contents;
+    }
+    .ed-pag-cab {
+      display: grid;
+      padding-block: 0.625rem;
+      border-bottom: 1px solid var(--nv-borde-fuerte);
+      color: var(--nv-tinta-tenue);
+      font-size: 0.69rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .ed-pag-cab + .ed-pag {
+      border-top: 0;
+    }
+  }
+
+  .ed-pals {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.625rem;
+  }
+  @media (width >= 40rem) {
+    .ed-pals {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+  .ed-pal {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 0.625rem;
+    min-width: 0;
+    padding: 0.875rem;
+    border: 1px solid var(--nv-borde);
+    border-radius: 1.125rem;
+    background: rgb(10 14 32 / 0.6);
+    color: var(--nv-tinta);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .ed-pal:hover:not(:disabled) {
+    border-color: var(--nv-borde-fuerte);
+  }
+  .ed-pal:disabled {
+    cursor: default;
+  }
+  .ed-pal[aria-checked='true'] {
+    border-color: var(--m-marca);
+    background: color-mix(in srgb, var(--m-marca) 10%, transparent);
+    box-shadow: inset 0 0 0 1px var(--m-marca);
+  }
+  .ed-pal b {
+    overflow: hidden;
+    font-size: 0.9rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ed-pal small {
+    color: var(--nv-tinta-suave);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+  .ed-sw {
+    display: flex;
+    padding-left: 2px;
+  }
+  .ed-sw i {
+    width: 1.875rem;
+    height: 1.875rem;
+    margin-left: -0.5rem;
+    border: 2.5px solid #0a0e20;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 14px -4px var(--c);
+  }
+  .ed-sw i:first-child {
+    margin-left: 0;
+  }
+  .ed-uso {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+  .ed-pal-prev {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.625rem 0.875rem;
+    border: 1px dashed var(--nv-borde-fuerte);
+    border-radius: 1rem;
+  }
+  .ed-pal-grad {
+    background: linear-gradient(95deg, var(--m-acento), var(--m-marca));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font:
+      800 1rem var(--fuente-titulo),
+      sans-serif;
+  }
+  .ed-mues {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--m-desde), var(--m-hasta));
+    color: var(--m-tinta);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
