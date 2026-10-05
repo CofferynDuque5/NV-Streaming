@@ -10,10 +10,14 @@ import {
   esEnlaceSeguro,
   FONDOS_SITIO,
   guardarBorradorSchema,
+  ID_BLOQUE_HISTORIA,
+  IDS_PLANTILLAS,
   MAX_BLOQUES,
   mezcla,
   PALETAS_SITIO,
+  PLANTILLAS_PAGINA,
   RUTA_PAGINA_REGEX,
+  RUTA_QUIENES_SOMOS,
   RUTAS_RESERVADAS,
   rutaPaginaSchema,
 } from '../src/index.js';
@@ -110,6 +114,52 @@ describe('bloques', () => {
       borradorActualizadoEn: new Date().toISOString(),
     });
     expect(r.success).toBe(true);
+  });
+});
+
+describe('plantillas de página', () => {
+  it.each(IDS_PLANTILLAS)('%s: bloques, ruta y datos válidos con el esquema real', (id) => {
+    const p = PLANTILLAS_PAGINA[id];
+    const r = contenidoPaginaSchema.safeParse(p.bloques);
+    expect(r.success, JSON.stringify(r.error?.issues)).toBe(true);
+    // Lo que guarda el esquema es lo mismo que trae la plantilla (sin valores que se pierdan).
+    expect(r.data).toEqual(p.bloques);
+    expect(
+      crearPaginaSchema.safeParse({
+        ruta: p.ruta,
+        titulo: p.titulo,
+        descripcion: p.descripcion,
+        plantilla: id,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('quiénes somos: sin imágenes ni números de WhatsApp inventados', () => {
+    const p = PLANTILLAS_PAGINA['quienes-somos'];
+    expect(p.ruta).toBe(RUTA_QUIENES_SOMOS);
+    expect(p.bloques.map((b) => b.tipo)).not.toContain('imagen');
+    const json = JSON.stringify(p.bloques);
+    expect(json).not.toMatch(/wa\.me|\d{9,}/);
+    expect(json).not.toMatch(/Netflix|Disney|HBO|Spotify/);
+    const portada = p.bloques.find((b) => b.tipo === 'portada');
+    expect(portada?.tipo === 'portada' && portada.botonSecundario?.enlace).toBe(
+      '/cuenta/soporte/nueva',
+    );
+    // El texto resaltado debe estar dentro del título para que la web lo pinte.
+    for (const b of p.bloques) {
+      if (b.tipo === 'portada' && b.destacado) expect(b.titulo).toContain(b.destacado);
+      if (b.tipo === 'panel' && b.resaltado) expect(b.titulo).toContain(b.resaltado);
+    }
+    const historia = p.bloques.find((b) => b.id === ID_BLOQUE_HISTORIA);
+    expect(historia?.tipo).toBe('texto');
+    expect(historia?.tipo === 'texto' && historia.contenido).toMatch(/Nathan y Valeryn/);
+    expect(historia?.tipo === 'texto' && historia.contenido).toMatch(/Borrador/);
+  });
+
+  it('rechaza una plantilla desconocida', () => {
+    expect(
+      crearPaginaSchema.safeParse({ ruta: '/x', titulo: 'X', plantilla: 'contacto' }).success,
+    ).toBe(false);
   });
 });
 

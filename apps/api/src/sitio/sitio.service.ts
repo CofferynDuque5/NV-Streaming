@@ -11,6 +11,7 @@ import {
   type GuardarBorradorEntrada,
   mediosDeBloques,
   PALETA_PREDETERMINADA,
+  PLANTILLAS_PAGINA,
   type PaginaPublicada,
   type PaginaSitioDetalle,
   type PaginaSitioResumen,
@@ -166,6 +167,10 @@ export class SitioService {
     e: CrearPaginaEntrada,
     cliente: InfoCliente,
   ): Promise<PaginaSitioDetalle> {
+    // Con plantilla, el borrador empieza con sus bloques (validados como cualquier borrador).
+    const bloques = e.plantilla
+      ? contenidoPaginaSchema.parse(PLANTILLAS_PAGINA[e.plantilla].bloques)
+      : [];
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const p = await tx.pagina.create({
@@ -173,7 +178,7 @@ export class SitioService {
             ruta: e.ruta,
             titulo: e.titulo,
             descripcion: e.descripcion ?? null,
-            borrador: [],
+            borrador: aJson(bloques),
             borradorActualizadoEn: new Date(),
             borradorPorId: auth.usuario.id,
           },
@@ -184,7 +189,7 @@ export class SitioService {
             accion: 'pagina.creada',
             entidad: 'pagina',
             entidadId: p.id,
-            despues: { ruta: p.ruta, titulo: p.titulo },
+            despues: { ruta: p.ruta, titulo: p.titulo, plantilla: e.plantilla ?? null },
             cliente,
           },
           tx,

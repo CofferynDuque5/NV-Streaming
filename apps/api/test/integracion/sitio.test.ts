@@ -1,3 +1,4 @@
+import { ID_BLOQUE_HISTORIA, PLANTILLAS_PAGINA } from '@nv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { conectar, type Contexto, crearContexto, limpiar, Navegador, PNG_1X1 } from './ayudas.js';
 
@@ -245,6 +246,82 @@ describe('editor visual: borradores y versiones', () => {
     await e.admin.post(`/sitio/paginas/${e.pagina.id}/desarchivar`);
     expect((await ver()).estado).toBe(200);
     expect((await publico.get('/sitio/publico/pagina?ruta=javascript:x')).estado).toBe(400);
+  });
+});
+
+describe('editor visual: plantillas', () => {
+  const plantilla = PLANTILLAS_PAGINA['quienes-somos'];
+  const crear = (n: Navegador, extra: Record<string, unknown> = {}) =>
+    n.post('/sitio/paginas', {
+      ruta: plantilla.ruta,
+      titulo: plantilla.titulo,
+      descripcion: plantilla.descripcion,
+      plantilla: 'quienes-somos',
+      ...extra,
+    });
+
+  it('crea «Quiénes somos» con los bloques de la plantilla como borrador, sin publicarla', async () => {
+    const operador = (await conectar(ctx, 'operador')).n;
+    const admin = (await conectar(ctx, 'admin')).n;
+    const publico = new Navegador(ctx.app, null);
+    const ver = () => publico.get('/sitio/publico/pagina?ruta=/quienes-somos');
+
+    const r = await crear(operador);
+    expect(r.estado).toBe(201);
+    expect(r.cuerpo).toMatchObject({
+      ruta: '/quienes-somos',
+      titulo: 'Quiénes somos',
+      versionPublicada: null,
+      cambiosSinPublicar: true,
+    });
+    expect(r.cuerpo.bloques).toEqual(plantilla.bloques);
+    expect((await ver()).estado).toBe(404);
+
+    // Se reescribe la historia y administración publica.
+    const bloques = structuredClone(plantilla.bloques).map((b) =>
+      b.id === ID_BLOQUE_HISTORIA && b.tipo === 'texto'
+        ? { ...b, contenido: 'Nuestra historia, escrita por nosotros.' }
+        : b,
+    );
+    const g = await admin.pedir('PUT', `/sitio/paginas/${r.cuerpo.id}/borrador`, {
+      titulo: plantilla.titulo,
+      descripcion: plantilla.descripcion,
+      bloques,
+      borradorActualizadoEn: r.cuerpo.borradorActualizadoEn,
+    });
+    expect(g.estado).toBe(200);
+    expect((await admin.post(`/sitio/paginas/${r.cuerpo.id}/publicar`, {})).estado).toBe(200);
+    const pub = await ver();
+    expect(pub.estado).toBe(200);
+    expect(pub.cuerpo).toMatchObject({
+      titulo: 'Quiénes somos',
+      descripcion: plantilla.descripcion,
+    });
+    expect(pub.cuerpo.bloques).toHaveLength(plantilla.bloques.length);
+    expect(pub.cuerpo.bloques[1].contenido).toBe('Nuestra historia, escrita por nosotros.');
+
+    const auditoria = await ctx.prisma.auditoria.findFirst({
+      where: { entidad: 'pagina', entidadId: r.cuerpo.id, accion: 'pagina.creada' },
+    });
+    expect(auditoria?.despues).toMatchObject({ plantilla: 'quienes-somos' });
+  });
+
+  it('sin plantilla empieza vacía; una plantilla desconocida o sin permiso no crea nada', async () => {
+    const admin = (await conectar(ctx, 'admin')).n;
+    const ventas = (await conectar(ctx, 'ventas')).n;
+    const vacia = await admin.post('/sitio/paginas', { ruta: '/vacia', titulo: 'Vacía' });
+    expect(vacia.estado).toBe(201);
+    expect(vacia.cuerpo.bloques).toEqual([]);
+
+    const mala = await crear(admin, { plantilla: 'contacto' });
+    expect(mala.estado).toBe(400);
+    expect(mala.cuerpo.error.campos.plantilla).toBeDefined();
+    expect((await crear(ventas)).estado).toBe(403);
+    expect(await ctx.prisma.pagina.count({ where: { ruta: '/quienes-somos' } })).toBe(0);
+
+    // La ruta sigue siendo única aunque se use la plantilla.
+    expect((await crear(admin)).estado).toBe(201);
+    expect((await crear(admin)).estado).toBe(409);
   });
 });
 

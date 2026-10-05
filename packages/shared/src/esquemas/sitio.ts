@@ -1,6 +1,7 @@
 /** Esquemas del editor visual: bloques, páginas, versiones y tema (fase 2). */
 import { z } from 'zod';
 import { IDS_PALETAS } from '../sitio-paletas.js';
+import { IDS_PLANTILLAS } from '../sitio-plantillas.js';
 import { enlacesDelTexto, esEnlaceSeguro } from '../sitio-texto.js';
 import { CATEGORIAS_SERVICIO } from '../categorias.js';
 import { correoSchema, textoOpcional, uuidSchema } from './comunes.js';
@@ -483,6 +484,8 @@ export const crearPaginaSchema = z.object({
   ruta: rutaPaginaSchema,
   titulo: tituloPagina,
   descripcion: textoOpcional(300),
+  /** Plantilla con la que empieza el borrador (sus bloques); sin ella, la página empieza vacía. */
+  plantilla: z.enum(IDS_PLANTILLAS, { error: 'Elige una plantilla de la lista.' }).optional(),
 });
 export type CrearPaginaEntrada = z.infer<typeof crearPaginaSchema>;
 
@@ -567,3 +570,4 @@ export const CONTACTO_VACIO: ContactoSitio = {
 };
 
 export * from '../sitio-inicio.js';
+export * from '../sitio-plantillas.js';
