@@ -3,13 +3,24 @@
 import {
   type ContactoSitio,
   contactoSitioSchema,
+  IDS_PLANTILLAS,
+  type IdPlantilla,
   type PaginaSitioDetalle,
   type PaginaSitioResumen,
   PALETAS_SITIO,
   type PaletaSitio,
+  PLANTILLAS_PAGINA,
   type TemaSitio,
 } from '@nv/shared';
-import { Check, Clock, Info as IconoInfo, Plus } from 'lucide-react';
+import {
+  Check,
+  Clock,
+  FilePlus2,
+  Info as IconoInfo,
+  type LucideIcon,
+  Plus,
+  Users,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type CSSProperties, type FormEvent, useState } from 'react';
 import { refrescarSitio } from '@/app/(paneles)/admin/sitio/acciones';
@@ -194,7 +205,60 @@ export function PaginasSitio({
   );
 }
 
-/** Nueva página en un panel lateral: título, ruta (se completa sola) y descripción. */
+/** Icono y color de cada plantilla en «Nueva página». */
+const ICONO_PLANTILLA: Record<IdPlantilla, { icono: LucideIcon; color: string }> = {
+  'quienes-somos': { icono: Users, color: '#22d3ee' },
+};
+
+/** Una opción de «Empezar con una plantilla» (radio con el aspecto de la galería de bloques). */
+function OpcionPlantilla({
+  valor,
+  elegida,
+  nombre,
+  detalle,
+  icono: Icono,
+  color,
+  onElegir,
+}: {
+  valor: string;
+  elegida: boolean;
+  nombre: string;
+  detalle: string;
+  icono: LucideIcon;
+  color: string;
+  onElegir: () => void;
+}) {
+  return (
+    <label className="ed-tipo ed-plantilla">
+      <input
+        type="radio"
+        name="nueva-plantilla"
+        value={valor}
+        checked={elegida}
+        onChange={onElegir}
+        className="sr-only"
+      />
+      <span
+        className="orbe orbe-sm size-8.5 text-[0.95rem] after:hidden"
+        style={{ '--c': color } as CSSProperties}
+        aria-hidden="true"
+      >
+        <Icono />
+      </span>
+      <span className="grid min-w-0 flex-1">
+        <b>{nombre}</b>
+        <small>{detalle}</small>
+      </span>
+      <Check className="ed-plantilla-ok size-4 shrink-0 text-cian" aria-hidden="true" />
+    </label>
+  );
+}
+
+/**
+ * Nueva página en un panel lateral: en blanco o con una plantilla (que propone
+ * título, ruta y descripción y crea el borrador con sus bloques), título, ruta
+ * (se completa sola) y descripción.
+ */
 function NuevaPagina({
   abierto,
   onCerrar,
@@ -213,6 +277,7 @@ function NuevaPagina({
   const [tocados, setTocados] = useState<Set<string>>(new Set());
   const [creando, setCreando] = useState(false);
   const [deApi, setDeApi] = useState<Record<string, string>>({});
+  const [plantilla, setPlantilla] = useState<IdPlantilla | null>(null);
 
   const errores: Record<string, string | undefined> = {
     titulo: !titulo.trim() ? 'Escribe el título de la página' : undefined,
@@ -230,7 +295,32 @@ function NuevaPagina({
     setDescripcion('');
     setTocados(new Set());
     setDeApi({});
+    setPlantilla(null);
     onCerrar();
+  }
+
+  /** Elegir una plantilla propone sus datos; volver a «en blanco» quita los que no se tocaron. */
+  function elegirPlantilla(id: IdPlantilla | null) {
+    const antes = plantilla ? PLANTILLAS_PAGINA[plantilla] : null;
+    const nueva = id ? PLANTILLAS_PAGINA[id] : null;
+    setPlantilla(id);
+    setDeApi({});
+    if (nueva) {
+      setTitulo(nueva.titulo);
+      setRuta(nueva.ruta);
+      setRutaAMano(true);
+      setDescripcion(nueva.descripcion);
+      tocar('titulo', 'ruta', 'descripcion');
+      return;
+    }
+    if (!antes) return;
+    if (titulo === antes.titulo) setTitulo('');
+    if (ruta === antes.ruta) {
+      setRuta('');
+      setRutaAMano(false);
+    }
+    if (descripcion === antes.descripcion) setDescripcion('');
+    setTocados(new Set());
   }
 
   async function crear(e: FormEvent<HTMLFormElement>) {
@@ -246,6 +336,7 @@ function NuevaPagina({
       ruta: ruta.trim(),
       titulo: titulo.trim(),
       descripcion: descripcion.trim() || null,
+      ...(plantilla ? { plantilla } : {}),
     });
     if (!r.ok) {
       setCreando(false);
@@ -254,7 +345,11 @@ function NuevaPagina({
       return;
     }
     router.push(`/admin/sitio/${r.datos.id}`);
-    notificar('Página creada como borrador. Añade tu primer bloque.');
+    notificar(
+      plantilla
+        ? `Página creada como borrador con la plantilla ${PLANTILLAS_PAGINA[plantilla].nombre}. Revisa sus textos antes de publicarla.`
+        : 'Página creada como borrador. Añade tu primer bloque.',
+    );
   }
 
   return (
@@ -275,6 +370,44 @@ function NuevaPagina({
       }
     >
       <form id="form-nueva-pagina" onSubmit={crear} noValidate className="grid gap-4">
+        <fieldset className="grid gap-2">
+          <legend className="mb-2 grid gap-0.5">
+            <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
+              Empezar con una plantilla
+            </span>
+            <small className="text-[0.78rem] text-tinta-suave">
+              Opcional. Trae los bloques listos para que solo cambies tus textos
+            </small>
+          </legend>
+          <OpcionPlantilla
+            valor=""
+            elegida={plantilla === null}
+            nombre="Página en blanco"
+            detalle="Empieza vacía y añade tus bloques"
+            icono={FilePlus2}
+            color="#94a3b8"
+            onElegir={() => elegirPlantilla(null)}
+          />
+          {IDS_PLANTILLAS.map((id) => (
+            <OpcionPlantilla
+              key={id}
+              valor={id}
+              elegida={plantilla === id}
+              nombre={PLANTILLAS_PAGINA[id].nombre}
+              detalle={`${PLANTILLAS_PAGINA[id].bloques.length} bloques · ${PLANTILLAS_PAGINA[id].resumen}`}
+              icono={ICONO_PLANTILLA[id].icono}
+              color={ICONO_PLANTILLA[id].color}
+              onElegir={() => elegirPlantilla(id)}
+            />
+          ))}
+          {plantilla === 'quienes-somos' && (
+            <Info icono={<IconoInfo className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}>
+              «Nuestra historia» trae un borrador corto: reescríbelo con tus palabras antes de
+              publicar. «Escríbenos» lleva al formulario de soporte (puedes cambiarlo por el enlace
+              de tu WhatsApp) y, si quieres una foto, añade un bloque Imagen.
+            </Info>
+          )}
+        </fieldset>
         <CampoTexto
           id="nueva-titulo"
           etiqueta="Título"

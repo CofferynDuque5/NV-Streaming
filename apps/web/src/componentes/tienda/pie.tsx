@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { LogoTienda } from '@/componentes/logo';
 import { clasesBoton } from '@/componentes/ui/boton';
+import { EnlacePieActual } from './enlace-pie';
 import type { CategoriaMenu } from './tipos';
 
 const MENSAJE_WHATSAPP = 'Hola, tengo una duda antes de comprar en NV Streaming.';
@@ -57,15 +58,19 @@ function Enlace({ href, children }: { href: string; children: ReactNode }) {
 /**
  * Pie de la tienda. WhatsApp, redes y correo solo aparecen si el equipo los
  * configuró en el editor visual; los métodos de pago salen del panel de cobros.
+ * «Quiénes somos» solo se enlaza cuando esa página está publicada.
  */
 export function PieTienda({
   tema,
   categorias,
   conSesion,
+  quienesSomos = null,
 }: {
   tema: TemaSitioPublico;
   categorias: CategoriaMenu[];
   conSesion: boolean;
+  /** Ruta de «Quiénes somos» si está publicada. */
+  quienesSomos?: string | null;
 }) {
   const { contacto } = tema;
   const whatsapp = contacto.whatsapp ? enlaceWhatsapp(contacto.whatsapp, MENSAJE_WHATSAPP) : null;
@@ -170,6 +175,11 @@ export function PieTienda({
             <Enlace href="/cuenta/revendedor">Revendedores</Enlace>
           </Columna>
           <Columna titulo="Ayuda">
+            {quienesSomos && (
+              <li>
+                <EnlacePieActual href={quienesSomos}>Quiénes somos</EnlacePieActual>
+              </li>
+            )}
             <Enlace href="/cuenta/soporte/nueva">Soporte</Enlace>
             <Enlace href="/terminos">Términos</Enlace>
             <Enlace href="/privacidad">Privacidad</Enlace>

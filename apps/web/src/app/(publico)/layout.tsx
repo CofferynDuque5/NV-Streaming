@@ -1,4 +1,10 @@
-import { BLOQUES_INICIO, cssPaleta, PALETA_PREDETERMINADA, serviciosTienda } from '@nv/shared';
+import {
+  BLOQUES_INICIO,
+  cssPaleta,
+  PALETA_PREDETERMINADA,
+  RUTA_QUIENES_SOMOS,
+  serviciosTienda,
+} from '@nv/shared';
 import type { ReactNode } from 'react';
 import { AyudaFlotante } from '@/componentes/tienda/ayuda-flotante';
 import { CabeceraTienda } from '@/componentes/tienda/cabecera';
@@ -16,13 +22,23 @@ async function anclaPreguntas(): Promise<string | null> {
   return b?.ancla ? `/#${b.ancla}` : null;
 }
 
+/**
+ * Ruta de «Quiénes somos» si está publicada, para el pie. Usa la misma lectura
+ * en caché que la página (se renueva al publicar), no una petición por visita.
+ */
+async function rutaQuienesSomos(): Promise<string | null> {
+  const pagina = await leerPaginaPublicada(RUTA_QUIENES_SOMOS);
+  return pagina ? RUTA_QUIENES_SOMOS : null;
+}
+
 export default async function LayoutPublico({ children }: { children: ReactNode }) {
-  const [tema, catalogo, moneda, sesion, preguntas] = await Promise.all([
+  const [tema, catalogo, moneda, sesion, preguntas, quienesSomos] = await Promise.all([
     leerTemaPublico(),
     catalogoTienda(),
     monedaTienda(),
     sesionTienda(),
     anclaPreguntas(),
+    rutaQuienesSomos(),
   ]);
   const { categorias } = datosMenu(catalogo, moneda);
   return (
@@ -39,7 +55,12 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
       </a>
       <CabeceraTienda />
       <main id="contenido">{children}</main>
-      <PieTienda tema={tema} categorias={categorias} conSesion={sesion !== null} />
+      <PieTienda
+        tema={tema}
+        categorias={categorias}
+        conSesion={sesion !== null}
+        quienesSomos={quienesSomos}
+      />
       <AyudaFlotante
         whatsapp={tema.contacto.whatsapp}
         correo={tema.contacto.correo}

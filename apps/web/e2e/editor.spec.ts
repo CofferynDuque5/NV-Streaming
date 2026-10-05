@@ -181,6 +181,74 @@ test('administración crea una página con la ruta validada en vivo y ve el conf
   await expect(editar(page).getByLabel(/^Título/)).toHaveValue('Cambio de la otra pestaña');
 });
 
+test('administración crea «Quiénes somos» con la plantilla, escribe su historia y la publica', async ({
+  page,
+}) => {
+  const HISTORIA = 'Empezamos NV para que comprar servicios digitales fuera fácil y seguro.';
+  const pie = () => page.getByRole('contentinfo');
+
+  // Sin publicar, el pie no la enlaza y la ruta no existe.
+  await page.goto('/');
+  await expect(pie().getByRole('link', { name: 'Soporte', exact: true })).toBeVisible();
+  await expect(pie().getByRole('link', { name: 'Quiénes somos' })).toHaveCount(0);
+
+  await entrarEquipo(page, 'admin@nv.test');
+  await page.waitForURL(/\/admin$/);
+  await page.goto('/admin/sitio');
+  await page.getByRole('button', { name: 'Nueva página' }).click();
+  const panel = page.getByRole('dialog', { name: 'Nueva página' });
+  const plantillas = panel.getByRole('group', { name: /Empezar con una plantilla/ });
+  await expect(plantillas.getByRole('radio', { name: /Página en blanco/ })).toBeChecked();
+  await plantillas.getByText('Quiénes somos', { exact: true }).click();
+  await expect(plantillas.getByRole('radio', { name: /Quiénes somos/ })).toBeChecked();
+  await expect(panel.getByLabel('Título', { exact: true })).toHaveValue('Quiénes somos');
+  await expect(panel.getByLabel(/Ruta/)).toHaveValue('/quienes-somos');
+  await expect(panel.getByLabel(/Descripción/)).toHaveValue(/^Conoce NV Streaming/);
+  await expect(panel.getByText('Disponible')).toBeVisible();
+  await panel.getByRole('button', { name: 'Crear página' }).click();
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Quiénes somos' })).toBeVisible();
+  await expect(page.getByText(/creada como borrador con la plantilla Quiénes somos/)).toBeVisible();
+  await expect(bloque(page, 'Bloque 9: Llamada')).toBeVisible();
+  const vista = page.getByRole('region', { name: 'Vista previa' });
+  await expect(vista.getByRole('heading', { name: 'Nuestra historia' })).toBeVisible();
+
+  // La historia trae un borrador que hay que reescribir.
+  await bloque(page, 'Bloque 2: Texto').click();
+  const contenido = editar(page).getByLabel(/^Contenido/);
+  await expect(contenido).toHaveValue(/Nathan y Valeryn/);
+  await contenido.fill(`**NV** son las iniciales de **Nathan y Valeryn**.\n\n${HISTORIA}`);
+  await expect(vista.getByText(HISTORIA)).toBeVisible();
+  await page.getByRole('button', { name: 'Guardar borrador' }).click();
+  await expect(page.getByText('Borrador guardado')).toBeVisible();
+  await publicar(page, 'Primera versión de Quiénes somos');
+
+  // Publicada: el pie la enlaza y la página se ve con sus bloques.
+  await page.goto('/');
+  await pie().getByRole('link', { name: 'Quiénes somos' }).click();
+  await page.waitForURL(/\/quienes-somos$/);
+  await expect(page).toHaveTitle('Quiénes somos · NV Streaming');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    'Servicios digitales autorizados para Venezuela',
+  );
+  await expect(page.getByText(HISTORIA)).toBeVisible();
+  await expect(page.getByText(/Borrador: reemplaza este párrafo/)).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Lo que nos importa' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Preguntas sobre NV' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Escríbenos' })).toHaveAttribute(
+    'href',
+    '/cuenta/soporte/nueva',
+  );
+  await expect(pie().getByRole('link', { name: 'Quiénes somos' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    /^Conoce NV Streaming/,
+  );
+});
+
 test('operación guarda borradores pero no publica ni cambia la paleta', async ({ page }) => {
   await entrarEquipo(page, 'operador@nv.test');
   await page.waitForURL((url) => !url.pathname.startsWith('/ingresar'));
