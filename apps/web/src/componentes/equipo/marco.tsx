@@ -35,6 +35,7 @@ export async function MarcoEquipo({
   return (
     <MarcoCuenta
       sello={<Sello>Equipo</Sello>}
+      pantallaCompleta="/admin/sitio/"
       acciones={
         <Link href="/" className={claseEnlaceCabecera}>
           <Globe className="size-4 text-cian" aria-hidden="true" />

@@ -7,8 +7,8 @@ import {
   CATEGORIAS_SERVICIO,
   type CategoriaServicio,
   FONDOS_BLOQUE,
-  INFO_CATEGORIA,
   ICONOS_SITIO,
+  INFO_CATEGORIA,
   type IconoSitio,
   type MedioSitio,
   ORDENES_SERVICIOS,
@@ -16,30 +16,46 @@ import {
   VARIANTES_SERVICIOS,
   VISUALES_PANEL,
 } from '@nv/shared';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import clsx from 'clsx';
+import { ChevronDown, ChevronUp, ImagePlus, Plus, Settings, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Alerta } from '@/componentes/ui/alerta';
-import { Boton } from '@/componentes/ui/boton';
-import { Campo } from '@/componentes/ui/campo';
-import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
-import { SelectorMedio } from './medios';
+import { ICONOS } from '@/componentes/bloques/piezas';
+import { claseEnlace } from '@/componentes/cliente/piezas-cuenta';
+import { Casilla } from '@/componentes/ui/selector';
+import { CampoArea, CampoLista, CampoTexto, claseEnlacePeligro } from './piezas';
 
-type Errores = (ruta: string) => string | undefined;
+/** Opciones de un cambio: el campo (para «Listo» y deshacer) y el aviso con «Deshacer». */
+export interface OpcionesCambio {
+  ruta?: string;
+  /** Escribiendo en un campo: los cambios seguidos se deshacen juntos. */
+  escribiendo?: boolean;
+  aviso?: string;
+}
 
 export interface PropsFormulario<B extends BloqueSitio = BloqueSitio> {
   b: B;
-  cambiar: (parche: Partial<B>) => void;
-  err: Errores;
+  cambiar: (parche: Partial<B>, opciones?: OpcionesCambio) => void;
+  /** Error de un campo del bloque (ruta relativa al bloque, p. ej. «elementos.0.titulo»). */
+  err: (ruta: string) => string | undefined;
+  /** Hay errores en ese campo o dentro de él. */
+  hayError: (prefijo: string) => boolean;
+  /** El campo ya se tocó y cumple lo pedido. */
+  ok: (ruta: string, valor: unknown) => boolean;
   medios: MedioSitio[];
-  onMedioSubido: (m: MedioSitio) => void;
+  /** Abre la biblioteca de imágenes; `alElegir` recibe la imagen elegida o subida. */
+  elegirMedio: (actual: string | null, alElegir: (m: MedioSitio) => void) => void;
   servicios: { slug: string; nombre: string }[];
+  /** Elemento abierto de una lista (beneficios, pasos…). */
+  abierto: (lista: string) => number | null;
+  abrir: (lista: string, i: number | null) => void;
+  rutaPagina: string;
 }
 
 const NOMBRES_ICONO: Record<IconoSitio, string> = {
-  insignia: 'Insignia de verificado',
+  insignia: 'Insignia',
   tarjeta: 'Tarjeta',
   candado: 'Candado',
-  soporte: 'Auriculares (soporte)',
+  soporte: 'Soporte',
   billetera: 'Billetera',
   capas: 'Capas',
   tienda: 'Tienda',
@@ -48,249 +64,183 @@ const NOMBRES_ICONO: Record<IconoSitio, string> = {
   reloj: 'Reloj',
   estrella: 'Estrella',
   corazon: 'Corazón',
-  globo: 'Globo',
+  globo: 'Mundo',
   pantalla: 'Pantalla',
   regalo: 'Regalo',
   personas: 'Personas',
-  mensaje: 'Mensaje',
-  check: 'Marca de verificación',
+  mensaje: 'Chat',
+  check: 'Visto',
 };
 
 const NOMBRES_FONDO: Record<(typeof FONDOS_BLOQUE)[number], string> = {
   normal: 'Normal',
-  suave: 'Suave (franja)',
-  acento: 'Degradado de acento',
+  suave: 'Suave',
+  acento: 'Acento',
 };
 
-const AYUDA_MARCADO =
-  '**negrita**, *cursiva*, listas con «- » o «1. », enlaces [texto](/ruta) o [texto](https://…). Deja una línea en blanco entre párrafos.';
+/* ───────────────────────── campos ───────────────────────── */
 
-/** Campo de texto de una línea: vacío se guarda como «sin valor». */
 function Texto({
+  p,
+  ruta,
   etiqueta,
   valor,
   onCambio,
   max,
-  error,
+  opcional,
   ayuda,
   placeholder,
 }: {
+  p: PropsFormulario;
+  ruta: string;
   etiqueta: string;
   valor: string | null | undefined;
   onCambio: (v: string) => void;
   max: number;
-  error?: string | undefined;
+  opcional?: boolean;
   ayuda?: ReactNode;
   placeholder?: string;
 }) {
   return (
-    <Campo
+    <CampoTexto
       etiqueta={etiqueta}
+      opcional={opcional}
+      max={max}
       value={valor ?? ''}
-      onChange={(e) => onCambio(e.currentTarget.value)}
-      maxLength={max}
-      error={error}
+      error={p.err(ruta)}
+      ok={p.ok(ruta, valor)}
       ayuda={ayuda}
       placeholder={placeholder}
       autoComplete="off"
+      data-campo={ruta}
+      onChange={(e) => onCambio(e.currentTarget.value)}
     />
   );
 }
 
+const AYUDA_MARCADO = (
+  <details className="ed-md">
+    <summary>Cómo dar formato</summary>
+    <ul>
+      <li>
+        <code>**negrita**</code> → <b>negrita</b>
+      </li>
+      <li>
+        <code>*cursiva*</code> → <i>cursiva</i>
+      </li>
+      <li>
+        <code>- elemento</code> o <code>1. elemento</code> al inicio de la línea → lista
+      </li>
+      <li>
+        <code>[texto](/ruta)</code> o <code>[texto](https://…)</code> → enlace
+      </li>
+      <li>Una línea en blanco separa párrafos</li>
+    </ul>
+  </details>
+);
+
 function Area({
+  p,
+  ruta,
   etiqueta,
   valor,
   onCambio,
   max,
-  error,
+  opcional,
   ayuda,
   filas = 3,
+  marcado,
 }: {
+  p: PropsFormulario;
+  ruta: string;
   etiqueta: string;
   valor: string | null | undefined;
   onCambio: (v: string) => void;
   max: number;
-  error?: string | undefined;
+  opcional?: boolean;
   ayuda?: ReactNode;
   filas?: number;
+  marcado?: boolean;
 }) {
   return (
-    <AreaTexto
+    <CampoArea
       etiqueta={etiqueta}
+      opcional={opcional}
+      max={max}
       value={valor ?? ''}
-      onChange={(e) => onCambio(e.currentTarget.value)}
-      maxLength={max}
-      error={error}
+      error={p.err(ruta)}
+      ok={p.ok(ruta, valor)}
       ayuda={ayuda}
       rows={filas}
+      data-campo={ruta}
+      onChange={(e) => onCambio(e.currentTarget.value)}
+      extra={marcado ? AYUDA_MARCADO : undefined}
     />
   );
 }
 
-/** Botón opcional: texto y enlace (ruta interna o https://). */
-function EditorBoton({
+/** Grupo de campos con su título en mayúsculas. */
+function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <fieldset className="ed-grupo">
+      <legend>{titulo}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+/** Botón: texto y enlace. Opcional: si se vacían los dos, no se muestra. */
+function GrupoBoton({
+  p,
+  ruta,
   etiqueta,
   boton,
   onCambio,
-  err,
-  ruta,
   opcional = true,
+  etiquetaTexto = 'Texto del botón',
 }: {
+  p: PropsFormulario;
+  ruta: string;
   etiqueta: string;
   boton: BotonSitio | null | undefined;
-  onCambio: (b: BotonSitio | null) => void;
-  err: Errores;
-  ruta: string;
+  onCambio: (b: BotonSitio | null, ruta: string) => void;
   opcional?: boolean;
+  etiquetaTexto?: string;
 }) {
-  const activo = !!boton;
+  const texto = boton?.texto ?? '';
+  const enlace = boton?.enlace ?? '';
+  const poner = (t: string, e: string, campo: string) =>
+    onCambio(opcional && !t.trim() && !e.trim() ? null : { texto: t, enlace: e }, campo);
   return (
-    <fieldset className="grid gap-3 rounded-xl border border-borde p-3">
-      <legend className="px-1 text-sm font-medium">{etiqueta}</legend>
-      {opcional && (
-        <Casilla
-          etiqueta="Mostrar este botón"
-          checked={activo}
-          onChange={(e) =>
-            onCambio(e.currentTarget.checked ? { texto: 'Ver más', enlace: '/catalogo' } : null)
-          }
-        />
-      )}
-      {activo && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Texto
-            etiqueta="Texto del botón"
-            valor={boton.texto}
-            onCambio={(texto) => onCambio({ ...boton, texto })}
-            max={40}
-            error={err(`${ruta}.texto`)}
-          />
-          <Texto
-            etiqueta="Enlace"
-            valor={boton.enlace}
-            onCambio={(enlace) => onCambio({ ...boton, enlace })}
-            max={300}
-            error={err(`${ruta}.enlace`)}
-            placeholder="/registro o https://…"
-            ayuda="Una ruta del sitio (/catalogo) o una dirección https://."
-          />
-        </div>
-      )}
-    </fieldset>
+    <Grupo titulo={`${etiqueta}${opcional ? ' · opcional' : ''}`}>
+      <Texto
+        p={p}
+        ruta={`${ruta}.texto`}
+        etiqueta={etiquetaTexto}
+        valor={texto}
+        max={40}
+        onCambio={(v) => poner(v, enlace, `${ruta}.texto`)}
+      />
+      <CampoTexto
+        etiqueta="Enlace"
+        max={300}
+        value={enlace}
+        error={p.err(`${ruta}.enlace`)}
+        ok={p.ok(`${ruta}.enlace`, enlace)}
+        ayuda="Una página de la tienda (/…) o una dirección https://"
+        placeholder="/catalogo o https://…"
+        inputMode="url"
+        autoCapitalize="off"
+        spellCheck={false}
+        autoComplete="off"
+        data-campo={`${ruta}.enlace`}
+        onChange={(e) => poner(texto, e.currentTarget.value, `${ruta}.enlace`)}
+      />
+    </Grupo>
   );
 }
 
-/** Lista editable de elementos (beneficios, pasos, testimonios, preguntas). */
-function ListaElementos<T>({
-  titulo,
-  elementos,
-  onCambio,
-  nuevo,
-  maximo,
-  error,
-  nombre,
-  children,
-}: {
-  titulo: string;
-  elementos: T[];
-  onCambio: (e: T[]) => void;
-  nuevo: () => T;
-  maximo: number;
-  error?: string | undefined;
-  nombre: (i: number) => string;
-  children: (e: T, i: number, cambiar: (parche: Partial<T>) => void) => ReactNode;
-}) {
-  const mover = (i: number, d: number) => {
-    const copia = [...elementos];
-    const [e] = copia.splice(i, 1);
-    copia.splice(i + d, 0, e as T);
-    onCambio(copia);
-  };
-  return (
-    <fieldset className="grid gap-3">
-      <legend className="mb-2 text-sm font-medium">{titulo}</legend>
-      {error && <p className="text-xs font-medium text-peligro">{error}</p>}
-      {elementos.map((e, i) => (
-        <div key={i} className="grid gap-3 rounded-xl border border-borde bg-hundida/40 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-              {nombre(i)}
-            </span>
-            <span className="flex gap-1">
-              <BotonIcono
-                etiqueta={`Subir ${nombre(i)}`}
-                onClick={() => mover(i, -1)}
-                disabled={i === 0}
-              >
-                <ArrowUp className="size-4" />
-              </BotonIcono>
-              <BotonIcono
-                etiqueta={`Bajar ${nombre(i)}`}
-                onClick={() => mover(i, 1)}
-                disabled={i === elementos.length - 1}
-              >
-                <ArrowDown className="size-4" />
-              </BotonIcono>
-              <BotonIcono
-                etiqueta={`Quitar ${nombre(i)}`}
-                onClick={() => onCambio(elementos.filter((_, j) => j !== i))}
-                peligro
-              >
-                <Trash2 className="size-4" />
-              </BotonIcono>
-            </span>
-          </div>
-          {children(e, i, (parche) =>
-            onCambio(elementos.map((x, j) => (j === i ? { ...x, ...parche } : x))),
-          )}
-        </div>
-      ))}
-      {elementos.length < maximo && (
-        <Boton
-          variante="secundario"
-          tamano="sm"
-          className="w-fit"
-          icono={<Plus className="size-4" />}
-          onClick={() => onCambio([...elementos, nuevo()])}
-        >
-          Añadir
-        </Boton>
-      )}
-    </fieldset>
-  );
-}
-
-export function BotonIcono({
-  etiqueta,
-  onClick,
-  disabled,
-  peligro,
-  children,
-}: {
-  etiqueta: string;
-  onClick: () => void;
-  disabled?: boolean;
-  peligro?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={etiqueta}
-      title={etiqueta}
-      className={
-        peligro
-          ? 'grid size-8 place-items-center rounded-lg text-tinta-tenue hover:bg-peligro-suave hover:text-peligro disabled:opacity-40'
-          : 'grid size-8 place-items-center rounded-lg text-tinta-tenue hover:bg-hundida hover:text-tinta disabled:pointer-events-none disabled:opacity-40'
-      }
-    >
-      {children}
-    </button>
-  );
-}
-
+/** Encabezado de sección: etiqueta, título y subtítulo. */
 function Encabezado<
   B extends BloqueDe<
     | 'planes'
@@ -303,547 +253,754 @@ function Encabezado<
     | 'ranking'
     | 'metodos-pago'
   >,
->({ b, cambiar, err }: Pick<PropsFormulario<B>, 'b' | 'cambiar' | 'err'>) {
+>({ p }: { p: PropsFormulario<B> }) {
+  const { b } = p;
+  const q = p as unknown as PropsFormulario;
+  const set = (parche: Partial<B>, ruta: string) => p.cambiar(parche, { ruta, escribiendo: true });
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Texto
-          etiqueta="Antetítulo (opcional)"
-          valor={b.etiqueta}
-          onCambio={(etiqueta) => cambiar({ etiqueta } as Partial<B>)}
-          max={60}
-          error={err('etiqueta')}
-        />
-        <Texto
-          etiqueta="Título"
-          valor={b.titulo}
-          onCambio={(titulo) => cambiar({ titulo } as Partial<B>)}
-          max={120}
-          error={err('titulo')}
-        />
-      </div>
-      <Area
-        etiqueta="Texto de introducción (opcional)"
-        valor={b.subtitulo}
-        onCambio={(subtitulo) => cambiar({ subtitulo } as Partial<B>)}
-        max={300}
-        error={err('subtitulo')}
-        filas={2}
+    <Grupo titulo="Encabezado">
+      <Texto
+        p={q}
+        ruta="etiqueta"
+        etiqueta="Etiqueta"
+        opcional
+        valor={b.etiqueta}
+        max={60}
+        ayuda="Texto pequeño sobre el título"
+        onCambio={(etiqueta) => set({ etiqueta } as Partial<B>, 'etiqueta')}
       />
-    </>
+      <Texto
+        p={q}
+        ruta="titulo"
+        etiqueta="Título"
+        valor={b.titulo}
+        max={120}
+        onCambio={(titulo) => set({ titulo } as Partial<B>, 'titulo')}
+      />
+      <Area
+        p={q}
+        ruta="subtitulo"
+        etiqueta="Subtítulo"
+        opcional
+        valor={b.subtitulo}
+        max={300}
+        onCambio={(subtitulo) => set({ subtitulo } as Partial<B>, 'subtitulo')}
+      />
+    </Grupo>
   );
 }
 
-function FormPortada({
-  b,
-  cambiar,
-  err,
-  medios,
-  onMedioSubido,
-}: PropsFormulario<BloqueDe<'portada'>>) {
+/**
+ * Lista de elementos (beneficios, pasos, testimonios, preguntas, puntos): uno
+ * abierto a la vez, con subir, bajar y eliminar (con «Deshacer»).
+ */
+function Lista<T>({
+  p,
+  ruta,
+  titulo,
+  uno,
+  elementos,
+  min,
+  max,
+  nuevo,
+  resumen,
+  onCambio,
+  children,
+}: {
+  p: PropsFormulario;
+  ruta: string;
+  titulo: string;
+  /** Nombre de un elemento: «paso», «pregunta»… */
+  uno: string;
+  elementos: T[];
+  min: number;
+  max: number;
+  nuevo: () => T;
+  resumen: (e: T) => string;
+  onCambio: (lista: T[], opciones?: OpcionesCambio) => void;
+  children: (e: T, i: number, cambiar: (parche: Partial<T>, campo: string) => void) => ReactNode;
+}) {
+  const abierto = p.abierto(ruta);
+  const mover = (i: number, d: number) => {
+    const copia = [...elementos];
+    const [e] = copia.splice(i, 1);
+    copia.splice(i + d, 0, e as T);
+    if (abierto === i) p.abrir(ruta, i + d);
+    else if (abierto === i + d) p.abrir(ruta, i);
+    onCambio(copia);
+  };
+  const error = p.err(ruta);
+  return (
+    <fieldset className="ed-grupo ed-items">
+      <legend>
+        {titulo} · {elementos.length} de {max}
+      </legend>
+      {error && <p className="text-xs font-medium text-peligro">{error}</p>}
+      {elementos.map((e, i) => {
+        const abiertoEste = abierto === i;
+        const mal = p.hayError(`${ruta}.${i}`);
+        return (
+          <div key={i} className={clsx('ed-item', abiertoEste && 'abierto', mal && 'mal')}>
+            <div className="ed-item-cab">
+              <button
+                type="button"
+                className="ed-item-t"
+                aria-expanded={abiertoEste}
+                onClick={() => p.abrir(ruta, abiertoEste ? null : i)}
+              >
+                <em>{i + 1}</em>
+                <span>{resumen(e) || 'Sin completar'}</span>
+                {mal && <span className="ed-rev">Revisar</span>}
+                <ChevronDown className="ed-item-flecha" aria-hidden="true" />
+              </button>
+              <div className="ed-mov">
+                <button
+                  type="button"
+                  aria-label={`Subir ${uno} ${i + 1}`}
+                  disabled={i === 0}
+                  onClick={() => mover(i, -1)}
+                >
+                  <ChevronUp aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Bajar ${uno} ${i + 1}`}
+                  disabled={i === elementos.length - 1}
+                  onClick={() => mover(i, 1)}
+                >
+                  <ChevronDown aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Eliminar ${uno} ${i + 1}`}
+                  disabled={elementos.length <= min}
+                  onClick={() => {
+                    if (abierto === i) p.abrir(ruta, null);
+                    else if (abierto !== null && abierto > i) p.abrir(ruta, abierto - 1);
+                    onCambio(
+                      elementos.filter((_, j) => j !== i),
+                      { aviso: `Eliminaste ${uno === 'pregunta' ? 'la' : 'el'} ${uno} ${i + 1}` },
+                    );
+                  }}
+                >
+                  <Trash2 aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            {abiertoEste && (
+              <div className="ed-item-cuerpo">
+                {children(e, i, (parche, campo) =>
+                  onCambio(
+                    elementos.map((x, j) =>
+                      j === i ? (typeof x === 'object' ? { ...x, ...parche } : (parche as T)) : x,
+                    ),
+                    { ruta: `${ruta}.${i}${campo ? `.${campo}` : ''}`, escribiendo: true },
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        className="ed-mas-item"
+        disabled={elementos.length >= max}
+        onClick={() => {
+          onCambio([...elementos, nuevo()]);
+          p.abrir(ruta, elementos.length);
+        }}
+      >
+        <Plus className="size-4" aria-hidden="true" />
+        {elementos.length >= max ? `Máximo ${max}` : `Añadir ${uno}`}
+      </button>
+    </fieldset>
+  );
+}
+
+/** Imagen de la biblioteca: la elegida (cambiar o quitar) o el botón para elegir una. */
+function CampoMedio({
+  p,
+  ruta,
+  etiqueta,
+  medioId,
+  opcional,
+  ayuda,
+  onElegir,
+  onQuitar,
+}: {
+  p: PropsFormulario;
+  ruta: string;
+  etiqueta: string;
+  medioId: string | null | undefined;
+  opcional?: boolean;
+  ayuda?: string;
+  onElegir: (m: MedioSitio) => void;
+  onQuitar?: () => void;
+}) {
+  const m = medioId ? p.medios.find((x) => x.id === medioId) : undefined;
+  const error = p.err(ruta);
+  return (
+    <div className={clsx('grid min-w-0 gap-1.5', error && 'mal')}>
+      <span className="text-[0.82rem] font-semibold">
+        {etiqueta}
+        {opcional && (
+          <i className="ml-1 text-xs font-medium text-tinta-tenue not-italic">opcional</i>
+        )}
+      </span>
+      {m ? (
+        <div className="ed-medio">
+          <img src={m.url} alt="" />
+          <div>
+            <b>{m.nombre}</b>
+            <span>{m.textoAlternativo}</span>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className={claseEnlace}
+                onClick={() => p.elegirMedio(medioId ?? null, onElegir)}
+              >
+                Cambiar
+              </button>
+              {onQuitar && (
+                <button type="button" className={claseEnlacePeligro} onClick={onQuitar}>
+                  Quitar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={clsx('ed-elegir', error && 'mal')}
+          data-campo={ruta}
+          onClick={() => p.elegirMedio(medioId ?? null, onElegir)}
+        >
+          <ImagePlus aria-hidden="true" />
+          <span>
+            <b>Elegir imagen</b>
+            <small>De la biblioteca o sube una nueva</small>
+          </span>
+        </button>
+      )}
+      {error ? (
+        <p className="text-xs font-medium text-peligro">Elige una imagen de la biblioteca</p>
+      ) : (
+        ayuda && <p className="text-xs text-tinta-tenue">{ayuda}</p>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── formularios por tipo ───────────────────────── */
+
+type P<T extends BloqueSitio['tipo']> = { p: PropsFormulario<BloqueDe<T>> };
+const comun = <B extends BloqueSitio>(p: PropsFormulario<B>) => p as unknown as PropsFormulario;
+/** Cambio de un campo de texto: guarda la ruta y agrupa lo que se escribe seguido. */
+const escribir = <B extends BloqueSitio>(p: PropsFormulario<B>, parche: Partial<B>, ruta: string) =>
+  p.cambiar(parche, { ruta, escribiendo: true });
+
+function FormPortada({ p }: P<'portada'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
     <>
       <Texto
-        etiqueta="Etiqueta sobre el título (opcional)"
+        p={q}
+        ruta="etiqueta"
+        etiqueta="Etiqueta"
+        opcional
         valor={b.etiqueta}
-        onCambio={(etiqueta) => cambiar({ etiqueta })}
         max={60}
-        error={err('etiqueta')}
+        ayuda="Texto pequeño sobre el título"
+        onCambio={(etiqueta) => escribir(p, { etiqueta }, 'etiqueta')}
       />
       <Texto
+        p={q}
+        ruta="titulo"
         etiqueta="Título"
         valor={b.titulo}
-        onCambio={(titulo) => cambiar({ titulo })}
         max={120}
-        error={err('titulo')}
+        onCambio={(titulo) => escribir(p, { titulo }, 'titulo')}
       />
       <Texto
-        etiqueta="Parte del título resaltada (opcional)"
+        p={q}
+        ruta="destacado"
+        etiqueta="Texto destacado"
+        opcional
         valor={b.destacado}
-        onCambio={(destacado) => cambiar({ destacado })}
         max={60}
-        error={err('destacado')}
-        ayuda="Escribe exactamente las palabras del título que quieres en el color de la marca."
+        ayuda="Las palabras del título que se ven con degradado"
+        onCambio={(destacado) => escribir(p, { destacado }, 'destacado')}
       />
       <Area
-        etiqueta="Subtítulo (opcional)"
+        p={q}
+        ruta="subtitulo"
+        etiqueta="Subtítulo"
+        opcional
         valor={b.subtitulo}
-        onCambio={(subtitulo) => cambiar({ subtitulo })}
         max={300}
-        error={err('subtitulo')}
+        onCambio={(subtitulo) => escribir(p, { subtitulo }, 'subtitulo')}
       />
-      <EditorBoton
+      <GrupoBoton
+        p={q}
+        ruta="botonPrimario"
         etiqueta="Botón principal"
         boton={b.botonPrimario}
-        onCambio={(botonPrimario) => cambiar({ botonPrimario })}
-        err={err}
-        ruta="botonPrimario"
+        onCambio={(botonPrimario, ruta) => escribir(p, { botonPrimario }, ruta)}
       />
-      <EditorBoton
-        etiqueta="Botón secundario"
-        boton={b.botonSecundario}
-        onCambio={(botonSecundario) => cambiar({ botonSecundario })}
-        err={err}
+      <GrupoBoton
+        p={q}
         ruta="botonSecundario"
+        etiqueta="Enlace secundario"
+        boton={b.botonSecundario}
+        etiquetaTexto="Texto del enlace"
+        onCambio={(botonSecundario, ruta) => escribir(p, { botonSecundario }, ruta)}
       />
-      <fieldset className="grid gap-3 rounded-xl border border-borde p-3">
-        <legend className="px-1 text-sm font-medium">Imagen (opcional)</legend>
-        <SelectorMedio
-          medios={medios}
-          seleccionado={b.imagen?.medioId}
-          onSubido={onMedioSubido}
-          onElegir={(m) =>
-            cambiar({ imagen: { medioId: m.id, alt: b.imagen?.alt || m.textoAlternativo } })
+      <CampoMedio
+        p={q}
+        ruta="imagen.medioId"
+        etiqueta="Imagen"
+        opcional
+        medioId={b.imagen?.medioId}
+        ayuda="Sin imagen se usa la ilustración"
+        onElegir={(m) =>
+          p.cambiar(
+            { imagen: { medioId: m.id, alt: b.imagen?.alt || m.textoAlternativo } },
+            { ruta: 'imagen.medioId' },
+          )
+        }
+        onQuitar={() => p.cambiar({ imagen: null }, { ruta: 'imagen.medioId' })}
+      />
+      {b.imagen ? (
+        <Texto
+          p={q}
+          ruta="imagen.alt"
+          etiqueta="Texto alternativo"
+          valor={b.imagen.alt}
+          max={200}
+          ayuda="Describe la imagen para quien no la ve"
+          onCambio={(alt) =>
+            escribir(p, { imagen: { medioId: b.imagen!.medioId, alt } }, 'imagen.alt')
           }
         />
-        {b.imagen && (
-          <>
-            <Texto
-              etiqueta="Texto alternativo"
-              valor={b.imagen.alt}
-              onCambio={(alt) => cambiar({ imagen: { medioId: b.imagen!.medioId, alt } })}
-              max={200}
-              error={err('imagen.alt')}
-            />
-            <Boton
-              variante="fantasma"
-              tamano="sm"
-              className="w-fit"
-              onClick={() => cambiar({ imagen: null })}
-            >
-              Quitar imagen
-            </Boton>
-          </>
-        )}
-        {!b.imagen && (
-          <Casilla
-            etiqueta="Mostrar el portal de servicios"
-            ayuda="Un anillo con las tarjetas de los servicios más pedidos del catálogo. Si no, el texto se centra."
-            checked={b.ilustracion}
-            onChange={(e) => cambiar({ ilustracion: e.currentTarget.checked })}
-          />
-        )}
-      </fieldset>
-    </>
-  );
-}
-
-function FormPlanes(p: PropsFormulario<BloqueDe<'planes'>>) {
-  const { b, cambiar, err, servicios } = p;
-  return (
-    <>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <Selector
-        etiqueta="Servicio"
-        value={b.servicio ?? ''}
-        onChange={(e) => cambiar({ servicio: e.currentTarget.value || null })}
-        error={err('servicio')}
-        ayuda="Muestra los planes reales del catálogo, con su precio en la moneda de quien visita."
-      >
-        <option value="">Todo el catálogo</option>
-        {servicios.map((s) => (
-          <option key={s.slug} value={s.slug}>
-            {s.nombre}
-          </option>
-        ))}
-        {b.servicio && !servicios.some((s) => s.slug === b.servicio) && (
-          <option value={b.servicio}>{b.servicio} (sin planes visibles)</option>
-        )}
-      </Selector>
-    </>
-  );
-}
-
-function FormBeneficios(p: PropsFormulario<BloqueDe<'beneficios'>>) {
-  const { b, cambiar, err } = p;
-  return (
-    <>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <Selector
-        etiqueta="Diseño"
-        value={b.variante}
-        onChange={(e) =>
-          cambiar({ variante: e.currentTarget.value as 'tarjetas' | 'lista' | 'compacta' })
-        }
-      >
-        <option value="tarjetas">Tarjetas en cuadrícula</option>
-        <option value="lista">Texto a un lado y lista al otro</option>
-        <option value="compacta">Franja compacta (bajo la portada)</option>
-      </Selector>
-      <EditorBoton
-        etiqueta="Botón (opcional)"
-        boton={b.boton}
-        onCambio={(boton) => cambiar({ boton })}
-        err={err}
-        ruta="boton"
-      />
-      <ListaElementos
-        titulo="Beneficios"
-        elementos={b.elementos}
-        onCambio={(elementos) => cambiar({ elementos })}
-        nuevo={() => ({ icono: 'check' as IconoSitio, titulo: '', texto: '' })}
-        maximo={12}
-        error={err('elementos')}
-        nombre={(i) => `Beneficio ${i + 1}`}
-      >
-        {(e, i, set) => (
-          <>
-            <Selector
-              etiqueta="Icono"
-              value={e.icono}
-              onChange={(ev) => set({ icono: ev.currentTarget.value as IconoSitio })}
-            >
-              {ICONOS_SITIO.map((ic) => (
-                <option key={ic} value={ic}>
-                  {NOMBRES_ICONO[ic]}
-                </option>
-              ))}
-            </Selector>
-            <Texto
-              etiqueta="Título"
-              valor={e.titulo}
-              onCambio={(titulo) => set({ titulo })}
-              max={80}
-              error={err(`elementos.${i}.titulo`)}
-            />
-            <Area
-              etiqueta="Texto"
-              valor={e.texto}
-              onCambio={(texto) => set({ texto })}
-              max={300}
-              error={err(`elementos.${i}.texto`)}
-              filas={2}
-            />
-          </>
-        )}
-      </ListaElementos>
-    </>
-  );
-}
-
-function FormPasos(p: PropsFormulario<BloqueDe<'pasos'>>) {
-  const { b, cambiar, err } = p;
-  return (
-    <>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <ListaElementos
-        titulo="Pasos"
-        elementos={b.elementos}
-        onCambio={(elementos) => cambiar({ elementos })}
-        nuevo={() => ({ titulo: '', texto: '' })}
-        maximo={8}
-        error={err('elementos')}
-        nombre={(i) => `Paso ${i + 1}`}
-      >
-        {(e, i, set) => (
-          <>
-            <Texto
-              etiqueta="Título"
-              valor={e.titulo}
-              onCambio={(titulo) => set({ titulo })}
-              max={80}
-              error={err(`elementos.${i}.titulo`)}
-            />
-            <Area
-              etiqueta="Texto"
-              valor={e.texto}
-              onCambio={(texto) => set({ texto })}
-              max={300}
-              error={err(`elementos.${i}.texto`)}
-              filas={2}
-            />
-          </>
-        )}
-      </ListaElementos>
-    </>
-  );
-}
-
-function FormTestimonios(p: PropsFormulario<BloqueDe<'testimonios'>>) {
-  const { b, cambiar, err } = p;
-  return (
-    <>
-      <Alerta tono="aviso" titulo="Solo testimonios reales">
-        Publica únicamente opiniones que un cliente te haya dado de verdad y que haya autorizado a
-        mostrar, con su nombre tal como aceptó. Nunca inventes testimonios ni los adornes.
-      </Alerta>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <ListaElementos
-        titulo="Testimonios"
-        elementos={b.elementos}
-        onCambio={(elementos) => cambiar({ elementos })}
-        nuevo={() => ({ cita: '', autor: '', detalle: null })}
-        maximo={12}
-        error={err('elementos')}
-        nombre={(i) => `Testimonio ${i + 1}`}
-      >
-        {(e, i, set) => (
-          <>
-            <Area
-              etiqueta="Lo que dijo (textual)"
-              valor={e.cita}
-              onCambio={(cita) => set({ cita })}
-              max={500}
-              error={err(`elementos.${i}.cita`)}
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Texto
-                etiqueta="Nombre"
-                valor={e.autor}
-                onCambio={(autor) => set({ autor })}
-                max={80}
-                error={err(`elementos.${i}.autor`)}
-              />
-              <Texto
-                etiqueta="Detalle (opcional)"
-                valor={e.detalle}
-                onCambio={(detalle) => set({ detalle })}
-                max={80}
-                placeholder="Cliente desde 2026"
-                error={err(`elementos.${i}.detalle`)}
-              />
-            </div>
-          </>
-        )}
-      </ListaElementos>
-    </>
-  );
-}
-
-function FormPreguntas(p: PropsFormulario<BloqueDe<'preguntas'>>) {
-  const { b, cambiar, err } = p;
-  return (
-    <>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <ListaElementos
-        titulo="Preguntas"
-        elementos={b.elementos}
-        onCambio={(elementos) => cambiar({ elementos })}
-        nuevo={() => ({ pregunta: '', respuesta: '' })}
-        maximo={30}
-        error={err('elementos')}
-        nombre={(i) => `Pregunta ${i + 1}`}
-      >
-        {(e, i, set) => (
-          <>
-            <Texto
-              etiqueta="Pregunta"
-              valor={e.pregunta}
-              onCambio={(pregunta) => set({ pregunta })}
-              max={200}
-              error={err(`elementos.${i}.pregunta`)}
-            />
-            <Area
-              etiqueta="Respuesta"
-              valor={e.respuesta}
-              onCambio={(respuesta) => set({ respuesta })}
-              max={2000}
-              error={err(`elementos.${i}.respuesta`)}
-              ayuda={AYUDA_MARCADO}
-            />
-          </>
-        )}
-      </ListaElementos>
-    </>
-  );
-}
-
-function FormLlamada({ b, cambiar, err }: PropsFormulario<BloqueDe<'llamada'>>) {
-  return (
-    <>
-      <Texto
-        etiqueta="Título"
-        valor={b.titulo}
-        onCambio={(titulo) => cambiar({ titulo })}
-        max={120}
-        error={err('titulo')}
-      />
-      <Area
-        etiqueta="Texto (opcional)"
-        valor={b.texto}
-        onCambio={(texto) => cambiar({ texto })}
-        max={300}
-        error={err('texto')}
-        filas={2}
-      />
-      <EditorBoton
-        etiqueta="Botón"
-        boton={b.boton}
-        onCambio={(boton) => cambiar({ boton: boton ?? { texto: '', enlace: '' } })}
-        err={err}
-        ruta="boton"
-        opcional={false}
-      />
-      <EditorBoton
-        etiqueta="Botón secundario"
-        boton={b.botonSecundario}
-        onCambio={(botonSecundario) => cambiar({ botonSecundario })}
-        err={err}
-        ruta="botonSecundario"
-      />
-    </>
-  );
-}
-
-function FormTexto({ b, cambiar, err }: PropsFormulario<BloqueDe<'texto'>>) {
-  return (
-    <>
-      <Texto
-        etiqueta="Título (opcional)"
-        valor={b.titulo}
-        onCambio={(titulo) => cambiar({ titulo })}
-        max={120}
-        error={err('titulo')}
-      />
-      <Area
-        etiqueta="Texto"
-        valor={b.contenido}
-        onCambio={(contenido) => cambiar({ contenido })}
-        max={5000}
-        error={err('contenido')}
-        ayuda={AYUDA_MARCADO}
-        filas={8}
-      />
-    </>
-  );
-}
-
-function FormImagen({
-  b,
-  cambiar,
-  err,
-  medios,
-  onMedioSubido,
-}: PropsFormulario<BloqueDe<'imagen'>>) {
-  return (
-    <>
-      <div className="grid gap-1.5">
-        <span className="text-sm font-medium">Imagen</span>
-        <SelectorMedio
-          medios={medios}
-          seleccionado={b.medioId}
-          onSubido={onMedioSubido}
-          onElegir={(m) => cambiar({ medioId: m.id, alt: b.alt || m.textoAlternativo })}
+      ) : (
+        <Casilla
+          etiqueta="Mostrar la ilustración del portal"
+          ayuda="Un anillo con las tarjetas de los servicios más pedidos. Sin ella, el texto se centra."
+          checked={b.ilustracion}
+          onChange={(e) => p.cambiar({ ilustracion: e.currentTarget.checked })}
         />
-        {err('medioId') && <p className="text-xs font-medium text-peligro">Elige una imagen.</p>}
-      </div>
+      )}
+    </>
+  );
+}
+
+function FormTexto({ p }: P<'texto'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
       <Texto
+        p={q}
+        ruta="titulo"
+        etiqueta="Título"
+        opcional
+        valor={b.titulo}
+        max={120}
+        onCambio={(titulo) => escribir(p, { titulo }, 'titulo')}
+      />
+      <Area
+        p={q}
+        ruta="contenido"
+        etiqueta="Contenido"
+        valor={b.contenido}
+        max={5000}
+        filas={8}
+        marcado
+        onCambio={(contenido) => escribir(p, { contenido }, 'contenido')}
+      />
+    </>
+  );
+}
+
+function FormImagen({ p }: P<'imagen'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <CampoMedio
+        p={q}
+        ruta="medioId"
+        etiqueta="Imagen"
+        medioId={b.medioId}
+        onElegir={(m) =>
+          p.cambiar({ medioId: m.id, alt: b.alt || m.textoAlternativo }, { ruta: 'medioId' })
+        }
+      />
+      <Texto
+        p={q}
+        ruta="alt"
         etiqueta="Texto alternativo"
         valor={b.alt}
-        onCambio={(alt) => cambiar({ alt })}
         max={200}
-        error={err('alt')}
-        ayuda="Obligatorio. Describe lo que se ve."
+        ayuda="Describe la imagen para quien no la ve"
+        onCambio={(alt) => escribir(p, { alt }, 'alt')}
       />
       <Texto
-        etiqueta="Pie de foto (opcional)"
+        p={q}
+        ruta="leyenda"
+        etiqueta="Leyenda"
+        opcional
         valor={b.leyenda}
-        onCambio={(leyenda) => cambiar({ leyenda })}
         max={200}
-        error={err('leyenda')}
+        onCambio={(leyenda) => escribir(p, { leyenda }, 'leyenda')}
       />
-      <Selector
+      <CampoLista
         etiqueta="Proporción"
         value={b.proporcion}
+        ayuda="La imagen se recorta a esta proporción"
         onChange={(e) =>
-          cambiar({ proporcion: e.currentTarget.value as BloqueDe<'imagen'>['proporcion'] })
+          p.cambiar({ proporcion: e.currentTarget.value as BloqueDe<'imagen'>['proporcion'] })
         }
-        ayuda="La imagen se recorta a esta proporción para que la página no salte al cargar."
       >
-        {PROPORCIONES_IMAGEN.map((p) => (
-          <option key={p} value={p}>
-            {p}
+        {PROPORCIONES_IMAGEN.map((x) => (
+          <option key={x} value={x}>
+            {
+              {
+                '16:9': 'Panorámica 16:9',
+                '4:3': 'Clásica 4:3',
+                '1:1': 'Cuadrada 1:1',
+                '21:9': 'Cine 21:9',
+              }[x]
+            }
           </option>
         ))}
-      </Selector>
+      </CampoLista>
     </>
   );
 }
 
-function FormBanner({ b, cambiar, err }: PropsFormulario<BloqueDe<'banner'>>) {
+function SelectorIcono({
+  valor,
+  onCambio,
+}: {
+  valor: IconoSitio;
+  onCambio: (v: IconoSitio) => void;
+}) {
+  return (
+    <div className="grid gap-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[0.82rem] font-semibold">Ícono</span>
+        <span className="text-[0.72rem] font-semibold text-tinta-tenue">
+          {NOMBRES_ICONO[valor]}
+        </span>
+      </div>
+      <div className="ed-iconos" role="radiogroup" aria-label="Ícono">
+        {ICONOS_SITIO.map((ic) => {
+          const Icono = ICONOS[ic];
+          return (
+            <button
+              key={ic}
+              type="button"
+              role="radio"
+              aria-checked={ic === valor}
+              aria-label={NOMBRES_ICONO[ic]}
+              title={NOMBRES_ICONO[ic]}
+              onClick={() => onCambio(ic)}
+            >
+              <Icono aria-hidden="true" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FormBeneficios({ p }: P<'beneficios'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <Encabezado p={p} />
+      <CampoLista
+        etiqueta="Estilo"
+        value={b.variante}
+        onChange={(e) =>
+          p.cambiar({ variante: e.currentTarget.value as BloqueDe<'beneficios'>['variante'] })
+        }
+      >
+        <option value="tarjetas">Tarjetas</option>
+        <option value="lista">Lista</option>
+        <option value="compacta">Compacta (bajo la portada)</option>
+      </CampoLista>
+      <Lista
+        p={q}
+        ruta="elementos"
+        titulo="Beneficios"
+        uno="beneficio"
+        elementos={b.elementos}
+        min={1}
+        max={12}
+        nuevo={() => ({ icono: 'check' as IconoSitio, titulo: '', texto: '' })}
+        resumen={(e) => e.titulo}
+        onCambio={(elementos, o) => p.cambiar({ elementos }, o)}
+      >
+        {(e, i, set) => (
+          <>
+            <SelectorIcono valor={e.icono} onCambio={(icono) => set({ icono }, 'icono')} />
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.titulo`}
+              etiqueta="Título"
+              valor={e.titulo}
+              max={80}
+              onCambio={(titulo) => set({ titulo }, 'titulo')}
+            />
+            <Area
+              p={q}
+              ruta={`elementos.${i}.texto`}
+              etiqueta="Texto"
+              valor={e.texto}
+              max={300}
+              filas={2}
+              onCambio={(texto) => set({ texto }, 'texto')}
+            />
+          </>
+        )}
+      </Lista>
+      <GrupoBoton
+        p={q}
+        ruta="boton"
+        etiqueta="Botón"
+        boton={b.boton}
+        onCambio={(boton, ruta) => escribir(p, { boton }, ruta)}
+      />
+    </>
+  );
+}
+
+function FormPasos({ p }: P<'pasos'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <Encabezado p={p} />
+      <Lista
+        p={q}
+        ruta="elementos"
+        titulo="Pasos"
+        uno="paso"
+        elementos={b.elementos}
+        min={1}
+        max={8}
+        nuevo={() => ({ titulo: '', texto: '' })}
+        resumen={(e) => e.titulo}
+        onCambio={(elementos, o) => p.cambiar({ elementos }, o)}
+      >
+        {(e, i, set) => (
+          <>
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.titulo`}
+              etiqueta="Título"
+              valor={e.titulo}
+              max={80}
+              onCambio={(titulo) => set({ titulo }, 'titulo')}
+            />
+            <Area
+              p={q}
+              ruta={`elementos.${i}.texto`}
+              etiqueta="Texto"
+              valor={e.texto}
+              max={300}
+              filas={2}
+              onCambio={(texto) => set({ texto }, 'texto')}
+            />
+          </>
+        )}
+      </Lista>
+    </>
+  );
+}
+
+function FormTestimonios({ p }: P<'testimonios'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <Encabezado p={p} />
+      <Lista
+        p={q}
+        ruta="elementos"
+        titulo="Testimonios"
+        uno="testimonio"
+        elementos={b.elementos}
+        min={1}
+        max={12}
+        nuevo={() => ({ cita: '', autor: '', detalle: null })}
+        resumen={(e) => e.autor}
+        onCambio={(elementos, o) => p.cambiar({ elementos }, o)}
+      >
+        {(e, i, set) => (
+          <>
+            <Area
+              p={q}
+              ruta={`elementos.${i}.cita`}
+              etiqueta="Opinión"
+              valor={e.cita}
+              max={500}
+              ayuda="Tal como la dijo el cliente"
+              onCambio={(cita) => set({ cita }, 'cita')}
+            />
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.autor`}
+              etiqueta="Nombre del cliente"
+              valor={e.autor}
+              max={80}
+              onCambio={(autor) => set({ autor }, 'autor')}
+            />
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.detalle`}
+              etiqueta="Detalle"
+              opcional
+              valor={e.detalle}
+              max={80}
+              ayuda="Por ejemplo, el servicio que compró"
+              onCambio={(detalle) => set({ detalle }, 'detalle')}
+            />
+          </>
+        )}
+      </Lista>
+    </>
+  );
+}
+
+function FormPreguntas({ p }: P<'preguntas'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <Encabezado p={p} />
+      <Lista
+        p={q}
+        ruta="elementos"
+        titulo="Preguntas"
+        uno="pregunta"
+        elementos={b.elementos}
+        min={1}
+        max={30}
+        nuevo={() => ({ pregunta: '', respuesta: '' })}
+        resumen={(e) => e.pregunta}
+        onCambio={(elementos, o) => p.cambiar({ elementos }, o)}
+      >
+        {(e, i, set) => (
+          <>
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.pregunta`}
+              etiqueta="Pregunta"
+              valor={e.pregunta}
+              max={200}
+              onCambio={(pregunta) => set({ pregunta }, 'pregunta')}
+            />
+            <Area
+              p={q}
+              ruta={`elementos.${i}.respuesta`}
+              etiqueta="Respuesta"
+              valor={e.respuesta}
+              max={2000}
+              marcado
+              onCambio={(respuesta) => set({ respuesta }, 'respuesta')}
+            />
+          </>
+        )}
+      </Lista>
+    </>
+  );
+}
+
+function FormLlamada({ p }: P<'llamada'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
     <>
       <Texto
-        etiqueta="Aviso"
-        valor={b.texto}
-        onCambio={(texto) => cambiar({ texto })}
-        max={200}
-        error={err('texto')}
+        p={q}
+        ruta="titulo"
+        etiqueta="Título"
+        valor={b.titulo}
+        max={120}
+        onCambio={(titulo) => escribir(p, { titulo }, 'titulo')}
       />
-      <Selector
-        etiqueta="Tono"
-        value={b.tono}
-        onChange={(e) => cambiar({ tono: e.currentTarget.value as BloqueDe<'banner'>['tono'] })}
-      >
-        <option value="info">Informativo</option>
-        <option value="exito">Positivo</option>
-        <option value="aviso">Advertencia</option>
-      </Selector>
-      <EditorBoton
-        etiqueta="Enlace (opcional)"
-        boton={b.enlace}
-        onCambio={(enlace) => cambiar({ enlace })}
-        err={err}
-        ruta="enlace"
+      <Area
+        p={q}
+        ruta="texto"
+        etiqueta="Texto"
+        opcional
+        valor={b.texto}
+        max={300}
+        filas={2}
+        onCambio={(texto) => escribir(p, { texto }, 'texto')}
+      />
+      <GrupoBoton
+        p={q}
+        ruta="boton"
+        etiqueta="Botón"
+        boton={b.boton}
+        opcional={false}
+        onCambio={(boton, ruta) => escribir(p, { boton: boton ?? { texto: '', enlace: '' } }, ruta)}
+      />
+      <GrupoBoton
+        p={q}
+        ruta="botonSecundario"
+        etiqueta="Enlace secundario"
+        boton={b.botonSecundario}
+        etiquetaTexto="Texto del enlace"
+        onCambio={(botonSecundario, ruta) => escribir(p, { botonSecundario }, ruta)}
       />
     </>
   );
 }
 
-/** Opciones comunes: ancla para enlazar a la sección y fondo. */
-function Opciones({ b, cambiar, err }: Pick<PropsFormulario, 'b' | 'cambiar' | 'err'>) {
+function FormBanner({ p }: P<'banner'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
-    <details className="rounded-xl border border-borde px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium text-tinta-suave">
-        Más opciones
-      </summary>
-      <div className="grid gap-3 py-3 sm:grid-cols-2">
-        <Texto
-          etiqueta="Ancla (opcional)"
-          valor={b.ancla}
-          onCambio={(ancla) => cambiar({ ancla })}
-          max={40}
-          error={err('ancla')}
-          placeholder="como-funciona"
-          ayuda="Permite enlazar a esta sección con /ruta#ancla."
-        />
-        <Selector
-          etiqueta="Fondo"
-          value={b.fondo}
-          onChange={(e) =>
-            cambiar({ fondo: e.currentTarget.value as (typeof FONDOS_BLOQUE)[number] })
-          }
-        >
-          {FONDOS_BLOQUE.map((f) => (
-            <option key={f} value={f}>
-              {NOMBRES_FONDO[f]}
-            </option>
-          ))}
-        </Selector>
-      </div>
-    </details>
+    <>
+      <Area
+        p={q}
+        ruta="texto"
+        etiqueta="Texto"
+        valor={b.texto}
+        max={200}
+        filas={2}
+        onCambio={(texto) => escribir(p, { texto }, 'texto')}
+      />
+      <CampoLista
+        etiqueta="Tono"
+        value={b.tono}
+        onChange={(e) => p.cambiar({ tono: e.currentTarget.value as BloqueDe<'banner'>['tono'] })}
+      >
+        <option value="info">Información</option>
+        <option value="exito">Éxito</option>
+        <option value="aviso">Aviso</option>
+      </CampoLista>
+      <GrupoBoton
+        p={q}
+        ruta="enlace"
+        etiqueta="Enlace"
+        boton={b.enlace}
+        etiquetaTexto="Texto del enlace"
+        onCambio={(enlace, ruta) => escribir(p, { enlace }, ruta)}
+      />
+    </>
   );
 }
-
-/* ------------------------------------------------ bloques de la tienda */
-
-const NOMBRES_VARIANTE_SERVICIOS: Record<(typeof VARIANTES_SERVICIOS)[number], string> = {
-  rejilla: 'Cuadrícula de tarjetas',
-  carril: 'Fila que se desliza',
-  tira: 'Tira de imágenes (sin precios)',
-};
-
-const NOMBRES_ORDEN: Record<(typeof ORDENES_SERVICIOS)[number], string> = {
-  recomendados: 'Recomendados (lo más pedido primero)',
-  menor: 'Precio: de menor a mayor',
-  az: 'Nombre: de la A a la Z',
-};
-
-const NOMBRES_VISUAL: Record<(typeof VISUALES_PANEL)[number], string> = {
-  ninguno: 'Sin visual (botón a un lado)',
-  billetera: 'Tarjeta de la Billetera NV',
-  universo: 'Tarjetas de los servicios de un universo',
-};
 
 function SelectorUniverso({
   valor,
@@ -859,12 +1016,12 @@ function SelectorUniverso({
   ayuda?: string;
 }) {
   return (
-    <Selector
+    <CampoLista
       etiqueta="Universo"
       value={valor ?? ''}
-      onChange={(e) => onCambio((e.currentTarget.value || null) as CategoriaServicio | null)}
       error={error}
       ayuda={ayuda}
+      onChange={(e) => onCambio((e.currentTarget.value || null) as CategoriaServicio | null)}
     >
       <option value="">{todos}</option>
       {CATEGORIAS_SERVICIO.map((c) => (
@@ -872,323 +1029,405 @@ function SelectorUniverso({
           {INFO_CATEGORIA[c].nombre}
         </option>
       ))}
-    </Selector>
+    </CampoLista>
   );
 }
 
-function AvisoDatosReales({ children }: { children: ReactNode }) {
-  return <Alerta tono="info">{children}</Alerta>;
-}
-
-function FormUniversos({ b, cambiar, err }: PropsFormulario<BloqueDe<'universos'>>) {
+function Numero({
+  p,
+  ruta,
+  etiqueta,
+  valor,
+  min,
+  max,
+  onCambio,
+}: {
+  p: PropsFormulario;
+  ruta: string;
+  etiqueta: string;
+  valor: number;
+  min: number;
+  max: number;
+  onCambio: (v: number) => void;
+}) {
   return (
-    <>
-      <AvisoDatosReales>
-        Muestra los universos que tienen servicios en el catálogo, con cuántos tiene cada uno.
-      </AvisoDatosReales>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-    </>
+    <CampoTexto
+      etiqueta={etiqueta}
+      type="number"
+      inputMode="numeric"
+      min={min}
+      max={max}
+      value={Number.isFinite(valor) ? String(valor) : ''}
+      error={p.err(ruta)}
+      ayuda={`De ${min} a ${max}`}
+      data-campo={ruta}
+      onChange={(e) =>
+        onCambio(
+          e.currentTarget.value === '' ? Number.NaN : Math.round(Number(e.currentTarget.value)),
+        )
+      }
+    />
   );
 }
 
-function FormServicios({ b, cambiar, err }: PropsFormulario<BloqueDe<'servicios'>>) {
+const NOMBRES_VARIANTE: Record<(typeof VARIANTES_SERVICIOS)[number], string> = {
+  rejilla: 'Cuadrícula',
+  carril: 'Carril deslizable',
+  tira: 'Tira de imágenes (sin precios)',
+};
+const NOMBRES_ORDEN: Record<(typeof ORDENES_SERVICIOS)[number], string> = {
+  recomendados: 'Recomendados',
+  menor: 'Menor precio',
+  az: 'De la A a la Z',
+};
+const NOMBRES_VISUAL: Record<(typeof VISUALES_PANEL)[number], string> = {
+  ninguno: 'Sin visual',
+  billetera: 'Tarjeta de la Billetera NV',
+  universo: 'Tarjetas de un universo',
+};
+
+function FormServicios({ p }: P<'servicios'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
     <>
-      <AvisoDatosReales>
-        Tarjetas reales del catálogo con el precio desde en la moneda de quien visita y el botón del
-        carrito.
-      </AvisoDatosReales>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Selector
-          etiqueta="Diseño"
-          value={b.variante}
-          onChange={(e) =>
-            cambiar({
-              variante: e.currentTarget.value as (typeof VARIANTES_SERVICIOS)[number],
-            })
-          }
-        >
-          {VARIANTES_SERVICIOS.map((v) => (
-            <option key={v} value={v}>
-              {NOMBRES_VARIANTE_SERVICIOS[v]}
-            </option>
-          ))}
-        </Selector>
-        <Selector
-          etiqueta="Orden"
-          value={b.orden}
-          onChange={(e) =>
-            cambiar({ orden: e.currentTarget.value as (typeof ORDENES_SERVICIOS)[number] })
-          }
-        >
-          {ORDENES_SERVICIOS.map((o) => (
-            <option key={o} value={o}>
-              {NOMBRES_ORDEN[o]}
-            </option>
-          ))}
-        </Selector>
-        <SelectorUniverso
-          valor={b.categoria}
-          onCambio={(categoria) => cambiar({ categoria })}
-          error={err('categoria')}
-          todos="Todos los universos"
-        />
-        <Campo
-          etiqueta="Cuántos servicios"
-          type="number"
-          min={1}
-          max={24}
-          value={String(b.limite)}
-          onChange={(e) => cambiar({ limite: Number(e.currentTarget.value) })}
-          error={err('limite')}
-        />
-      </div>
+      <Encabezado p={p} />
+      <CampoLista
+        etiqueta="Estilo"
+        value={b.variante}
+        onChange={(e) =>
+          p.cambiar({ variante: e.currentTarget.value as (typeof VARIANTES_SERVICIOS)[number] })
+        }
+      >
+        {VARIANTES_SERVICIOS.map((v) => (
+          <option key={v} value={v}>
+            {NOMBRES_VARIANTE[v]}
+          </option>
+        ))}
+      </CampoLista>
+      <SelectorUniverso
+        valor={b.categoria}
+        todos="Todos los universos"
+        error={p.err('categoria')}
+        onCambio={(categoria) => p.cambiar({ categoria })}
+      />
+      <CampoLista
+        etiqueta="Orden"
+        value={b.orden}
+        onChange={(e) =>
+          p.cambiar({ orden: e.currentTarget.value as (typeof ORDENES_SERVICIOS)[number] })
+        }
+      >
+        {ORDENES_SERVICIOS.map((o) => (
+          <option key={o} value={o}>
+            {NOMBRES_ORDEN[o]}
+          </option>
+        ))}
+      </CampoLista>
+      <Numero
+        p={q}
+        ruta="limite"
+        etiqueta="Cuántos mostrar"
+        valor={b.limite}
+        min={1}
+        max={24}
+        onCambio={(limite) => escribir(p, { limite }, 'limite')}
+      />
       {b.variante === 'rejilla' && (
         <Casilla
-          etiqueta="Chips para filtrar por universo"
+          etiqueta="Mostrar filtros por universo"
           checked={b.filtros}
-          onChange={(e) => cambiar({ filtros: e.currentTarget.checked })}
+          onChange={(e) => p.cambiar({ filtros: e.currentTarget.checked })}
         />
       )}
     </>
   );
 }
 
-function FormRanking({ b, cambiar, err }: PropsFormulario<BloqueDe<'ranking'>>) {
+function FormPlanes({ p }: P<'planes'>) {
+  const { b, servicios } = p;
   return (
     <>
-      <AvisoDatosReales>
-        Ordena los servicios por activaciones y renovaciones de los últimos 30 días. Si no hubo
-        ninguna, el bloque no se muestra.
-      </AvisoDatosReales>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-      <Campo
-        etiqueta="Cuántos servicios"
-        type="number"
+      <Encabezado p={p} />
+      <CampoLista
+        etiqueta="Servicio"
+        value={b.servicio ?? ''}
+        error={p.err('servicio')}
+        onChange={(e) => p.cambiar({ servicio: e.currentTarget.value || null })}
+      >
+        <option value="">Todo el catálogo</option>
+        {servicios.map((s) => (
+          <option key={s.slug} value={s.slug}>
+            {s.nombre}
+          </option>
+        ))}
+        {b.servicio && !servicios.some((s) => s.slug === b.servicio) && (
+          <option value={b.servicio}>{b.servicio} (sin planes visibles)</option>
+        )}
+      </CampoLista>
+    </>
+  );
+}
+
+function FormRanking({ p }: P<'ranking'>) {
+  const { b } = p;
+  return (
+    <>
+      <Encabezado p={p} />
+      <Numero
+        p={comun(p)}
+        ruta="limite"
+        etiqueta="Cuántos mostrar"
+        valor={b.limite}
         min={3}
         max={10}
-        value={String(b.limite)}
-        onChange={(e) => cambiar({ limite: Number(e.currentTarget.value) })}
-        error={err('limite')}
+        onCambio={(limite) => escribir(p, { limite }, 'limite')}
       />
     </>
   );
 }
 
-function FormMetodosPago({ b, cambiar, err }: PropsFormulario<BloqueDe<'metodos-pago'>>) {
-  return (
-    <>
-      <AvisoDatosReales>
-        Muestra los métodos de cobro activos en Finanzas, más el saldo de la billetera.
-      </AvisoDatosReales>
-      <Encabezado b={b} cambiar={cambiar} err={err} />
-    </>
-  );
+function FormSoloEncabezado({ p }: P<'universos' | 'metodos-pago'>) {
+  return <Encabezado p={p} />;
 }
 
-function FormCanal({ b, cambiar, err }: PropsFormulario<BloqueDe<'canal'>>) {
+function FormCanal({ p }: P<'canal'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
     <>
-      <AvisoDatosReales>
-        El botón lleva al canal de WhatsApp de «Contacto y redes». Sin ese enlace, el bloque no se
-        muestra.
-      </AvisoDatosReales>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Texto
-          etiqueta="Antetítulo (opcional)"
-          valor={b.etiqueta}
-          onCambio={(etiqueta) => cambiar({ etiqueta })}
-          max={60}
-          error={err('etiqueta')}
-        />
-        <Texto
-          etiqueta="Título"
-          valor={b.titulo}
-          onCambio={(titulo) => cambiar({ titulo })}
-          max={120}
-          error={err('titulo')}
-        />
-      </div>
-      <Area
-        etiqueta="Texto (opcional)"
-        valor={b.texto}
-        onCambio={(texto) => cambiar({ texto })}
-        max={300}
-        error={err('texto')}
-        filas={2}
+      <Texto
+        p={q}
+        ruta="etiqueta"
+        etiqueta="Etiqueta"
+        opcional
+        valor={b.etiqueta}
+        max={60}
+        onCambio={(etiqueta) => escribir(p, { etiqueta }, 'etiqueta')}
       />
       <Texto
+        p={q}
+        ruta="titulo"
+        etiqueta="Título"
+        valor={b.titulo}
+        max={120}
+        onCambio={(titulo) => escribir(p, { titulo }, 'titulo')}
+      />
+      <Area
+        p={q}
+        ruta="texto"
+        etiqueta="Texto"
+        opcional
+        valor={b.texto}
+        max={300}
+        filas={2}
+        onCambio={(texto) => escribir(p, { texto }, 'texto')}
+      />
+      <Texto
+        p={q}
+        ruta="boton"
         etiqueta="Texto del botón"
         valor={b.boton}
-        onCambio={(boton) => cambiar({ boton })}
         max={40}
-        error={err('boton')}
+        onCambio={(boton) => escribir(p, { boton }, 'boton')}
       />
     </>
   );
 }
 
-function FormPanel({ b, cambiar, err }: PropsFormulario<BloqueDe<'panel'>>) {
+function FormPanel({ p }: P<'panel'>) {
+  const { b } = p;
+  const q = comun(p);
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Texto
-          etiqueta="Antetítulo (opcional)"
-          valor={b.etiqueta}
-          onCambio={(etiqueta) => cambiar({ etiqueta })}
-          max={60}
-          error={err('etiqueta')}
-        />
-        <Texto
-          etiqueta="Título"
-          valor={b.titulo}
-          onCambio={(titulo) => cambiar({ titulo })}
-          max={120}
-          error={err('titulo')}
-        />
-      </div>
       <Texto
-        etiqueta="Parte del título resaltada (opcional)"
-        valor={b.resaltado}
-        onCambio={(resaltado) => cambiar({ resaltado })}
+        p={q}
+        ruta="etiqueta"
+        etiqueta="Etiqueta"
+        opcional
+        valor={b.etiqueta}
         max={60}
-        error={err('resaltado')}
-        ayuda="Escribe exactamente las palabras del título que quieres con el degradado de la marca."
+        onCambio={(etiqueta) => escribir(p, { etiqueta }, 'etiqueta')}
+      />
+      <Texto
+        p={q}
+        ruta="titulo"
+        etiqueta="Título"
+        valor={b.titulo}
+        max={120}
+        onCambio={(titulo) => escribir(p, { titulo }, 'titulo')}
+      />
+      <Texto
+        p={q}
+        ruta="resaltado"
+        etiqueta="Texto resaltado"
+        opcional
+        valor={b.resaltado}
+        max={60}
+        ayuda="Las palabras del título que se ven con degradado"
+        onCambio={(resaltado) => escribir(p, { resaltado }, 'resaltado')}
       />
       <Area
-        etiqueta="Texto (opcional)"
+        p={q}
+        ruta="texto"
+        etiqueta="Texto"
+        opcional
         valor={b.texto}
-        onCambio={(texto) => cambiar({ texto })}
         max={400}
-        error={err('texto')}
-        filas={3}
+        onCambio={(texto) => escribir(p, { texto }, 'texto')}
       />
-      <ListaElementos
-        titulo="Puntos con marca verde (opcional)"
+      <Lista
+        p={q}
+        ruta="puntos"
+        titulo="Puntos"
+        uno="punto"
         elementos={b.puntos}
-        onCambio={(puntos) => cambiar({ puntos })}
+        min={0}
+        max={6}
         nuevo={() => ''}
-        maximo={6}
-        error={err('puntos')}
-        nombre={(i) => `Punto ${i + 1}`}
+        resumen={(e) => e}
+        onCambio={(puntos, o) => p.cambiar({ puntos }, o)}
       >
-        {(punto, i) => (
+        {(punto, i, set) => (
           <Texto
-            etiqueta="Texto"
+            p={q}
+            ruta={`puntos.${i}`}
+            etiqueta="Texto del punto"
             valor={punto}
-            onCambio={(v) => cambiar({ puntos: b.puntos.map((x, j) => (j === i ? v : x)) })}
             max={120}
-            error={err(`puntos.${i}`)}
+            onCambio={(v) => set(v as unknown as Partial<string>, '')}
           />
         )}
-      </ListaElementos>
-      <EditorBoton
+      </Lista>
+      <GrupoBoton
+        p={q}
+        ruta="boton"
         etiqueta="Botón principal"
         boton={b.boton}
-        onCambio={(boton) => cambiar({ boton })}
-        err={err}
-        ruta="boton"
+        onCambio={(boton, ruta) => escribir(p, { boton }, ruta)}
       />
-      <EditorBoton
+      <GrupoBoton
+        p={q}
+        ruta="botonSecundario"
         etiqueta="Enlace secundario"
         boton={b.botonSecundario}
-        onCambio={(botonSecundario) => cambiar({ botonSecundario })}
-        err={err}
-        ruta="botonSecundario"
+        etiquetaTexto="Texto del enlace"
+        onCambio={(botonSecundario, ruta) => escribir(p, { botonSecundario }, ruta)}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Selector
-          etiqueta="Visual"
-          value={b.visual}
-          onChange={(e) =>
-            cambiar({ visual: e.currentTarget.value as (typeof VISUALES_PANEL)[number] })
-          }
-        >
-          {VISUALES_PANEL.map((v) => (
-            <option key={v} value={v}>
-              {NOMBRES_VISUAL[v]}
-            </option>
-          ))}
-        </Selector>
-        {b.visual === 'universo' && (
-          <SelectorUniverso
-            valor={b.categoria}
-            onCambio={(categoria) => cambiar({ categoria })}
-            error={err('categoria')}
-            todos="Elige un universo"
-            ayuda="Se muestran las tarjetas de sus servicios."
-          />
-        )}
-      </div>
+      <CampoLista
+        etiqueta="Visual"
+        value={b.visual}
+        onChange={(e) =>
+          p.cambiar({ visual: e.currentTarget.value as (typeof VISUALES_PANEL)[number] })
+        }
+      >
+        {VISUALES_PANEL.map((v) => (
+          <option key={v} value={v}>
+            {NOMBRES_VISUAL[v]}
+          </option>
+        ))}
+      </CampoLista>
+      {b.visual === 'universo' && (
+        <SelectorUniverso
+          valor={b.categoria}
+          todos="Elige un universo"
+          error={p.err('categoria')}
+          ayuda="Se muestran las tarjetas de sus servicios"
+          onCambio={(categoria) => p.cambiar({ categoria })}
+        />
+      )}
     </>
   );
 }
 
-/** Formulario del bloque según su tipo. */
+/** Campos del bloque según su tipo. */
 export function FormularioBloque(props: PropsFormulario) {
   const { b } = props;
-  // Cada formulario recibe el bloque ya acotado a su tipo.
-  const conTipo = <B extends BloqueSitio>(bloque: B): PropsFormulario<B> => ({
-    ...props,
-    b: bloque,
-    cambiar: props.cambiar as (parche: Partial<B>) => void,
-  });
-  let campos: ReactNode;
+  const con = <B extends BloqueSitio>(bloque: B) => ({ ...props, b: bloque }) as PropsFormulario<B>;
   switch (b.tipo) {
     case 'portada':
-      campos = <FormPortada {...conTipo(b)} />;
-      break;
-    case 'planes':
-      campos = <FormPlanes {...conTipo(b)} />;
-      break;
-    case 'beneficios':
-      campos = <FormBeneficios {...conTipo(b)} />;
-      break;
-    case 'pasos':
-      campos = <FormPasos {...conTipo(b)} />;
-      break;
-    case 'testimonios':
-      campos = <FormTestimonios {...conTipo(b)} />;
-      break;
-    case 'preguntas':
-      campos = <FormPreguntas {...conTipo(b)} />;
-      break;
-    case 'llamada':
-      campos = <FormLlamada {...conTipo(b)} />;
-      break;
+      return <FormPortada p={con(b)} />;
     case 'texto':
-      campos = <FormTexto {...conTipo(b)} />;
-      break;
+      return <FormTexto p={con(b)} />;
     case 'imagen':
-      campos = <FormImagen {...conTipo(b)} />;
-      break;
+      return <FormImagen p={con(b)} />;
+    case 'beneficios':
+      return <FormBeneficios p={con(b)} />;
+    case 'pasos':
+      return <FormPasos p={con(b)} />;
+    case 'testimonios':
+      return <FormTestimonios p={con(b)} />;
+    case 'preguntas':
+      return <FormPreguntas p={con(b)} />;
+    case 'llamada':
+      return <FormLlamada p={con(b)} />;
     case 'banner':
-      campos = <FormBanner {...conTipo(b)} />;
-      break;
+      return <FormBanner p={con(b)} />;
     case 'universos':
-      campos = <FormUniversos {...conTipo(b)} />;
-      break;
-    case 'servicios':
-      campos = <FormServicios {...conTipo(b)} />;
-      break;
-    case 'ranking':
-      campos = <FormRanking {...conTipo(b)} />;
-      break;
     case 'metodos-pago':
-      campos = <FormMetodosPago {...conTipo(b)} />;
-      break;
+      return <FormSoloEncabezado p={con(b)} />;
+    case 'servicios':
+      return <FormServicios p={con(b)} />;
+    case 'planes':
+      return <FormPlanes p={con(b)} />;
+    case 'ranking':
+      return <FormRanking p={con(b)} />;
     case 'canal':
-      campos = <FormCanal {...conTipo(b)} />;
-      break;
+      return <FormCanal p={con(b)} />;
     case 'panel':
-      campos = <FormPanel {...conTipo(b)} />;
-      break;
+      return <FormPanel p={con(b)} />;
+    default:
+      return null;
   }
+}
+
+/** «Más opciones»: ancla para enlazar al bloque y fondo. */
+export function MasOpciones({
+  p,
+  abierto,
+  onAbrir,
+}: {
+  p: PropsFormulario;
+  abierto: boolean;
+  onAbrir: (v: boolean) => void;
+}) {
+  const { b } = p;
   return (
-    <div className="grid gap-4">
-      {campos}
-      <Opciones b={b} cambiar={props.cambiar} err={props.err} />
-    </div>
+    <details className="ed-mas" open={abierto} onToggle={(e) => onAbrir(e.currentTarget.open)}>
+      <summary>
+        <Settings className="size-4" aria-hidden="true" />
+        <span>Más opciones</span>
+        <small>Ancla y fondo</small>
+      </summary>
+      <div className="grid gap-3.5 p-3">
+        <Texto
+          p={p}
+          ruta="ancla"
+          etiqueta="Ancla"
+          opcional
+          valor={b.ancla}
+          max={40}
+          placeholder="como-comprar"
+          ayuda={`Para enlazar a este bloque desde un botón: ${p.rutaPagina === '/' ? '/' : p.rutaPagina}#ancla`}
+          onCambio={(ancla) => p.cambiar({ ancla }, { ruta: 'ancla', escribiendo: true })}
+        />
+        <div className="grid gap-1.5">
+          <span className="text-[0.82rem] font-semibold">Fondo</span>
+          <div className="ed-seg2" role="radiogroup" aria-label="Fondo">
+            {FONDOS_BLOQUE.map((f) => (
+              <button
+                key={f}
+                type="button"
+                role="radio"
+                aria-checked={b.fondo === f}
+                onClick={() => p.cambiar({ fondo: f })}
+              >
+                {NOMBRES_FONDO[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }

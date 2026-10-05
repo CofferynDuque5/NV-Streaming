@@ -8,7 +8,7 @@
 import { type BloqueDe, type BloqueSitio, INFO_MONEDA } from '@nv/shared';
 import clsx from 'clsx';
 import { ArrowRight, CircleCheck, Info, Layers, TriangleAlert } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { type CSSProperties, Fragment, type ReactNode } from 'react';
 import { agruparPorServicio, TarjetaPlan } from '@/componentes/planes';
 import { PlanesMayoristas } from '@/componentes/planes-mayoristas';
 import { clasesBoton } from '@/componentes/ui/boton';
@@ -491,20 +491,24 @@ export function BloquesSitio({
   titulo,
   contexto,
   vistaPrevia = false,
+  envolver,
 }: {
   bloques: BloqueSitio[];
   titulo: string;
   contexto: ContextoBloques;
   vistaPrevia?: boolean;
+  /** En el editor, envuelve cada bloque (para elegirlo con un clic en la vista previa). */
+  envolver?: (b: BloqueSitio, contenido: ReactNode) => ReactNode;
 }) {
   const principal = vistaPrevia ? -1 : bloques.findIndex((b) => b.tipo === 'portada');
   const ctx = vistaPrevia ? { ...contexto, vistaPrevia: true } : contexto;
   return (
     <div className={vistaPrevia ? '@container' : '@container bloques-diferidos'}>
       {principal < 0 && !vistaPrevia && <h1 className="sr-only">{titulo}</h1>}
-      {bloques.map((b, i) => (
-        <Bloque key={b.id || i} bloque={b} contexto={ctx} principal={i === principal} />
-      ))}
+      {bloques.map((b, i) => {
+        const bloque = <Bloque bloque={b} contexto={ctx} principal={i === principal} />;
+        return <Fragment key={b.id || i}>{envolver ? envolver(b, bloque) : bloque}</Fragment>;
+      })}
     </div>
   );
 }

@@ -2,173 +2,184 @@
 
 import { MEDIO_MAX_MB, type MedioSitio } from '@nv/shared';
 import clsx from 'clsx';
-import { ImagePlus, Upload, X } from 'lucide-react';
-import { type FormEvent, useId, useState } from 'react';
-import { Alerta } from '@/componentes/ui/alerta';
+import { Upload, X } from 'lucide-react';
+import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
-import { Campo } from '@/componentes/ui/campo';
-import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
+import { useNotificar } from '@/componentes/ui/notificaciones';
+import { llamarApi } from '@/lib/api-cliente';
+import { CampoTexto } from './piezas';
+
+const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
+
+const peso = (bytes: number) =>
+  bytes > 1048576
+    ? `${(bytes / 1048576).toFixed(1).replace('.', ',')} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 /**
- * Biblioteca de imágenes: elegir una existente o subir una nueva (JPG, PNG o
- * WebP). Las imágenes se sirven públicamente, así que nunca subas documentos.
+ * Biblioteca de imágenes (dentro del panel lateral del editor): tocar una la usa en el bloque;
+ * también se sube una nueva (JPG, PNG o WebP hasta 4 MB) con su texto
+ * alternativo obligatorio. Las imágenes se sirven públicamente.
  */
-export function SelectorMedio({
+export function BibliotecaMedios({
   medios,
-  seleccionado,
+  actual,
   onElegir,
   onSubido,
 }: {
   medios: MedioSitio[];
-  seleccionado: string | null | undefined;
+  actual: string | null;
   onElegir: (m: MedioSitio) => void;
   onSubido: (m: MedioSitio) => void;
 }) {
-  const [abierto, setAbierto] = useState(false);
-  const idArchivo = useId();
+  const notificar = useNotificar();
+  const [archivo, setArchivo] = useState<{ file: File; url: string } | null>(null);
+  const [errorArchivo, setErrorArchivo] = useState('');
+  const [alt, setAlt] = useState('');
+  const [altTocado, setAltTocado] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState<ErrorLlamada | null>(null);
-  const actual = medios.find((m) => m.id === seleccionado);
-  const campos = erroresPorCampo(error);
+
+  useEffect(() => () => (archivo ? URL.revokeObjectURL(archivo.url) : undefined), [archivo]);
+
+  const errorAlt = !alt.trim() ? 'Escribe el texto alternativo para continuar' : undefined;
+
+  function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!f) return;
+    if (!TIPOS.includes(f.type)) {
+      const ext = (f.name.split('.').pop() || 'otro tipo').toUpperCase();
+      setErrorArchivo(`Ese archivo es ${ext}. Usa JPG, PNG o WebP.`);
+      return;
+    }
+    if (f.size > MEDIO_MAX_MB * 1048576) {
+      setErrorArchivo(`Pesa ${peso(f.size)}. El máximo es ${MEDIO_MAX_MB} MB.`);
+      return;
+    }
+    setErrorArchivo('');
+    setArchivo({ file: f, url: URL.createObjectURL(f) });
+    window.setTimeout(() => document.getElementById('medio-alt')?.focus(), 60);
+  }
 
   async function subir(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const formulario = e.currentTarget;
-    const datos = new FormData(formulario);
-    const archivo = datos.get('archivo');
-    if (!(archivo instanceof File) || archivo.size === 0) {
-      setError({
-        estado: 400,
-        codigo: 'DATOS_INVALIDOS',
-        mensaje: 'Elige una imagen.',
-        campos: { archivo: ['Elige una imagen.'] },
-      });
+    setAltTocado(true);
+    if (!archivo || errorAlt) {
+      document.getElementById('medio-alt')?.focus();
       return;
     }
-    if (archivo.size > MEDIO_MAX_MB * 1024 * 1024) {
-      setError({
-        estado: 413,
-        codigo: 'CONTENIDO_DEMASIADO_GRANDE',
-        mensaje: `La imagen no puede superar ${MEDIO_MAX_MB} MB.`,
-      });
-      return;
-    }
+    const datos = new FormData();
+    datos.append('textoAlternativo', alt.trim());
+    datos.append('archivo', archivo.file);
     setSubiendo(true);
-    setError(null);
     const r = await llamarApi<MedioSitio>('POST', '/sitio/medios', datos);
     setSubiendo(false);
     if (!r.ok) {
-      setError(r.error);
+      notificar(r.error.mensaje, 'error');
       return;
     }
-    formulario.reset();
     onSubido(r.datos);
     onElegir(r.datos);
-    setAbierto(false);
+    notificar(`Imagen subida y elegida: ${r.datos.nombre}`);
   }
 
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-3">
-        {actual ? (
-          <img
-            src={actual.url}
-            alt=""
-            className="size-16 shrink-0 rounded-lg border border-borde object-cover"
-          />
-        ) : (
-          <span className="grid size-16 shrink-0 place-items-center rounded-lg border border-dashed border-borde-fuerte text-tinta-tenue">
-            <ImagePlus className="size-5" aria-hidden="true" />
-          </span>
-        )}
-        <Boton variante="secundario" tamano="sm" onClick={() => setAbierto((v) => !v)}>
-          {abierto ? 'Cerrar biblioteca' : actual ? 'Cambiar imagen' : 'Elegir imagen'}
-        </Boton>
-      </div>
-
-      {abierto && (
-        <div className="grid gap-4 rounded-xl border border-borde bg-hundida/50 p-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">Biblioteca de imágenes</p>
+    <>
+      {archivo ? (
+        <form className="ed-subida" onSubmit={subir} noValidate>
+          <div className="flex items-center gap-3">
+            <img src={archivo.url} alt="" className="size-14 shrink-0 rounded-xl object-contain" />
+            <div className="grid min-w-0 flex-1">
+              <b className="truncate text-sm">{archivo.file.name}</b>
+              <span className="text-xs text-tinta-suave">
+                {peso(archivo.file.size)} · lista para subir
+              </span>
+            </div>
             <button
               type="button"
-              onClick={() => setAbierto(false)}
-              className="rounded-lg p-1 text-tinta-tenue hover:text-tinta"
-              aria-label="Cerrar biblioteca"
+              className="grid size-9 shrink-0 place-items-center rounded-xl border border-borde hover:border-borde-fuerte"
+              aria-label="Quitar archivo"
+              onClick={() => setArchivo(null)}
             >
-              <X className="size-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
-          {medios.length === 0 ? (
-            <p className="text-sm text-tinta-suave">Todavía no hay imágenes. Sube la primera.</p>
-          ) : (
-            <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {medios.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onElegir(m);
-                      setAbierto(false);
-                    }}
-                    title={m.textoAlternativo}
-                    aria-pressed={m.id === seleccionado}
-                    className={clsx(
-                      'block aspect-square w-full overflow-hidden rounded-lg border-2',
-                      m.id === seleccionado
-                        ? 'border-marca'
-                        : 'border-transparent hover:border-borde-fuerte',
-                    )}
-                  >
-                    <img
-                      src={m.url}
-                      alt={m.textoAlternativo}
-                      className="size-full object-cover"
-                      loading="lazy"
-                    />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <form onSubmit={subir} className="grid gap-3 border-t border-borde pt-3" noValidate>
-            <p className="text-sm font-medium">Subir una imagen</p>
-            <div className="grid gap-1.5">
-              <label htmlFor={idArchivo} className="text-sm">
-                Archivo (JPG, PNG o WebP, hasta {MEDIO_MAX_MB} MB)
-              </label>
-              <input
-                id={idArchivo}
-                name="archivo"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="block w-full min-w-0 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-elevada file:px-3 file:py-1.5 file:text-sm file:text-tinta"
-              />
-              {campos.archivo && (
-                <p className="text-xs font-medium text-peligro">{campos.archivo}</p>
-              )}
-            </div>
-            <Campo
-              etiqueta="Texto alternativo"
-              name="textoAlternativo"
-              maxLength={200}
-              required
-              ayuda="Describe lo que se ve, para quien no puede verla."
-              error={campos.textoAlternativo}
+          <CampoTexto
+            id="medio-alt"
+            etiqueta="Texto alternativo"
+            max={200}
+            value={alt}
+            autoComplete="off"
+            placeholder="Ej.: Tarjeta de Netflix sobre fondo azul"
+            ayuda="Obligatorio. Describe la imagen para quien no la ve."
+            error={altTocado ? errorAlt : undefined}
+            ok={altTocado && !errorAlt}
+            onChange={(e) => {
+              setAlt(e.currentTarget.value);
+              setAltTocado(true);
+            }}
+          />
+          <Boton
+            type="submit"
+            className="w-fit"
+            cargando={subiendo}
+            icono={<Upload className="size-4" />}
+          >
+            {subiendo ? 'Subiendo…' : 'Subir y usar'}
+          </Boton>
+        </form>
+      ) : (
+        <div className="grid gap-2">
+          <label className="ed-soltar">
+            <Upload className="size-6 text-cian" aria-hidden="true" />
+            <b>Subir imagen</b>
+            <span>JPG, PNG o WebP de hasta {MEDIO_MAX_MB} MB</span>
+            <input
+              type="file"
+              accept={TIPOS.join(',')}
+              className="sr-only"
+              onChange={elegirArchivo}
+              aria-label="Subir imagen"
             />
-            {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
-            <Boton
-              type="submit"
-              tamano="sm"
-              className="w-fit"
-              cargando={subiendo}
-              icono={<Upload className="size-4" />}
-            >
-              Subir y usar
-            </Boton>
-          </form>
+          </label>
+          {errorArchivo && (
+            <p role="alert" className="text-xs font-medium text-peligro">
+              {errorArchivo}
+            </p>
+          )}
         </div>
       )}
-    </div>
+      <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
+        En la biblioteca
+      </span>
+      {medios.length === 0 ? (
+        <p className="text-sm text-tinta-suave">Todavía no hay imágenes. Sube la primera.</p>
+      ) : (
+        <>
+          <div className="ed-medios">
+            {medios.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={clsx('ed-med', actual === m.id && 'sel')}
+                aria-label={`Usar ${m.nombre}`}
+                aria-pressed={actual === m.id}
+                onClick={() => onElegir(m)}
+              >
+                <span className="ed-med-img">
+                  <img src={m.url} alt="" loading="lazy" />
+                </span>
+                <b>{m.nombre}</b>
+                <small>{m.textoAlternativo}</small>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-tinta-tenue">Toca una imagen para usarla en el bloque.</p>
+        </>
+      )}
+    </>
   );
 }
+
+export const subtituloMedios = (n: number) =>
+  `${n} ${n === 1 ? 'imagen' : 'imágenes'} · JPG, PNG o WebP hasta ${MEDIO_MAX_MB} MB`;

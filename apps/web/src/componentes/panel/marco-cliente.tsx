@@ -6,6 +6,7 @@ import { LogoTienda } from '@/componentes/logo';
 import { navegacionCuenta } from '@/lib/navegacion';
 import { leerPanelCliente } from '@/lib/panel-cliente';
 import { Avatar, iniciales } from './avatar';
+import { CuerpoMarco } from './cuerpo-marco';
 import { MenuCuenta, SalirCuenta } from './menu-cuenta';
 
 /**
@@ -21,6 +22,7 @@ export function MarcoCuenta({
   sello,
   acciones,
   barraInferior,
+  pantallaCompleta,
 }: {
   /**
    * Nombre corto de la cabecera. Sin `href` solo se ve en escritorio; con
@@ -37,6 +39,8 @@ export function MarcoCuenta({
   acciones?: ReactNode;
   /** Barra de pestañas fija del teléfono. */
   barraInferior?: ReactNode;
+  /** Prefijo de rutas hijas a todo el ancho, sin menú ni pestañas (el editor). */
+  pantallaCompleta?: string;
 }) {
   return (
     <div className="min-h-dvh">
@@ -86,26 +90,28 @@ export function MarcoCuenta({
           <SalirCuenta />
         </div>
       </header>
-      <div className="contenedor grid grid-cols-[minmax(0,1fr)] items-start gap-4.5 pt-5 pb-12 cuenta:grid-cols-[15.625rem_minmax(0,1fr)] cuenta:gap-7 cuenta:pt-8">
-        <aside className="grid min-w-0 gap-3.5 cuenta:sticky cuenta:top-[5.25rem]">
-          <div className="hidden items-center gap-3 rounded-[1.25rem] border border-borde-fuerte bg-[linear-gradient(180deg,rgb(15_21_48/0.92),rgb(8_11_26/0.96))] p-3.5 cuenta:flex">
-            <Avatar letras={tarjeta.letras} className="size-11 text-[1.05rem]" />
-            <div className="grid min-w-0 gap-0.5">
-              <b className="truncate text-[0.95rem]">{tarjeta.titulo}</b>
-              {tarjeta.lineas.map((l, i) => (
-                <span key={i} className="truncate text-[0.8rem] text-tinta-suave">
-                  {l}
-                </span>
-              ))}
+      <CuerpoMarco
+        pantallaCompleta={pantallaCompleta}
+        barraInferior={barraInferior}
+        lado={
+          <aside className="grid min-w-0 gap-3.5 cuenta:sticky cuenta:top-[5.25rem]">
+            <div className="hidden items-center gap-3 rounded-[1.25rem] border border-borde-fuerte bg-[linear-gradient(180deg,rgb(15_21_48/0.92),rgb(8_11_26/0.96))] p-3.5 cuenta:flex">
+              <Avatar letras={tarjeta.letras} className="size-11 text-[1.05rem]" />
+              <div className="grid min-w-0 gap-0.5">
+                <b className="truncate text-[0.95rem]">{tarjeta.titulo}</b>
+                {tarjeta.lineas.map((l, i) => (
+                  <span key={i} className="truncate text-[0.8rem] text-tinta-suave">
+                    {l}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-          {menu}
-        </aside>
-        <main id="contenido" className="grid min-w-0 content-start gap-5.5">
-          {children}
-        </main>
-      </div>
-      {barraInferior}
+            {menu}
+          </aside>
+        }
+      >
+        {children}
+      </CuerpoMarco>
     </div>
   );
 }
