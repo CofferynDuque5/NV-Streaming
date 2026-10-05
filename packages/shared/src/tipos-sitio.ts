@@ -17,6 +17,8 @@ export interface PaginaSitioResumen {
   borradorActualizadoEn: string | null;
   /** El borrador es distinto de la versión publicada (o nunca se publicó). */
   cambiosSinPublicar: boolean;
+  /** Quién guardó el borrador por última vez. */
+  borradorPor: ReferenciaPersona | null;
 }
 
 export interface VersionPaginaResumen {
@@ -34,7 +36,8 @@ export interface VersionPaginaResumen {
 export interface PaginaSitioDetalle extends PaginaSitioResumen {
   descripcion: string | null;
   bloques: BloqueSitio[];
-  borradorPor: ReferenciaPersona | null;
+  /** Lo que ve hoy el público (para resumir qué cambia al publicar); null si no se publicó. */
+  publicada: { titulo: string; descripcion: string | null; bloques: BloqueSitio[] } | null;
   versiones: VersionPaginaResumen[];
 }
 

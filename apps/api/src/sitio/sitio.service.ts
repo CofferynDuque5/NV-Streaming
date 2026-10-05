@@ -51,11 +51,11 @@ const INCLUIR_RESUMEN = {
   versionPublicada: {
     select: { numero: true, publicadaEn: true, contenido: true, titulo: true, descripcion: true },
   },
+  borradorPor: PERSONA,
 } as const;
 
 const INCLUIR_DETALLE = {
   ...INCLUIR_RESUMEN,
-  borradorPor: PERSONA,
   versiones: {
     select: {
       id: true,
@@ -96,6 +96,7 @@ function resumen(p: FilaResumen): PaginaSitioResumen {
       : null,
     borradorActualizadoEn: iso(p.borradorActualizadoEn),
     cambiosSinPublicar: sinPublicar(p),
+    borradorPor: p.borradorPor,
   };
 }
 
@@ -105,7 +106,13 @@ function detalle(p: FilaDetalle): PaginaSitioDetalle {
     ...resumen(p),
     descripcion: p.descripcion,
     bloques: (Array.isArray(p.borrador) ? p.borrador : []) as unknown as BloqueSitio[],
-    borradorPor: p.borradorPor,
+    publicada: p.versionPublicada
+      ? {
+          titulo: p.versionPublicada.titulo,
+          descripcion: p.versionPublicada.descripcion,
+          bloques: bloquesValidos(p.versionPublicada.contenido),
+        }
+      : null,
     versiones: p.versiones.map((v) => ({
       id: v.id,
       numero: v.numero,

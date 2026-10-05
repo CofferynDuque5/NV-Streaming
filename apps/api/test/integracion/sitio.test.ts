@@ -162,6 +162,32 @@ describe('editor visual: borradores y versiones', () => {
     ]);
   });
 
+  it('la lista dice quién guardó cada borrador e incluye las archivadas; el detalle trae lo publicado', async () => {
+    const e = await escenario();
+    const otra = await e.admin.post('/sitio/paginas', { ruta: '/promo', titulo: 'Promo' });
+    await e.admin.post(`/sitio/paginas/${otra.cuerpo.id}/archivar`);
+    const g = await guardar(e.operador, e.pagina.id, 'Primera', e.pagina.borradorActualizadoEn);
+    expect(g.cuerpo.publicada).toBeNull();
+
+    const lista = await e.operador.get('/sitio/paginas');
+    expect(lista.estado).toBe(200);
+    const nosotros = lista.cuerpo.find((p: { ruta: string }) => p.ruta === '/nosotros');
+    const promo = lista.cuerpo.find((p: { ruta: string }) => p.ruta === '/promo');
+    expect(nosotros.borradorPor.nombre).toBe(g.cuerpo.borradorPor.nombre);
+    expect(nosotros.borradorPor.id).not.toBe(promo.borradorPor.id);
+    expect(promo).toMatchObject({ archivada: true });
+
+    await e.admin.post(`/sitio/paginas/${e.pagina.id}/publicar`, { nota: 'Uno' });
+    const g2 = await guardar(e.admin, e.pagina.id, 'Segunda', g.cuerpo.borradorActualizadoEn);
+    expect(g2.estado).toBe(200);
+    expect(g2.cuerpo.bloques[0].titulo).toBe('Segunda');
+    expect(g2.cuerpo.publicada).toMatchObject({
+      titulo: 'Quiénes somos',
+      descripcion: 'La historia de NV.',
+      bloques: [{ id: 'portada1', tipo: 'portada', titulo: 'Primera' }],
+    });
+  });
+
   it('volver a una versión anterior la copia al borrador sin publicarla', async () => {
     const e = await escenario();
     const g1 = await guardar(e.admin, e.pagina.id, 'Primera', e.pagina.borradorActualizadoEn);
