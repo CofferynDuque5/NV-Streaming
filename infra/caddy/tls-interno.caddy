@@ -1,0 +1,2 @@
+# Certificado autofirmado de Caddy: SOLO para pruebas locales o en CI (el navegador avisa).
+tls internal

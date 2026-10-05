@@ -1,0 +1,43 @@
+/* Tokens de Tailwind del sistema «cosmos» (los usan globals.css y paneles.css). */
+
+/* Punto donde la cabecera pasa de teléfono (menú lateral) a escritorio (franja). */
+@theme {
+  --breakpoint-nav: 53.75rem;
+  /* Cuenta del cliente: desde aquí el menú pasa de pastillas a columna lateral. */
+  --breakpoint-cuenta: 61.25rem;
+}
+
+@theme inline {
+  --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
+  --font-titulo: var(--fuente-titulo), var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
+
+  --color-fondo: var(--nv-fondo);
+  --color-superficie: var(--nv-superficie);
+  --color-elevada: var(--nv-elevada);
+  --color-hundida: var(--nv-hundida);
+  --color-vidrio: var(--nv-vidrio);
+  --color-borde: var(--nv-borde);
+  --color-borde-fuerte: var(--nv-borde-fuerte);
+  --color-tinta: var(--nv-tinta);
+  --color-tinta-suave: var(--nv-tinta-suave);
+  --color-tinta-tenue: var(--nv-tinta-tenue);
+  --color-marca: var(--nv-marca);
+  --color-marca-fuerte: var(--nv-marca-fuerte);
+  --color-marca-tinta: var(--nv-marca-tinta);
+  --color-marca-suave: var(--nv-marca-suave);
+  --color-acento: var(--nv-acento);
+  --color-acento-suave: var(--nv-acento-suave);
+  --color-cian: var(--nv-cian);
+  --color-violeta: var(--nv-violeta);
+  --color-rosa: var(--nv-rosa);
+  --color-exito: var(--nv-exito);
+  --color-exito-suave: var(--nv-exito-suave);
+  --color-aviso: var(--nv-aviso);
+  --color-aviso-suave: var(--nv-aviso-suave);
+  --color-peligro: var(--nv-peligro);
+  --color-peligro-suave: var(--nv-peligro-suave);
+  --color-foco: var(--nv-foco);
+
+  --shadow-nv: var(--nv-sombra);
+  --radius-nv: 1.125rem;
+}
