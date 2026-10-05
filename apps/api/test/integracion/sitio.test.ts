@@ -1,4 +1,4 @@
-import { ID_BLOQUE_HISTORIA, PLANTILLAS_PAGINA } from '@nv/shared';
+import { AUTOMATIZACIONES, ID_BLOQUE_HISTORIA, PLANTILLAS_PAGINA } from '@nv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { conectar, type Contexto, crearContexto, limpiar, Navegador, PNG_1X1 } from './ayudas.js';
 
@@ -493,5 +493,40 @@ describe('contacto del sitio y métodos de pago públicos', () => {
       { nombre: 'Zelle', moneda: 'USD' },
     ]);
     expect(JSON.stringify(r.cuerpo)).not.toContain('0102');
+  });
+});
+
+describe('cifras de las Políticas y términos', () => {
+  it('dice lo que la API tiene configurado, sin sesión, y calla lo que está apagado', async () => {
+    const publico = new Navegador(ctx.app, null);
+    const r = await publico.get('/sitio/publico/politicas');
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toEqual({
+      // Sin HTTPS la cookie no lleva el prefijo __Host-.
+      cookieSesion: 'nv_sesion',
+      sesionHoras: ctx.entorno.SESION_DURACION_HORAS,
+      sesionInactividadMinutos: ctx.entorno.SESION_INACTIVIDAD_MINUTOS,
+      comprobanteMaxMb: ctx.entorno.COMPROBANTE_MAX_MB,
+      revelarCodigos: { maximo: 30, ventanaSegundos: 3600 },
+      reportarRecargas: { maximo: 10, ventanaSegundos: 3600 },
+      recordatorioDias: AUTOMATIZACIONES.recordatorio_vencimiento.parametrosPorDefecto.diasAntes,
+      avisoGracia: true,
+      avisoSuspension: true,
+      avisoReactivacion: true,
+      reintentosCobroDias: AUTOMATIZACIONES.cobro_automatico.parametrosPorDefecto.reintentosDias,
+    });
+
+    await ctx.prisma.automatizacion.update({
+      where: { tipo: 'recordatorio_vencimiento' },
+      data: { parametros: { diasAntes: [5, 2], hora: 9 } },
+    });
+    await ctx.prisma.automatizacion.updateMany({
+      where: { tipo: { in: ['cobro_automatico', 'aviso_recuperacion'] } },
+      data: { activa: false },
+    });
+    const cambiado = await publico.get('/sitio/publico/politicas');
+    expect(cambiado.cuerpo.recordatorioDias).toEqual([5, 2]);
+    expect(cambiado.cuerpo.avisoReactivacion).toBe(false);
+    expect(cambiado.cuerpo.reintentosCobroDias).toBeNull();
   });
 });

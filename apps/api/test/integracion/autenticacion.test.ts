@@ -1,3 +1,4 @@
+import { POLITICAS } from '@nv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   CONTRASENA,
@@ -38,6 +39,13 @@ describe('registro y verificación de correo', () => {
     });
     expect(usuario.rol).toBe('cliente');
     expect(usuario.hashContrasena).toMatch(/^\$argon2id\$/);
+    // Queda la versión de las Políticas y términos que aceptó, con la fecha.
+    expect(usuario.terminosVersion).toBe(POLITICAS.version);
+    expect(usuario.terminosAceptadosEn).toBeInstanceOf(Date);
+    const alta = await ctx.prisma.auditoria.findFirstOrThrow({
+      where: { accion: 'usuario.registrado', entidadId: usuario.id },
+    });
+    expect(alta.despues).toMatchObject({ terminosVersion: POLITICAS.version });
 
     const antes = await n.entrar('ana@correo.test', datos.contrasena);
     expect(antes.cuerpo.error.codigo).toBe('CORREO_NO_VERIFICADO');

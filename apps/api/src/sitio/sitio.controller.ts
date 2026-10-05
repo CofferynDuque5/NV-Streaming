@@ -37,6 +37,7 @@ import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { leerFormulario } from '../comun/formulario.js';
 import { validar, ZodPipe } from '../comun/zod.pipe.js';
 import { MediosService } from './medios.service.js';
+import { PoliticasService } from './politicas.service.js';
 import { SitioService } from './sitio.service.js';
 
 const idValido = validar(uuidSchema);
@@ -191,6 +192,7 @@ export class SitioPublicoController {
   constructor(
     @Inject(SitioService) private readonly sitio: SitioService,
     @Inject(MediosService) private readonly medios: MediosService,
+    @Inject(PoliticasService) private readonly politicas: PoliticasService,
   ) {}
 
   @Get('pagina')
@@ -207,6 +209,13 @@ export class SitioPublicoController {
   @Publica()
   tema() {
     return this.sitio.temaPublico();
+  }
+
+  /** Configuración que nombran las Políticas y términos (sesión, límites, avisos…). */
+  @Get('politicas')
+  @Publica()
+  cifrasPoliticas() {
+    return this.politicas.cifras();
   }
 
   /** Imagen del sitio. Su contenido nunca cambia: se puede guardar en caché un año. */

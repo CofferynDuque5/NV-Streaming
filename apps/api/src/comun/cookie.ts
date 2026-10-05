@@ -4,6 +4,11 @@ import type { Entorno } from '../config/entorno.js';
 
 const esSeguro = (entorno: Entorno) => entorno.WEB_ORIGEN.startsWith('https://');
 
+/** Nombre de la cookie de sesión con este entorno (`__Host-nv_sesion` con HTTPS). */
+export function cookieSesionDe(entorno: Entorno): string {
+  return nombreCookieSesion(esSeguro(entorno));
+}
+
 export function leerCookieSesion(peticion: FastifyRequest, entorno: Entorno): string | undefined {
   return peticion.cookies[nombreCookieSesion(esSeguro(entorno))];
 }

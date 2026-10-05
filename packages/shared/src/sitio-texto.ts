@@ -104,6 +104,11 @@ function enLinea(fuente: string, permitirEnlaces: boolean, profundidad = 0): Nod
   return nodos;
 }
 
+/** Una línea con marcado en línea (negrita, cursiva y enlaces), sin párrafos ni listas. */
+export function analizarEnLinea(fuente: string): NodoEnLinea[] {
+  return enLinea(fuente, true);
+}
+
 const ELEMENTO_SIN_ORDEN = /^\s*[-•]\s+(.*)$/;
 const ELEMENTO_ORDENADO = /^\s*\d{1,3}[.)]\s+(.*)$/;
 

@@ -42,6 +42,7 @@ export const RUTAS_RESERVADAS = [
   'opengraph-image',
   'panel',
   'planes',
+  'politicas',
   'privacidad',
   'recuperar',
   'registro',

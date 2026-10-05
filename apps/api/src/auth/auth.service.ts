@@ -6,6 +6,7 @@ import {
   type RegistroEntrada,
   type SesionActual,
   MONEDA_PRINCIPAL,
+  POLITICAS,
   type Ubicacion,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -71,6 +72,9 @@ export class AuthService {
           nombre: entrada.nombre,
           hashContrasena: hash,
           rol: 'cliente',
+          // El registro exige aceptar las Políticas y términos: se guarda qué versión.
+          terminosVersion: POLITICAS.version,
+          terminosAceptadosEn: new Date(),
         },
       });
       // Ficha de cliente: si el equipo ya lo tenía registrado sin acceso, se enlaza.
@@ -101,7 +105,11 @@ export class AuthService {
           accion: 'usuario.registrado',
           entidad: 'usuario',
           entidadId: usuario.id,
-          despues: { correo: usuario.correo, rol: usuario.rol },
+          despues: {
+            correo: usuario.correo,
+            rol: usuario.rol,
+            terminosVersion: usuario.terminosVersion,
+          },
           cliente,
         },
         tx,

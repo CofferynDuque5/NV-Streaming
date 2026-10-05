@@ -58,6 +58,10 @@ model Usuario {
   /// Último paso de tiempo TOTP aceptado, para impedir reutilizar un código.
   totpUltimoPaso       BigInt?       @map("totp_ultimo_paso")
   ultimoAccesoEn       DateTime?     @map("ultimo_acceso_en") @db.Timestamptz(3)
+  /// Versión de las Políticas y términos (POLITICAS.version) que aceptó al registrarse.
+  /// Nula en cuentas creadas por el equipo o antes de versionar el texto.
+  terminosVersion      String?       @map("terminos_version") @db.VarChar(20)
+  terminosAceptadosEn  DateTime?     @map("terminos_aceptados_en") @db.Timestamptz(3)
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 

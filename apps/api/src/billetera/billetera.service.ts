@@ -51,8 +51,11 @@ export function nuevaReferenciaBilletera(): string {
   return r;
 }
 
-/** Recargas reportadas por cliente y hora (evita llenar el almacén de archivos). */
-const LIMITE_REPORTES = { maximo: 10, ventanaSegundos: 3600 };
+/**
+ * Recargas reportadas por cliente y hora (evita llenar el almacén de archivos).
+ * Las Políticas y términos lo nombran.
+ */
+export const LIMITE_REPORTES_BILLETERA = { maximo: 10, ventanaSegundos: 3600 };
 
 type FiltroPagina = { pagina: number; porPagina: number };
 
@@ -160,7 +163,7 @@ export class BilleteraService {
       });
     }
     exigirBilleteraDisponible(await this.clientes.deUsuario(auth.usuario));
-    await this.limites.consumir(`billetera:reporte:${auth.usuario.id}`, LIMITE_REPORTES);
+    await this.limites.consumir(`billetera:reporte:${auth.usuario.id}`, LIMITE_REPORTES_BILLETERA);
     const creada = await this.prisma.$transaction(async (tx) => {
       const propio = await this.clientes.deUsuario(auth.usuario, tx);
       const c = await bloquearCliente(tx, propio.id);
