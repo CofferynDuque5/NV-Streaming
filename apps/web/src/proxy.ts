@@ -1,4 +1,9 @@
-import { COOKIE_MONEDA, esMoneda, NOMBRES_COOKIE_SESION } from '@nv/shared';
+import {
+  COOKIE_MONEDA,
+  DURACION_COOKIE_MONEDA_SEGUNDOS,
+  esMoneda,
+  NOMBRES_COOKIE_SESION,
+} from '@nv/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 
 /** Rutas de los paneles: sin cookie de sesión se redirige al inicio de sesión. */
@@ -46,7 +51,7 @@ function recordarMoneda(peticion: NextRequest) {
   const respuesta = NextResponse.next({ request: { headers: peticion.headers } });
   respuesta.cookies.set(COOKIE_MONEDA, moneda, {
     path: '/',
-    maxAge: 365 * 24 * 3600,
+    maxAge: DURACION_COOKIE_MONEDA_SEGUNDOS,
     sameSite: 'lax',
     secure: peticion.nextUrl.protocol === 'https:',
   });

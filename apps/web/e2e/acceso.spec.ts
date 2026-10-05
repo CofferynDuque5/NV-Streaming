@@ -1,3 +1,4 @@
+import { POLITICAS } from '@nv/shared';
 import { expect, type Page, test } from '@playwright/test';
 import {
   CONTRASENA_DEMO,
@@ -7,6 +8,7 @@ import {
   ingresar,
   leerSecretos,
   reiniciarLimiteIngreso,
+  terminosAceptados,
 } from './ayudas';
 
 // Las pruebas comparten la cuenta que se registra en la primera.
@@ -143,11 +145,34 @@ test('registro: requisitos en vivo, correo por confirmar, reenvío y confirmaci�
   ]) {
     await expect(requisito(texto)).toContainText('cumple');
   }
+  // Los términos y la privacidad se abren en otra pestaña, en su sección de /politicas.
+  const formulario = page.getByRole('main');
+  await expect(formulario.getByRole('link', { name: 'términos', exact: true })).toHaveAttribute(
+    'href',
+    '/politicas#terminos',
+  );
+  await expect(formulario.getByRole('link', { name: 'política de privacidad' })).toHaveAttribute(
+    'href',
+    '/politicas#privacidad',
+  );
+  const [pestana] = await Promise.all([
+    page.context().waitForEvent('page'),
+    formulario.getByRole('link', { name: 'términos', exact: true }).click(),
+  ]);
+  await expect(pestana).toHaveURL(/\/politicas#terminos$/);
+  await expect(pestana.getByRole('heading', { level: 2, name: 'Términos de uso' })).toBeVisible();
+  await pestana.close();
+  await expect(clave).toHaveValue(nueva.contrasena);
+
   await page.getByRole('checkbox', { name: /Acepto los términos/ }).check();
   await boton(page, 'Crear mi cuenta').click();
 
   await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible();
   await expect(page.getByText(nueva.correo)).toBeVisible();
+  // Queda registrada la versión de las Políticas y términos que aceptó.
+  const aceptados = terminosAceptados(nueva.correo);
+  expect(aceptados.version).toBe(POLITICAS.version);
+  expect(aceptados.fecha).not.toBeNull();
   await expect(page.getByRole('button', { name: /Puedes reenviarlo en \d+ s/ })).toBeDisabled();
 
   // Antes de confirmar, ingresar avisa y deja reenviar el enlace (con espera de 60 s).

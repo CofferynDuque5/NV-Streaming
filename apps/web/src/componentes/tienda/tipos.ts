@@ -40,5 +40,5 @@ export interface SesionMenu {
   enlaceSaldo: string | null;
 }
 
-/** Cookie que recuerda que se cerró la barra de la tasa del día (12 horas). */
-export const COOKIE_AVISO_TASA = 'nv_aviso_tasa';
+/** Cookie que recuerda que se cerró la barra de la tasa del día (vive en @nv/shared). */
+export { COOKIE_AVISO_TASA } from '@nv/shared';

@@ -151,6 +151,27 @@ export function ejecutarSql(sql: string): void {
   });
 }
 
+/** Versión de las Políticas y términos que la cuenta aceptó al registrarse (o null). */
+export function terminosAceptados(correo: string): {
+  version: string | null;
+  fecha: string | null;
+} {
+  const { url } = entornoE2e();
+  const script = [
+    "const pg = require('pg');",
+    'const c = new pg.Client({ connectionString: process.env.DATABASE_URL });',
+    'c.connect()',
+    "  .then(() => c.query('SELECT terminos_version, terminos_aceptados_en FROM usuarios WHERE correo = $1', [process.argv[1]]))",
+    '  .then((r) => { const f = r.rows[0]; console.log(JSON.stringify({ version: f ? f.terminos_version : null, fecha: f ? f.terminos_aceptados_en : null })); return c.end(); });',
+  ].join('\n');
+  const salida = execFileSync('node', ['-e', script, correo], {
+    cwd: fileURLToPath(new URL('../../../packages/db', import.meta.url)),
+    env: { ...process.env, DATABASE_URL: url },
+    encoding: 'utf8',
+  });
+  return JSON.parse(salida) as { version: string | null; fecha: string | null };
+}
+
 /**
  * Último enlace de un solo uso que la API envió a `correo` hacia `ruta`. En
  * las pruebas el correo es el sandbox: guarda el texto en correos_salientes.

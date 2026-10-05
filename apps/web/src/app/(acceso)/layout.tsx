@@ -1,4 +1,4 @@
-import { serviciosTienda } from '@nv/shared';
+import { enlacePoliticas, serviciosTienda } from '@nv/shared';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -41,10 +41,10 @@ export default async function LayoutAcceso({ children }: { children: ReactNode }
             aria-label="Enlaces legales"
             className="flex flex-wrap justify-center gap-x-4.5 gap-y-1.5 text-[0.8rem] text-tinta-tenue"
           >
-            <Link href="/terminos" className="hover:text-tinta">
+            <Link href={enlacePoliticas('terminos')} className="hover:text-tinta">
               Términos
             </Link>
-            <Link href="/privacidad" className="hover:text-tinta">
+            <Link href={enlacePoliticas('privacidad')} className="hover:text-tinta">
               Privacidad
             </Link>
             <span>© {new Date().getFullYear()} NV Streaming</span>

@@ -1,6 +1,6 @@
 'use client';
 
-import { requisitosContrasena } from '@nv/shared';
+import { enlacePoliticas, requisitosContrasena } from '@nv/shared';
 import clsx from 'clsx';
 import { CircleCheck, KeyRound, Mail, MailCheck, UserRoundPlus } from 'lucide-react';
 import Link from 'next/link';
@@ -210,11 +210,20 @@ export function FormularioRegistro({ siguiente }: { siguiente?: string | undefin
             />
             <span>
               Acepto los{' '}
-              <Link href="/terminos" className="font-medium text-cian hover:underline">
+              {/* En otra pestaña: leerlos no borra lo que ya escribió en el formulario. */}
+              <Link
+                href={enlacePoliticas('terminos')}
+                target="_blank"
+                className="font-medium text-cian hover:underline"
+              >
                 términos
               </Link>{' '}
               y la{' '}
-              <Link href="/privacidad" className="font-medium text-cian hover:underline">
+              <Link
+                href={enlacePoliticas('privacidad')}
+                target="_blank"
+                className="font-medium text-cian hover:underline"
+              >
                 política de privacidad
               </Link>
               .

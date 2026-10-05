@@ -1,4 +1,4 @@
-import { enlaceWhatsapp, type TemaSitioPublico } from '@nv/shared';
+import { enlacePoliticas, enlaceWhatsapp, type TemaSitioPublico } from '@nv/shared';
 import { Camera, Mail, MessageCircle, Music2 } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
@@ -181,8 +181,8 @@ export function PieTienda({
               </li>
             )}
             <Enlace href="/cuenta/soporte/nueva">Soporte</Enlace>
-            <Enlace href="/terminos">Términos</Enlace>
-            <Enlace href="/privacidad">Privacidad</Enlace>
+            <Enlace href={enlacePoliticas('terminos')}>Términos</Enlace>
+            <Enlace href={enlacePoliticas('privacidad')}>Privacidad</Enlace>
             {contacto.correo && (
               <li>
                 <a href={`mailto:${contacto.correo}`} className="hover:text-tinta">

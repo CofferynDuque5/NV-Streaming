@@ -67,7 +67,7 @@ export async function CabeceraTienda() {
           </span>
         </CerrarAviso>
       )}
-      <header className="vidrio sticky top-0 z-40 border-x-0 border-t-0">
+      <header data-cabecera-tienda className="vidrio sticky top-0 z-40 border-x-0 border-t-0">
         <div className="contenedor">
           <div className="flex min-h-[4.25rem] items-center gap-2.5 py-2 nav:gap-3">
             <LogoTienda className="mr-auto nav:mr-2" />

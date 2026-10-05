@@ -1,13 +1,13 @@
 'use client';
 
-import { REGLAS_COBRO } from '@nv/shared';
+import { CLAVE_CARRITO, REGLAS_COBRO } from '@nv/shared';
 import { useSyncExternalStore } from 'react';
 
 /**
  * Carrito en el navegador: solo los ids de los planes elegidos. Los precios
  * nunca se guardan aquí; siempre se cotizan en la API al pagar.
  */
-const CLAVE = 'nv-carrito';
+const CLAVE = CLAVE_CARRITO;
 const EVENTO = 'nv-carrito';
 const VACIO: string[] = [];
 let cache: { crudo: string | null; planes: string[] } = { crudo: null, planes: VACIO };

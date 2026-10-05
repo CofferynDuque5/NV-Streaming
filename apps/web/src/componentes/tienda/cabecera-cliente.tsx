@@ -1,5 +1,6 @@
 'use client';
 
+import { DURACION_AVISO_TASA_SEGUNDOS } from '@nv/shared';
 import clsx from 'clsx';
 import {
   ArrowRight,
@@ -779,7 +780,7 @@ export function CerrarAviso({ children }: { children: ReactNode }) {
       <button
         type="button"
         onClick={() => {
-          document.cookie = `${COOKIE_AVISO_TASA}=1; path=/; max-age=43200; samesite=lax`;
+          document.cookie = `${COOKIE_AVISO_TASA}=1; path=/; max-age=${DURACION_AVISO_TASA_SEGUNDOS}; samesite=lax`;
           setVisible(false);
         }}
         className="absolute inset-y-0 right-2 my-auto grid size-8 place-items-center rounded-lg text-tinta-tenue hover:text-tinta"
