@@ -1,0 +1,40 @@
+import {
+  Bot,
+  Coins,
+  Gem,
+  Globe,
+  History,
+  Landmark,
+  LayoutGrid,
+  type LucideIcon,
+  MessageCircle,
+  Package,
+  Paintbrush,
+  Repeat,
+  Settings,
+  Store,
+  Tag,
+  Users,
+  UsersRound,
+} from 'lucide-react';
+import type { ModuloEquipo } from '@/lib/navegacion';
+
+/** Icono de cada módulo del equipo (menú, cuadrícula y colas del centro). */
+export const ICONOS_MODULO: Record<ModuloEquipo, LucideIcon> = {
+  cobros: Landmark,
+  soporte: MessageCircle,
+  entregas: Package,
+  revendedores: Store,
+  asistente: Bot,
+  clientes: UsersRound,
+  suscripciones: Repeat,
+  cupones: Tag,
+  catalogo: LayoutGrid,
+  inventario: Gem,
+  finanzas: Coins,
+  pasarelas: Globe,
+  sitio: Paintbrush,
+  equipo: Users,
+  automatizaciones: Settings,
+  auditoria: History,
+};

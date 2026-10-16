@@ -1,0 +1,86 @@
+/**
+ * Datos de las Políticas y términos (/politicas) que solo puede dar el dueño de
+ * NV Streaming, con su abogado. El código no los define, así que no se inventan:
+ * mientras `valor` sea `null`, la página muestra en su lugar una etiqueta ámbar
+ * «Por definir» con el `tema`.
+ *
+ * Cómo completar uno:
+ * 1. Escribe en `valor` el texto tal como debe leerse en la página, en el lugar
+ *    que dice `donde`. Admite **negrita** y [enlaces](/ruta).
+ * 2. Sube la versión y la fecha de `POLITICAS` (politicas.ts): cada cliente queda
+ *    registrado con la versión que aceptó al crear su cuenta.
+ * 3. Cuando el abogado apruebe el texto, pon `REVISION_LEGAL_PENDIENTE` en `false`
+ *    para quitar el aviso de borrador.
+ */
+export interface DatoPorDefinir {
+  /** Qué falta, tal como se lee en la etiqueta «Por definir». */
+  tema: string;
+  /** Sección y apartado de la página donde va. */
+  donde: string;
+  /** Texto definitivo; `null` mientras falte. */
+  valor: string | null;
+}
+
+const DATOS = {
+  edadMinima: {
+    tema: 'edad mínima y si un menor puede comprar con permiso',
+    donde: 'Términos de uso › Tu cuenta',
+    valor:
+      '**18 años**, la edad en la que una persona puede abrir una cuenta bancaria. Si eres menor de edad, no puedes crear una cuenta ni comprar.',
+  },
+  motivosSuspension: {
+    tema: 'motivos por los que se suspende una cuenta',
+    donde: 'Términos de uso › Suspensión de cuentas',
+    valor: 'Se suspende por **pagos inválidos**.',
+  },
+  copiaBorrado: {
+    tema: 'cómo pedir una copia de tus datos o borrar tu cuenta',
+    donde: 'Privacidad › Lo que puedes hacer',
+    valor: null,
+  },
+  conservacion: {
+    tema: 'plazo de conservación de tus datos, pagos y comprobantes',
+    donde: 'Privacidad › Cuánto tiempo los guardamos',
+    valor: null,
+  },
+  tiempoEntrega: {
+    tema: 'tiempo máximo de entrega según el tipo de servicio',
+    donde: 'Entregas › Tiempo de entrega',
+    valor: '**de 10 a 15 minutos** después de que se confirma tu pago.',
+  },
+  codigoFalla: {
+    tema: 'si se repone el código y en qué plazo',
+    donde: 'Entregas › Si un código no funciona',
+    valor:
+      'envíanos el código y pide uno nuevo desde la página de NV Streaming, en [Soporte](/cuenta/soporte/nueva).',
+  },
+  requisitosRevendedor: {
+    tema: 'requisitos para aprobar una solicitud',
+    donde: 'Revendedores › Solicitud',
+    valor:
+      'Para ser aprobado, el administrador revisa tu solicitud y debes **vender activamente**.',
+  },
+  suspensionRevendedor: {
+    tema: 'motivos de suspensión de un revendedor',
+    donde: 'Revendedores › Suspensión',
+    valor: 'Motivos: **faltas de respeto, groserías o mal manejo de las cuentas**.',
+  },
+  responsableDatos: {
+    tema: 'persona o correo responsable de los datos y de los reclamos',
+    donde: 'Contacto › Privacidad y reclamos',
+    valor: null,
+  },
+  direccion: {
+    tema: 'dónde estamos',
+    donde: 'Contacto › Dónde estamos',
+    valor: 'Puerto La Cruz, Venezuela.',
+  },
+} satisfies Record<string, DatoPorDefinir>;
+
+export type ClavePorDefinir = keyof typeof DATOS;
+
+/** Los datos que faltan, en el orden en que aparecen en la página. */
+export const POR_DEFINIR: Record<ClavePorDefinir, DatoPorDefinir> = DATOS;
+
+/** `true` mientras un abogado no haya revisado el texto: la página lo avisa arriba. */
+export const REVISION_LEGAL_PENDIENTE: boolean = true;
