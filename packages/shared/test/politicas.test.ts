@@ -59,7 +59,7 @@ describe('Políticas y términos', () => {
 
   it('usa cada dato por definir una vez, en el orden del archivo, y los cuenta', () => {
     expect(clavesPorDefinir(doc)).toEqual(Object.keys(POR_DEFINIR));
-    expect(Object.keys(POR_DEFINIR)).toHaveLength(14);
+    expect(Object.keys(POR_DEFINIR)).toHaveLength(10);
     const faltan = Object.values(POR_DEFINIR).filter((d) => d.valor === null).length;
     expect(pendientesPorDefinir(doc)).toBe(faltan);
   });

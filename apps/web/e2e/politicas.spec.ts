@@ -83,6 +83,10 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   );
   await expect(main.locator('#reembolsos')).toContainText('No hacemos reembolsos.');
   await expect(main.locator('#terminos')).toContainText('Edad mínima: 18 años');
+  await expect(main.locator('#entregas')).toContainText('de 10 a 15 minutos');
+  await expect(main.locator('#contacto')).toContainText(
+    'Dónde estamos: Puerto La Cruz, Venezuela.',
+  );
   const cookies = main.locator('#cookies code');
   // Sin HTTPS (pruebas) la API usa la cookie sin el prefijo __Host-.
   await expect(cookies).toHaveText(['nv_sesion', 'nv_moneda', 'nv_aviso_tasa', 'nv-carrito']);

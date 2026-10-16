@@ -31,7 +31,7 @@ import { COOKIE_MONEDA } from './ubicacion.js';
  * por definir.
  */
 export const POLITICAS = {
-  version: '1.1',
+  version: '1.2',
   /** Fecha (AAAA-MM-DD, hora de Venezuela) desde la que rige esta versión. */
   vigenteDesde: '2026-10-16',
 } as const;
@@ -241,12 +241,12 @@ export function textoPoliticas(datos: {
       tipo: 'parrafo',
       texto: `El equipo puede suspender una cuenta. Mientras está suspendida no puedes entrar; escribe a soporte para saber el motivo. ${pd('motivosSuspension')}`,
     },
-    { tipo: 'subtitulo', texto: 'Cambios y ley aplicable' },
+    { tipo: 'subtitulo', texto: 'Cambios' },
     {
       tipo: 'parrafo',
-      texto: `Si cambiamos estas reglas, actualizamos la fecha y la versión al inicio de esta página. ${pd('avisoCambios')}`,
+      texto:
+        'Si cambiamos estas reglas, actualizamos la fecha y la versión al inicio de esta página.',
     },
-    { tipo: 'parrafo', texto: pd('leyAplicable') },
   ];
 
   const privacidad: BloquePolitica[] = [
@@ -305,7 +305,6 @@ export function textoPoliticas(datos: {
         '**Servicios de envío**: el de correo y, si aceptaste WhatsApp, WhatsApp Business de Meta, para enviarte avisos.',
         '**Distribuidores oficiales** que activan el servicio de forma automática: reciben el plan y, solo si ese proveedor lo necesita, tu correo.',
         '**Asistente de IA del equipo**: viene apagado y solo lo usa el equipo. Puede funcionar en nuestro servidor o con un proveedor externo (Anthropic); antes de enviarle algo, un filtro oculta contraseñas, claves y números de tarjeta.',
-        pd('otrosTerceros'),
       ],
     },
     { tipo: 'subtitulo', texto: 'Lo que puedes hacer' },
@@ -406,7 +405,7 @@ export function textoPoliticas(datos: {
       elementos: [
         '**No hacemos reembolsos.** Toda compra pagada y confirmada es final, la hayas pagado en línea, a mano o con el saldo de tu billetera.',
         'Antes de pagar, revisa bien el plan y la cuenta donde se activará.',
-        `**Saldo de la billetera**: no se puede retirar ni cambiar por dinero; solo sirve para pagar en la tienda. Vencimiento: ${pd('saldoBilletera')}`,
+        '**Saldo de la billetera**: no se puede retirar ni cambiar por dinero; solo sirve para pagar en la tienda. Si no te alcanza para un pago, te avisamos con un mensaje y no puedes pagar con la billetera hasta que recargues.',
       ],
     },
   ];
@@ -495,7 +494,7 @@ export function textoPoliticas(datos: {
       elementos: [
         `**Soporte**: ${whatsapp ? 'por WhatsApp o ' : ''}con un ticket desde tu panel (${temas}).`,
         `**Privacidad y reclamos**: ${pd('responsableDatos')}`,
-        `**Dirección para notificaciones**: ${pd('direccion')}`,
+        `**Dónde estamos**: ${pd('direccion')}`,
       ],
     },
     { tipo: 'contacto' },

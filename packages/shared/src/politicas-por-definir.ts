@@ -31,22 +31,7 @@ const DATOS = {
   motivosSuspension: {
     tema: 'motivos por los que se suspende una cuenta',
     donde: 'Términos de uso › Suspensión de cuentas',
-    valor: null,
-  },
-  avisoCambios: {
-    tema: 'cómo y con cuánta anticipación avisamos los cambios importantes',
-    donde: 'Términos de uso › Cambios y ley aplicable',
-    valor: null,
-  },
-  leyAplicable: {
-    tema: 'ley aplicable y tribunales competentes',
-    donde: 'Términos de uso › Cambios y ley aplicable',
-    valor: null,
-  },
-  otrosTerceros: {
-    tema: 'si se comparten datos con otros terceros (contador, autoridades) y en qué casos',
-    donde: 'Privacidad › Con quién se comparten',
-    valor: null,
+    valor: 'Se suspende por **pagos inválidos**.',
   },
   copiaBorrado: {
     tema: 'cómo pedir una copia de tus datos o borrar tu cuenta',
@@ -58,30 +43,27 @@ const DATOS = {
     donde: 'Privacidad › Cuánto tiempo los guardamos',
     valor: null,
   },
-  saldoBilletera: {
-    tema: 'si el saldo vence',
-    donde: 'Pagos y reembolsos › Reembolsos › Saldo de la billetera',
-    valor: null,
-  },
   tiempoEntrega: {
     tema: 'tiempo máximo de entrega según el tipo de servicio',
     donde: 'Entregas › Tiempo de entrega',
-    valor: null,
+    valor: '**de 10 a 15 minutos** después de que se confirma tu pago.',
   },
   codigoFalla: {
     tema: 'si se repone el código y en qué plazo',
     donde: 'Entregas › Si un código no funciona',
-    valor: null,
+    valor:
+      'envíanos el código y pide uno nuevo desde la página de NV Streaming, en [Soporte](/cuenta/soporte/nueva).',
   },
   requisitosRevendedor: {
     tema: 'requisitos para aprobar una solicitud',
     donde: 'Revendedores › Solicitud',
-    valor: null,
+    valor:
+      'Para ser aprobado, el administrador revisa tu solicitud y debes **vender activamente**.',
   },
   suspensionRevendedor: {
     tema: 'motivos de suspensión de un revendedor',
     donde: 'Revendedores › Suspensión',
-    valor: null,
+    valor: 'Motivos: **faltas de respeto, groserías o mal manejo de las cuentas**.',
   },
   responsableDatos: {
     tema: 'persona o correo responsable de los datos y de los reclamos',
@@ -89,9 +71,9 @@ const DATOS = {
     valor: null,
   },
   direccion: {
-    tema: 'dirección física',
-    donde: 'Contacto › Dirección para notificaciones',
-    valor: null,
+    tema: 'dónde estamos',
+    donde: 'Contacto › Dónde estamos',
+    valor: 'Puerto La Cruz, Venezuela.',
   },
 } satisfies Record<string, DatoPorDefinir>;
 

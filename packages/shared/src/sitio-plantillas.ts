@@ -192,7 +192,7 @@ const QUIENES_SOMOS: PlantillaPagina = {
         {
           pregunta: '¿Cuánto tarda la entrega?',
           respuesta:
-            'Depende del servicio. Cuando el equipo confirma tu pago, ves tu activación y sus instrucciones en tu panel, y te avisamos por correo.',
+            'De 10 a 15 minutos después de que se confirma tu pago. Ves tu activación y sus instrucciones en tu panel, y te avisamos por correo.',
         },
         {
           pregunta: '¿Por qué tengo que enviar un comprobante?',
