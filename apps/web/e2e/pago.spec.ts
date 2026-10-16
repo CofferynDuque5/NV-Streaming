@@ -3,8 +3,8 @@ import { expect, type Page, test } from '@playwright/test';
 import { entrarEquipo, ingresar, reiniciarLimiteIngreso } from './ayudas';
 
 /*
- * Página «Paga tu pedido» con la API real: elegir factura y método, validar el
- * comprobante en vivo, enviarlo (queda en revisión), ver el motivo de un
+ * Página «Paga tu pedido» con la API real: el aviso del saldo que no alcanza,
+ * elegir factura y método, validar el comprobante en vivo, enviarlo (queda en revisión), ver el motivo de un
  * rechazo, cambiar la moneda, pagar con saldo y pagar todo el pedido de una vez.
  * Corre después de carrito.spec.ts: el cliente no tiene pedidos por pagar.
  */
@@ -68,8 +68,74 @@ test.afterAll(async () => {
 const resumen = () => cliente.getByRole('complementary', { name: 'Resumen de la factura' });
 const facturas = () => cliente.getByRole('navigation', { name: 'Facturas del pedido' });
 
-test('elige el método y valida el comprobante en vivo; al enviarlo queda en revisión', async () => {
+test('sin saldo suficiente, «Saldo NV» abre un aviso que lleva a recargar para el pedido', async () => {
   urlPedido = await crearPedido('VES');
+  await cliente.goto(urlPedido);
+  await expect(facturas().getByRole('link', { name: /NV Cine/ })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  // El saldo (lo que dejó carrito.spec.ts) no alcanza para NV Cine: la opción dice lo que falta.
+  const opcion = cliente.getByRole('button', { name: /Saldo NV/ });
+  await expect(opcion).toContainText(/te faltan \$/);
+  const [, saldo, falta] =
+    (await opcion.innerText()).match(/Tienes (\$[\d.,]+) · te faltan (\$[\d.,]+)/) ?? [];
+  const aviso = cliente.getByRole('dialog', { name: 'Tu saldo no alcanza' });
+  const recargar = aviso.getByRole('link', { name: 'Recargar saldo' });
+  const otro = aviso.getByRole('button', { name: 'Elegir otro método' });
+
+  await opcion.click();
+  await expect(aviso).toBeVisible();
+  await expect(aviso).toHaveAccessibleDescription(
+    'No puedes pagar esta factura con tu billetera hasta que recargues.',
+  );
+  // Las mismas cifras que muestra la opción.
+  await expect(aviso.getByText(saldo!, { exact: true })).toBeVisible();
+  await expect(aviso.getByText(falta!, { exact: true })).toBeVisible();
+  await expect(recargar).toBeFocused();
+  await cliente.keyboard.press('Shift+Tab');
+  await expect(otro).toBeFocused();
+  await cliente.keyboard.press('Tab');
+  await expect(recargar).toBeFocused();
+  await cliente.keyboard.press('Escape');
+  await expect(aviso).toBeHidden();
+  await expect(opcion).toBeFocused();
+  // No se elige el saldo: sigue pidiendo un método.
+  await expect(
+    cliente.getByText('Elige un método arriba y aquí te mostramos cómo pagar.'),
+  ).toBeVisible();
+
+  await cliente.keyboard.press('Space');
+  await expect(aviso).toBeVisible();
+  await otro.click();
+  await expect(aviso).toBeHidden();
+  await expect(opcion).toBeFocused();
+
+  // En el teléfono cabe sin desplazamiento horizontal.
+  await cliente.setViewportSize({ width: 390, height: 844 });
+  await opcion.click();
+  await expect(aviso).toBeVisible();
+  const caja = await aviso.boundingBox();
+  expect(caja!.x).toBeGreaterThanOrEqual(0);
+  expect(caja!.x + caja!.width).toBeLessThanOrEqual(390);
+  expect(await cliente.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    390,
+  );
+
+  // «Recargar saldo» lleva a la billetera con la recarga ligada al pedido.
+  const pedidoId = urlPedido.split('/').pop()!;
+  await recargar.click();
+  await expect(cliente).toHaveURL(`/cuenta/billetera?pedido=${pedidoId}#recargar`);
+  await expect(cliente.getByText(/Pedido PED-\d{6} por pagar/)).toBeVisible();
+  await expect(cliente.getByRole('button', { name: /Lo que falta/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await cliente.setViewportSize({ width: 1280, height: 720 });
+});
+
+test('elige el método y valida el comprobante en vivo; al enviarlo queda en revisión', async () => {
+  // El pedido de la prueba anterior, que sigue por pagar.
   await cliente.goto(urlPedido);
   await expect(cliente.getByRole('heading', { name: 'Paga tu pedido' })).toBeVisible();
   await expect(facturas().getByRole('link', { name: /NV Cine/ })).toHaveAttribute(
@@ -80,9 +146,8 @@ test('elige el método y valida el comprobante en vivo; al enviarlo queda en rev
     cliente.getByText('Elige un método arriba y aquí te mostramos cómo pagar.'),
   ).toBeVisible();
   // En bolívares no hay pago en línea; el saldo no alcanza (lo dice) y los manuales salen del panel.
-  const saldo = cliente.getByRole('radio', { name: /Saldo NV/ });
-  await expect(saldo).toBeDisabled();
-  await expect(cliente.getByText(/te faltan \$/)).toBeVisible();
+  await expect(cliente.getByRole('radio', { name: /Saldo NV/ })).toHaveCount(0);
+  await expect(cliente.getByRole('button', { name: /Saldo NV/ })).toContainText(/te faltan \$/);
   await cliente.getByRole('radio', { name: /Pago Móvil/ }).check();
   await expect(cliente.getByRole('heading', { name: 'Paga y envía tu comprobante' })).toBeVisible();
   await expect(cliente.getByText(/DATOS DE EJEMPLO\. Banco/)).toBeVisible();

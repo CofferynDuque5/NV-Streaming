@@ -584,6 +584,7 @@ export function VistaPago({ datos }: { datos: DatosPago }) {
           manuales={datos.manuales}
           maxMb={datos.maxMb}
           volver={enlaceFactura(datos, f.id)}
+          pedidoId={pedido?.id ?? null}
         />
       </>
     );

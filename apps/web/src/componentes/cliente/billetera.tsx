@@ -97,6 +97,11 @@ export interface DatosBilletera {
   tasas: Partial<Record<Moneda, string>>;
   /** Pedido del carrito que espera pago y que esta recarga puede pagar. */
   pedido: PedidoPublico | null;
+  /**
+   * Lo que le faltó de saldo para pagar el carrito o una factura (`?falta=`),
+   * cuando no hay pedido: se ofrece como «Lo que falta» en los montos rápidos.
+   */
+  faltaUsd?: string | null;
   /** Moneda sugerida para pagar (la que eligió antes o la de su país). */
   monedaSugerida: Moneda;
   nombre: string;
@@ -1302,7 +1307,8 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
   const faltante = pedido
     ? Math.max(0, Number(pedido.pendienteUsd) - Number(billetera.saldoUsd))
     : 0;
-  const montoFaltante = faltante > 0 ? faltante.toFixed(2) : null;
+  const montoFaltante =
+    faltante > 0 ? faltante.toFixed(2) : pedido ? null : (datos.faltaUsd ?? null);
 
   const [moneda, setMoneda] = useState<Moneda>(monedaInicial);
   const [monto, setMonto] = useState<Monto>({ tipo: 'rapido', usd: montoFaltante ?? '10.00' });

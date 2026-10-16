@@ -31,9 +31,11 @@ import {
   type DragEvent,
   type FormEvent,
   type ReactNode,
+  type Ref,
   useContext,
   useEffect,
   useId,
+  useRef,
   useState,
 } from 'react';
 import { Bandera } from '@/componentes/tienda/iconos';
@@ -41,7 +43,9 @@ import { Boton } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
+import { enlaceRecarga } from '@/lib/recarga';
 import { AccionPagoEnLinea } from './pago-en-linea';
+import { AvisoSaldoInsuficiente } from './saldo-insuficiente';
 
 /* ─────────────────────────── piezas comunes ─────────────────────────── */
 
@@ -873,35 +877,18 @@ function Velocidad({ ya }: { ya: boolean }) {
   );
 }
 
-export function OpcionMetodo({
-  nombre,
-  ya,
-  descripcion,
-  icono,
-  color,
-  elegido,
-  deshabilitado,
-  onElegir,
-}: {
+interface DatosOpcion {
   nombre: string;
   ya: boolean;
   descripcion: ReactNode;
   icono: ReactNode;
   color: string;
-  elegido: boolean;
-  deshabilitado?: boolean;
-  onElegir: () => void;
-}) {
+}
+
+/** Orbe, nombre y descripción de un método (con o sin la casilla para elegirlo). */
+function CuerpoOpcion({ nombre, ya, descripcion, icono, color }: DatosOpcion) {
   return (
-    <label
-      className={clsx(
-        'grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border px-3.5 py-3 transition-colors',
-        elegido
-          ? 'border-marca bg-marca-suave shadow-[inset_0_0_0_1px_var(--nv-marca)]'
-          : 'border-borde-fuerte bg-hundida/50 hover:border-marca/60',
-        deshabilitado && 'cursor-not-allowed opacity-55',
-      )}
-    >
+    <>
       <span
         className="grid size-10 place-items-center rounded-full border border-white/10 text-[color:var(--c)] [background:radial-gradient(circle,color-mix(in_srgb,var(--c)_30%,transparent),transparent_70%)]"
         style={{ '--c': color } as CSSProperties}
@@ -916,6 +903,35 @@ export function OpcionMetodo({
         </b>
         <span className="text-[0.8rem] text-tinta-suave">{descripcion}</span>
       </span>
+    </>
+  );
+}
+
+const claseOpcion =
+  'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border px-3.5 py-3 transition-colors';
+
+export function OpcionMetodo({
+  elegido,
+  deshabilitado,
+  onElegir,
+  ...cuerpo
+}: DatosOpcion & {
+  elegido: boolean;
+  deshabilitado?: boolean;
+  onElegir: () => void;
+}) {
+  return (
+    <label
+      className={clsx(
+        claseOpcion,
+        'cursor-pointer',
+        elegido
+          ? 'border-marca bg-marca-suave shadow-[inset_0_0_0_1px_var(--nv-marca)]'
+          : 'border-borde-fuerte bg-hundida/50 hover:border-marca/60',
+        deshabilitado && 'cursor-not-allowed opacity-55',
+      )}
+    >
+      <CuerpoOpcion {...cuerpo} />
       <input
         type="radio"
         name="metodo-pago"
@@ -925,6 +941,35 @@ export function OpcionMetodo({
         className="grid size-5 shrink-0 appearance-none place-items-center rounded-full border-2 border-borde-fuerte transition-[border] checked:border-[6px] checked:border-marca focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cian disabled:cursor-not-allowed"
       />
     </label>
+  );
+}
+
+/**
+ * Un método que no se puede elegir y explica por qué al tocarlo (el saldo que
+ * no alcanza): se ve como una opción apagada y abre un aviso.
+ */
+function OpcionConAviso({
+  ref,
+  onAbrir,
+  ...cuerpo
+}: DatosOpcion & { ref: Ref<HTMLButtonElement>; onAbrir: () => void }) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-haspopup="dialog"
+      onClick={onAbrir}
+      className={clsx(
+        claseOpcion,
+        'cursor-pointer border-borde-fuerte bg-hundida/50 text-left hover:border-aviso/60',
+      )}
+    >
+      <CuerpoOpcion {...cuerpo} />
+      <span
+        aria-hidden="true"
+        className="size-5 shrink-0 rounded-full border-2 border-borde-fuerte opacity-55"
+      />
+    </button>
   );
 }
 
@@ -1017,8 +1062,11 @@ export function ElegirPago({
   manuales,
   maxMb,
   volver,
+  pedidoId = null,
 }: {
   factura: FacturaParaPagar;
+  /** Pedido de la factura: una recarga para pagarla queda ligada a él. */
+  pedidoId?: string | null;
   /** Dirección de esta factura en la página actual. */
   volver: string;
   /** null: la factura no se puede recalcular en otra moneda. */
@@ -1031,7 +1079,14 @@ export function ElegirPago({
 }) {
   const [metodo, setMetodo] = useState<Metodo | null>(null);
   const [accionVisible, setAccionVisible] = useState(false);
+  const [avisoSaldo, setAvisoSaldo] = useState(false);
+  const opcionSaldo = useRef<HTMLButtonElement>(null);
   const alcanza = saldoUsd !== null && Number(saldoUsd) >= Number(factura.totalUsd);
+  // Lo mismo que dice la opción del saldo: el total de la factura menos el saldo (ambos de la API).
+  const faltanteUsd =
+    saldoUsd !== null && !alcanza
+      ? (Number(factura.totalUsd) - Number(saldoUsd)).toFixed(2)
+      : '0.00';
   const opciones = enLinea?.opciones ?? [];
   const opcionLinea =
     metodo?.tipo === 'linea' ? opciones.find((o) => o.metodoCobroId === metodo.id) : undefined;
@@ -1108,33 +1163,55 @@ export function ElegirPago({
           <div role="radiogroup" aria-label="Método de pago" className="grid gap-3">
             {(saldoUsd !== null || opciones.length > 0) && (
               <Grupo titulo="Al instante">
-                {saldoUsd !== null && (
-                  <OpcionMetodo
-                    nombre="Saldo NV"
-                    ya
-                    icono={<Wallet className="size-4.5" />}
-                    color="#a855f7"
-                    elegido={clave === 'saldo'}
-                    deshabilitado={!alcanza}
-                    onElegir={() => elegir({ tipo: 'saldo' })}
-                    descripcion={
-                      alcanza ? (
-                        `Tienes ${formatearMonto(saldoUsd, 'USD')} disponibles`
-                      ) : (
-                        <>
-                          Tienes {formatearMonto(saldoUsd, 'USD')} ·{' '}
-                          <span className="text-aviso">
-                            te faltan{' '}
-                            {formatearMonto(
-                              (Number(factura.totalUsd) - Number(saldoUsd)).toFixed(2),
-                              'USD',
-                            )}
-                          </span>
-                        </>
-                      )
-                    }
-                  />
-                )}
+                {saldoUsd !== null &&
+                  (alcanza ? (
+                    <OpcionMetodo
+                      nombre="Saldo NV"
+                      ya
+                      icono={<Wallet className="size-4.5" />}
+                      color="#a855f7"
+                      elegido={clave === 'saldo'}
+                      onElegir={() => elegir({ tipo: 'saldo' })}
+                      descripcion={`Tienes ${formatearMonto(saldoUsd, 'USD')} disponibles`}
+                    />
+                  ) : (
+                    <>
+                      {/* No se puede elegir: tocarlo abre el aviso para recargar. */}
+                      <OpcionConAviso
+                        ref={opcionSaldo}
+                        nombre="Saldo NV"
+                        ya
+                        icono={<Wallet className="size-4.5" />}
+                        color="#a855f7"
+                        onAbrir={() => setAvisoSaldo(true)}
+                        descripcion={
+                          <>
+                            Tienes {formatearMonto(saldoUsd, 'USD')} ·{' '}
+                            <span className="text-aviso">
+                              te faltan {formatearMonto(faltanteUsd, 'USD')}
+                            </span>
+                          </>
+                        }
+                      />
+                      {avisoSaldo && (
+                        <AvisoSaldoInsuficiente
+                          alCerrar={() => setAvisoSaldo(false)}
+                          origen={opcionSaldo}
+                          saldoUsd={saldoUsd}
+                          faltanteUsd={faltanteUsd}
+                          que="esta factura"
+                          enlaceRecarga={enlaceRecarga(
+                            pedidoId ? { pedidoId } : { faltaUsd: faltanteUsd },
+                          )}
+                          nota={
+                            pedidoId
+                              ? 'Cuando confirmemos tu recarga, pagamos tu pedido con ese saldo.'
+                              : 'Cuando confirmemos tu recarga, vuelve y paga esta factura con tu saldo.'
+                          }
+                        />
+                      )}
+                    </>
+                  ))}
                 {opciones.map((o) => (
                   <OpcionMetodo
                     key={o.metodoCobroId}

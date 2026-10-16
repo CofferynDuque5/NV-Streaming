@@ -12,6 +12,7 @@ import type { Metadata } from 'next';
 import { VistaBilletera } from '@/componentes/cliente/billetera';
 import { Alerta } from '@/componentes/ui/alerta';
 import { leerApi } from '@/lib/api-servidor';
+import { faltaDelEnlace } from '@/lib/recarga';
 import { requerirSesion } from '@/lib/sesion';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
@@ -149,6 +150,8 @@ export default async function Billetera({ searchParams }: { searchParams: Promis
           metodos,
           tasas,
           pedido,
+          // Lo que faltó para pagar el carrito o una factura (aviso de saldo insuficiente).
+          faltaUsd: faltaDelEnlace(crudo.falta),
           monedaSugerida: ubicacion.moneda,
           nombre: sesion.usuario.nombre,
           maxMb: MAX_MB,

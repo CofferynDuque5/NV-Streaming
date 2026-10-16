@@ -121,8 +121,12 @@ test('cotiza en la API y valida el cupón: formato, no válido y válido', async
 });
 
 test('pagar cada factura aparte: crea el pedido y lleva a su página', async () => {
-  // Sin saldo, «Pagar con mi saldo» no se puede elegir.
-  await expect(resumen().getByRole('radio', { name: /Pagar con mi saldo/ })).toBeDisabled();
+  // Sin saldo, «Pagar con mi saldo» no se puede elegir: tocarlo abre el aviso para recargar.
+  await expect(resumen().getByRole('radio', { name: /Pagar con mi saldo/ })).toHaveCount(0);
+  await expect(resumen().getByRole('button', { name: /Pagar con mi saldo/ })).toHaveAttribute(
+    'aria-haspopup',
+    'dialog',
+  );
   await expect(resumen().getByText('Tu saldo no alcanza para este pedido.')).toBeVisible();
   await expect(resumen().getByRole('radio', { name: /Recargar y pagar/ })).toBeChecked();
 
@@ -182,6 +186,68 @@ test('recargar y pagar: el pedido espera la recarga y se puede cancelar en su p�
   await expect(
     cliente.getByText('Este pedido se canceló y sus facturas quedaron anuladas.'),
   ).toBeVisible();
+});
+
+test('sin saldo suficiente, «Pagar con mi saldo» abre un aviso que lleva a recargar', async () => {
+  await llenarCarrito();
+  await expect(resumen().getByText(/te faltan \$19\.48/)).toBeVisible();
+  const opcion = resumen().getByRole('button', { name: /Pagar con mi saldo/ });
+  const aviso = cliente.getByRole('dialog', { name: 'Tu saldo no alcanza' });
+  const recargar = aviso.getByRole('link', { name: 'Recargar saldo' });
+  const otro = aviso.getByRole('button', { name: 'Elegir otro método' });
+
+  // Con el ratón: el aviso dice el saldo y lo que falta (de la cotización de la API).
+  await opcion.click();
+  await expect(aviso).toBeVisible();
+  await expect(aviso).toHaveAccessibleDescription(
+    'No puedes pagar este pedido con tu billetera hasta que recargues.',
+  );
+  await expect(aviso.getByText(usd(0), { exact: true })).toBeVisible();
+  await expect(aviso.getByText(usd(19.48), { exact: true })).toBeVisible();
+
+  // Teclado: el foco empieza en la acción principal, Tab no sale del aviso y Escape lo cierra.
+  await expect(recargar).toBeFocused();
+  await cliente.keyboard.press('Tab');
+  await expect(otro).toBeFocused();
+  await cliente.keyboard.press('Tab');
+  await expect(recargar).toBeFocused();
+  await cliente.keyboard.press('Shift+Tab');
+  await expect(otro).toBeFocused();
+  await cliente.keyboard.press('Escape');
+  await expect(aviso).toBeHidden();
+  await expect(opcion).toBeFocused();
+
+  // Se abre con Enter; «Elegir otro método» lo cierra y no se puede pagar con el saldo.
+  await cliente.keyboard.press('Enter');
+  await expect(aviso).toBeVisible();
+  await otro.click();
+  await expect(aviso).toBeHidden();
+  await expect(opcion).toBeFocused();
+  await expect(resumen().getByRole('radio', { name: /Recargar y pagar/ })).toBeChecked();
+  await expect(resumen().getByRole('button', { name: 'Hacer el pedido y recargar' })).toBeVisible();
+
+  // En el teléfono cabe sin desplazamiento horizontal.
+  await cliente.setViewportSize({ width: 390, height: 844 });
+  await opcion.click();
+  await expect(aviso).toBeVisible();
+  const caja = await aviso.boundingBox();
+  expect(caja!.x).toBeGreaterThanOrEqual(0);
+  expect(caja!.x + caja!.width).toBeLessThanOrEqual(390);
+  expect(await cliente.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    390,
+  );
+  await expect(recargar).toBeInViewport();
+  await expect(otro).toBeInViewport();
+
+  // «Recargar saldo» lleva a la billetera con lo que falta ya elegido.
+  await recargar.click();
+  await expect(cliente).toHaveURL(/\/cuenta\/billetera\?falta=19\.48#recargar$/);
+  await expect(cliente.getByRole('button', { name: /Lo que falta/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(cliente.getByRole('button', { name: /Lo que falta/ })).toContainText(usd(19.48));
+  await cliente.setViewportSize({ width: 1280, height: 720 });
 });
 
 test('pagar con mi saldo: con saldo suficiente el pedido queda pagado al instante', async () => {

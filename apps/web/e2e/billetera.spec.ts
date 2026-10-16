@@ -47,7 +47,12 @@ test('el cliente arma un carrito, recarga su billetera y el pedido se paga al co
   await cliente.goto('/carrito?moneda=USD');
   const total = 15.99 + 54.99;
   await expect(cliente.getByText(usd(total), { exact: true }).first()).toBeVisible();
-  await expect(cliente.getByRole('radio', { name: /Pagar con mi saldo/ })).toBeDisabled();
+  // El saldo no se puede elegir: es un botón que abre el aviso para recargar.
+  await expect(cliente.getByRole('radio', { name: /Pagar con mi saldo/ })).toHaveCount(0);
+  await expect(cliente.getByRole('button', { name: /Pagar con mi saldo/ })).toHaveAttribute(
+    'aria-haspopup',
+    'dialog',
+  );
   await expect(cliente.getByRole('radio', { name: /Recargar y pagar/ })).toBeChecked();
   await cliente.getByRole('button', { name: 'Hacer el pedido y recargar' }).click();
   await expect(cliente.getByRole('heading', { name: /Pedido PED-\d{6} creado/ })).toBeVisible();

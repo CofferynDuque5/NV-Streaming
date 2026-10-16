@@ -35,6 +35,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { AvisoSaldoInsuficiente } from '@/componentes/cliente/saldo-insuficiente';
 import { Boton, clasesBoton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { useNotificar } from '@/componentes/ui/notificaciones';
@@ -47,6 +48,7 @@ import {
   useCarritoListo,
 } from '@/lib/carrito';
 import { precioTexto } from '@/lib/precios';
+import { enlaceRecarga } from '@/lib/recarga';
 import { ArteServicio } from './arte';
 import { Esqueleto, nombreOpcion, porPopularidad } from './carrito-comun';
 import { Carril } from './deslizables';
@@ -807,6 +809,8 @@ function ResumenCliente({
   const [forma, setForma] = useState<FormaPagoPedido | null>(null);
   const [creando, setCreando] = useState(false);
   const [errorPedido, setErrorPedido] = useState<ErrorLlamada | null>(null);
+  const [avisoSaldo, setAvisoSaldo] = useState(false);
+  const opcionSaldo = useRef<HTMLButtonElement>(null);
 
   const saldoUsd = cotizacion?.saldoUsd ?? cliente.saldoUsd;
   const alcanza = cotizacion ? Number(cotizacion.faltanteUsd) === 0 : false;
@@ -963,6 +967,30 @@ function ResumenCliente({
             </p>
             {formas.map((f) => {
               const apagada = f.id === 'billetera' && !alcanza;
+              // Con el total ya cotizado, tocar el saldo que no alcanza abre el aviso para recargar.
+              if (apagada && cotizacion) {
+                return (
+                  <button
+                    key={f.id}
+                    ref={opcionSaldo}
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setAvisoSaldo(true)}
+                    className="flex cursor-pointer gap-3 rounded-[0.95rem] border border-borde-fuerte bg-[rgb(3_5_14/0.5)] p-3.5 text-left transition-colors hover:border-aviso/60"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 size-[1.125rem] shrink-0 rounded-full border-2 border-borde-fuerte opacity-55"
+                    />
+                    <span className="grid min-w-0 gap-0.5">
+                      <b className="text-sm font-semibold text-tinta-suave">{f.titulo}</b>
+                      <span className="text-[0.8rem] text-tinta-suave">
+                        Tu saldo no alcanza para este pedido.
+                      </span>
+                    </span>
+                  </button>
+                );
+              }
               return (
                 <label
                   key={f.id}
@@ -985,14 +1013,23 @@ function ResumenCliente({
                   />
                   <span className="grid min-w-0 gap-0.5">
                     <b className="text-sm font-semibold">{f.titulo}</b>
-                    <span className="text-[0.8rem] text-tinta-suave">
-                      {apagada && cotizacion ? 'Tu saldo no alcanza para este pedido.' : f.texto}
-                    </span>
+                    <span className="text-[0.8rem] text-tinta-suave">{f.texto}</span>
                   </span>
                 </label>
               );
             })}
           </fieldset>
+          {avisoSaldo && cotizacion && !alcanza && (
+            <AvisoSaldoInsuficiente
+              alCerrar={() => setAvisoSaldo(false)}
+              origen={opcionSaldo}
+              saldoUsd={cotizacion.saldoUsd}
+              faltanteUsd={cotizacion.faltanteUsd}
+              que="este pedido"
+              enlaceRecarga={enlaceRecarga({ faltaUsd: cotizacion.faltanteUsd })}
+              nota="Tu carrito se queda guardado. Cuando confirmemos tu recarga, vuelve y paga con tu saldo."
+            />
+          )}
 
           <Boton
             type="submit"
