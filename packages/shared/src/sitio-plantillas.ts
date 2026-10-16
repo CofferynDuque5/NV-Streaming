@@ -202,7 +202,7 @@ const QUIENES_SOMOS: PlantillaPagina = {
         {
           pregunta: '¿Puedo pedir un reembolso?',
           respuesta:
-            'Cada caso se revisa según nuestras [Políticas y términos](/politicas#reembolsos). Escríbenos por WhatsApp con tu número de pedido.',
+            'No. Toda compra pagada y confirmada es final, así que revisa bien el plan antes de pagar. Lo explicamos en nuestras [Políticas y términos](/politicas#reembolsos).',
         },
         {
           pregunta: '¿En qué monedas puedo pagar?',

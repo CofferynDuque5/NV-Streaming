@@ -52,7 +52,7 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   const main = page.getByRole('main');
   await expect(main.getByRole('heading', { level: 1 })).toHaveText('Políticas y términos');
   await expect(main.getByText(`Versión ${POLITICAS.version} · vigente desde`)).toBeVisible();
-  await expect(main.getByText('5 de octubre de 2026')).toBeVisible();
+  await expect(main.getByText('16 de octubre de 2026')).toBeVisible();
   const borrador = main.getByRole('note');
   await expect(borrador).toContainText(
     'Borrador: este texto debe revisarlo un abogado antes de publicarlo.',
@@ -65,7 +65,7 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   await expect(
     main.getByRole('heading', { level: 2, name: 'Lo esencial en 1 minuto' }),
   ).toBeVisible();
-  await expect(main.locator('#esencial li')).toHaveCount(6);
+  await expect(main.locator('#esencial li')).toHaveCount(7);
   expect(await main.locator('section.pl-sec').evaluateAll((s) => s.map((x) => x.id))).toEqual([
     'esencial',
     ...ANCLAS_POLITICAS,
@@ -81,6 +81,8 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   await expect(main.locator('#reembolsos')).toContainText(
     `Tienes ${REGLAS_COBRO.diasParaPagar} días para pagar una factura emitida`,
   );
+  await expect(main.locator('#reembolsos')).toContainText('No hacemos reembolsos.');
+  await expect(main.locator('#terminos')).toContainText('Edad mínima: 18 años');
   const cookies = main.locator('#cookies code');
   // Sin HTTPS (pruebas) la API usa la cookie sin el prefijo __Host-.
   await expect(cookies).toHaveText(['nv_sesion', 'nv_moneda', 'nv_aviso_tasa', 'nv-carrito']);

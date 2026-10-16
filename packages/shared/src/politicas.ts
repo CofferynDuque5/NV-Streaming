@@ -31,9 +31,9 @@ import { COOKIE_MONEDA } from './ubicacion.js';
  * por definir.
  */
 export const POLITICAS = {
-  version: '1.0',
+  version: '1.1',
   /** Fecha (AAAA-MM-DD, hora de Venezuela) desde la que rige esta versión. */
-  vigenteDesde: '2026-10-05',
+  vigenteDesde: '2026-10-16',
 } as const;
 
 export const RUTA_POLITICAS = '/politicas';
@@ -205,7 +205,7 @@ export function textoPoliticas(datos: {
         'Estos términos se aplican cuando usas la tienda NV Streaming, creas una cuenta o compras un servicio. Al crear tu cuenta marcas que los aceptas junto con la política de privacidad.',
     },
     { tipo: 'subtitulo', texto: 'Quién vende' },
-    { tipo: 'parrafo', texto: `NV Streaming, de Nathan y Valeryn. ${pd('vendedor')}` },
+    { tipo: 'parrafo', texto: 'NV Streaming, de Nathan y Valeryn.' },
     { tipo: 'subtitulo', texto: 'Qué vendemos' },
     {
       tipo: 'lista',
@@ -222,7 +222,7 @@ export function textoPoliticas(datos: {
         `Te registras con tu nombre, tu correo y una contraseña de al menos ${LONGITUD_MINIMA_CONTRASENA} caracteres. Confirmas tu correo antes de entrar.`,
         `Puedes activar la verificación en dos pasos con una app de códigos.${exige2fa('revendedor') ? ' Para revendedores es obligatoria.' : ''}`,
         'Cuida tu contraseña y tus códigos de verificación: no los compartas con nadie, tampoco con alguien que diga ser del equipo.',
-        `Edad mínima para comprar: ${pd('edadMinima')}`,
+        `Edad mínima: ${pd('edadMinima')}`,
       ],
     },
     { tipo: 'subtitulo', texto: 'Uso correcto' },
@@ -377,7 +377,7 @@ export function textoPoliticas(datos: {
       elementos: [
         'Desde tu panel programas la cancelación: tu suscripción sigue activa hasta su vencimiento y no se renueva. Puedes revertirla antes de esa fecha.',
         'Si todavía no pagaste, se cancela en el acto.',
-        'Cancelar no genera por sí solo un reembolso del tiempo que queda.',
+        'Cancelar no devuelve el dinero del tiempo que queda.',
       ],
     },
     { tipo: 'subtitulo', texto: 'Cobros automáticos' },
@@ -404,10 +404,9 @@ export function textoPoliticas(datos: {
     {
       tipo: 'lista',
       elementos: [
-        '**Pagos en línea**: el equipo puede devolverlos, todo o una parte, por la misma pasarela y nunca por más de lo que pagaste. La devolución no cancela sola la suscripción.',
-        `**Pagos manuales**: ${pd('devolucionManual')}`,
-        `**Saldo de la billetera**: ${pd('saldoBilletera')}`,
-        `**Cuándo procede**: ${pd('casosReembolso')}`,
+        '**No hacemos reembolsos.** Toda compra pagada y confirmada es final, la hayas pagado en línea, a mano o con el saldo de tu billetera.',
+        'Antes de pagar, revisa bien el plan y la cuenta donde se activará.',
+        `**Saldo de la billetera**: no se puede retirar ni cambiar por dinero; solo sirve para pagar en la tienda. Vencimiento: ${pd('saldoBilletera')}`,
       ],
     },
   ];
@@ -441,7 +440,6 @@ export function textoPoliticas(datos: {
         'Activas siempre en la **cuenta propia de tu cliente**, con las mismas reglas: nada de cuentas compartidas ni contraseñas.',
         'Tú le cobras a tu cliente: NV no le emite facturas ni le hace cobros automáticos.',
         'Registra solo datos de clientes que te autorizaron a hacerlo.',
-        'El equipo puede reembolsar una compra a tu saldo; la suscripción de esa compra se cancela.',
         `El equipo puede suspender tu cuenta de revendedor indicando el motivo. Mientras tanto ves tu panel, pero no recargas ni compras. ${pd('suspensionRevendedor')}`,
       ],
     },
@@ -512,6 +510,7 @@ export function textoPoliticas(datos: {
       'Si pagas a mano, el equipo **revisa tu comprobante** antes de activar tu pedido. Con el saldo de tu billetera no hace falta.',
       `Si tu suscripción vence sin pago tienes **${dias(R.diasGracia)} de gracia**; después se suspende y, a los ${dias(R.diasSuspension)} suspendida, vence.`,
       'Solo te cobramos de forma automática si tú lo **autorizas**, y puedes revocarlo cuando quieras.',
+      '**No hacemos reembolsos**: toda compra pagada y confirmada es final.',
       'Usamos tu nombre, tu correo y lo que decidas agregar (WhatsApp, cédula o RIF) para tu cuenta, tus pedidos y tus avisos.',
     ],
     secciones: [

@@ -22,15 +22,11 @@ export interface DatoPorDefinir {
 }
 
 const DATOS = {
-  vendedor: {
-    tema: 'razón social, RIF y domicilio de quien vende',
-    donde: 'Términos de uso › Quién vende',
-    valor: null,
-  },
   edadMinima: {
     tema: 'edad mínima y si un menor puede comprar con permiso',
     donde: 'Términos de uso › Tu cuenta',
-    valor: null,
+    valor:
+      '**18 años**, la edad en la que una persona puede abrir una cuenta bancaria. Si eres menor de edad, no puedes crear una cuenta ni comprar.',
   },
   motivosSuspension: {
     tema: 'motivos por los que se suspende una cuenta',
@@ -62,19 +58,9 @@ const DATOS = {
     donde: 'Privacidad › Cuánto tiempo los guardamos',
     valor: null,
   },
-  devolucionManual: {
-    tema: 'cómo y en qué plazo se devuelve un pago manual (a tu cuenta o como saldo de la billetera)',
-    donde: 'Pagos y reembolsos › Reembolsos › Pagos manuales',
-    valor: null,
-  },
   saldoBilletera: {
-    tema: 'si el saldo se puede retirar y si vence',
+    tema: 'si el saldo vence',
     donde: 'Pagos y reembolsos › Reembolsos › Saldo de la billetera',
-    valor: null,
-  },
-  casosReembolso: {
-    tema: 'casos y plazo para pedir un reembolso (por ejemplo, si no se pudo activar tu servicio)',
-    donde: 'Pagos y reembolsos › Reembolsos › Cuándo procede',
     valor: null,
   },
   tiempoEntrega: {
@@ -83,7 +69,7 @@ const DATOS = {
     valor: null,
   },
   codigoFalla: {
-    tema: 'qué hacemos (reposición o reembolso) y en qué plazo',
+    tema: 'si se repone el código y en qué plazo',
     donde: 'Entregas › Si un código no funciona',
     valor: null,
   },
