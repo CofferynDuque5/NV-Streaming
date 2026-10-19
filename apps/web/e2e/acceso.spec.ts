@@ -97,6 +97,21 @@ test('ingresar: valida en vivo, avisa del carrito y el error de datos es genéri
   await expect(page).toHaveURL(/\/carrito$/);
 });
 
+test('ingresar: un destino con tabuladores o saltos de línea no saca de la tienda', async ({
+  page,
+}) => {
+  // El navegador quita tabuladores y saltos de línea de las URL: «/\t/sitio» acabaría en «//sitio».
+  await page.route(
+    (url) => url.hostname === 'sitio-ajeno.invalid',
+    (r) => r.fulfill({ contentType: 'text/html', body: 'Fuera de la tienda' }),
+  );
+  await page.goto('/ingresar?siguiente=%2F%09%2Fsitio-ajeno.invalid%2F');
+  await page.getByLabel('Correo').fill('cliente@nv.test');
+  await page.getByLabel('Contraseña', { exact: true }).fill(CONTRASENA_DEMO);
+  await boton(page, 'Ingresar').click();
+  await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/cuenta$/);
+});
+
 test('ingresar: tras muchos intentos la API frena y se avisa', async ({ page }) => {
   const correo = `nadie${marca}@nv.test`;
   await page.goto('/ingresar');
