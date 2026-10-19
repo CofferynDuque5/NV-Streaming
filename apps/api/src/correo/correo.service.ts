@@ -5,6 +5,13 @@ import type { Entorno } from '../config/entorno.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
 import type { CorreoRenderizado, NombrePlantilla } from './plantillas.js';
 
+/** El correo está en SMTP pero sin servidor: ningún correo saldría. */
+export function correoSinConfigurar(
+  entorno: Pick<Entorno, 'CORREO_PROVEEDOR' | 'SMTP_HOST'>,
+): boolean {
+  return entorno.CORREO_PROVEEDOR === 'smtp' && entorno.SMTP_HOST.trim() === '';
+}
+
 /**
  * Envía correos transaccionales. Con `CORREO_PROVEEDOR=sandbox` no sale nada:
  * el correo se guarda en `correos_salientes` y se muestra en consola.
@@ -30,6 +37,13 @@ export class CorreoService {
               : {}),
           })
         : null;
+    if (correoSinConfigurar(entorno)) {
+      this.logger.warn(
+        '¡ATENCIÓN! CORREO_PROVEEDOR=smtp pero SMTP_HOST está vacío: NO SALE NINGÚN CORREO. ' +
+          'Los clientes no pueden confirmar su cuenta ni recuperar la contraseña. ' +
+          'Configura SMTP_HOST, SMTP_USUARIO y SMTP_CONTRASENA en .env.produccion y ejecuta infra/actualizar.sh.',
+      );
+    }
   }
 
   /** Construye una URL absoluta de la web. */

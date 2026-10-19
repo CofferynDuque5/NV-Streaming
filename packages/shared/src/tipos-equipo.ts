@@ -80,4 +80,9 @@ export interface CentroEquipo {
   };
   /** Monedas sin tasa de cambio vigente (finanzas.configurar). */
   tasasFaltantes: MonedaConTasa[] | null;
+  /**
+   * El correo está en SMTP sin servidor: no sale ningún correo (ni la confirmación de
+   * las cuentas). Lo ve todo el equipo, como el trabajador detenido.
+   */
+  correoSinConfigurar: boolean;
 }

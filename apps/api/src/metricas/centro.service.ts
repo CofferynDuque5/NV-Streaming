@@ -14,7 +14,9 @@ import { PanelAutomatizacionesService } from '../automatizaciones/panel.service.
 import { LATIDO_VIGENTE_MS } from '../automatizaciones/trabajador.service.js';
 import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth } from '../comun/contexto.js';
-import { PRISMA } from '../comun/tokens.js';
+import { ENTORNO, PRISMA } from '../comun/tokens.js';
+import type { Entorno } from '../config/entorno.js';
+import { correoSinConfigurar } from '../correo/correo.service.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { InventarioService } from '../entregas/inventario.service.js';
 import { RegistroPasarelas } from '../pagos-en-linea/registro.service.js';
@@ -38,6 +40,7 @@ export class CentroService {
     @Inject(PanelAutomatizacionesService) private readonly panel: PanelAutomatizacionesService,
     @Inject(AsistenteService) private readonly asistente: AsistenteService,
     @Inject(RegistroPasarelas) private readonly pasarelas: RegistroPasarelas,
+    @Inject(ENTORNO) private readonly entorno: Entorno,
   ) {}
 
   async centro(auth: ContextoAuth, ahora = new Date()): Promise<CentroEquipo> {
@@ -221,6 +224,7 @@ export class CentroService {
           : null,
       },
       tasasFaltantes,
+      correoSinConfigurar: correoSinConfigurar(this.entorno),
     };
   }
 }

@@ -191,3 +191,10 @@ cat <<EOF
 
   Siguientes pasos: docs/INSTALACION.md, desde «Primer ingreso y 2FA».
 EOF
+if [[ "$(valor CORREO_PROVEEDOR)" == "smtp" && -z "$(valor SMTP_HOST)" ]]; then
+  echo
+  aviso "EL CORREO NO ESTÁ CONFIGURADO: no saldrá ningún correo."
+  aviso "Los clientes no podrán confirmar su cuenta ni recuperar la contraseña."
+  aviso "Pon SMTP_HOST, SMTP_USUARIO y SMTP_CONTRASENA en .env.produccion y ejecuta"
+  aviso "bash infra/actualizar.sh (docs/INSTALACION.md, paso 9)."
+fi

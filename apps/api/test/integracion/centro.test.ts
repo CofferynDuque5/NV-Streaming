@@ -255,4 +255,19 @@ describe('centro de módulos del equipo', () => {
     });
     expect((await centro(ventas.n)).colas.facturasVencidas).toBe(0);
   });
+
+  it('avisa a todo el equipo si el correo está en SMTP sin servidor', async () => {
+    const admin = await conectar(ctx, 'admin');
+    expect((await centro(admin.n)).correoSinConfigurar).toBe(false);
+    // Sin SMTP_HOST nada sale: ni la confirmación de las cuentas ni la recuperación.
+    const sinSmtp = await crearContexto({ CORREO_PROVEEDOR: 'smtp', SMTP_HOST: '' });
+    try {
+      const otraAdmin = await conectar(sinSmtp, 'admin');
+      const otraVentas = await conectar(sinSmtp, 'ventas');
+      expect((await centro(otraAdmin.n)).correoSinConfigurar).toBe(true);
+      expect((await centro(otraVentas.n)).correoSinConfigurar).toBe(true);
+    } finally {
+      await sinSmtp.app.close();
+    }
+  });
 });

@@ -9,7 +9,7 @@ import {
   type SuscripcionPublica,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { Check, Clock, Coins, Settings, ShieldCheck, UserRound, Wallet } from 'lucide-react';
+import { Check, Clock, Coins, Mail, Settings, ShieldCheck, UserRound, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { PildoraEstado } from '@/componentes/cliente/pago';
@@ -97,7 +97,7 @@ export function CabeceraCentro({ nombre, rol }: { nombre: string; rol: string })
   );
 }
 
-/** Avisos de arriba: el trabajador detenido y las tasas que faltan. */
+/** Avisos de arriba: el correo sin configurar, el trabajador detenido y las tasas que faltan. */
 export function AvisosCentro({
   centro,
   puede,
@@ -107,9 +107,20 @@ export function AvisosCentro({
 }) {
   const t = centro.trabajador;
   const faltan = centro.tasasFaltantes ?? [];
-  if (t.activo && faltan.length === 0) return null;
+  if (t.activo && faltan.length === 0 && !centro.correoSinConfigurar) return null;
   return (
     <section aria-label="Avisos" className="grid gap-2">
+      {centro.correoSinConfigurar && (
+        <Aviso
+          tono="peligro"
+          icono={<Mail className="size-4" aria-hidden="true" />}
+          titulo="El correo no está configurado: no sale ningún correo"
+        >
+          Los clientes no pueden confirmar su cuenta ni recuperar su contraseña, y no llegan
+          facturas ni avisos por correo. Pon el servidor SMTP (SMTP_HOST, SMTP_USUARIO y
+          SMTP_CONTRASENA) en .env.produccion y ejecuta infra/actualizar.sh.
+        </Aviso>
+      )}
       {!t.activo && (
         <Aviso
           tono="peligro"
