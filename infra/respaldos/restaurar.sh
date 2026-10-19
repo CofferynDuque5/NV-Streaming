@@ -120,8 +120,9 @@ real() {
     else
       find "$ALMACEN" -mindepth 1 -delete
       descifrar "$carpeta/almacen.tar.gz.gpg" | tar -xzf - -C "$ALMACEN"
-      # La API corre como el usuario «node» (uid 1000).
+      # La API corre como el usuario «node» (uid 1000); el servicio de copias lee con su grupo.
       chown -R 1000:1000 "$ALMACEN"
+      chmod -R g+rX,o-rwx "$ALMACEN"
       registro "Comprobantes restaurados."
     fi
   fi

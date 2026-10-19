@@ -42,6 +42,13 @@ psql_nv() {
   dc exec -T postgres psql -XAtq -U "$(valor POSTGRES_USER)" -d "$(valor POSTGRES_DB)" "$@"
 }
 
+# Comprobantes legibles por el grupo de la API (gid 1000), que el servicio de copias también
+# tiene: los subidos antes de esta regla quedaron solo para su dueño y harían fallar la copia.
+reparar_permisos_almacen() {
+  [[ -n "$(dc ps -q api 2>/dev/null)" ]] || return 0
+  dc exec -T -u root api chmod -R g+rX,o-rwx /datos/almacen
+}
+
 requiere_entorno() {
   [[ -f "$ENTORNO" ]] || fallo "No existe $ENTORNO. Ejecuta primero infra/instalar.sh."
 }

@@ -1,4 +1,9 @@
+import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { AlmacenService } from '../../src/almacen/almacen.service.js';
+import type { Entorno } from '../../src/config/entorno.js';
 import { detectarTipo, nombreSeguro } from '../../src/almacen/tipos-archivo.js';
 import { nuevaReferencia } from '../../src/cobros/pagos.service.js';
 
@@ -30,5 +35,34 @@ describe('comprobantes', () => {
       vistas.add(r);
     }
     expect(vistas.size).toBe(500);
+  });
+});
+
+describe('almacén de archivos', () => {
+  it('el servicio de copias (grupo de la API) puede leer lo que se sube', async () => {
+    // Las copias corren con otro usuario del servidor y el grupo de la API (1000):
+    // carpetas y archivos legibles por el grupo, nunca por el resto.
+    const raiz = await mkdtemp(join(tmpdir(), 'nv-almacen-'));
+    try {
+      const almacen = new AlmacenService({
+        ALMACEN_DIR: raiz,
+        COMPROBANTE_MAX_MB: 5,
+      } as Entorno);
+      let clave = '';
+      const tx = {
+        archivo: {
+          create: async ({ data }: { data: { clave: string } }) => {
+            clave = data.clave;
+            return data;
+          },
+        },
+      };
+      const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+      await almacen.guardar(tx as never, { buffer: jpg, nombre: 'pago.jpg' }, 'usuario');
+      expect((await stat(join(raiz, 'comprobantes'))).mode & 0o777).toBe(0o750);
+      expect((await stat(join(raiz, clave))).mode & 0o777).toBe(0o640);
+    } finally {
+      await rm(raiz, { recursive: true, force: true });
+    }
   });
 });

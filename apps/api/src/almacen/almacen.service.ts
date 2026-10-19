@@ -90,8 +90,10 @@ export class AlmacenService {
     nombrePorDefecto?: string,
   ): Promise<Archivo> {
     const clave = `${carpeta}/${randomUUID()}`;
-    await mkdir(join(this.raiz, carpeta), { recursive: true, mode: 0o700 });
-    await writeFile(join(this.raiz, clave), archivo.buffer, { mode: 0o600, flag: 'wx' });
+    // Legibles por el grupo de la API (1000): el servicio de copias de seguridad corre con
+    // otro usuario del servidor y ese grupo. El resto de usuarios no los ve.
+    await mkdir(join(this.raiz, carpeta), { recursive: true, mode: 0o750 });
+    await writeFile(join(this.raiz, clave), archivo.buffer, { mode: 0o640, flag: 'wx' });
     return tx.archivo.create({
       data: {
         nombreOriginal: nombreSeguro(archivo.nombre, tipo, nombrePorDefecto),

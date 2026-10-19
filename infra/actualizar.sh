@@ -36,6 +36,12 @@ else
   git -C "$RAIZ" log --oneline "$antes..$despues" | head -n 20 | sed 's/^/      /'
 fi
 
+paso "Permisos de los comprobantes para las copias de seguridad"
+reparar_permisos_almacen || fallo "No se pudieron ajustar los permisos de los comprobantes."
+# El servicio de copias toma la configuración nueva (grupo de la API) antes de copiar.
+if [[ -n "$(dc ps -q respaldos 2>/dev/null)" ]]; then dc up -d --no-deps --no-build respaldos; fi
+ok "Listo"
+
 if ((copia)) && [[ -n "$(dc ps -q postgres 2>/dev/null)" ]]; then
   paso "Copia de seguridad previa"
   dc exec -T respaldos respaldar || fallo "La copia previa falló; no se actualiza. Revisa: bash infra/estado.sh"
@@ -56,6 +62,8 @@ paso "Reiniciando los servicios que cambiaron"
 dc up -d --remove-orphans
 esperar_sano api 300 || fallo "La API no quedó sana. Logs: docker compose -f docker-compose.prod.yml --env-file .env.produccion logs --tail=100 api"
 esperar_sano web 180 || fallo "La web no quedó sana. Revisa sus logs."
+# Lo que la versión anterior subió mientras se compilaba la nueva.
+reparar_permisos_almacen || aviso "No se pudieron ajustar los permisos de los comprobantes."
 ok "NV Streaming actualizado a $despues"
 
 paso "Limpiando imágenes antiguas"

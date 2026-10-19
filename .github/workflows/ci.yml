@@ -190,18 +190,40 @@ jobs:
       - name: Prueba de humo (salud, portada, ingreso, migraciones, administrador y copias)
         run: |
           set -euo pipefail
+          dc() { docker compose -f docker-compose.prod.yml --env-file .env.produccion "$@"; }
           c() { curl -fsS -k --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null -w "$1 %{http_code} %{time_total}s\n" "https://localhost$1"; }
           curl -fsSk https://localhost/api/v1/salud | grep -q '"ok"'
           c / && c /planes && c /ingresar
           test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/panel)" = 307
-          migraciones="$(docker compose -f docker-compose.prod.yml --env-file .env.produccion exec -T postgres \
+          # La web llega a la API por la red interna (lecturas del servidor de Next.js).
+          dc exec -T web node -e "fetch('http://api:4000/api/v1/salud').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+          # Un POST desde la web pasa la protección de origen; uno de otro sitio no.
+          post() { curl -sk -o /dev/null -w '%{http_code}' -X POST -H "Origin: $1" -H 'content-type: application/json' \
+            -d '{"correo":"nadie@nv-streaming.dev","contrasena":"una-clave-cualquiera"}' https://localhost/api/v1/auth/inicio-sesion; }
+          estado="$(post https://localhost)"; echo "POST con el origen de la web: $estado"; test "$estado" = 401
+          estado="$(post https://otro-sitio.example)"; echo "POST desde otro sitio: $estado"; test "$estado" = 403
+          migraciones="$(dc exec -T postgres \
             psql -XAtq -U nv -d nv -c 'SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL')"
-          echo "Migraciones aplicadas: $migraciones"
-          test "$migraciones" -ge 1
+          esperadas="$(find packages/db/prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)"
+          echo "Migraciones aplicadas: $migraciones de $esperadas"
+          test "$migraciones" -eq "$esperadas"
           salida="$(bash infra/crear-admin.sh ci@nv-streaming.dev "Administración CI")"
           grep -q '/invitacion?token=' <<<"$salida"
+          # Comprobantes antes de la copia: uno subido como lo hace la API y otro de antes de
+          # que fueran legibles por su grupo (0600), que actualizar.sh repara. La copia corre
+          # con el usuario del runner, no con el de la API.
+          dc exec -T api node --input-type=module -e "
+            await import('reflect-metadata');
+            const { AlmacenService } = await import('/app/dist/almacen/almacen.service.js');
+            const almacen = new AlmacenService({ ALMACEN_DIR: '/datos/almacen', COMPROBANTE_MAX_MB: 5 });
+            const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+            await almacen.guardar({ archivo: { create: async ({ data }) => data } }, { buffer: jpg, nombre: 'ci.jpg' }, 'ci');"
+          dc exec -T api sh -c 'umask 077 && mkdir -p /datos/almacen/viejos && echo comprobante > /datos/almacen/viejos/anterior'
+          source infra/comun.sh && reparar_permisos_almacen
           bash infra/respaldar.sh
-          bash infra/restaurar.sh probar ultima
+          prueba="$(bash infra/restaurar.sh probar ultima)"
+          echo "$prueba"
+          grep -Eq 'Comprobantes en la copia +2$' <<<"$prueba"
           bash infra/estado.sh --breve || true
       - name: Logs si algo falló
         if: failure()

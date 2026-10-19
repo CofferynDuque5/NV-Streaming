@@ -212,6 +212,9 @@ services:
     restart: unless-stopped
     # Con el usuario dueño de .env.produccion y de la carpeta de copias (no root).
     user: '${NV_UID:-1000}:${NV_GID:-1000}'
+    # Y con el grupo de la API («node», gid 1000) para leer los comprobantes, que la API
+    # guarda legibles solo para su grupo.
+    group_add: ['1000']
     depends_on:
       postgres: { condition: service_healthy }
     env_file:
