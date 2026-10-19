@@ -7,6 +7,7 @@ import fastifyMultipart from '@fastify/multipart';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { MEDIO_MAX_MB } from '@nv/shared';
 import { AppModule } from './app.module.js';
 import type { Entorno } from './config/entorno.js';
 import { instalarCuerpoCrudo } from './pagos-en-linea/cuerpo-crudo.js';
@@ -31,10 +32,11 @@ export async function crearAplicacion(entorno: Entorno, opciones: { registros?: 
   });
 
   await app.register(fastifyCookie);
-  // Formularios con archivo (comprobantes). Un solo archivo y pocos campos por petición.
+  // Formularios con archivo (comprobantes e imágenes del sitio). Un solo archivo y pocos
+  // campos por petición. El tope es el mayor de los dos: cada tipo vuelve a validar el suyo.
   await app.register(fastifyMultipart, {
     limits: {
-      fileSize: entorno.COMPROBANTE_MAX_MB * 1024 * 1024,
+      fileSize: Math.max(entorno.COMPROBANTE_MAX_MB, MEDIO_MAX_MB) * 1024 * 1024,
       files: 1,
       fields: 12,
       fieldSize: 4096,

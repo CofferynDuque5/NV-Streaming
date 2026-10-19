@@ -1,4 +1,4 @@
-import { AUTOMATIZACIONES, ID_BLOQUE_HISTORIA, PLANTILLAS_PAGINA } from '@nv/shared';
+import { AUTOMATIZACIONES, ID_BLOQUE_HISTORIA, MEDIO_MAX_MB, PLANTILLAS_PAGINA } from '@nv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { conectar, type Contexto, crearContexto, limpiar, Navegador, PNG_1X1 } from './ayudas.js';
 
@@ -326,6 +326,25 @@ describe('editor visual: plantillas', () => {
 });
 
 describe('editor visual: imágenes y tema', () => {
+  it('las imágenes del sitio tienen su propio límite aunque el de comprobantes sea menor', async () => {
+    const pequeno = await crearContexto({ COMPROBANTE_MAX_MB: '1' });
+    try {
+      const { n } = await conectar(pequeno, 'operador');
+      const png = (mb: number) =>
+        Buffer.concat([PNG_1X1.subarray(0, 8), Buffer.alloc(mb * 1024 * 1024)]);
+      const subir = (contenido: Buffer) =>
+        n.formulario(
+          '/sitio/medios',
+          { textoAlternativo: 'Foto grande' },
+          { campo: 'archivo', nombre: 'grande.png', tipo: 'image/png', contenido },
+        );
+      expect((await subir(png(2))).estado).toBe(201);
+      expect((await subir(png(MEDIO_MAX_MB))).estado).toBe(413);
+    } finally {
+      await pequeno.app.close();
+    }
+  });
+
   it('solo acepta imágenes y las sirve públicamente con caché larga', async () => {
     const e = await escenario();
     const pdf = await e.operador.formulario(

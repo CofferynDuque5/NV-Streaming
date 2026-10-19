@@ -70,7 +70,7 @@ export class AlmacenService {
         archivo: ['Sube la imagen en JPG, PNG o WebP.'],
       });
     }
-    const maximo = Math.min(maximoMb * 1024 * 1024, this.tamanoMaximo);
+    const maximo = maximoMb * 1024 * 1024;
     if (archivo.buffer.length === 0 || archivo.buffer.length > maximo) {
       throw new ErrorApp(
         413,
