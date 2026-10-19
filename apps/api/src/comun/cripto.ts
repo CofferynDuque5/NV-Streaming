@@ -71,7 +71,10 @@ export class Cifrador {
     }
     const clave = this.claves.get(idClave);
     if (!clave) throw new Error(`Clave de cifrado desconocida: ${idClave}`);
-    const decipher = createDecipheriv('aes-256-gcm', clave, Buffer.from(iv, 'base64url'));
+    // Etiqueta completa de 16 bytes: sin fijar el largo, GCM aceptaría una recortada.
+    const decipher = createDecipheriv('aes-256-gcm', clave, Buffer.from(iv, 'base64url'), {
+      authTagLength: 16,
+    });
     decipher.setAAD(Buffer.from(contexto, 'utf8'));
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
     return Buffer.concat([

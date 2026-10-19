@@ -26,6 +26,14 @@ describe('Cifrador', () => {
     expect(() => c.descifrar(partes.join('.'), 'x')).toThrow();
   });
 
+  it('rechaza una etiqueta de autenticación recortada', () => {
+    // AES-GCM acepta etiquetas de 4 bytes si no se fija su largo: falsificarlas es mucho más fácil.
+    const c = new Cifrador(clave);
+    const partes = c.cifrar('secreto', 'x').split('.');
+    partes[3] = Buffer.from(partes[3]!, 'base64url').subarray(0, 4).toString('base64url');
+    expect(() => c.descifrar(partes.join('.'), 'x')).toThrow();
+  });
+
   it('descifra con una clave anterior tras rotar', () => {
     const vieja = new Cifrador(clave, 'k1');
     const cifrado = vieja.cifrar('secreto', 'x');
