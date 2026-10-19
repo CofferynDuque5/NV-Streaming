@@ -1,0 +1,65 @@
+/* Políticas y términos (/politicas): lo que no cabe en las utilidades de Tailwind. */
+
+/* Cada sección queda bajo la cabecera de la tienda (y el selector del teléfono) al saltar. */
+.pl-sec {
+  scroll-margin-top: calc(var(--pl-cab, 7.5rem) + var(--pl-barra, 0px) - 10px);
+}
+.pl-sec[data-marcada] h2 {
+  animation: pl-titulo 1.6s ease-out;
+}
+@keyframes pl-titulo {
+  0%,
+  40% {
+    color: var(--nv-cian);
+  }
+  100% {
+    color: inherit;
+  }
+}
+
+/* Viñetas en rombo del texto legal. */
+.pl-lista > li {
+  position: relative;
+  padding-left: 20px;
+}
+.pl-lista > li::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0.72em;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--nv-cian);
+  opacity: 0.8;
+  transform: rotate(45deg);
+}
+
+/* «Por definir»: dato que solo puede dar el dueño (politicas-por-definir.ts). */
+.pl-pd {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 3px 10px 4px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--nv-aviso) 60%, transparent);
+  background: color-mix(in srgb, var(--nv-aviso) 10%, transparent);
+  color: color-mix(in srgb, var(--nv-aviso) 45%, white);
+  font-size: 0.94em;
+  line-height: 1.45;
+}
+.pl-pd > b {
+  font:
+    700 10.5px/1.45 var(--fuente-titulo),
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nv-aviso);
+  white-space: nowrap;
+}
+.pl-pd-mini {
+  padding: 1px 8px;
+  vertical-align: 1px;
+}
