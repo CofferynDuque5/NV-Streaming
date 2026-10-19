@@ -5,7 +5,7 @@
 #   bash infra/actualizar.sh               (con copia de seguridad previa)
 #   bash infra/actualizar.sh --sin-copia   (sin copia previa; no recomendado)
 #
-# 1. Descarga el código nuevo (git pull).
+# 1. Descarga el código nuevo (git pull; si se instaló desde un ZIP, usa el de la carpeta).
 # 2. Hace una copia de seguridad por si hay que volver atrás.
 # 3. Compila las imágenes nuevas MIENTRAS la versión actual sigue atendiendo.
 # 4. Aplica las migraciones de la base de datos.
@@ -22,18 +22,23 @@ copia=1
 if [[ "${1:-}" == "--sin-copia" ]]; then copia=0; fi
 
 paso "Descargando la última versión"
-antes="$(git -C "$RAIZ" rev-parse --short HEAD)"
-if git -C "$RAIZ" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
-  git -C "$RAIZ" pull --ff-only || fallo "No se pudo actualizar el código (¿cambiaste archivos a mano? mira «git status»)."
+if ! git -C "$RAIZ" rev-parse --git-dir >/dev/null 2>&1; then
+  # Instalado desde el ZIP: el código nuevo llega descomprimiendo el ZIP nuevo encima.
+  aviso "Instalado desde un ZIP: se usa el código de esta carpeta tal como está."
 else
-  aviso "La carpeta no sigue una rama remota; se usa el código tal como está."
-fi
-despues="$(git -C "$RAIZ" rev-parse --short HEAD)"
-if [[ "$antes" == "$despues" ]]; then
-  ok "Sin código nuevo ($despues). Se aplican igualmente la configuración y las imágenes."
-else
-  ok "De $antes a $despues:"
-  git -C "$RAIZ" log --oneline "$antes..$despues" | head -n 20 | sed 's/^/      /'
+  antes="$(git -C "$RAIZ" rev-parse --short HEAD)"
+  if git -C "$RAIZ" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+    git -C "$RAIZ" pull --ff-only || fallo "No se pudo actualizar el código (¿cambiaste archivos a mano? mira «git status»)."
+  else
+    aviso "La carpeta no sigue una rama remota; se usa el código tal como está."
+  fi
+  despues="$(git -C "$RAIZ" rev-parse --short HEAD)"
+  if [[ "$antes" == "$despues" ]]; then
+    ok "Sin código nuevo ($despues). Se aplican igualmente la configuración y las imágenes."
+  else
+    ok "De $antes a $despues:"
+    git -C "$RAIZ" log --oneline "$antes..$despues" | head -n 20 | sed 's/^/      /'
+  fi
 fi
 
 paso "Permisos de los comprobantes para las copias de seguridad"

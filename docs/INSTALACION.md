@@ -159,6 +159,8 @@ cd ~/nv-streaming
 bash infra/instalar.sh
 ```
 
+> **Si tienes el ZIP en vez de usar GitHub**: súbelo al servidor desde tu computadora con `scp nv-streaming-AAAAMMDD.zip ubuntu@IP_DEL_SERVIDOR:~` y luego, en el servidor, ejecuta `sudo apt-get install -y unzip && unzip nv-streaming-AAAAMMDD.zip && cd ~/nv-streaming && bash infra/instalar.sh`. Para actualizar más adelante, sube el ZIP nuevo y ejecuta `unzip -o nv-streaming-NUEVO.zip && bash ~/nv-streaming/infra/actualizar.sh`: el ZIP nunca trae `.env.produccion`, así que tus claves se conservan.
+
 > **Si el repositorio es privado**, GitHub pide usuario y contraseña. Crea un token de solo lectura en GitHub (_Settings → Developer settings → Fine-grained tokens_, permiso **Contents: Read** sobre este repositorio) y úsalo como contraseña. Luego guarda el acceso con `git config --global credential.helper store` para que las actualizaciones no lo vuelvan a pedir.
 
 El instalador te hará unas preguntas:
