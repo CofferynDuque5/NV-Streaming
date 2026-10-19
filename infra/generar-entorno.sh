@@ -63,8 +63,9 @@ DATABASE_URL=postgresql://nv:$pg_clave@postgres:5432/nv
 # ── Seguridad ───────────────────────────────────────────────────────────────
 # Clave AES-256 de los datos cifrados (2FA, tokens de pasarelas). NO la cambies nunca.
 CLAVE_CIFRADO=$(openssl rand -base64 32)
-# Saltos de proxy delante de la API: Caddy y la web (Caddy fija la IP real del visitante).
-PROXIES_DE_CONFIANZA=2
+# Saltos de proxy delante de la API: solo Caddy, que envía /api directo a la API y fija
+# X-Forwarded-For con la IP real del visitante (de Cloudflare solo si viene de sus IP).
+PROXIES_DE_CONFIANZA=1
 # Documentación de la API en /api/docs (desactivada en producción).
 DOCS_API_HABILITADA=false
 SESION_DURACION_HORAS=12
