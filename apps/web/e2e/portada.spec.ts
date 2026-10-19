@@ -31,3 +31,29 @@ test('un panel sin sesión lleva a ingresar y recuerda la página', async ({ pag
   await page.goto('/admin/equipo');
   await expect(page).toHaveURL(/\/ingresar\?siguiente=%2Fadmin%2Fequipo/);
 });
+
+test('la web envía su política de seguridad de contenido y las páginas la cumplen', async ({
+  page,
+}) => {
+  // Cualquier recurso o script que la política bloquee queda anotado aquí.
+  await page.addInitScript(() => {
+    const w = window as unknown as { violacionesCsp: string[] };
+    w.violacionesCsp = [];
+    document.addEventListener('securitypolicyviolation', (e) => {
+      w.violacionesCsp.push(`${e.violatedDirective} ${e.blockedURI}`);
+    });
+  });
+  const respuesta = await page.goto('/');
+  const politica = respuesta?.headers()['content-security-policy'] ?? '';
+  expect(politica).toContain("default-src 'self'");
+  expect(politica).toContain("object-src 'none'");
+  expect(politica).toContain("base-uri 'self'");
+  expect(politica).toContain("frame-ancestors 'none'");
+  for (const ruta of ['/', '/catalogo', '/ingresar', '/registro', '/politicas']) {
+    if (ruta !== '/') await page.goto(ruta);
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+    expect(
+      await page.evaluate(() => (window as unknown as { violacionesCsp: string[] }).violacionesCsp),
+    ).toEqual([]);
+  }
+});

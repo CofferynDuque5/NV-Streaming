@@ -2,7 +2,27 @@ import type { NextConfig } from 'next';
 
 const API = process.env.API_URL_INTERNA ?? 'http://localhost:4000';
 
+// Política de contenido: todo sale de la propia web (fuentes, imágenes y la API en /api).
+// Next.js escribe scripts en línea para hidratar la página y React usa estilos en línea, por
+// eso 'unsafe-inline'; el modo de desarrollo además necesita eval y el websocket de recarga.
+const desarrollo = process.env.NODE_ENV === 'development';
+const politicaContenido = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${desarrollo ? " 'unsafe-eval'" : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  // data: para el código QR de la verificación en dos pasos; blob: para la vista previa
+  // de un comprobante o una imagen antes de subirlos.
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  `connect-src 'self'${desarrollo ? ' ws: wss:' : ''}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 const cabecerasSeguridad = [
+  { key: 'Content-Security-Policy', value: politicaContenido },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
