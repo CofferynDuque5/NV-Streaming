@@ -239,8 +239,8 @@ Sin correo, los clientes no pueden confirmar su cuenta ni recuperar su contrase�
 Entra al panel (`https://tudominio.com/admin`) y sigue este orden:
 
 1. **Monedas y cobro** (_Finanzas_): registra la **tasa del dólar** del día y crea tus **métodos de cobro** (Pago Móvil, transferencia, Zelle, Binance… con las instrucciones que verá el cliente). Los pagos manuales con comprobante no pagan comisión.
-2. **Automatizaciones:** activa la **tasa del BCV automática** (pulsa «Probar» antes de activarla), los recordatorios de vencimiento y los avisos. Comprueba que arriba diga que el trabajador está en marcha.
-3. **Catálogo:** crea tus **proveedores**, **servicios** y **planes** con su precio en cada moneda. Solo lo que marques como visible aparece en `/planes`.
+2. **Automatizaciones:** activa la **tasa del BCV automática** (pulsa «Probar» antes de activarla), los recordatorios de vencimiento y los avisos. Comprueba que arriba diga que el trabajador está en marcha. Si «Probar» falla con la página del BCV (a veces su certificado o su página no responden), usa una fuente JSON por https: pon `TASA_JSON_URL` y `TASA_JSON_CAMPO` en `.env.produccion`, ejecuta `bash infra/actualizar.sh` y elige esa fuente (README, «Tasa automática»).
+3. **Catálogo:** crea tus **proveedores**, **servicios** y **planes** con su precio en cada moneda. Solo lo que marques como visible aparece en `/planes`. Después configura **cómo se entrega** cada proveedor en `/admin/catalogo/proveedores/<id>` (manual, códigos de inventario o webhook firmado; README, «Entregas y proveedores»): de eso depende cómo recibe el cliente su acceso después de pagar.
 4. **Editor visual** (_Sitio_): la portada muestra un contenido por defecto; edítala y publícala con tus textos.
 5. **Equipo y usuarios:** invita a tu equipo (operador, ventas). Cada invitación llega por correo y todos deben activar la verificación en dos pasos.
 6. **Revendedores** (si trabajas con ellos): crea los niveles de precio mayorista.
