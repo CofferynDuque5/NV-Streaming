@@ -110,9 +110,10 @@ function montarLogoPanel() {
     </div>
     <div id="nv-logo-prev" style="height:56px;border-radius:9px;border:1px dashed rgba(120,140,220,0.3);display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:rgba(255,255,255,0.02);overflow:hidden;"></div>
     <label style="display:block;text-align:center;padding:9px;border-radius:9px;cursor:pointer;font-size:12.5px;font-weight:600;color:#02040c;background:linear-gradient(135deg,#00d2ff,#00ffcc);">
-      Subir logo (ImgBB)
+      Subir logo
       <input id="nv-logo-file" type="file" accept="image/*" hidden>
     </label>
+    <button id="nv-logo-lib" type="button" style="width:100%;margin-top:8px;padding:8px;border-radius:9px;cursor:pointer;font-size:12px;color:#cfe6ff;background:rgba(255,255,255,0.05);border:1px solid rgba(120,140,220,0.28);">Elegir de la biblioteca</button>
     <input id="nv-logo-url" type="text" placeholder="…o pega una URL de imagen" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(120,140,220,0.24);border-radius:8px;padding:8px 10px;color:#eaf3ff;font-size:12px;">
     <div style="display:flex;gap:8px;margin-top:8px;">
       <button id="nv-logo-save" style="flex:1;padding:8px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,#5510BB,#9B3FFF);">Guardar en BD</button>
@@ -134,10 +135,20 @@ function montarLogoPanel() {
   };
   card.querySelector("#nv-logo-file").addEventListener("change", async (e) => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
-    if (!servicioImagenes.configurado) { msg("Configura tu API key de ImgBB en NV_CONFIG.imgbb.apiKey", "#ffb020"); return; }
-    msg("Subiendo a ImgBB…", "#7fe0ff");
-    try { const r = await servicioImagenes.subir(f, { nombre: "logo-nv" }); card.querySelector("#nv-logo-url").value = r.url; await guardar(r.url); }
-    catch (err) { reproducir("error"); msg("Error al subir: " + ((err && err.message) || err), "#ff8ba0"); }
+    e.target.value = "";
+    msg("Subiendo…", "#7fe0ff");
+    try {
+      // Pasa por la biblioteca (queda registrado en `medios` con uso=logo).
+      const r = window.NVMedios ? await window.NVMedios.subirArchivo(f, "logo") : await servicioImagenes.subir(f, { nombre: "logo-nv", uso: "logo" });
+      if (!r) { msg(window.NVMedios ? (window.NVMedios.estado().error || "No se pudo subir") : "No se pudo subir", "#ff8ba0"); return; }
+      card.querySelector("#nv-logo-url").value = r.url; await guardar(r.url);
+    } catch (err) { reproducir("error"); msg("Error al subir: " + ((err && err.message) || err), "#ff8ba0"); }
+  });
+  card.querySelector("#nv-logo-lib").addEventListener("click", () => {
+    const i = instancia();
+    if (i && i.setState) i.setState({ leftTab: "medios", leftOpen: true, preview: false });
+    if (window.NVMedios) window.NVMedios.cargar();
+    msg("En la pestaña Medios, pulsa «Logo» sobre la imagen que quieras usar.", "rgba(200,215,255,0.7)");
   });
   card.querySelector("#nv-logo-save").addEventListener("click", () => guardar(card.querySelector("#nv-logo-url").value.trim()));
   card.querySelector("#nv-logo-clear").addEventListener("click", () => guardar(""));

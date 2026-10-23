@@ -29,12 +29,29 @@ import { logger } from '../utils/logger.js';
 
 /** Catálogo real mínimo: un plan mensual por plataforma. Precios ajustables. */
 const PLANES: ReadonlyArray<{ plataformaId: string; nombre: string; precio: number }> = [
-  { plataformaId: 'netflix', nombre: 'Netflix — 1 mes', precio: 5.99 },
-  { plataformaId: 'disney', nombre: 'Disney+ — 1 mes', precio: 4.99 },
-  { plataformaId: 'max', nombre: 'Max — 1 mes', precio: 4.49 },
-  { plataformaId: 'prime', nombre: 'Prime Video — 1 mes', precio: 3.99 },
-  { plataformaId: 'spotify', nombre: 'Spotify Premium — 1 mes', precio: 3.49 },
-  { plataformaId: 'chatgpt', nombre: 'ChatGPT Plus — 1 mes', precio: 9.99 },
+  { plataformaId: "netflix", nombre: "Netflix — 1 mes", precio: 5 },
+  { plataformaId: "disney", nombre: "Disney+ — 1 mes", precio: 3 },
+  { plataformaId: "disney_espn", nombre: "Disney+ con ESPN — 1 mes", precio: 3.5 },
+  { plataformaId: "prime", nombre: "Prime Video — 1 mes", precio: 2 },
+  { plataformaId: "max", nombre: "HBO Max — 1 mes", precio: 3 },
+  { plataformaId: "paramount", nombre: "Paramount+ — 1 mes", precio: 2 },
+  { plataformaId: "crunchyroll", nombre: "Crunchyroll — 1 mes", precio: 2 },
+  { plataformaId: "flujotv", nombre: "FlujoTV — 1 mes", precio: 3 },
+  { plataformaId: "telelatino", nombre: "Telelatino — 1 mes", precio: 3 },
+  { plataformaId: "plex", nombre: "Plex — 1 mes", precio: 2 },
+  { plataformaId: "appletv", nombre: "AppleTV — 1 mes", precio: 3 },
+  { plataformaId: "vix", nombre: "Vix Premium — 1 mes", precio: 2 },
+  { plataformaId: "rakuten", nombre: "Rakuten Viki — 1 mes", precio: 3 },
+  { plataformaId: "youtube", nombre: "YouTube Premium — 1 mes", precio: 3 },
+  { plataformaId: "spotify", nombre: "Spotify Premium — 1 mes", precio: 3.5 },
+  { plataformaId: "deezer", nombre: "Deezer Premium — 1 mes", precio: 3 },
+  { plataformaId: "tidal", nombre: "Tidal — 1 mes", precio: 3 },
+  { plataformaId: "canva", nombre: "Canva Pro — 1 mes", precio: 3.5 },
+  { plataformaId: "capcut", nombre: "CapCut Pro — 1 mes", precio: 5 },
+  { plataformaId: "googleone", nombre: "Google One — 1 mes", precio: 3.5 },
+  { plataformaId: "chatgpt", nombre: "ChatGPT+ — 1 mes", precio: 5 },
+  { plataformaId: "gemini", nombre: "Gemini + 2 TB — 1 mes", precio: 5 },
+  { plataformaId: "office365", nombre: "Office 365 — 1 mes", precio: 3.5 },
 ];
 
 async function leerSeedCms(): Promise<string | null> {

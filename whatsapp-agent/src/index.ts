@@ -39,6 +39,15 @@ function registrarApagado(server: import('node:http').Server): void {
   process.on('SIGTERM', () => void apagar('SIGTERM'));
 }
 
+// Un error asíncrono sin capturar (p.ej. una notificación en segundo plano que
+// falla) NO debe tumbar el servidor: se registra y el proceso sigue sirviendo.
+process.on('unhandledRejection', (razon) => {
+  logger.error({ err: razon }, 'Promesa rechazada sin capturar (el servidor sigue en pie)');
+});
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, 'Excepción no capturada (el servidor sigue en pie)');
+});
+
 main().catch((err) => {
   logger.error({ err }, 'Fallo fatal en el arranque');
   process.exit(1);

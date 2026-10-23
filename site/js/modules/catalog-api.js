@@ -38,9 +38,11 @@ export async function cargarCatalogoReal() {
   const servicios = (Store.get("servicios") || []).map((s) => {
     const r = idx.get(s.id_servicio) || idx.get(s.id);
     if (!r) return s;
-    const precio = parseFloat(r.precio);
+    // El PRECIO manda desde el CMS (servicios_sistema): es el que edita el admin
+    // en "Servicios" (cliente y revendedor) y el que cobra el servidor al crear el
+    // pedido. La tabla `planes` solo aporta duración/provisión, así que aquí
+    // fusionamos únicamente el STOCK real (cuentas disponibles).
     return Object.assign({}, s, {
-      precio: isNaN(precio) ? s.precio : precio,
       moneda: r.moneda || "USD",
       stock: typeof r.stock === "number" ? r.stock : s.stock,
       en_stock: (typeof r.stock === "number" ? r.stock : s.stock) > 0,

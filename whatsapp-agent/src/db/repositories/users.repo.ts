@@ -32,16 +32,17 @@ export type UsuarioAuth = {
   rol: string;
   saldo_billetera: number;
   password_hash: string | null;
+  id_whatsapp: string | null;   // WhatsApp guardado (para avisos de entrega)
 };
 type AuthRow = {
   id: string; email: string | null; nombre: string | null;
-  rol: string; saldo_billetera: string; password_hash: string | null;
+  rol: string; saldo_billetera: string; password_hash: string | null; id_whatsapp: string | null;
 };
 const toAuth = (r: AuthRow): UsuarioAuth => ({
   id: r.id, email: r.email, nombre: r.nombre, rol: r.rol,
-  saldo_billetera: Number(r.saldo_billetera), password_hash: r.password_hash,
+  saldo_billetera: Number(r.saldo_billetera), password_hash: r.password_hash, id_whatsapp: r.id_whatsapp ?? null,
 });
-const AUTH_COLS = 'id, email, nombre, rol, saldo_billetera, password_hash';
+const AUTH_COLS = 'id, email, nombre, rol, saldo_billetera, password_hash, id_whatsapp';
 
 export const UsersRepository = {
   /** Busca un cliente por su número de WhatsApp. */

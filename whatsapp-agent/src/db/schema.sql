@@ -122,6 +122,28 @@ CREATE TABLE IF NOT EXISTS alertas_admin (
   creado_en  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── medios (biblioteca de imágenes subidas a ImgBB desde el editor/admin) ──
+-- Guarda las URLs públicas devueltas por ImgBB para poder LISTAR y reutilizar
+-- (logo, tarjetas, banners). ImgBB no ofrece borrado por API: `delete_url` es
+-- la página web de borrado que se le ofrece al operador al quitar un medio.
+CREATE TABLE IF NOT EXISTS medios (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre       VARCHAR(160) NOT NULL,
+  uso          VARCHAR(40)  NOT NULL DEFAULT 'general',
+  url          TEXT NOT NULL,
+  display_url  TEXT NOT NULL DEFAULT '',
+  thumb_url    TEXT NOT NULL DEFAULT '',
+  delete_url   TEXT NOT NULL DEFAULT '',
+  imgbb_id     VARCHAR(80)  NOT NULL DEFAULT '',
+  mime         VARCHAR(80)  NOT NULL DEFAULT '',
+  tamano       INTEGER      NOT NULL DEFAULT 0,
+  ancho        INTEGER      NOT NULL DEFAULT 0,
+  alto         INTEGER      NOT NULL DEFAULT 0,
+  subido_por   UUID,
+  creado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_medios_creado ON medios (creado_en DESC);
+
 -- 🔒 Perfil único: una cuenta_streaming solo puede tener UNA suscripción 'activa'.
 CREATE UNIQUE INDEX IF NOT EXISTS ux_suscripcion_activa_por_cuenta
   ON suscripciones (cuenta_streaming_id)

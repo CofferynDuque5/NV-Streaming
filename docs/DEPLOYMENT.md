@@ -29,7 +29,7 @@ firebase --version
 # b) site/js/firebase-config.js → apiKey, authDomain, projectId, storageBucket de TU proyecto
 #    y confirma DATABASE_ID = "default"
 
-# c) site/js/config.js → api.base (URL futura del backend), imgbb.apiKey, whatsapp.numero
+# c) site/js/config.js → api.base (URL futura del backend), whatsapp.numero  (ImgBB va en el .env del backend: IMGBB_API_KEY)
 ```
 
 ## Paso 3 — Login y selección de proyecto
@@ -63,7 +63,7 @@ Anota las URLs de las functions que imprime la CLI.
 2. Configura el backend:
 ```bash
 cd whatsapp-agent
-cp ../.env.example .env      # rellena DATABASE_URL, CREDENTIALS_ENC_KEY, OPENAI_API_KEY, WhatsApp, ADMIN_API_TOKEN, datos de pago...
+cp ../.env.example .env      # rellena DATABASE_URL, CREDENTIALS_ENC_KEY, OPENAI_API_KEY, IMGBB_API_KEY, WhatsApp, ADMIN_API_TOKEN, datos de pago...
 npm install
 npm run migrate              # crea el esquema (usa 'migrate', NO 'migrate:prod' — ver TROUBLESHOOTING)
 ```

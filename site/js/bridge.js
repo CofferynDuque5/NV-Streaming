@@ -29,6 +29,12 @@ const GRAD = {
   tidal: "linear-gradient(135deg,#001018,#004a6a)", youtube: "linear-gradient(135deg,#2e0000,#8a0000)",
   deezer: "linear-gradient(135deg,#14001a,#5a00aa)", office365: "linear-gradient(135deg,#001a2e,#003a6e)",
   windows11: "linear-gradient(135deg,#001a2e,#0060b0)", googleone: "linear-gradient(135deg,#0a0a1a,#2a4a8a)",
+  // Catálogo real NV: ids sin arte propio todavía (se sube en Admin → Servicios).
+  max: "linear-gradient(135deg,#1e0a2e,#5a0a7a)", disney_espn: "linear-gradient(135deg,#0a0a2e,#2a2a8a)",
+  prime: "linear-gradient(135deg,#001a2e,#00a8e0)", plex: "linear-gradient(135deg,#1a1a00,#c08a00)",
+  telelatino: "linear-gradient(135deg,#0a1a2e,#1a5a9a)", flujotv: "linear-gradient(135deg,#002a1a,#00806a)",
+  rakuten: "linear-gradient(135deg,#1a0a2e,#4a1a9a)", canva: "linear-gradient(135deg,#0a1a2e,#00b0c8)",
+  capcut: "linear-gradient(135deg,#0a0a0a,#3a3a3a)", gemini: "linear-gradient(135deg,#0a0a2e,#4a5aff)",
 };
 const CROP = { netflix: 1, spotify: 1, disney: 1, hbo: 1, chatgpt: 1, adobe: 1, appletv: 1, vix: 1, crunchyroll: 1, paramount: 1, office365: 1, googleone: 1, tvmagico: 1, flujo: 1 };
 const PAY = {
@@ -57,8 +63,10 @@ const toRelated = (s) => ({ short: short(s.nombre_display), name: s.nombre_displ
 
 function toCombo(c) {
   const included = (c.servicios_included || []).map((nombre) => {
-    const s = Catalogo.servicios().find((x) => x.nombre_display === nombre) || {};
-    return { icon: short(nombre).slice(0, 1), name: nombre, price: fmtUSD(s.precio || 0), bg: grad(s.id_servicio || "") };
+    const s = Catalogo.servicios().find((x) => x.nombre_display === nombre) || null;
+    // Precio de cada ítem SEGÚN ROL (revendedor ve su tarifa), coherente con el
+    // total del combo que calcula el motor de precios.
+    return { icon: short(nombre).slice(0, 1), name: nombre, price: fmtUSD(s ? Catalogo.precioFinalUSD(s) : 0), bg: grad(s ? s.id_servicio : "") };
   });
   const orig = included.reduce((a, i) => a + Utils.num(i.price.replace("$", "")), 0);
   const precioCombo = Catalogo.precioComboUSD(c); // tarifa por rol (revendedor/estándar)
@@ -136,6 +144,7 @@ function decorate(pageId, vals) {
     case "mi-cuenta": return decorateCuenta(vals);
     case "admin": return decorateAdmin(vals);
     case "revendedor": return decorateRevendedor(vals);
+    case "ser-revendedor": return decorateSerRevendedor(vals);
     default: return;
   }
 }
@@ -170,13 +179,103 @@ function decorateIndex(vals, svc) {
   }
   const cart = Store.get("carteleras") || []; const estr = cart.filter((e) => e.activo); vals.estrenos = estr.length ? estr.map(toEstreno) : [];
   const mp = (Store.get("metodosPago") || []).filter((m) => m.estado_activo); vals.paymentMethods = mp.length ? mp.map(toPayment) : [];
+  // "Un universo por cada categoría": listas REALES por mundo (primeros 4 por
+  // orden, precio según rol). Antes eran nombres y precios fijos en el HTML.
+  const PALETA = ["#1DB954", "#00CFFF", "#A238FF", "#FFB020"];
+  const glowDe = (hex) => { const n = hex.replace("#", ""); return `rgba(${parseInt(n.slice(0, 2), 16)},${parseInt(n.slice(2, 4), 16)},${parseInt(n.slice(4, 6), 16)},0.6)`; };
+  const mundo = (cats) => svc.filter((s) => cats.includes(s.categoria)).slice(0, 4)
+    .map((s, i) => ({ name: s.nombre_display, price: fmtUSD(Catalogo.precioFinalUSD(s)), color: PALETA[i % 4], glow: glowDe(PALETA[i % 4]) }));
+  vals.mundoMusica = mundo(["MUSICA"]);
+  vals.mundoStreaming = mundo(["STREAMING"]);
+  vals.mundoProductividad = mundo(["SOFTWARE", "CLOUD", "IA"]);
+  // Tarjetas decorativas del hero: precio REAL del catálogo (vacío si no existe).
+  const precioDe = (id) => { const s = Catalogo.porId(id); return s ? fmtUSD(Catalogo.precioFinalUSD(s)) : ""; };
+  vals.hero = { chatgpt: precioDe("chatgpt"), spotify: precioDe("spotify"), netflix: precioDe("netflix") };
   // Carrito lateral en vivo desde el Store real.
   const items = Cart.items();
   vals.cartItems = items.map(toCartItem);
   vals.cartCount = Cart.count();
+  vals.cartVacio = items.length === 0;
   vals.cartSubtotal = fmtUSD(Cart.subtotalUSD());
+  const cup = Cart.cupon();
+  vals.cartHasDiscount = !!cup && Cart.descuentoUSD() > 0;
+  vals.cartDiscountLabel = cup ? `Descuento ${cup.codigo} (-${Math.round(cup.pct * 100)}%)` : "Descuento";
   vals.cartDiscount = fmtUSD(Cart.descuentoUSD());
   vals.cartTotal = fmtUSD(Cart.totalUSD());
+  // Métodos de pago rápidos del cajón: los REALES del titular (antes fijos).
+  vals.quickPayMethods = mp.slice(0, 5).map((m, i) => ({ label: m.tipo_banco || m.id_pago, active: i === 0 }));
+  // Menú móvil: subtítulos con servicios REALES de cada categoría.
+  if (Array.isArray(vals.mobileNavItems)) {
+    const SUBCAT = { "Streaming": ["STREAMING"], "Música": ["MUSICA"], "Inteligencia IA": ["IA"], "Juegos": ["JUEGOS"], "Software": ["SOFTWARE"], "Cloud & VPN": ["CLOUD"] };
+    vals.mobileNavItems = vals.mobileNavItems.map((it) => {
+      if (it.label === "Combos") return Object.assign({}, it, { sub: combos.length ? `${combos.length} combos disponibles` : "Próximamente" });
+      const cats = SUBCAT[it.label]; if (!cats) return it;
+      const nombres = svc.filter((s) => cats.includes(s.categoria)).slice(0, 3).map((s) => s.nombre_display);
+      return Object.assign({}, it, { sub: nombres.length ? nombres.join(", ") + (svc.filter((s) => cats.includes(s.categoria)).length > 3 ? " y más" : "") : "Próximamente" });
+    });
+  }
+  decorateMegaMenu(vals, svc, combos);
+}
+
+/* ───────────────────  MEGAMENÚ DE CATEGORÍAS (catálogo real)  ───────────────────
+ * Antes el megamenú tenía listas y precios fijos en el HTML (Netflix $9.99, Mubi…)
+ * y Juegos/Software mostraban el panel de Streaming. Ahora cada panel sale del
+ * catálogo real: servicios de esa categoría (precio según rol), destacado real,
+ * conteo real y estado vacío honesto si la categoría aún no tiene servicios. */
+const MEGA_CAT = { streaming: ["STREAMING"], musica: ["MUSICA"], ia: ["IA"], juegos: ["JUEGOS"], software: ["SOFTWARE"], cloud: ["CLOUD"] };
+const MEGA_HREF = { streaming: "catalogo.html?cat=streaming", musica: "catalogo.html?cat=musica", ia: "catalogo.html?cat=ia", juegos: "catalogo.html?cat=juegos", software: "catalogo.html?cat=software", cloud: "catalogo.html?cat=cloud", ofertas: "catalogo.html#combos", categorias: "catalogo.html" };
+function decorateMegaMenu(vals, svc, combos) {
+  const key = vals.megaKey || "streaming";
+  const precio = (s) => fmtUSD(Catalogo.precioFinalUSD(s));
+  const item = (s) => ({ id: s.id_servicio, icon: short(s.nombre_display).slice(0, 1), name: s.nombre_display, price: precio(s), bg: grad(s.id_servicio), active: !!s.destacado, href: "detalles.html?id=" + encodeURIComponent(s.id_servicio) });
+  const stock = (s) => (s.en_stock === false || (typeof s.stock === "number" && s.stock <= 0))
+    ? { stockLabel: "Agotado", stockColor: "#FF3E6C", stockBg: "rgba(255,62,108,0.1)", stockBorder: "rgba(255,62,108,0.25)" }
+    : { stockLabel: "Disponible", stockColor: "#00D4A0", stockBg: "rgba(0,212,160,0.1)", stockBorder: "rgba(0,212,160,0.22)" };
+  const featured = (s, desc) => s ? Object.assign(item(s), { desc: desc || s.descripcion || catLabel(s.categoria) }, stock(s)) : null;
+  const total = svc.length;
+  let lista = [], destacado = null, stats = "", vacioTxt = "", trending = [], label = "Destacados";
+
+  if (MEGA_CAT[key]) {
+    lista = svc.filter((s) => MEGA_CAT[key].includes(s.categoria));
+    destacado = lista.find((s) => s.destacado) || lista[0] || null;
+    stats = `${vals.megaMenuTitle} · ${lista.length} ${lista.length === 1 ? "servicio disponible" : "servicios disponibles"}`;
+    vacioTxt = `Aún no hay servicios en ${vals.megaMenuTitle}. Se añaden desde el panel de administración.`;
+    trending = lista.filter((s) => s.destacado).concat(lista.filter((s) => !s.destacado)).slice(0, 3);
+    vals.megaItems = lista.slice(0, 8).map(item);
+    vals.megaTrending = trending.map((s, i) => Object.assign(item(s), { rank: String(i + 1).padStart(2, "0") }));
+    vals.megaStatsPct = total ? Math.round((lista.length / total) * 100) + "%" : "0%";
+  } else if (key === "ofertas") {
+    const ofertas = (Store.get("ofertas") || []).filter((o) => o.activo !== false);
+    const items = ofertas.map((o) => { const s = Catalogo.porId(o.id_servicio); return { id: o.id_servicio || "", icon: short(o.nombre).slice(0, 1), name: o.nombre + (o.descuento_pct ? ` -${o.descuento_pct}%` : ""), price: o.precio_oferta ? fmtUSD(o.precio_oferta) : (s ? precio(s) : ""), bg: grad(o.id_servicio), active: true, href: s ? "detalles.html?id=" + encodeURIComponent(s.id_servicio) : "catalogo.html" }; });
+    vals.megaItems = items.slice(0, 8);
+    label = "Combos";
+    vals.megaTrending = combos.slice(0, 3).map((c, i) => ({ id: "", rank: String(i + 1).padStart(2, "0"), icon: "★", name: c.nombre_combo, price: fmtUSD(Catalogo.precioComboUSD(c)), bg: "linear-gradient(135deg,#0A3AAE,#1A8FFF)", href: "catalogo.html#combos" }));
+    const o0 = ofertas[0]; const s0 = o0 && Catalogo.porId(o0.id_servicio);
+    destacado = s0 || null;
+    stats = `${ofertas.length} ${ofertas.length === 1 ? "oferta activa" : "ofertas activas"} · ${combos.length} combos`;
+    vacioTxt = "No hay ofertas activas ahora mismo. Revisa los combos: ahorras frente a contratar por separado.";
+    lista = items;
+    vals.megaStatsPct = ofertas.length ? "100%" : "0%";
+  } else { // categorias: resumen real por categoría
+    const CATS = [["Streaming", "STREAMING", "streaming"], ["Música", "MUSICA", "musica"], ["Inteligencia IA", "IA", "ia"], ["Juegos", "JUEGOS", "juegos"], ["Software", "SOFTWARE", "software"], ["Cloud", "CLOUD", "cloud"]];
+    const cuenta = {}; for (const s of svc) cuenta[s.categoria] = (cuenta[s.categoria] || 0) + 1;
+    vals.megaItems = CATS.map(([nombre, cat, slug]) => ({ id: "", icon: nombre.slice(0, 1), name: nombre, price: `${cuenta[cat] || 0} ${cuenta[cat] === 1 ? "servicio" : "servicios"}`, bg: grad(slug), active: (cuenta[cat] || 0) > 0, href: "catalogo.html?cat=" + slug }));
+    const dest = svc.filter((s) => s.destacado);
+    destacado = dest[0] || svc[0] || null;
+    trending = dest.length ? dest.slice(0, 3) : svc.slice(0, 3);
+    vals.megaTrending = trending.map((s, i) => Object.assign(item(s), { rank: String(i + 1).padStart(2, "0") }));
+    stats = `${total} ${total === 1 ? "servicio" : "servicios"} en ${CATS.filter(([, c]) => cuenta[c]).length} categorías`;
+    vacioTxt = "El catálogo está vacío. Añade servicios desde el panel de administración.";
+    lista = svc;
+    vals.megaStatsPct = total ? "100%" : "0%";
+  }
+  vals.megaFeatured = featured(destacado);
+  vals.megaHasFeatured = !!vals.megaFeatured;
+  vals.megaStats = stats;
+  vals.megaVacio = lista.length === 0;
+  vals.megaVacioTxt = vacioTxt;
+  vals.megaTrendingLabel = label;
+  vals.megaVerTodosHref = MEGA_HREF[key] || "catalogo.html";
 }
 
 function decorateCatalogo(vals, svc) {
@@ -316,6 +415,7 @@ function decoratePagos(vals) {
     // Sin métodos configurados → no mostrar datos de pago de demostración.
     const vacio = { title: "Método no configurado", lines: [{ k: "Estado", v: "Aún no hay métodos de pago configurados." }], _id: "__vacio__", _empty: true };
     vals.movil = vacio; vals.binance = vacio; vals.zelle = vacio; vals.paypal = vacio; vals.transferencia = vacio;
+    pintarMetodoActivo(vals);
     return;
   }
   // Detalle por método (líneas para pagar) desde metodos_pago_config real.
@@ -338,6 +438,32 @@ function decoratePagos(vals) {
   vals.zelle = build("zelle", "Zelle") || vals.zelle;
   vals.paypal = build("paypal", "PayPal") || vals.paypal;
   vals.transferencia = build("transferencia", "Transferencia") || vals.transferencia;
+  pintarMetodoActivo(vals);
+}
+
+/* Datos REALES del método seleccionado ("Datos para Pago Móvil": titular,
+ * teléfono, banco…) + estado real de la billetera. La plantilla pinta
+ * `manualTitle/manualLines` ({label,value}); antes se rellenaban vals.movil…
+ * con otro formato y los datos reales nunca llegaban a la pantalla. */
+function pintarMetodoActivo(vals) {
+  const activo = (Array.isArray(vals.methods) ? vals.methods.find((m) => m.active) : null) || {};
+  const det = vals[activo.id];
+  if (det && Array.isArray(det.lines)) {
+    vals.manualTitle = det.title || vals.manualTitle;
+    vals.manualLines = det.lines.map((l) => ({ label: l.label || l.k || "", value: l.value || l.v || "" }));
+  }
+  // Billetera: saldo real de la sesión frente al total del carrito.
+  const u = ((Store.get("sesion") || {}).usuario) || {};
+  const saldo = Number(u.saldoBilletera);
+  const total = Cart.totalUSD();
+  const auth = (Store.get("sesion") || {}).estado === "autenticado";
+  vals.saldoFmt = auth && isFinite(saldo) ? fmtUSD(saldo) : "—";
+  const ok = auth && isFinite(saldo) && saldo + 1e-9 >= total;
+  vals.saldoOk = ok;
+  vals.saldoOkTxt = !auth ? "Inicia sesión" : ok ? "Saldo suficiente" : `Faltan ${fmtUSD(Math.max(0, total - (isFinite(saldo) ? saldo : 0)))}`;
+  vals.saldoOkBg = ok ? "rgba(0,212,160,0.1)" : "rgba(255,176,32,0.1)";
+  vals.saldoOkBorder = ok ? "rgba(0,212,160,0.3)" : "rgba(255,176,32,0.35)";
+  vals.saldoOkColor = ok ? "#00D4A0" : "#FFB020";
 }
 
 function decorateBilletera(vals) {
@@ -354,16 +480,50 @@ function decorateBilletera(vals) {
   }
 }
 
+// Página "Hazte revendedor": los planes salen del CMS (planes_revendedor),
+// editables en el Back Office → "Planes revendedor". Sin planes → sin datos
+// inventados (deja lo que traiga el Store, vacío si no hay).
+function decorateSerRevendedor(vals) {
+  const planes = (Store.get("planesRevendedor") || [])
+    .filter((p) => p.activo !== false)
+    .sort((a, b) => (Utils.num(a.orden) - Utils.num(b.orden)));
+  if (!Array.isArray(vals.plans)) return;
+  if (!planes.length) return; // conserva el primer render hasta que llegue el CMS
+  vals.plans = planes.map((p) => ({
+    name: p.name || "Plan",
+    price: p.price || "",
+    period: p.period || "",
+    accent: p.accent || "#00CFFF",
+    featured: !!p.featured,
+    tagline: p.tagline || "",
+    features: Array.isArray(p.features) ? p.features : String(p.features || "").split(",").map((x) => x.trim()).filter(Boolean),
+  }));
+}
+
 function decorateCuenta(vals) {
-  const subs = Store.get("suscripciones") || [];
-  // Compras REALES del usuario: pedidos aprobados/entregados (/pedidos/mios).
-  const pedidosOk = (Store.get("pedidos") || []).filter((p) => ["aprobado", "entregado"].includes(String(p.estado)));
-  // Lo que el usuario realmente tiene: suscripciones relacionales (si las hay) +
-  // sus pedidos aprobados como servicios comprados. Sin datos inventados.
-  const servicios = subs.concat(pedidosOk.map((p) => ({
-    servicio: p.id_servicio, estado: "activo", perfil: "Comprado",
-    vence: p.vence || "", precioVenta: Number(p.precio) || 0, _creado: p.creadoEn,
-  })));
+  // Fuente de verdad de lo que el cliente TIENE: /api/mis/accesos (suscripciones
+  // relacionales con la cuenta asignada + pedidos con su estado de entrega).
+  // Respaldo (aún sin cargar): pedidos aprobados de /pedidos/mios.
+  const acc = Store.get("accesos");
+  const pedidosTodos = Store.get("pedidos") || [];
+  const pedidosOk = pedidosTodos.filter((p) => ["aprobado", "entregado"].includes(String(p.estado)));
+  let servicios;
+  if (acc && Array.isArray(acc.accesos)) {
+    const conCuenta = new Set(acc.accesos.map((a) => a.pedido_id).filter(Boolean));
+    servicios = acc.accesos.map((a) => ({
+      servicio: a.plataforma_id, estado: (a.estado === "activa" && a.vigente) ? "activo" : String(a.estado),
+      perfil: a.credenciales ? `Perfil ${a.perfil || "asignado"}` : (a.motivo === "suscripcion_vencida" ? "Vencida" : a.estado),
+      vence: a.vence || "", precioVenta: Number(a.precio) || 0, _creado: a.inicio,
+    })).concat((acc.pedidos || []).filter((p) => !conCuenta.has(p.id) && p.estado !== "rechazado" && !(p.estado === "aprobado" && p.provision_estado === "asignado")).map((p) => ({
+      servicio: p.id_servicio,
+      estado: p.estado === "pendiente" ? "pendiente" : p.provision_estado === "cola_espera" ? "en_espera" : "activo",
+      perfil: p.estado === "pendiente" ? "Pendiente de validar el pago" : p.provision_estado === "cola_espera" ? "En lista de espera (sin stock)" : "Entrega manual por WhatsApp",
+      vence: "", precioVenta: Number(p.precio) || 0, _creado: p.creado_en,
+    })));
+  } else {
+    servicios = pedidosOk.map((p) => ({ servicio: p.id_servicio, estado: "activo", perfil: "Comprado", vence: "", precioVenta: Number(p.precio) || 0, _creado: p.creadoEn }));
+  }
+  const ESTADO_TXT = { activo: "Activo", activa: "Activo", pendiente: "Pendiente", en_espera: "En espera", vencida: "Vencida", pausada: "Pausada", cancelada: "Cancelada" };
 
   // ── Perfil + estadísticas REALES (sin datos inventados) ──
   const ses = Store.get("sesion") || {};
@@ -424,7 +584,7 @@ function decorateCuenta(vals) {
   const nomServ = (id) => (Catalogo.porId(id) || {}).nombre_display || id;
   if (Array.isArray(vals.subscriptions)) {
     if (serviciosReales.length) {
-      vals.subscriptions = serviciosReales.slice(0, 8).map((s, i) => onSample(vals.subscriptions, i, { icon: short(nomServ(s.servicio)).slice(0, 1), gradient: grad(s.servicio), name: nomServ(s.servicio), plan: s.perfil || s.tipo || "Servicio", expires: s.vence ? Utils.fecha(s.vence) : "—", status: (s.estado === "activo" || s.estado === "activa") ? "Activo" : s.estado, price: fmtUSD(s.precioVenta) }));
+      vals.subscriptions = serviciosReales.slice(0, 8).map((s, i) => onSample(vals.subscriptions, i, { icon: short(nomServ(s.servicio)).slice(0, 1), gradient: grad(s.servicio), name: nomServ(s.servicio), plan: s.perfil || s.tipo || "Servicio", expires: s.vence ? Utils.fecha(s.vence) : "—", status: ESTADO_TXT[s.estado] || s.estado, statusColor: s.estado === "activo" || s.estado === "activa" ? "#00D4A0" : (s.estado === "pendiente" || s.estado === "en_espera") ? "#FFB020" : "#FF3E6C", statusBg: s.estado === "activo" || s.estado === "activa" ? "rgba(0,212,160,0.1)" : (s.estado === "pendiente" || s.estado === "en_espera") ? "rgba(255,176,32,0.1)" : "rgba(255,62,108,0.1)", statusBorder: s.estado === "activo" || s.estado === "activa" ? "rgba(0,212,160,0.3)" : (s.estado === "pendiente" || s.estado === "en_espera") ? "rgba(255,176,32,0.35)" : "rgba(255,62,108,0.35)", price: fmtUSD(s.precioVenta) }));
     } else {
       vals.subscriptions = [filaVacia({ name: auth ? "Sin servicios todavía" : "Inicia sesión para ver tus servicios", plan: auth ? "Explora el catálogo para contratar un servicio." : "Aquí aparecerán tus servicios." })];
     }
@@ -467,6 +627,11 @@ const CONTEO_MODULO = {
   "Cartelera Digital": (o) => n(o.conteos.carteleras_estrenos, "activa", "activas"),
   "Promociones": (o) => n(o.conteos.ofertas, "activa", "activas"),
   "Suscripciones": (o) => n(o.conteos.suscripciones, "activa", "activas"),
+  "Control de Vencimientos": (o) => n(o.conteos.suscripciones, "activa", "activas"),
+  "Planes": (o) => n(o.conteos.planes, "plan", "planes"),
+  "Planes revendedor": (o) => n(o.conteos.planes_revendedor, "plan", "planes"),
+  "FAQs": (o) => n(o.conteos.preguntas_frecuentes, "pregunta", "preguntas"),
+  "Notificaciones": (o) => n(o.conteos.alertas_no_leidas, "sin leer", "sin leer"),
 };
 function n(v, sing, plur) { const x = Utils.num(v); return x > 0 ? x + " " + (x === 1 ? sing : plur) : ""; }
 function haceCuanto(iso) {
@@ -498,28 +663,28 @@ function decorateAdmin(vals) {
     ];
   }
   // Roles reales (reparto de usuarios por rol) — sin cifras inventadas.
-  if (ov && Array.isArray(vals.roles) && Array.isArray(ov.roles)) {
-    vals.roles = ov.roles.map((r, i) => onSample(vals.roles, i, {
+  if (Array.isArray(vals.roles)) { // sin resumen → lista vacía (nunca roles inventados)
+    vals.roles = (ov && Array.isArray(ov.roles) ? ov.roles : []).map((r, i) => onSample(vals.roles, i, {
       name: NOMBRE_ROL[r.rol] || (r.rol ? r.rol[0].toUpperCase() + r.rol.slice(1) : "Usuario"),
       count: String(r.total), scope: SCOPE_ROL[r.rol] || "READ",
     }));
   }
   // Actividad reciente REAL (pedidos + recargas), no personas inventadas.
-  if (ov && Array.isArray(vals.auditLog)) {
-    const act = Array.isArray(ov.actividad) ? ov.actividad : [];
+  if (Array.isArray(vals.auditLog)) {
+    const act = ov && Array.isArray(ov.actividad) ? ov.actividad : [];
     vals.auditLog = act.length
       ? act.map((a, i) => onSample(vals.auditLog, i, { actor: a.actor, action: a.accion + " · " + a.estado, module: a.modulo, time: haceCuanto(a.cuando) }))
       : [onSample(vals.auditLog, 0, { actor: "Sistema", action: "sin actividad reciente", module: "—", time: "" })];
   }
   // Conteos reales en las tarjetas de módulo. Regla honesta: si tenemos el dato
   // real lo mostramos; si no, se deja en blanco (nunca una cifra inventada).
-  if (ov && Array.isArray(vals.visibleGroups)) {
+  if (Array.isArray(vals.visibleGroups)) {
     for (const g of vals.visibleGroups) {
       if (!g || !Array.isArray(g.modules)) continue;
       for (const m of g.modules) {
         if (!m) continue;
         const f = CONTEO_MODULO[m.name];
-        m.count = f ? f(ov) : "";
+        m.count = (ov && f) ? f(ov) : "";
       }
     }
   }
@@ -793,12 +958,52 @@ function onGlobalClick(ev) {
   if (!btn) return;
   const txt = (btn.textContent || "").trim();
   if (!ADD_RX.test(txt)) return;
-  const s = nombreEnTarjeta(btn);
+  // Resolver el servicio: primero por el id REAL de la tarjeta (data-nv-id), que
+  // es fiable; si no, por el nombre visible (respaldo).
+  const cont = btn.closest("[data-nv-id]");
+  const idCard = cont && cont.getAttribute("data-nv-id");
+  let s = (idCard && idCard.indexOf("{{") === -1) ? Catalogo.porId(idCard) : null;
+  if (!s) s = nombreEnTarjeta(btn);
   if (!s) return;
   ev.preventDefault();
+  // Frenar la propagación: si no, detalle-nav.js (que escucha clics en la
+  // tarjeta) navegaría a la ficha y "comería" el añadido al carrito.
+  ev.stopPropagation();
+  if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
   Cart.addServicio(s.id_servicio);
   toast(`${s.nombre_display} añadido al carrito`, "rgba(0,212,160,0.5)");
   if (window.NVSound) window.NVSound.reproducir("notify");
+}
+
+/* Cajón del carrito: quitar, cupón, checkout, ir al catálogo (antes decorativos). */
+function onCartDrawerClick(ev) {
+  const t = ev.target;
+  const rm = t.closest("[data-nv-cart-remove]");
+  if (rm) {
+    ev.preventDefault(); ev.stopPropagation();
+    Cart.remove(rm.getAttribute("data-nv-cart-remove"), rm.getAttribute("data-nv-cart-tipo") || "servicio");
+    toast("Quitado del carrito", "rgba(255,62,108,0.45)");
+    return;
+  }
+  const ap = t.closest("[data-nv-cupon-aplicar]");
+  if (ap) {
+    ev.preventDefault(); ev.stopPropagation();
+    const inp = document.querySelector("[data-nv-cupon]");
+    const code = inp ? inp.value.trim() : "";
+    if (!code) { Cart.quitarCupon(); return; }
+    if (Cart.aplicarCupon(code)) toast(`Cupón ${code.toUpperCase()} aplicado`, "rgba(0,212,160,0.5)");
+    else toast("Ese código no existe o no está activo", "rgba(255,176,32,0.5)");
+    return;
+  }
+  const co = t.closest("[data-nv-checkout]");
+  if (co) {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!Cart.items().length) { toast("Tu carrito está vacío", "rgba(255,176,32,0.5)"); return; }
+    location.href = "pagos.html";
+    return;
+  }
+  const go = t.closest("[data-nv-goto]");
+  if (go) { ev.preventDefault(); ev.stopPropagation(); location.href = go.getAttribute("data-nv-goto"); }
 }
 
 /* ──────────────────────────  API GLOBAL NV  ───────────────────────── */
@@ -820,6 +1025,7 @@ export function instalarBridge() {
   Bus.on("cart:updated", rerenderSoon);
   Bus.on("currency:changed", rerenderSoon);
   document.addEventListener("click", onGlobalClick, true);
+  document.addEventListener("click", onCartDrawerClick, true);
 }
 
 export default { instalarBridge, decorate };

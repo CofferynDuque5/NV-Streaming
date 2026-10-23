@@ -48,7 +48,15 @@ export async function provisionarPedido(pedido: Pedido, opts: { telefono?: strin
     if (!pedido.uid_cliente) return marcar(pedido, null, 'no_aplica');
 
     const doc = await CmsRepository.obtener('servicios_sistema', pedido.id_servicio) as Record<string, unknown> | null;
-    const plataformaId = campo(doc, 'plataforma_id', 'plataformaId');
+    // Plataforma del inventario: la declarada por el servicio o, si no, el propio
+    // id del servicio cuando existe un plan para él (el seeder crea un plan por
+    // servicio con plataforma_id = id_servicio). Así el catálogo "sale de fábrica"
+    // aprovisionable sin que el admin tenga que ligar nada a mano.
+    let plataformaId = campo(doc, 'plataforma_id', 'plataformaId');
+    if (!plataformaId && pedido.id_servicio) {
+      const planPropio = await PlansRepository.findActiveByPlatform(pedido.id_servicio);
+      if (planPropio) plataformaId = pedido.id_servicio;
+    }
     if (!plataformaId) return marcar(pedido, null, 'no_aplica'); // servicio no ligado a streaming
 
     // Plan: el declarado por el servicio, o el plan activo de la plataforma.
@@ -63,10 +71,11 @@ export async function provisionarPedido(pedido: Pedido, opts: { telefono?: strin
       duracion = plan?.duracion_dias || 30;
     }
 
-    // Si el checkout trajo un teléfono y el cliente aún no tenía, lo fijamos
-    // (necesario para que el OTP/avisos puedan alcanzarlo).
-    const tel = normalizarTel(opts.telefono);
+    // Teléfono para avisar: el que trajo el checkout o el WhatsApp ya guardado
+    // del cliente (así la aprobación desde el back office también avisa).
+    let tel = normalizarTel(opts.telefono);
     if (tel) await UsersRepository.setWhatsappIfEmpty(pedido.uid_cliente, tel);
+    if (!tel) { const u = await UsersRepository.findById(pedido.uid_cliente); tel = normalizarTel(u?.id_whatsapp); }
 
     const r = await SubscriptionsRepository.provisionarCompra({
       usuarioId: pedido.uid_cliente, plataformaId, planId, duracionDias: duracion, pedidoId: pedido.id,
@@ -91,10 +100,10 @@ async function marcar(pedido: Pedido, suscripcionId: string | null, estado: stri
 }
 
 /** Aviso best-effort al cliente por WhatsApp (si tenemos su teléfono). */
-async function notificar(pedido: Pedido, plataformaId: string, r: ProvisionResultado, tel: string | null): Promise<void> {
+export async function notificar(pedido: Pedido, plataformaId: string, r: ProvisionResultado, tel: string | null): Promise<void> {
   if (!tel) return; // sin teléfono no hay a quién avisar (queda la alerta admin / back office)
   const texto = r.sin_stock
     ? `✅ Recibimos tu compra de ${plataformaId}. Ahora mismo no hay stock, así que quedaste en LISTA DE ESPERA por orden de llegada. Te activamos y avisamos apenas se libere un perfil. 🙏 — NV Streaming`
-    : `✅ ¡Tu ${plataformaId} está activo!${r.perfil ? ` Perfil asignado: ${r.perfil}.` : ''} Escríbenos "mis datos de ${plataformaId}" para recibir tu acceso. — NV Streaming`;
+    : `✅ ¡Tu ${plataformaId} está activo!${r.perfil ? ` Perfil asignado: ${r.perfil}.` : ''} Tus datos de acceso ya están en la web (Mi cuenta → Mis servicios) o escríbenos "mis datos de ${plataformaId}". — NV Streaming`;
   try { await whatsappSender.sendText(tel, texto); } catch (e) { logger.warn({ e }, 'no se pudo notificar aprovisionamiento por WhatsApp'); }
 }

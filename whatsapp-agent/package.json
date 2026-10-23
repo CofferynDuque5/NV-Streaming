@@ -16,7 +16,7 @@
     "test:agent": "tsx test/agent.test.ts",
     "test:crypto": "tsx test/crypto.test.ts",
     "test:chat": "tsx test/chat.test.ts",
-    "test": "npm run typecheck && npm run test:agent && npm run test:crypto && npm run test:chat && npm run test:whatsapp && npm run test:renewals && npm run test:reminders && npm run test:payments && npm run test:psp && npm run test:email && npm run test:superbackend",
+    "test": "npm run typecheck && npm run test:agent && npm run test:crypto && npm run test:chat && npm run test:whatsapp && npm run test:renewals && npm run test:reminders && npm run test:payments && npm run test:psp && npm run test:email && npm run test:superbackend && npm run test:media",
     "job:renewals": "tsx src/jobs/renewals.job.ts",
     "test:renewals": "tsx test/renewals.test.ts",
     "test:whatsapp": "tsx test/whatsapp.test.ts",
@@ -44,7 +44,8 @@
     "test:integration": "tsx test/integration.http.test.ts",
     "seed": "tsx src/scripts/seed.ts",
     "seed:prod": "node dist/scripts/seed.js",
-    "hydrate": "npm run migrate && npm run seed"
+    "hydrate": "npm run migrate && npm run seed",
+    "test:media": "tsx test/media.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

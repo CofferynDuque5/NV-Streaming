@@ -360,7 +360,11 @@ class Component extends DCLogic {
   _err(msg) { const u = this._ui(); if (u && u.error) u.error('No se pudo continuar', msg); else alert(msg); }
 
   // A dónde va el usuario según su rol.
-  _destino(usuario) { return (usuario && usuario.rol === 'admin') ? 'admin.html' : 'mi-cuenta.html'; }
+  _destino(usuario) {
+    // ?next=pagos.html → volver a donde estaba (solo rutas locales, sin dominio).
+    try { const n = new URLSearchParams(location.search).get('next') || ''; if (/^[a-z0-9_-]+\.html(\?[^#]*)?$/i.test(n) && !/admin|editor/.test(n)) return n; } catch (_) {}
+    return (usuario && usuario.rol === 'admin') ? 'admin.html' : 'mi-cuenta.html';
+  }
 
   async _autenticar(accion) {
     const core = this._core(), ui = this._ui();
