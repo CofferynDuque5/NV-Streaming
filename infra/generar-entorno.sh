@@ -120,6 +120,8 @@ ANTHROPIC_PRECIO_SALIDA_MTOK=
 RESPALDO_CLAVE=$(openssl rand -hex 32)
 # Horas de Venezuela (HH:MM, separadas por espacios).
 RESPALDO_HORAS=03:30
+# Día de la prueba de restauración automática (1 = lunes … 7 = domingo; «no» la desactiva).
+RESPALDO_PRUEBA_DIA=7
 RESPALDO_COPIAS_LOCALES=7
 RESPALDO_DIR_SERVIDOR=${NV_RESPALDO_DIR:-/var/backups/nv-streaming}
 # Usuario del servidor con el que corre el servicio de copias (dueño de este archivo).
