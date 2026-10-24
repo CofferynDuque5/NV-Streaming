@@ -78,6 +78,19 @@ else
   if ((horas > 26)); then mal "La última copia correcta es de hace ${horas} h ($ultima)"; else ok "Última copia correcta: hace ${horas} h"; fi
 fi
 if [[ -z "$(valor RESPALDO_REMOTO)" ]]; then aviso "Las copias solo están en este servidor (configura RESPALDO_REMOTO)."; fi
+if [[ "$(valor RESPALDO_PRUEBA_DIA)" != "no" ]]; then
+  prueba="$(dc exec -T respaldos cat /respaldos/ULTIMA_PRUEBA_OK 2>/dev/null || true)"
+  if [[ -z "$prueba" ]]; then
+    aviso "Aún no hay prueba de restauración automática (se hace una vez por semana). A mano: bash infra/restaurar.sh probar"
+  else
+    dias=$((($(date +%s) - $(date -d "$prueba" +%s)) / 86400))
+    if ((dias > 8)); then
+      aviso "La última prueba de restauración superada es de hace ${dias} días. Mira: logs respaldos"
+    else
+      ok "Última prueba de restauración superada: hace ${dias} días"
+    fi
+  fi
+fi
 
 if ((!breve)); then
   paso "Correo"

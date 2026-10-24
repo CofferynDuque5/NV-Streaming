@@ -17,20 +17,20 @@ bash infra/estado.sh
 
 Debe terminar en «Todo en orden». Revisa en especial:
 
-| Línea               | Qué hacer si falla                                                            |
-| ------------------- | ----------------------------------------------------------------------------- |
-| Servicios           | Algún servicio no está «healthy»: mira sus logs (INSTALACION.md, sección 16). |
-| Certificado HTTPS   | Menos de 14 días: Caddy no está renovando. Mira `logs caddy`.                 |
-| Trabajador          | Sin latido: los recordatorios y vencimientos están parados.                   |
-| Copias de seguridad | Más de 26 h sin copia correcta: mira `logs respaldos`.                        |
-| Correo              | Correos sin enviar: revisa el SMTP.                                           |
-| Disco               | Por encima del 85 %: `docker system prune -f`.                                |
+| Línea               | Qué hacer si falla                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Servicios           | Algún servicio no está «healthy»: mira sus logs (INSTALACION.md, sección 16).                               |
+| Certificado HTTPS   | Menos de 14 días: Caddy no está renovando. Mira `logs caddy`.                                               |
+| Trabajador          | Sin latido: los recordatorios y vencimientos están parados.                                                 |
+| Copias de seguridad | Más de 26 h sin copia correcta, o más de 8 días sin prueba de restauración superada: mira `logs respaldos`. |
+| Correo              | Correos sin enviar: revisa el SMTP.                                                                         |
+| Disco               | Por encima del 85 %: `docker system prune -f`.                                                              |
 
 Y en el panel: **Automatizaciones → avisos** con errores, y la **Auditoría** de acciones sensibles que no reconozcas.
 
 ## Cada mes (30 minutos)
 
-1. **Prueba de restauración** (la única forma de saber que las copias sirven):
+1. **Prueba de restauración** (la única forma de saber que las copias sirven). El servicio de copias ya la hace solo cada domingo tras la copia de la noche (`RESPALDO_PRUEBA_DIA`) y `estado.sh` muestra la última superada; una vez al mes, hazla también a mano y lee las cifras:
 
    ```bash
    bash infra/restaurar.sh probar
