@@ -1,3 +1,5 @@
+import { CajaController } from './caja/caja.controller.js';
+import { CajaService } from './caja/caja.service.js';
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditoriaController } from './auditoria/auditoria.controller.js';
@@ -76,6 +78,7 @@ export class AppModule {
         CuponesController,
         TicketsController,
         MetricasController,
+        CajaController,
         AutoservicioController,
         ...CONTROLADORES_REVENDEDORES,
         ...CONTROLADORES_BILLETERA,
@@ -102,6 +105,7 @@ export class AppModule {
         TicketsService,
         MetricasService,
         CentroService,
+        CajaService,
         ...PROVEEDORES_REVENDEDORES,
         ...PROVEEDORES_BILLETERA,
         ...PROVEEDORES_SITIO,

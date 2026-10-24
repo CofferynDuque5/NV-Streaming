@@ -78,6 +78,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pago.confirmado': 'Pago confirmado',
   'pago.rechazado': 'Pago rechazado',
   'pago.comprobante_consultado': 'Comprobante consultado',
+  'caja.cerrada': 'Caja cerrada',
   'cupon.creado': 'Cupón creado',
   'cupon.activado': 'Cupón activado',
   'cupon.desactivado': 'Cupón desactivado',

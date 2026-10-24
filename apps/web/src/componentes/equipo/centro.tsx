@@ -406,6 +406,7 @@ export function PorEstado({ estados }: { estados: Record<EstadoSuscripcion, numb
 
 const MODULO_DE_ACCION: [RegExp, ModuloEquipo][] = [
   [/^(pago|factura|metodo_cobro|billetera|recarga_billetera|pedido)/, 'cobros'],
+  [/^caja/, 'caja'],
   [/^ticket/, 'soporte'],
   [/^(entrega|codigo|inventario|lote)/, 'entregas'],
   [/^(revendedor|recarga|nivel|precio_mayorista|compra)/, 'revendedores'],

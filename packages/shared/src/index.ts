@@ -33,6 +33,8 @@ export * from './contrasenas.js';
 export * from './cupones.js';
 export * from './tienda.js';
 export * from './tipos-equipo.js';
+export * from './esquemas/caja.js';
+export * from './tipos-caja.js';
 export * from './cookies.js';
 export * from './politicas.js';
 export * from './politicas-por-definir.js';

@@ -234,6 +234,8 @@ export function estadoModulo(
   switch (clave) {
     case 'cobros':
       return ok(m ? `Cobrado ${usd(m.ingresosMesUsd)} este mes` : '');
+    case 'caja':
+      return ok('Totales del día y cierre');
     case 'soporte':
       if (!q.tickets) return ok('');
       if (q.tickets.fueraDePlazo) return aviso(`${q.tickets.fueraDePlazo} fuera de plazo`);
