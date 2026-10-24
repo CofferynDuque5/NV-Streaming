@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   analizarTexto,
   BLOQUES_INICIO,
   contenidoPaginaSchema,
   contraste,
   cssPaleta,
+  cssTemporada,
   crearPaginaSchema,
   enlaceSchema,
   esEnlaceSeguro,
@@ -20,6 +21,9 @@ import {
   RUTA_QUIENES_SOMOS,
   RUTAS_RESERVADAS,
   rutaPaginaSchema,
+  TEMPORADAS_SITIO,
+  temporadaSitioSchema,
+  temporadaVigente,
 } from '../src/index.js';
 
 const banner = (id: string) => ({ id, tipo: 'banner', texto: 'Aviso', tono: 'info' });
@@ -263,7 +267,7 @@ describe('marcado del bloque de texto', () => {
 
 describe('paletas del sitio', () => {
   it('el texto sobre la marca y el botón principal cumple WCAG AA', () => {
-    for (const [id, p] of Object.entries(PALETAS_SITIO)) {
+    for (const [id, p] of Object.entries({ ...PALETAS_SITIO, ...TEMPORADAS_SITIO })) {
       const [desde, hasta] = p.boton;
       const casos = {
         'tinta/marca': contraste(p.marcaTinta, p.marca),
@@ -290,5 +294,53 @@ describe('paletas del sitio', () => {
   it('calcula el contraste como WCAG', () => {
     expect(contraste('#000000', '#ffffff')).toBeCloseTo(21, 5);
     expect(contraste('#777777', '#777777')).toBeCloseTo(1, 5);
+  });
+});
+
+describe('temporadas del sitio', () => {
+  const ahora = new Date('2026-10-24T12:00:00Z');
+
+  it('solo está vigente antes de su fecha de fin', () => {
+    const hasta = new Date('2026-11-01T04:00:00Z');
+    expect(temporadaVigente({ temporada: 'halloween', temporadaHasta: hasta }, ahora)).toBe(
+      'halloween',
+    );
+    expect(
+      temporadaVigente({ temporada: 'halloween', temporadaHasta: hasta }, new Date(hasta)),
+    ).toBeNull();
+    expect(temporadaVigente({ temporada: 'halloween', temporadaHasta: null }, ahora)).toBeNull();
+    expect(temporadaVigente({ temporada: 'otra', temporadaHasta: hasta }, ahora)).toBeNull();
+    expect(temporadaVigente(null, ahora)).toBeNull();
+  });
+
+  it('la hoja de la temporada usa solo valores fijos', () => {
+    const css = cssTemporada('halloween', 'html:root');
+    expect(css).toMatch(/^html:root\{--nv-marca:#ff9447;/);
+    expect(css).toContain('body::before{background:radial-gradient(');
+    expect(css).not.toMatch(/[<>]/);
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('pide una fecha de fin futura de hasta 60 días para activar', () => {
+    vi.useFakeTimers({ now: ahora });
+    const ok = temporadaSitioSchema.safeParse({
+      temporada: 'halloween',
+      hasta: '2026-11-01T04:00:00.000Z',
+    });
+    expect(ok.success).toBe(true);
+    expect(temporadaSitioSchema.safeParse({ temporada: 'halloween' }).success).toBe(false);
+    expect(
+      temporadaSitioSchema.safeParse({ temporada: 'halloween', hasta: '2020-01-01T00:00:00Z' })
+        .success,
+    ).toBe(false);
+    expect(
+      temporadaSitioSchema.safeParse({ temporada: 'halloween', hasta: '2027-03-01T00:00:00Z' })
+        .success,
+    ).toBe(false);
+    expect(temporadaSitioSchema.parse({ temporada: null })).toEqual({
+      temporada: null,
+      hasta: null,
+    });
   });
 });

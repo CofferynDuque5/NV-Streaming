@@ -9,8 +9,10 @@ import {
   type PaginaSitioResumen,
   PALETAS_SITIO,
   type PaletaSitio,
+  MAX_DIAS_TEMPORADA,
   PLANTILLAS_PAGINA,
   type TemaSitio,
+  TEMPORADAS_SITIO,
 } from '@nv/shared';
 import {
   Check,
@@ -585,6 +587,134 @@ export function PaletaSitioSeccion({
     </section>
   );
 }
+
+/* ───────────────────────── temporada ───────────────────────── */
+
+const DIA = 86_400_000;
+/** Fecha (AAAA-MM-DD) en hora de Caracas (UTC−4, sin horario de verano). */
+const diaCaracas = (t: number) => new Date(t - 4 * 3_600_000).toISOString().slice(0, 10);
+/** Fin del día indicado en Caracas: medianoche siguiente, en UTC. */
+const finDelDia = (dia: string) =>
+  new Date(Date.parse(`${dia}T00:00:00-04:00`) + DIA).toISOString();
+
+/** Último día propuesto: el 31 de octubre de este año, o dentro de una semana si ya pasó. */
+function diaPropuesto(ahora: number): string {
+  const halloween = `${diaCaracas(ahora).slice(0, 4)}-10-31`;
+  return halloween >= diaCaracas(ahora) ? halloween : diaCaracas(ahora + 7 * DIA);
+}
+
+const fechaLarga = new Intl.DateTimeFormat('es', {
+  dateStyle: 'long',
+  timeZone: 'America/Caracas',
+});
+
+/**
+ * Temporada de Halloween encima de la paleta. Termina sola el día elegido y el
+ * sitio vuelve al diseño original; también se puede quitar antes con un botón.
+ */
+export function TemporadaSitioSeccion({
+  tema,
+  puedeCambiar,
+}: {
+  tema: TemaSitio;
+  puedeCambiar: boolean;
+}) {
+  const notificar = useNotificar();
+  const [actual, setActual] = useState(tema.temporada);
+  const [ahora] = useState(() => Date.now());
+  const [dia, setDia] = useState(() =>
+    actual?.vigente ? diaCaracas(Date.parse(actual.hasta) - 1) : diaPropuesto(ahora),
+  );
+  const [guardando, setGuardando] = useState(false);
+  const h = TEMPORADAS_SITIO.halloween;
+  const activa = actual?.vigente === true;
+
+  async function enviar(cuerpo: { temporada: 'halloween'; hasta: string } | { temporada: null }) {
+    setGuardando(true);
+    const r = await llamarApi<TemaSitio>('PUT', '/sitio/temporada', cuerpo);
+    setGuardando(false);
+    if (!r.ok) {
+      notificar(r.error.mensaje, 'error');
+      return;
+    }
+    setActual(r.datos.temporada);
+    await refrescarSitio();
+    notificar(
+      r.datos.temporada
+        ? `Halloween activo hasta el ${fechaLarga.format(new Date(Date.parse(r.datos.temporada.hasta) - 1))}`
+        : 'La tienda volvió al diseño original',
+    );
+  }
+
+  return (
+    <section aria-labelledby="titulo-temporada" className="grid min-w-0 content-start gap-3">
+      <header className="grid gap-0.5">
+        <h2 id="titulo-temporada" className="text-[clamp(1.25rem,2.6vw,1.5rem)]">
+          Temporada
+        </h2>
+        <p className="text-[0.8rem] text-tinta-tenue">
+          Un diseño de temporada encima de tu paleta. Al terminar, la tienda vuelve sola al diseño
+          original. Los logos no cambian.
+        </p>
+      </header>
+      <div className="flex flex-wrap items-end justify-between gap-x-4.5 gap-y-3">
+        <div className="ed-pal-prev" style={variablesTemporada}>
+          <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
+            🎃 {h.nombre}
+          </span>
+          <span className="ed-pal-grad">Todos tus universos</span>
+          <span className="ed-mues">Color de botones</span>
+        </div>
+        <p className="text-[0.82rem] text-tinta-suave" aria-live="polite">
+          {activa && actual
+            ? `Activa hasta el ${fechaLarga.format(new Date(Date.parse(actual.hasta) - 1))} (incluido).`
+            : actual
+              ? 'La última temporada ya terminó: la tienda tiene su diseño original.'
+              : 'Sin temporada: la tienda tiene su diseño original.'}
+        </p>
+      </div>
+      {puedeCambiar ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <CampoTexto
+            etiqueta="Último día de Halloween"
+            type="date"
+            value={dia}
+            min={diaCaracas(ahora)}
+            onChange={(e) => setDia(e.target.value)}
+            ayuda={`Hora de Caracas, hasta ${MAX_DIAS_TEMPORADA} días. Al terminar ese día vuelve el diseño original.`}
+            className="w-full max-w-60"
+          />
+          <Boton
+            onClick={() => enviar({ temporada: 'halloween', hasta: finDelDia(dia) })}
+            cargando={guardando}
+            disabled={!dia}
+          >
+            {activa ? 'Cambiar fecha' : 'Activar Halloween'}
+          </Boton>
+          {activa && (
+            <Boton
+              variante="secundario"
+              onClick={() => enviar({ temporada: null })}
+              cargando={guardando}
+            >
+              Volver al diseño original
+            </Boton>
+          )}
+        </div>
+      ) : (
+        <NotaRol>Solo administración activa o quita la temporada.</NotaRol>
+      )}
+    </section>
+  );
+}
+
+const variablesTemporada = {
+  '--m-marca': TEMPORADAS_SITIO.halloween.marca,
+  '--m-acento': TEMPORADAS_SITIO.halloween.acento,
+  '--m-desde': TEMPORADAS_SITIO.halloween.boton[0],
+  '--m-hasta': TEMPORADAS_SITIO.halloween.boton[1],
+  '--m-tinta': TEMPORADAS_SITIO.halloween.botonTinta,
+} as CSSProperties;
 
 function EnUso() {
   return (

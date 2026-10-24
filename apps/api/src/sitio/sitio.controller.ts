@@ -21,6 +21,7 @@ import {
   restaurarVersionSchema,
   subirMedioSchema,
   temaSitioSchema,
+  temporadaSitioSchema,
   uuidSchema,
 } from '@nv/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -170,6 +171,18 @@ export class SitioController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.sitio.cambiarTema(auth, cuerpo.paleta, cliente);
+  }
+
+  /** Temporada (p. ej. Halloween) hasta una fecha; `temporada: null` vuelve al diseño original. */
+  @Put('temporada')
+  @RequierePermiso('sitio.publicar')
+  @DocCuerpo(temporadaSitioSchema)
+  cambiarTemporada(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(temporadaSitioSchema)) cuerpo: z.output<typeof temporadaSitioSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.sitio.cambiarTemporada(auth, cuerpo, cliente);
   }
 
   /** WhatsApp de soporte, canal, redes y correo que muestra el sitio. */
