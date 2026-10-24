@@ -51,6 +51,10 @@ export const PERMISOS = [
   'inventario.gestionar',
   // Carrito y billetera del cliente
   'billeteras.ajustar',
+  // Gestor: cuentas de servicio y perfiles
+  'cuentas.ver',
+  'cuentas.gestionar',
+  'cuentas.revelar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -100,6 +104,9 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'inventario.gestionar':
     'Subir lotes de códigos de activación, anular códigos y configurar la entrega de los proveedores',
   'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
+  'cuentas.ver': 'Ver las cuentas de servicio y sus perfiles (sin correos completos, claves ni PIN)',
+  'cuentas.gestionar': 'Crear y editar cuentas de servicio, y asignar o liberar sus perfiles',
+  'cuentas.revelar': 'Ver el correo, la clave y los PIN de una cuenta (queda registrado)',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -132,6 +139,9 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'asistente.usar',
     'entregas.ver',
     'entregas.gestionar',
+    'cuentas.ver',
+    'cuentas.gestionar',
+    'cuentas.revelar',
   ],
   ventas: [
     'panel.ver',
