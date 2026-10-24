@@ -20,6 +20,10 @@ export const LIMITES = {
   tokensIp: { maximo: 30, ventanaSegundos: 60 * 60 },
   dosPasosUsuario: { maximo: 10, ventanaSegundos: 15 * 60 },
   contrasenaUsuario: { maximo: 10, ventanaSegundos: 15 * 60 },
+  /** Cotizaciones del carrito (se piden al cambiar cantidades o el cupón). */
+  cotizarPedidoUsuario: { maximo: 240, ventanaSegundos: 15 * 60 },
+  /** Pedidos creados por un cliente; los reintentos con la misma clave también cuentan. */
+  crearPedidoUsuario: { maximo: 30, ventanaSegundos: 60 * 60 },
 } satisfies Record<string, Limite>;
 
 /**
