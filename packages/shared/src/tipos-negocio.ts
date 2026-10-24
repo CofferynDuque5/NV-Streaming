@@ -5,6 +5,7 @@ import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js'
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
 import type { Moneda, MonedaConTasa } from './monedas.js';
+import type { Pagina } from './tipos.js';
 
 /** Los importes viajan como texto decimal ("12.50") para no perder precisión. */
 export type Decimal = string;
@@ -251,6 +252,11 @@ export interface CuponPublico {
   planes: Referencia[];
   creadoPor: Referencia;
   creadoEn: string;
+}
+
+export interface PaginaCupones extends Pagina<CuponPublico> {
+  /** Cupones que hoy se pueden usar (activos, en fecha y con usos libres), con los filtros aplicados. */
+  vigentes: number;
 }
 
 export interface Cotizacion {
