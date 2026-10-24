@@ -28,7 +28,10 @@ interface Movimiento extends Omit<MovimientoCaja, 'monto' | 'en'> {
 const inicioDe = (dia: string) => new Date(Date.parse(`${dia}T00:00:00Z`) - DESFASE_CARACAS_MS);
 
 function totalesDe(movs: Movimiento[]): TotalCaja[] {
-  const grupos = new Map<string, { moneda: Moneda; metodo: string | null; monto: Dec; cantidad: number }>();
+  const grupos = new Map<
+    string,
+    { moneda: Moneda; metodo: string | null; monto: Dec; cantidad: number }
+  >();
   for (const m of movs) {
     const clave = `${m.moneda}\u0000${m.metodo ?? ''}`;
     const g = grupos.get(clave) ?? { moneda: m.moneda, metodo: m.metodo, monto: D(0), cantidad: 0 };
@@ -177,10 +180,7 @@ export class CajaService {
     const dia = this.validarDia(diaPedido, ahora);
     const desde = inicioDe(dia);
     const fin = new Date(desde.getTime() + DIA_MS);
-    const [movs, cierres] = await Promise.all([
-      this.movimientos(desde, fin),
-      this.cierresDe(dia),
-    ]);
+    const [movs, cierres] = await Promise.all([this.movimientos(desde, fin), this.cierresDe(dia)]);
     const ultimo = cierres.at(-1);
     const despues = ultimo ? movs.filter((m) => m.en.getTime() >= Date.parse(ultimo.hasta)) : [];
     return {

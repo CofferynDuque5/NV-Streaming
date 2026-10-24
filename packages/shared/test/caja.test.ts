@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { cerrarCajaSchema, consultarCajaSchema, diaCajaSchema, tienePermiso } from '../src/index.js';
+import {
+  cerrarCajaSchema,
+  consultarCajaSchema,
+  diaCajaSchema,
+  tienePermiso,
+} from '../src/index.js';
 
 describe('caja diaria', () => {
   it('acepta solo días reales con formato AAAA-MM-DD', () => {

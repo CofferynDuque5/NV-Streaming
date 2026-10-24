@@ -51,7 +51,9 @@ async function venta(
     { campo: 'comprobante', nombre: 'pago.png', tipo: 'image/png', contenido: PNG_1X1 },
   );
   expect(pago.estado).toBe(201);
-  const ok = await e.operador.n.post(`/pagos/${pago.cuerpo.id}/confirmar`, { montoRecibido: monto });
+  const ok = await e.operador.n.post(`/pagos/${pago.cuerpo.id}/confirmar`, {
+    montoRecibido: monto,
+  });
   expect(ok.estado).toBe(200);
   return pago.cuerpo.id as string;
 }
@@ -218,8 +220,8 @@ describe('caja diaria', () => {
     expect((await e.operador.n.post('/caja/cierres', { dia: manana })).estado).toBe(400);
     expect((await caja(e.operador.n, '2026-02-30')).estado).toBe(400);
     expect((await caja(e.operador.n, 'ayer')).estado).toBe(400);
-    expect(
-      (await e.operador.n.post('/caja/cierres', { dia, notas: 'x'.repeat(501) })).estado,
-    ).toBe(400);
+    expect((await e.operador.n.post('/caja/cierres', { dia, notas: 'x'.repeat(501) })).estado).toBe(
+      400,
+    );
   });
 });

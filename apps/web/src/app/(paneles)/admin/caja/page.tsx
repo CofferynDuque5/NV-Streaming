@@ -81,8 +81,7 @@ export default async function Caja({
   const { datos: caja, estado } = await leerApi<CajaDia>(dia ? `/caja?dia=${dia}` : '/caja');
 
   const ultimo = caja?.cierres.at(-1);
-  const puedeCerrarAhora =
-    puedeCerrar && caja && (!ultimo || caja.movimientosDespuesDelCierre > 0);
+  const puedeCerrarAhora = puedeCerrar && caja && (!ultimo || caja.movimientosDespuesDelCierre > 0);
   const titulo = caja ? diaLargo.format(new Date(`${caja.dia}T12:00:00Z`)) : '';
 
   return (
@@ -143,7 +142,9 @@ export default async function Caja({
               accion={
                 ultimo ? (
                   <Insignia tono={caja.movimientosDespuesDelCierre ? 'aviso' : 'exito'}>
-                    {caja.movimientosDespuesDelCierre ? 'Entró dinero después del cierre' : 'Cerrada'}
+                    {caja.movimientosDespuesDelCierre
+                      ? 'Entró dinero después del cierre'
+                      : 'Cerrada'}
                   </Insignia>
                 ) : (
                   <Insignia tono={caja.hoy ? 'marca' : 'neutro'}>
@@ -193,7 +194,9 @@ export default async function Caja({
                     <tr
                       key={m.id}
                       className={clsx(
-                        ultimo && Date.parse(m.en) >= Date.parse(ultimo.hasta) && 'bg-aviso-suave/40',
+                        ultimo &&
+                          Date.parse(m.en) >= Date.parse(ultimo.hasta) &&
+                          'bg-aviso-suave/40',
                       )}
                     >
                       <Celda primera className="tabular-nums text-tinta-suave">
