@@ -437,6 +437,34 @@ describe('carrito', () => {
     const intruso = await conectar(ctx, 'cliente');
     expect((await intruso.n.get(`/mi/pedidos/${pedido.cuerpo.id}`)).estado).toBe(404);
   });
+
+  it('limita las cotizaciones y los pedidos seguidos de un mismo cliente', async () => {
+    const e = await escenario();
+    const pedir = { planes: [e.planId], moneda: 'USD', pago: 'facturas' };
+    // Ventanas ya agotadas por este cliente (240 cotizaciones y 30 pedidos).
+    await ctx.prisma.limiteUso.createMany({
+      data: [
+        { clave: `pedido:cotizar:${e.usuarioId}`, ventanaInicio: new Date(), conteo: 240 },
+        { clave: `pedido:crear:${e.usuarioId}`, ventanaInicio: new Date(), conteo: 30 },
+      ],
+    });
+    const cot = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
+    expect(cot.estado).toBe(429);
+    expect(Number(cot.cabeceras['retry-after'])).toBeGreaterThan(0);
+    const r = await e.cliente.post('/mi/pedidos', pedir);
+    expect(r.estado).toBe(429);
+    expect(r.cuerpo.error.codigo).toBe('DEMASIADOS_INTENTOS');
+    expect(await ctx.prisma.pedido.count()).toBe(0);
+
+    // Pasada la ventana vuelve a poder comprar.
+    await ctx.prisma.limiteUso.updateMany({
+      data: { ventanaInicio: new Date(Date.now() - 2 * 3600_000) },
+    });
+    expect(
+      (await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' })).estado,
+    ).toBe(200);
+    expect((await e.cliente.post('/mi/pedidos', pedir)).estado).toBe(201);
+  });
 });
 
 /**
