@@ -1,6 +1,7 @@
 import {
   BLOQUES_INICIO,
   cssPaleta,
+  cssTemporada,
   PALETA_PREDETERMINADA,
   RUTA_QUIENES_SOMOS,
   serviciosTienda,
@@ -9,6 +10,7 @@ import type { ReactNode } from 'react';
 import { AyudaFlotante } from '@/componentes/tienda/ayuda-flotante';
 import { CabeceraTienda } from '@/componentes/tienda/cabecera';
 import { CarritoLateralPerezoso } from '@/componentes/tienda/carrito-lateral-perezoso';
+import { DecoracionTemporada } from '@/componentes/tienda/decoracion-temporada';
 import { datosMenu } from '@/componentes/tienda/datos-menu';
 import { PieTienda } from '@/componentes/tienda/pie';
 import { leerPaginaPublicada } from '@/lib/sitio';
@@ -46,6 +48,13 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
       {/* Variables de la paleta elegida en el editor (solo valores fijos de @nv/shared). */}
       {tema.paleta !== PALETA_PREDETERMINADA && (
         <style>{cssPaleta(tema.paleta, 'html:root')}</style>
+      )}
+      {/* Temporada vigente encima de la paleta; al vencer deja de llegar y vuelve el diseño original. */}
+      {tema.temporada && (
+        <>
+          <style>{cssTemporada(tema.temporada, 'html:root')}</style>
+          <DecoracionTemporada temporada={tema.temporada} />
+        </>
       )}
       <a
         href="#contenido"

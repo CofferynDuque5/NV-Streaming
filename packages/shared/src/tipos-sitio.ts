@@ -1,5 +1,5 @@
 /** Tipos de respuesta del editor visual (fase 2). */
-import type { BloqueSitio, ContactoSitio, PaletaSitio } from './esquemas/sitio.js';
+import type { BloqueSitio, ContactoSitio, PaletaSitio, TemporadaSitio } from './esquemas/sitio.js';
 import type { Moneda } from './monedas.js';
 
 export interface ReferenciaPersona {
@@ -62,8 +62,17 @@ export interface MedioSitio {
   creadoEn: string;
 }
 
+/** Temporada guardada (aunque ya haya vencido) y hasta cuándo dura. */
+export interface TemporadaGuardada {
+  temporada: TemporadaSitio;
+  hasta: string;
+  /** Sigue vigente: el público la está viendo. */
+  vigente: boolean;
+}
+
 export interface TemaSitio {
   paleta: PaletaSitio;
+  temporada: TemporadaGuardada | null;
   contacto: ContactoSitio;
   actualizadoEn: string | null;
   actualizadoPor: ReferenciaPersona | null;
@@ -77,6 +86,8 @@ export interface MetodoPagoSitio {
 
 export interface TemaSitioPublico {
   paleta: PaletaSitio;
+  /** Temporada vigente ahora; null = diseño original. */
+  temporada: TemporadaSitio | null;
   contacto: ContactoSitio;
   /** Métodos de cobro activos, sin repetir nombre y moneda, en el orden del panel. */
   metodosPago: MetodoPagoSitio[];

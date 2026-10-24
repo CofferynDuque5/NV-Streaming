@@ -1143,6 +1143,9 @@ model TemaSitio {
   id               Int      @id @default(1)
   /// Paleta predefinida (ver `PALETAS_SITIO` en @nv/shared).
   paleta           String   @default("nv") @db.VarChar(30)
+  /// Temporada (ver `TEMPORADAS_SITIO` en @nv/shared) encima de la paleta. Se apaga sola al pasar `temporadaHasta`.
+  temporada        String?  @db.VarChar(30)
+  temporadaHasta   DateTime? @map("temporada_hasta") @db.Timestamptz(3)
   /// Contacto público del sitio (ver `contactoSitioSchema` en @nv/shared). Vacío = no se muestra.
   /// WhatsApp de soporte: código de país y número, solo dígitos.
   whatsapp         String?  @db.VarChar(20)

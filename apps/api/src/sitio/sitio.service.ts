@@ -7,6 +7,7 @@ import {
   contenidoPaginaSchema,
   type CrearPaginaEntrada,
   esPaletaSitio,
+  esTemporadaSitio,
   esRutaReservada,
   type GuardarBorradorEntrada,
   mediosDeBloques,
@@ -19,6 +20,9 @@ import {
   type PublicarPaginaEntrada,
   type TemaSitio,
   type TemaSitioPublico,
+  type TemporadaGuardada,
+  type TemporadaSitioEntrada,
+  temporadaVigente,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -27,6 +31,18 @@ import { esUnicoDuplicado, iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 
 type Tx = Prisma.TransactionClient;
+
+function temporadaDe(
+  t: { temporada: string | null; temporadaHasta: Date | null } | null,
+  ahora = new Date(),
+): TemporadaGuardada | null {
+  if (!t || !esTemporadaSitio(t.temporada) || !t.temporadaHasta) return null;
+  return {
+    temporada: t.temporada,
+    hasta: t.temporadaHasta.toISOString(),
+    vigente: temporadaVigente(t, ahora) !== null,
+  };
+}
 
 function contactoDe(
   t: {
@@ -393,6 +409,7 @@ export class SitioService {
     });
     return {
       paleta: esPaletaSitio(t?.paleta) ? t.paleta : PALETA_PREDETERMINADA,
+      temporada: temporadaDe(t),
       contacto: contactoDe(t),
       actualizadoEn: iso(t?.actualizadoEn),
       actualizadoPor: t?.actualizadoPor ?? null,
@@ -415,6 +432,8 @@ export class SitioService {
     const vistos = new Set<string>();
     return {
       paleta: esPaletaSitio(t?.paleta) ? t.paleta : PALETA_PREDETERMINADA,
+      // Al pasar la fecha de fin deja de enviarse: el sitio vuelve solo al diseño original.
+      temporada: temporadaVigente(t),
       contacto: contactoDe(t),
       metodosPago: metodos.filter((m) => {
         const clave = `${m.nombre.toLowerCase()}|${m.moneda}`;
@@ -481,6 +500,46 @@ export class SitioService {
           entidadId: null,
           antes: { paleta: antes?.paleta ?? null },
           despues: { paleta },
+          cliente,
+        },
+        tx,
+      );
+    });
+    return this.tema();
+  }
+
+  /**
+   * Activa una temporada (p. ej. Halloween) hasta una fecha, o la quita. La
+   * paleta guardada no cambia, así que quitarla devuelve el diseño original.
+   */
+  async cambiarTemporada(
+    auth: ContextoAuth,
+    entrada: TemporadaSitioEntrada,
+    cliente: InfoCliente,
+  ): Promise<TemaSitio> {
+    const datos = {
+      temporada: entrada.temporada,
+      temporadaHasta: entrada.hasta ? new Date(entrada.hasta) : null,
+      actualizadoPorId: auth.usuario.id,
+    };
+    await this.prisma.$transaction(async (tx) => {
+      const antes = await tx.temaSitio.findUnique({ where: { id: 1 } });
+      await tx.temaSitio.upsert({
+        where: { id: 1 },
+        create: { id: 1, ...datos },
+        update: datos,
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: entrada.temporada ? 'temporada_sitio.activada' : 'temporada_sitio.quitada',
+          entidad: 'tema_sitio',
+          entidadId: null,
+          antes: {
+            temporada: antes?.temporada ?? null,
+            hasta: iso(antes?.temporadaHasta),
+          },
+          despues: { temporada: entrada.temporada, hasta: entrada.hasta },
           cliente,
         },
         tx,

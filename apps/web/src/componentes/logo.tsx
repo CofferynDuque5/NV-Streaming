@@ -36,7 +36,7 @@ export function LogoTienda({ className, compacto }: { className?: string; compac
   return (
     <Link
       href="/"
-      className={clsx('inline-flex shrink-0 items-center gap-2 rounded-lg', className)}
+      className={clsx('nv-logo inline-flex shrink-0 items-center gap-2 rounded-lg', className)}
       aria-label="NV Streaming, inicio"
     >
       <img
