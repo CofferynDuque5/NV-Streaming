@@ -88,6 +88,10 @@ export class PedidosService {
    * plan. Con `pago: 'billetera'` las paga ya con el saldo (o no crea nada si
    * no alcanza); con `'recarga'` quedan esperando la próxima recarga
    * confirmada; con `'facturas'` se pagan una a una por los medios de siempre.
+   *
+   * Con `claveIdempotencia`, repetir la petición (doble clic, reintento tras un
+   * corte de red) devuelve el pedido ya creado sin crear ni cobrar otro. El
+   * bloqueo del cliente serializa las peticiones simultáneas.
    */
   async crear(
     auth: ContextoAuth,
@@ -97,6 +101,10 @@ export class PedidosService {
     const { pedidoId, pagos } = await this.prisma.$transaction(async (tx) => {
       const propio = await this.clientes.deUsuario(auth.usuario, tx);
       const c = await bloquearCliente(tx, propio.id);
+      const repetido = e.claveIdempotencia
+        ? await this.buscarPorClave(tx, c.id, e, e.claveIdempotencia)
+        : null;
+      if (repetido) return { pedidoId: repetido, pagos: [] as string[] };
       exigirBilleteraDisponible(c);
       const abierto = await tx.pedido.findFirst({
         where: { clienteId: c.id, facturas: { some: { estado: 'emitida' } } },
@@ -117,6 +125,7 @@ export class PedidosService {
           moneda: e.moneda,
           pagarAlRecargar: e.pago === 'recarga',
           creadoPorId: auth.usuario.id,
+          claveIdempotencia: e.claveIdempotencia ?? null,
         },
       });
       const facturas = [];
@@ -160,6 +169,42 @@ export class PedidosService {
     });
     await this.billetera.avisar(pagos);
     return this.cargar(pedidoId);
+  }
+
+  /**
+   * Pedido anterior del cliente con la misma clave. Si la clave se reutiliza
+   * para otro carrito, se rechaza en lugar de devolver un pedido distinto.
+   */
+  private async buscarPorClave(
+    tx: Tx,
+    clienteId: string,
+    e: CrearPedidoEntrada,
+    clave: string,
+  ): Promise<string | null> {
+    const previo = await tx.pedido.findUnique({
+      where: { clienteId_claveIdempotencia: { clienteId, claveIdempotencia: clave } },
+      select: {
+        id: true,
+        moneda: true,
+        pagarAlRecargar: true,
+        facturas: { select: { suscripcion: { select: { planId: true } } } },
+      },
+    });
+    if (!previo) return null;
+    const planes = previo.facturas.map((f) => f.suscripcion?.planId).filter(Boolean);
+    const mismo =
+      previo.moneda === e.moneda &&
+      previo.pagarAlRecargar === (e.pago === 'recarga') &&
+      planes.length === e.planes.length &&
+      e.planes.every((id) => planes.includes(id));
+    if (!mismo) {
+      throw new ErrorApp(
+        409,
+        'CLAVE_REUTILIZADA',
+        'Este pedido ya se envió con otro carrito. Recarga la página e inténtalo de nuevo.',
+      );
+    }
+    return previo.id;
   }
 
   async listar(

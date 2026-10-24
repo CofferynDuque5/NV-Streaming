@@ -1779,6 +1779,9 @@ model Pedido {
   /// con saldo las facturas pendientes del pedido.
   pagarAlRecargar Boolean  @default(false) @map("pagar_al_recargar")
   creadoPorId     String?  @map("creado_por_id") @db.Uuid
+  /// La envía la web por cada intento: repetir la petición devuelve este
+  /// pedido en lugar de crear (y cobrar) otro.
+  claveIdempotencia String? @map("clave_idempotencia") @db.VarChar(64)
   creadoEn        DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
   cliente   Cliente            @relation(fields: [clienteId], references: [id], onDelete: Restrict)
@@ -1786,6 +1789,7 @@ model Pedido {
   facturas  Factura[]
   recargas  RecargaBilletera[]
 
+  @@unique([clienteId, claveIdempotencia])
   @@index([clienteId, creadoEn(sort: Desc)])
   @@map("pedidos")
 }

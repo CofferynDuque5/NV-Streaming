@@ -808,6 +808,8 @@ function ResumenCliente({
   const idCupon = useId();
   const [forma, setForma] = useState<FormaPagoPedido | null>(null);
   const [creando, setCreando] = useState(false);
+  // Clave por intento de pedido: si la red falla y se reintenta, no se crea ni cobra dos veces.
+  const [clave, setClave] = useState(() => crypto.randomUUID());
   const [errorPedido, setErrorPedido] = useState<ErrorLlamada | null>(null);
   const [avisoSaldo, setAvisoSaldo] = useState(false);
   const opcionSaldo = useRef<HTMLButtonElement>(null);
@@ -853,8 +855,12 @@ function ResumenCliente({
       moneda,
       cupon: cotizacion.cupon ?? '',
       pago: elegida,
+      claveIdempotencia: clave,
     });
     setCreando(false);
+    // Tras un corte de red se conserva la clave: el reintento devuelve el mismo pedido.
+    if (!r.ok && r.error.estado === 0) return setErrorPedido(r.error);
+    setClave(crypto.randomUUID());
     if (!r.ok) return setErrorPedido(r.error);
     alHacerPedido(r.datos, elegida);
   }

@@ -367,6 +367,59 @@ describe('carrito', () => {
     );
   });
 
+  it('repetir el pedido con la misma clave no crea ni cobra otro; otra clave sí es un pedido nuevo', async () => {
+    const e = await escenario();
+    await conSaldo(e, '20');
+    const cuerpo = {
+      planes: [e.planId],
+      moneda: 'USD',
+      pago: 'billetera',
+      claveIdempotencia: 'pedido-prueba-0001',
+    };
+    // Doble clic o reintento tras un corte de red: dos peticiones a la vez.
+    const [a, b] = await Promise.all([
+      e.cliente.post('/mi/pedidos', cuerpo),
+      e.cliente.post('/mi/pedidos', cuerpo),
+    ]);
+    expect(a.estado).toBe(201);
+    expect(b.estado).toBe(201);
+    expect(b.cuerpo.id).toBe(a.cuerpo.id);
+    expect(a.cuerpo.estado).toBe('pagado');
+    expect(await ctx.prisma.pedido.count()).toBe(1);
+    expect(await ctx.prisma.suscripcion.count()).toBe(1);
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('15.00');
+
+    // Un reintento posterior tampoco cobra.
+    const tarde = await e.cliente.post('/mi/pedidos', cuerpo);
+    expect(tarde.cuerpo.id).toBe(a.cuerpo.id);
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('15.00');
+
+    // La misma clave con otro carrito se rechaza en lugar de devolver otro pedido.
+    const otroCarrito = await e.cliente.post('/mi/pedidos', { ...cuerpo, planes: [e.anualId] });
+    expect(otroCarrito.estado).toBe(409);
+    expect(otroCarrito.cuerpo.error.codigo).toBe('CLAVE_REUTILIZADA');
+
+    // Una clave nueva es una compra nueva (decisión del cliente).
+    const nuevo = await e.cliente.post('/mi/pedidos', {
+      ...cuerpo,
+      claveIdempotencia: 'pedido-prueba-0002',
+    });
+    expect(nuevo.estado).toBe(201);
+    expect(nuevo.cuerpo.id).not.toBe(a.cuerpo.id);
+    expect(await ctx.prisma.pedido.count()).toBe(2);
+    expect((await e.cliente.get('/mi/billetera')).cuerpo.saldoUsd).toBe('10.00');
+  });
+
+  it('sin clave, dos peticiones iguales con saldo crean dos pedidos (comportamiento anterior)', async () => {
+    const e = await escenario();
+    await conSaldo(e, '20');
+    const cuerpo = { planes: [e.planId], moneda: 'USD', pago: 'billetera' };
+    await e.cliente.post('/mi/pedidos', cuerpo);
+    await e.cliente.post('/mi/pedidos', cuerpo);
+    // Documenta el riesgo que cubre la clave: la web siempre la envía.
+    expect(await ctx.prisma.pedido.count()).toBe(2);
+  });
+
   it('"recargar y pagar": al confirmar la recarga se paga el pedido en espera', async () => {
     const e = await escenario();
     const pedido = await e.cliente.post('/mi/pedidos', {
