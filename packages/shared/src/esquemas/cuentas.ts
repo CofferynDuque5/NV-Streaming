@@ -100,7 +100,12 @@ export type EditarCuentaEntrada = z.infer<typeof editarCuentaSchema>;
 
 export const editarPerfilSchema = z
   .object({
-    nombre: z.string().trim().min(1, 'Escribe un nombre.').max(40, 'Máximo 40 caracteres.').optional(),
+    nombre: z
+      .string()
+      .trim()
+      .min(1, 'Escribe un nombre.')
+      .max(40, 'Máximo 40 caracteres.')
+      .optional(),
     /** null quita el PIN. */
     pin: pinSchema.nullable().optional(),
     bloqueado: z.boolean().optional(),

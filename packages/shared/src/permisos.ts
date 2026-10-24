@@ -104,7 +104,8 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'inventario.gestionar':
     'Subir lotes de códigos de activación, anular códigos y configurar la entrega de los proveedores',
   'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
-  'cuentas.ver': 'Ver las cuentas de servicio y sus perfiles (sin correos completos, claves ni PIN)',
+  'cuentas.ver':
+    'Ver las cuentas de servicio y sus perfiles (sin correos completos, claves ni PIN)',
   'cuentas.gestionar': 'Crear y editar cuentas de servicio, y asignar o liberar sus perfiles',
   'cuentas.revelar': 'Ver el correo, la clave y los PIN de una cuenta (queda registrado)',
 };
