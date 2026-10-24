@@ -38,6 +38,16 @@ export type CotizarPedidoEntrada = z.infer<typeof cotizarPedidoSchema>;
 
 export const crearPedidoSchema = cotizarPedidoSchema.extend({
   pago: z.enum(FORMAS_PAGO_PEDIDO, { error: 'Elige cómo vas a pagar.' }),
+  /**
+   * La genera la web por cada intento de pedido: si la petición se repite
+   * (doble clic, reintento tras un corte de red) devuelve el mismo pedido en
+   * lugar de crear y cobrar otro. Opcional para no romper clientes anteriores.
+   */
+  claveIdempotencia: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{8,64}$/, 'La clave del pedido no es válida.')
+    .optional(),
 });
 export type CrearPedidoEntrada = z.infer<typeof crearPedidoSchema>;
 
