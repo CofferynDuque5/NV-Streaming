@@ -247,6 +247,7 @@ Entra al panel (`https://tudominio.com/admin`) y sigue este orden:
 5. **Equipo y usuarios:** invita a tu equipo (operador, ventas). Cada invitación llega por correo y todos deben activar la verificación en dos pasos.
 6. **Revendedores** (si trabajas con ellos): crea los niveles de precio mayorista.
 7. **Cupones** (opcional).
+8. **Enlace al NV Gestor** (opcional): pon `URL_GESTOR=https://…` (la dirección del Gestor) en `.env.produccion` y ejecuta `bash infra/actualizar.sh`. El panel del equipo muestra «NV Gestor» en la cabecera y en el centro de módulos. Es solo un enlace: cada sistema tiene su propio inicio de sesión y no se copian datos.
 
 Haz una compra de prueba completa con una cuenta de cliente tuya (pagar con comprobante → conciliar en _Cobros_) antes de anunciar la tienda.
 

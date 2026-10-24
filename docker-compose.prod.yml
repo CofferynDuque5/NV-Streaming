@@ -156,6 +156,7 @@ services:
       API_URL_INTERNA: http://api:4000
       WEB_ORIGEN: ${WEB_ORIGEN:?Falta WEB_ORIGEN en .env.produccion}
       COMPROBANTE_MAX_MB: ${COMPROBANTE_MAX_MB:-5}
+      URL_GESTOR: ${URL_GESTOR:-}
       NODE_OPTIONS: --max-old-space-size=768
     deploy:
       resources:
