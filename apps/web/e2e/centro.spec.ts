@@ -62,9 +62,9 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await expect(page.getByText('Suscripciones por estado')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toBeVisible();
 
-  // Módulos: los 16 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
-  await expect(page.getByText('16 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(16);
+  // Módulos: los 17 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
+  await expect(page.getByText('17 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(17);
   await page.getByLabel('Buscar módulo').fill('tasa');
   await expect(modulos(page)).toHaveCount(1);
   await expect(modulos(page).first()).toContainText('Monedas y cobro');
@@ -90,10 +90,10 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   );
 });
 
-test('operación: sus 11 módulos, sin auditoría ni actividad', async ({ page }) => {
+test('operación: sus 12 módulos, sin auditoría ni actividad', async ({ page }) => {
   await entrar(page, 'operador@nv.test');
-  await expect(page.getByText('11 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(11);
+  await expect(page.getByText('12 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(12);
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Auditoría/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Inventario de códigos/ })).toHaveCount(0);
