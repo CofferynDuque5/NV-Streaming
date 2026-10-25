@@ -3,6 +3,7 @@
 import {
   type CredencialesCuenta,
   type CuentaServicioDetalle,
+  type MensajePerfil,
   ESTADOS_CUENTA_SERVICIO,
   ETIQUETA_ESTADO_CUENTA,
   MAX_PERFILES_CUENTA,
@@ -15,6 +16,9 @@ import {
   EyeOff,
   KeyRound,
   Link2,
+  Mail,
+  MessageCircle,
+  MessageSquareText,
   Lock,
   Pencil,
   Plus,
@@ -578,14 +582,146 @@ function AsignarPerfil({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilC
 }
 
 /** Acciones de un perfil: asignar, liberar, bloquear y cambiar nombre o PIN. */
+/** Arma el mensaje con los datos del perfil. Nada se envía solo: se copia o se abre la app. */
+function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCuentaPublico }) {
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const ids = useId();
+  const [abierto, setAbierto] = useState(false);
+  const [mensaje, setMensaje] = useState<MensajePerfil | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const d = dialogo.current;
+    if (abierto && d && !d.open) d.showModal();
+  }, [abierto]);
+
+  async function armar() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<MensajePerfil>(
+      'POST',
+      `/cuentas/${cuentaId}/perfiles/${perfil.id}/mensaje`,
+      {},
+    );
+    setCargando(false);
+    if (!r.ok) return setError(r.error.mensaje);
+    setMensaje(r.datos);
+  }
+
+  const claseEnlaceBoton =
+    'inline-flex items-center gap-1.5 rounded-[0.875rem] border border-borde-fuerte px-3 py-1.5 text-sm font-semibold hover:border-cian';
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="fantasma"
+        icono={<MessageSquareText className="size-3.5" />}
+        onClick={() => setAbierto(true)}
+        aria-label={`Armar mensaje de ${perfil.nombre}`}
+      >
+        Mensaje
+      </Boton>
+      {abierto && (
+        <dialog
+          ref={dialogo}
+          aria-labelledby={`${ids}-titulo`}
+          onClose={() => {
+            setAbierto(false);
+            setMensaje(null);
+            setError(null);
+          }}
+          onCancel={(e) => {
+            if (cargando) e.preventDefault();
+          }}
+          className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-nv border border-borde bg-elevada p-0 text-left text-tinta shadow-nv backdrop:bg-black/60"
+        >
+          <div className="grid gap-4 p-5 sm:p-6">
+            <h2 id={`${ids}-titulo`} className="flex items-center gap-2 text-lg font-semibold">
+              <MessageSquareText className="size-5 text-marca" aria-hidden="true" />
+              Mensaje para {perfil.asignacion?.cliente.nombre ?? 'el cliente'}
+            </h2>
+            {!mensaje ? (
+              <>
+                <p className="text-sm text-tinta-suave">
+                  Arma un mensaje con el correo, la clave
+                  {perfil.tienePin ? ', el perfil y su PIN' : ' y el perfil'} para enviarlo tú. Nada
+                  se envía solo. Queda registrado como ver credenciales.
+                </p>
+                {error && <Alerta tono="peligro">{error}</Alerta>}
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Boton
+                    variante="fantasma"
+                    onClick={() => dialogo.current?.close()}
+                    disabled={cargando}
+                  >
+                    Cancelar
+                  </Boton>
+                  <Boton autoFocus cargando={cargando} onClick={() => void armar()}>
+                    Armar mensaje
+                  </Boton>
+                </div>
+              </>
+            ) : (
+              <>
+                <textarea
+                  readOnly
+                  value={mensaje.texto}
+                  rows={9}
+                  aria-label="Mensaje"
+                  className="w-full resize-y rounded-xl border border-borde bg-superficie p-3 font-mono text-sm"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <BotonCopiar texto={mensaje.texto} que="el mensaje" />
+                  {mensaje.whatsapp && (
+                    <a
+                      href={mensaje.whatsapp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={claseEnlaceBoton}
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                      Abrir WhatsApp
+                    </a>
+                  )}
+                  {mensaje.correo && (
+                    <a href={mensaje.correo} className={claseEnlaceBoton}>
+                      <Mail className="size-4" aria-hidden="true" />
+                      Abrir correo
+                    </a>
+                  )}
+                </div>
+                <p className="text-xs text-tinta-tenue">
+                  {mensaje.whatsapp
+                    ? 'WhatsApp se abre con el mensaje escrito: revísalo y envíalo tú.'
+                    : 'Sin enlace de WhatsApp: el cliente no tiene un WhatsApp con permiso para recibir mensajes. Cópialo y envíalo por donde te escribe.'}
+                </p>
+                <div className="flex justify-end">
+                  <Boton variante="fantasma" onClick={() => dialogo.current?.close()}>
+                    Cerrar
+                  </Boton>
+                </div>
+              </>
+            )}
+          </div>
+        </dialog>
+      )}
+    </>
+  );
+}
+
 export function AccionesPerfil({
   cuentaId,
   perfil,
   cuentaActiva,
+  puedeRevelar = false,
 }: {
   cuentaId: string;
   perfil: PerfilCuentaPublico;
   cuentaActiva: boolean;
+  /** Con `cuentas.revelar`: puede armar el mensaje con los datos del perfil. */
+  puedeRevelar?: boolean;
 }) {
   const [editando, setEditando] = useState(false);
   const { cargando, error, campos, ejecutar } = useAccion();
@@ -647,6 +783,13 @@ export function AccionesPerfil({
         {perfil.estado === 'libre' && cuentaActiva && (
           <AsignarPerfil cuentaId={cuentaId} perfil={perfil} />
         )}
+        {perfil.estado === 'asignado' &&
+          puedeRevelar &&
+          cuentaActiva &&
+          perfil.asignacion &&
+          ['activa', 'en_gracia'].includes(perfil.asignacion.estado) && (
+            <ArmarMensaje cuentaId={cuentaId} perfil={perfil} />
+          )}
         {perfil.estado === 'asignado' && (
           <Boton
             tamano="sm"

@@ -30,7 +30,7 @@ const QUIENES_SOMOS: PlantillaPagina = {
   ruta: '/quienes-somos',
   titulo: 'Quiénes somos',
   descripcion:
-    'Conoce NV Streaming: servicios digitales autorizados que activamos en tu propia cuenta, con precios en bolívares y atención por WhatsApp.',
+    'Conoce NV Streaming: servicios digitales autorizados, en tu propia cuenta o en un perfil, con precios en bolívares y atención por WhatsApp.',
   bloques: [
     {
       id: 'qs01',
@@ -56,7 +56,7 @@ const QUIENES_SOMOS: PlantillaPagina = {
       titulo: 'Nuestra historia',
       contenido:
         '**NV** son las iniciales de **Nathan y Valeryn**.\n\n' +
-        'Vendemos solo servicios digitales autorizados y los activamos en tu propia cuenta, con precios en bolívares y atención por WhatsApp.\n\n' +
+        'Vendemos solo servicios digitales autorizados, en tu propia cuenta o en un perfil que administramos, con precios en bolívares y atención por WhatsApp.\n\n' +
         '*Borrador: reemplaza este párrafo con su historia, en sus palabras: cómo nació la tienda, qué los motivó a crearla y qué quieren para cada cliente. Cierren con una frase que diga su misión.*',
     },
     {
@@ -72,9 +72,9 @@ const QUIENES_SOMOS: PlantillaPagina = {
       elementos: [
         {
           icono: 'escudo',
-          titulo: 'Tu cuenta, a tu nombre',
+          titulo: 'Servicios autorizados',
           texto:
-            'Activamos el servicio en tu propia cuenta con activaciones, códigos o tarjetas de regalo de distribuidores oficiales. Nunca vendemos cuentas compartidas ni entregamos usuarios o contraseñas de terceros.',
+            'Activamos el servicio en tu propia cuenta con activaciones, códigos o tarjetas de regalo de distribuidores oficiales, o te damos un perfil en una cuenta que administramos, siempre de servicios autorizados para reventa.',
         },
         {
           icono: 'globo',
@@ -182,12 +182,12 @@ const QUIENES_SOMOS: PlantillaPagina = {
         {
           pregunta: '¿Lo que venden es legal?',
           respuesta:
-            'Sí. Solo vendemos servicios autorizados: activaciones, códigos o tarjetas de regalo de distribuidores oficiales, y servicios propios con licencia. Todo se activa en **tu propia cuenta**.',
+            'Sí. Solo vendemos servicios autorizados: activaciones, códigos o tarjetas de regalo de distribuidores oficiales, servicios propios con licencia y perfiles de cuentas autorizadas para reventa.',
         },
         {
           pregunta: '¿Me van a dar un usuario y una contraseña?',
           respuesta:
-            'No. Nunca vendemos cuentas compartidas ni entregamos usuarios o contraseñas de terceros. Usas tu cuenta de siempre o creas una gratis en la página del servicio.',
+            'Depende del servicio. Algunos se activan en tu propia cuenta: usas la de siempre o creas una gratis. Otros son un perfil en una cuenta que administramos: ves el correo, la clave y el PIN de tu perfil en «Mis accesos» mientras tu suscripción esté vigente.',
         },
         {
           pregunta: '¿Cuánto tarda la entrega?',

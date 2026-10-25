@@ -125,8 +125,8 @@ export default async function NuevaVentaPagina({
       )}
       <Nota>
         El margen es la diferencia con el precio al público de NV: tú decides cuánto le cobras a tu
-        cliente. Siempre se activa en la cuenta propia de tu cliente; nunca entregamos usuarios ni
-        contraseñas.
+        cliente. Según el servicio, se activa en la cuenta propia de tu cliente o en un perfil de
+        una cuenta que administra NV; en ese caso el equipo le envía los datos del perfil.
       </Nota>
     </>
   );

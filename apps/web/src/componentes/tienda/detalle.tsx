@@ -245,11 +245,11 @@ export function DetalleServicio({
         className="tarjeta-brillo grid content-start gap-3 p-5"
         style={{ '--c': '#22c55e' } as CSSProperties}
       >
-        <h3 className="font-titulo text-lg font-bold">Tu cuenta es tuya</h3>
+        <h3 className="font-titulo text-lg font-bold">Servicio autorizado</h3>
         <p className="flex gap-2.5 rounded-xl border border-exito/30 bg-exito-suave p-3.5 text-sm">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-exito" aria-hidden="true" />
-          Solo vendemos servicios autorizados: no vendemos cuentas compartidas ni te pedimos la
-          contraseña de nadie.
+          Solo vendemos servicios autorizados para reventa. Si es un perfil, ves sus datos en «Mis
+          accesos»; nunca te pediremos la contraseña de tu propia cuenta.
         </p>
       </div>
     </div>
