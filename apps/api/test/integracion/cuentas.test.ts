@@ -109,9 +109,9 @@ describe('cuentas de servicio', () => {
       orderBy: { fecha: 'asc' },
     });
     expect(auditoria.map((a) => a.accion)).toEqual([
-      'cuenta.creada',
-      'perfil.editado',
-      'cuenta.credenciales_vistas',
+      'cuenta_servicio.creada',
+      'perfil_cuenta.editado',
+      'cuenta_servicio.credenciales_vistas',
     ]);
     const todo = JSON.stringify(auditoria);
     expect(todo).not.toContain(CLAVE);
@@ -203,7 +203,10 @@ describe('cuentas de servicio', () => {
       select: { accion: true },
       orderBy: { fecha: 'asc' },
     });
-    expect(acciones.map((a) => a.accion)).toEqual(['perfil.asignado', 'perfil.liberado']);
+    expect(acciones.map((a) => a.accion)).toEqual([
+      'perfil_cuenta.asignado',
+      'perfil_cuenta.liberado',
+    ]);
   });
 
   it('una cuenta caída no recibe asignaciones y el método de pago no acepta números de tarjeta', async () => {

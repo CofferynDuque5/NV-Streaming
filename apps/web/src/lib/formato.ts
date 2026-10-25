@@ -5,6 +5,12 @@ const relativo = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
 export const formatearFechaHora = (iso: string) => fechaHora.format(new Date(iso));
 export const formatearFecha = (iso: string) => fecha.format(new Date(iso));
 
+/** Fecha sin hora («2026-11-05») tal cual, sin correrse un día por la zona horaria. */
+export const formatearDia = (dia: string) =>
+  new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeZone: 'UTC' }).format(
+    new Date(`${dia}T00:00:00Z`),
+  );
+
 export function haceCuanto(iso: string, ahora = Date.now()): string {
   const segundos = Math.round((new Date(iso).getTime() - ahora) / 1000);
   const abs = Math.abs(segundos);
@@ -78,6 +84,12 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pago.confirmado': 'Pago confirmado',
   'pago.rechazado': 'Pago rechazado',
   'pago.comprobante_consultado': 'Comprobante consultado',
+  'cuenta_servicio.creada': 'Cuenta de servicio guardada',
+  'cuenta_servicio.editada': 'Cuenta de servicio editada',
+  'cuenta_servicio.credenciales_vistas': 'Credenciales de cuenta vistas',
+  'perfil_cuenta.asignado': 'Perfil asignado',
+  'perfil_cuenta.liberado': 'Perfil liberado',
+  'perfil_cuenta.editado': 'Perfil editado',
   'cupon.creado': 'Cupón creado',
   'cupon.activado': 'Cupón activado',
   'cupon.desactivado': 'Cupón desactivado',

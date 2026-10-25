@@ -228,7 +228,7 @@ export class CuentasService {
         await this.auditoria.registrar(
           {
             actorId: auth.usuario.id,
-            accion: 'cuenta.creada',
+            accion: 'cuenta_servicio.creada',
             entidad: 'cuenta_servicio',
             entidadId: id,
             despues: { servicioId: e.servicioId, modo: e.modo, perfiles },
@@ -302,7 +302,7 @@ export class CuentasService {
         await this.auditoria.registrar(
           {
             actorId: auth.usuario.id,
-            accion: 'cuenta.editada',
+            accion: 'cuenta_servicio.editada',
             entidad: 'cuenta_servicio',
             entidadId: id,
             // Solo qué cambió, nunca los valores de usuario o clave.
@@ -388,7 +388,7 @@ export class CuentasService {
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
-          accion: 'perfil.editado',
+          accion: 'perfil_cuenta.editado',
           entidad: 'perfil_cuenta',
           entidadId: p.id,
           despues: { cuentaId, numero: p.numero, cambios },
@@ -449,7 +449,7 @@ export class CuentasService {
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
-          accion: 'perfil.asignado',
+          accion: 'perfil_cuenta.asignado',
           entidad: 'perfil_cuenta',
           entidadId: p.id,
           despues: { cuentaId, numero: p.numero, suscripcionId: s.id },
@@ -479,7 +479,7 @@ export class CuentasService {
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
-          accion: 'perfil.liberado',
+          accion: 'perfil_cuenta.liberado',
           entidad: 'perfil_cuenta',
           entidadId: p.id,
           despues: { cuentaId, numero: p.numero, suscripcionId: p.suscripcionId },
@@ -547,7 +547,7 @@ export class CuentasService {
     };
     await this.auditoria.registrar({
       actorId: auth.usuario.id,
-      accion: 'cuenta.credenciales_vistas',
+      accion: 'cuenta_servicio.credenciales_vistas',
       entidad: 'cuenta_servicio',
       entidadId: c.id,
       despues: { perfilesConPin: credenciales.perfiles.filter((p) => p.pin).length },
