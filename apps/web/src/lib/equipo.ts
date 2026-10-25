@@ -285,6 +285,8 @@ export function estadoModulo(
       );
     case 'cuentas':
       return ok('Perfiles libres y asignados');
+    case 'balance':
+      return ok('Resultado del mes');
     case 'inventario':
       if (!q.pocosCodigos) return ok('');
       return q.pocosCodigos.length

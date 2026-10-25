@@ -29,7 +29,7 @@ import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { AreaTexto, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
-import { formatearFecha } from '@/lib/formato';
+import { CICLOS_CUENTA, formatearFecha } from '@/lib/formato';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
 /** Campos comunes de alta y edición (sin credenciales). */
@@ -38,6 +38,7 @@ function camposDatos(d: FormData) {
     plan: textoDe(d, 'plan') ?? null,
     pais: textoDe(d, 'pais') ?? null,
     costoUsd: textoDe(d, 'costoUsd') ?? '0',
+    cicloMeses: textoDe(d, 'cicloMeses') ?? '1',
     facturaEn: textoDe(d, 'facturaEn') ?? null,
     metodoPago: textoDe(d, 'metodoPago') ?? null,
     proveedor: textoDe(d, 'proveedor') ?? null,
@@ -54,7 +55,7 @@ function DatosCuenta({
 }) {
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Campo
           etiqueta="Plan de la cuenta (opcional)"
           name="plan"
@@ -63,8 +64,20 @@ function DatosCuenta({
           maxLength={60}
           error={campos.plan}
         />
+        <Selector
+          etiqueta="El proveedor cobra"
+          name="cicloMeses"
+          defaultValue={String(cuenta?.cicloMeses ?? 1)}
+          error={campos.cicloMeses}
+        >
+          {CICLOS_CUENTA.map(([meses, texto]) => (
+            <option key={meses} value={meses}>
+              {texto}
+            </option>
+          ))}
+        </Selector>
         <Campo
-          etiqueta="Costo mensual (USD)"
+          etiqueta="Costo de cada cobro (USD)"
           name="costoUsd"
           inputMode="decimal"
           defaultValue={cuenta?.costoUsd ?? ''}

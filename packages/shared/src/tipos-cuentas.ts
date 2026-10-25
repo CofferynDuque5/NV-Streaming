@@ -12,7 +12,9 @@ export interface CuentaServicioResumen {
   estado: EstadoCuentaServicio;
   plan: string | null;
   pais: string | null;
+  /** Lo que cobra el proveedor en cada ciclo. */
   costoUsd: string;
+  cicloMeses: number;
   facturaEn: string | null;
   metodoPago: string | null;
   proveedor: string | null;
@@ -62,3 +64,63 @@ export interface SuscripcionAsignable {
 }
 
 export type PaginaCuentas = Pagina<CuentaServicioResumen>;
+
+/** Pago hecho al proveedor de una cuenta. */
+export interface PagoCuentaPublico {
+  id: string;
+  montoUsd: string;
+  pagadoEl: string;
+  facturaCubierta: string | null;
+  siguienteCobro: string;
+  metodoPago: string | null;
+  nota: string | null;
+  registradoPor: Referencia;
+  creadoEn: string;
+  anulacion: { en: string; por: Referencia | null; motivo: string } | null;
+  /** Último pago vigente y la cuenta sigue con su fecha: anularlo devuelve el cobro anterior. */
+  revierteCobro: boolean;
+}
+
+/** Cuenta con un cobro del proveedor atrasado o cercano. */
+export interface CuentaPorPagar {
+  cuenta: { id: string; pista: string; servicio: Referencia; proveedor: string | null };
+  costoUsd: string;
+  facturaEn: string;
+  /** Negativo: días de atraso. */
+  dias: number;
+  metodoPago: string | null;
+}
+
+export interface PorPagar {
+  atrasadas: CuentaPorPagar[];
+  proximas: CuentaPorPagar[];
+  totalAtrasadoUsd: string;
+  totalProximoUsd: string;
+}
+
+/**
+ * Balance del período en USD. Ventas: facturas con pago confirmado (como en
+ * Métricas) y compras de revendedores; las recargas de saldo no cuentan hasta
+ * que se gastan. Costos: pagos al proveedor de las cuentas.
+ */
+export interface BalancePeriodo {
+  desde: string;
+  hasta: string;
+  ventasClientesUsd: string;
+  pagosClientes: number;
+  ventasRevendedoresUsd: string;
+  comprasRevendedores: number;
+  reembolsosUsd: string;
+  costosProveedorUsd: string;
+  pagosProveedor: number;
+  netoUsd: string;
+  /** Costos por servicio, de mayor a menor. */
+  costosPorServicio: { servicio: Referencia; montoUsd: string; pagos: number }[];
+  /** Hoy: lo que los clientes deben (facturas emitidas sin pagar). */
+  porCobrar: { facturas: number; vencidas: number; totalUsd: string };
+  porPagar: PorPagar;
+  /** Lo que cuestan al mes las cuentas activas (costo ÷ ciclo). */
+  costoMensualCuentasUsd: string;
+  /** Ingreso mensual recurrente de las suscripciones activas. */
+  ingresoMensualRecurrenteUsd: string;
+}

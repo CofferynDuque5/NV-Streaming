@@ -55,6 +55,8 @@ export const PERMISOS = [
   'cuentas.ver',
   'cuentas.gestionar',
   'cuentas.revelar',
+  // Gestor: balance (ventas, costos, por cobrar y por pagar)
+  'balance.ver',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -106,8 +108,11 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
   'cuentas.ver':
     'Ver las cuentas de servicio y sus perfiles (sin correos completos, claves ni PIN)',
-  'cuentas.gestionar': 'Crear y editar cuentas de servicio, y asignar o liberar sus perfiles',
+  'cuentas.gestionar':
+    'Crear y editar cuentas de servicio, asignar o liberar sus perfiles y registrar los pagos al proveedor',
   'cuentas.revelar': 'Ver el correo, la clave y los PIN de una cuenta (queda registrado)',
+  'balance.ver':
+    'Ver el balance del negocio: ventas, costos de las cuentas, por cobrar y por pagar',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
