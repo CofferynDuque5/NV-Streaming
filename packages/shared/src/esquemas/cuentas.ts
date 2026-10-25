@@ -127,3 +127,8 @@ export const listarCuentasSchema = paginacionSchema.extend({
     .optional(),
 });
 export type ListarCuentasEntrada = z.infer<typeof listarCuentasSchema>;
+
+export const buscarAsignablesSchema = z.object({
+  /** Parte del nombre del cliente. */
+  busqueda: z.string().trim().max(80).optional(),
+});

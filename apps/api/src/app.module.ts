@@ -4,6 +4,8 @@ import { AuditoriaController } from './auditoria/auditoria.controller.js';
 import { AlmacenService } from './almacen/almacen.service.js';
 import { CONTROLADORES_ASISTENTE, PROVEEDORES_ASISTENTE } from './asistente/asistente.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CuentasController } from './cuentas/cuentas.controller.js';
+import { CuentasService } from './cuentas/cuentas.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
   PROVEEDORES_AUTOMATIZACIONES,
@@ -74,6 +76,7 @@ export class AppModule {
         FacturasController,
         PagosController,
         CuponesController,
+        CuentasController,
         TicketsController,
         MetricasController,
         AutoservicioController,
@@ -99,6 +102,7 @@ export class AppModule {
         FacturasService,
         PagosService,
         CuponesService,
+        CuentasService,
         TicketsService,
         MetricasService,
         CentroService,
