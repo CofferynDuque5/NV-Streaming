@@ -25,6 +25,7 @@ export const META_PUBLICA = 'nv:publica';
 export const META_PERMITE_PENDIENTE = 'nv:permite-pendiente';
 export const META_PERMISO = 'nv:permiso';
 export const META_ORIGEN_EXTERNO = 'nv:origen-externo';
+export const META_SIN_LICENCIA = 'nv:sin-licencia';
 
 /** La ruta no requiere sesión. */
 export const Publica = () => SetMetadata(META_PUBLICA, true);
@@ -34,6 +35,12 @@ export const Publica = () => SetMetadata(META_PUBLICA, true);
  * exige la cabecera Origin. Solo para rutas públicas que verifican su propia firma.
  */
 export const OrigenExterno = () => SetMetadata(META_ORIGEN_EXTERNO, true);
+
+/**
+ * La ruta funciona aunque la licencia de la instalación haya vencido (entrar, salir,
+ * la cuenta propia y cargar la licencia nueva).
+ */
+export const PermiteSinLicencia = () => SetMetadata(META_SIN_LICENCIA, true);
 
 /** La ruta acepta sesiones a las que aún les falta la verificación en dos pasos. */
 export const PermitePendiente = () => SetMetadata(META_PERMITE_PENDIENTE, true);

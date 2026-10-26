@@ -1,3 +1,4 @@
+import { createPublicKey } from 'node:crypto';
 import { z } from 'zod';
 
 const booleano = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
@@ -27,6 +28,16 @@ const precioMtok = (nombre: string) =>
     .trim()
     .regex(/^(\d{1,6}(\.\d{1,6})?)?$/, `${nombre} debe ser un importe en USD, p. ej. 3 o 0.25.`)
     .default('');
+
+/** Clave pública Ed25519 en formato SPKI DER codificada en base64. */
+function clavePublicaValida(v: string): boolean {
+  try {
+    const clave = createPublicKey({ key: Buffer.from(v, 'base64'), format: 'der', type: 'spki' });
+    return clave.asymmetricKeyType === 'ed25519';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * `trustProxy` de Fastify a partir del número de proxies de confianza. Fastify 5.12 ya no
@@ -208,6 +219,21 @@ const EntornoSchema = z
      * entregas (y sus reintentos) cada pocos segundos.
      */
     ENTREGAS_EN_API: booleano.default(false),
+    // ── Licencia de la instalación (G8) ────────────────────────────────────────
+    /**
+     * Clave pública Ed25519 (SPKI DER en base64) de quien vende el sistema. Vacía = esta
+     * instalación no usa licencia. Con ella, el panel del equipo queda en solo lectura
+     * si la licencia falta, no es válida o venció.
+     */
+    LICENCIA_CLAVE_PUBLICA: z
+      .string()
+      .trim()
+      .refine((v) => v === '' || clavePublicaValida(v), {
+        error: 'LICENCIA_CLAVE_PUBLICA debe ser una clave pública Ed25519 en base64.',
+      })
+      .default(''),
+    /** Licencia inicial (NVL1.…). La que se pega en el panel tiene prioridad. */
+    LICENCIA: z.string().trim().max(2000).default(''),
     CORREO_PROVEEDOR: z.enum(['sandbox', 'smtp']).default('sandbox'),
     CORREO_REMITENTE: z.string().min(3).default('NV Streaming <no-responder@example.com>'),
     SMTP_HOST: z.string().default(''),

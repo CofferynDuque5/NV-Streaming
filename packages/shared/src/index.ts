@@ -40,3 +40,4 @@ export * from './politicas.js';
 export * from './politicas-por-definir.js';
 export * from './ecosistema.js';
 export * from './lector-pedidos.js';
+export * from './licencia.js';
