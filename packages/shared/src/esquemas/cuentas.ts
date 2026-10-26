@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { paisSchema } from './clientes.js';
 import { paginacionSchema, uuidSchema } from './comunes.js';
+import { MAX_FILAS_IMPORTAR } from '../importar-cuentas.js';
 import { montoOCeroSchema } from './dinero.js';
 
 export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada'] as const;
@@ -182,3 +183,59 @@ export const balanceSchema = z
     path: ['hasta'],
   });
 export type BalanceEntrada = z.infer<typeof balanceSchema>;
+
+// ── Verificar e importar la lista del proveedor (TXT o CSV) ──────────────────
+
+const filasSchema = <T extends z.ZodTypeAny>(fila: T) =>
+  z
+    .array(fila)
+    .min(1, 'El archivo no trae cuentas.')
+    .max(MAX_FILAS_IMPORTAR, `Máximo ${MAX_FILAS_IMPORTAR} cuentas de una vez: divide el archivo.`);
+
+/** Lo que se leyó del archivo en el navegador. */
+const filaArchivoSchema = z.object({
+  usuario: usuarioCuentaSchema,
+  clave: claveCuentaSchema.nullable().optional(),
+  fecha: fechaSchema.nullable().optional(),
+});
+
+export const revisarImportacionSchema = z.object({
+  servicioId: uuidSchema,
+  /** Si se indica, «No están en el archivo» mira solo las cuentas de ese proveedor. */
+  proveedor: textoOpcional(120),
+  filas: filasSchema(filaArchivoSchema),
+});
+export type RevisarImportacionEntrada = z.infer<typeof revisarImportacionSchema>;
+
+export const importarCuentasSchema = z
+  .object({
+    servicioId: uuidSchema,
+    modo: z.enum(MODOS_CUENTA).default('perfiles'),
+    perfiles: z.coerce
+      .number({ error: 'Indica cuántos perfiles tiene cada cuenta.' })
+      .int()
+      .min(1, 'Al menos 1 perfil.')
+      .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
+    ...camposCuenta,
+    /** Cuentas nuevas. Su fecha es el próximo cobro; sin fecha se usa `facturaEn`. */
+    nuevas: filasSchema(filaArchivoSchema.extend({ clave: claveCuentaSchema })).optional(),
+    /** Cuentas que ya están: próximo cobro o clave que trae el archivo. */
+    actualizar: filasSchema(
+      z
+        .object({
+          cuentaId: uuidSchema,
+          facturaEn: fechaSchema.optional(),
+          clave: claveCuentaSchema.optional(),
+        })
+        .refine((o) => o.facturaEn !== undefined || o.clave !== undefined, 'No hay cambios.'),
+    ).optional(),
+  })
+  .refine((o) => (o.nuevas?.length ?? 0) + (o.actualizar?.length ?? 0) > 0, {
+    message: 'Elige al menos una cuenta.',
+    path: ['nuevas'],
+  })
+  .refine((o) => (o.nuevas?.length ?? 0) + (o.actualizar?.length ?? 0) <= MAX_FILAS_IMPORTAR, {
+    message: `Máximo ${MAX_FILAS_IMPORTAR} cuentas de una vez: divide el archivo.`,
+    path: ['nuevas'],
+  });
+export type ImportarCuentasEntrada = z.infer<typeof importarCuentasSchema>;

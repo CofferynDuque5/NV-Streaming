@@ -8,7 +8,7 @@ import {
   type PorPagar,
   type ServicioPublico,
 } from '@nv/shared';
-import { KeyRound, Search } from 'lucide-react';
+import { FileCheck2, KeyRound, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NuevaCuenta } from '@/componentes/admin/cuentas';
@@ -100,7 +100,20 @@ export default async function Cuentas({
       <CabeceraPagina
         titulo="Cuentas de servicio"
         descripcion="Las cuentas que revendes, con sus perfiles. Asigna cada perfil a la suscripción de un cliente. El correo, la clave y los PIN van cifrados y solo se ven con «Ver credenciales»."
-        acciones={puedeGestionar ? <NuevaCuenta servicios={opcionesServicio} /> : undefined}
+        acciones={
+          puedeGestionar ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin/cuentas/importar"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-borde px-4 text-sm font-medium hover:border-borde-fuerte"
+              >
+                <FileCheck2 className="size-4" aria-hidden="true" />
+                Verificar con TXT o CSV
+              </Link>
+              <NuevaCuenta servicios={opcionesServicio} />
+            </div>
+          ) : undefined
+        }
       />
 
       {porPagar && !filtrado && <PorPagarTarjeta datos={porPagar} />}

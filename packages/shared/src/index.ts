@@ -35,6 +35,7 @@ export * from './tienda.js';
 export * from './tipos-equipo.js';
 export * from './esquemas/cuentas.js';
 export * from './tipos-cuentas.js';
+export * from './importar-cuentas.js';
 export * from './cookies.js';
 export * from './politicas.js';
 export * from './politicas-por-definir.js';
