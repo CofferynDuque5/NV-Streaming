@@ -8,7 +8,7 @@ import {
   type PorPagar,
   type ServicioPublico,
 } from '@nv/shared';
-import { FileCheck2, KeyRound, Search } from 'lucide-react';
+import { DatabaseBackup, FileCheck2, KeyRound, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NuevaCuenta } from '@/componentes/admin/cuentas';
@@ -110,6 +110,15 @@ export default async function Cuentas({
                 <FileCheck2 className="size-4" aria-hidden="true" />
                 Verificar con TXT o CSV
               </Link>
+              {sesion.usuario.rol === 'admin' && (
+                <Link
+                  href="/admin/cuentas/gestor"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-borde px-4 text-sm font-medium hover:border-borde-fuerte"
+                >
+                  <DatabaseBackup className="size-4" aria-hidden="true" />
+                  Importar del Gestor
+                </Link>
+              )}
               <NuevaCuenta servicios={opcionesServicio} />
             </div>
           ) : undefined

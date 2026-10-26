@@ -9,10 +9,12 @@ import { CostosService } from './costos/costos.service.js';
 import {
   CuentasController,
   ImportarCuentasController,
+  ImportarGestorController,
   MisPerfilesController,
 } from './cuentas/cuentas.controller.js';
 import { CuentasService } from './cuentas/cuentas.service.js';
 import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
+import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
@@ -85,6 +87,7 @@ export class AppModule {
         PagosController,
         CuponesController,
         ImportarCuentasController,
+        ImportarGestorController,
         CuentasController,
         MisPerfilesController,
         PagosCuentaController,
@@ -117,6 +120,7 @@ export class AppModule {
         CuentasService,
         PerfilesClienteService,
         ImportarCuentasService,
+        ImportarGestorService,
         CostosService,
         TicketsService,
         MetricasService,
