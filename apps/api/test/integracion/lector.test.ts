@@ -48,7 +48,10 @@ describe('palabras del lector de pedidos', () => {
       where: { entidad: 'alias_servicio' },
       orderBy: { fecha: 'asc' },
     });
-    expect(acciones.map((a) => a.accion)).toEqual(['alias_servicio.creado', 'alias_servicio.borrado']);
+    expect(acciones.map((a) => a.accion)).toEqual([
+      'alias_servicio.creado',
+      'alias_servicio.borrado',
+    ]);
 
     const cliente = await conectar(ctx, 'cliente');
     expect((await cliente.n.get('/lector/alias')).estado).toBe(403);
