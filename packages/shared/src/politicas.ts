@@ -459,7 +459,7 @@ export function textoPoliticas(datos: {
         ...(exige2fa('revendedor')
           ? ['La verificación en dos pasos es **obligatoria** para operar.']
           : []),
-        'Compras a **precio de mayorista según tu nivel** (por ejemplo Bronce, Plata u Oro). Solo ves los planes que el acuerdo con su proveedor permite revender.',
+        'Compras a **precio de mayorista según tu nivel** (por ejemplo Bronce, Plata u Oro). Solo ves los planes que el acuerdo con su proveedor permite revender. Mira [lo que ganas en cada nivel](/revendedores/ganancias).',
         '**Saldo prepagado en dólares**: lo recargas con un pago manual que concilia el equipo y compras al momento. El saldo nunca queda en negativo.',
         'El equipo puede fijar un **límite de compras por día** (el día se cuenta en hora de Venezuela).',
         'Según el servicio, se activa en la **cuenta propia de tu cliente** o en un **perfil de una cuenta que administra NV**; en ese caso el equipo le envía los datos del perfil.',

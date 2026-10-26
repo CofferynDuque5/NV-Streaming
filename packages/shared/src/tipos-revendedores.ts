@@ -210,6 +210,34 @@ export interface TablaPreciosMayoristas {
   bloqueadosPorProveedor: { id: string; nombre: string; servicio: string; proveedor: string }[];
 }
 
+/**
+ * Lo que gana un revendedor en cada nivel (página pública /revendedores/ganancias):
+ * precio al público menos el precio mayorista del nivel. Solo planes revendibles
+ * y visibles, y niveles activos.
+ */
+export interface GananciasRevendedor {
+  niveles: { id: string; nombre: string; descripcion: string | null }[];
+  planes: {
+    id: string;
+    nombre: string;
+    servicio: { nombre: string; slug: string };
+    duracionCantidad: number;
+    duracionUnidad: UnidadDuracion;
+    precioPublicoUsd: Decimal;
+    /** Por id de nivel; null si ese nivel no tiene precio para el plan. */
+    porNivel: Record<string, GananciaNivel | null>;
+  }[];
+}
+
+export interface GananciaNivel {
+  /** Lo que paga el revendedor. */
+  precioUsd: Decimal;
+  /** Precio al público menos `precioUsd`. */
+  gananciaUsd: Decimal;
+  /** Ganancia sobre el precio al público, en por ciento entero. */
+  margen: number;
+}
+
 export interface ResumenProgramaRevendedores {
   solicitudes: number;
   aprobados: number;

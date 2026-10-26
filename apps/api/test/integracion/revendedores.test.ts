@@ -302,6 +302,43 @@ describe('niveles y precios mayoristas', () => {
     );
     expect((await e.admin.post('/revendedores/niveles', { nombre: 'Oro' })).estado).toBe(409);
   });
+  it('la página pública de ganancias muestra lo que gana cada nivel, sin costos ni planes ocultos', async () => {
+    const e = await escenario();
+    const oro = await e.admin.post('/revendedores/niveles', { nombre: 'Oro', orden: 1 });
+    await e.admin.pedir('PUT', '/revendedores/precios', {
+      planId: e.planId,
+      nivelId: oro.cuerpo.id,
+      precioUsd: '3.50',
+    });
+    // Un nivel desactivado no aparece, aunque tenga precio.
+    const inactivo = await e.admin.post('/revendedores/niveles', { nombre: 'Viejo' });
+    await e.admin.pedir('PUT', '/revendedores/precios', {
+      planId: e.planId,
+      nivelId: inactivo.cuerpo.id,
+      precioUsd: '3',
+    });
+    await e.admin.patch(`/revendedores/niveles/${inactivo.cuerpo.id}`, { activo: false });
+
+    const publico = new Navegador(ctx.app);
+    const r = await publico.get('/sitio/publico/revendedores/ganancias');
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.niveles.map((n: { nombre: string }) => n.nombre)).toEqual(['Plata', 'Oro']);
+    expect(r.cuerpo.planes).toHaveLength(1);
+    const plan = r.cuerpo.planes[0];
+    expect(plan).toMatchObject({ id: e.planId, precioPublicoUsd: '5.00' });
+    expect(plan.porNivel).toEqual({
+      [e.nivelId]: { precioUsd: '4.00', gananciaUsd: '1.00', margen: 20 },
+      [oro.cuerpo.id]: { precioUsd: '3.50', gananciaUsd: '1.50', margen: 30 },
+    });
+    expect(JSON.stringify(r.cuerpo)).not.toContain('costo');
+
+    // Un plan oculto en la tienda o de un proveedor sin permiso de reventa no aparece.
+    await e.admin.patch(`/catalogo/planes/${e.planId}`, { visible: false });
+    expect((await publico.get('/sitio/publico/revendedores/ganancias')).cuerpo.planes).toEqual([]);
+    await e.admin.patch(`/catalogo/planes/${e.planId}`, { visible: true });
+    await ctx.prisma.proveedor.updateMany({ data: { permiteReventa: false } });
+    expect((await publico.get('/sitio/publico/revendedores/ganancias')).cuerpo.planes).toEqual([]);
+  });
 });
 
 describe('recargas de saldo', () => {

@@ -2,6 +2,7 @@ import type { Provider, Type } from '@nestjs/common';
 import { ComprasService } from './compras.service.js';
 import { NivelesService } from './niveles.service.js';
 import {
+  GananciasRevendedorController,
   PanelRevendedorController,
   RecargasController,
   RevendedoresController,
@@ -17,6 +18,7 @@ export const CONTROLADORES_REVENDEDORES: Type[] = [
   PanelRevendedorController,
   RevendedoresController,
   RecargasController,
+  GananciasRevendedorController,
 ];
 export const PROVEEDORES_REVENDEDORES: Provider[] = [
   RevendedoresService,

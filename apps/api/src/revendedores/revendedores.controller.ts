@@ -47,6 +47,7 @@ import {
   Cliente,
   type ContextoAuth,
   type InfoCliente,
+  Publica,
   RequierePermiso,
 } from '../comun/contexto.js';
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
@@ -257,6 +258,21 @@ export class PanelRevendedorController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.compras.comprar(auth, cuerpo, cliente);
+  }
+}
+
+// ── Público ──────────────────────────────────────────────────────────────────
+
+@ApiTags('Revendedores: público')
+@Controller('sitio/publico/revendedores')
+export class GananciasRevendedorController {
+  constructor(@Inject(NivelesService) private readonly niveles: NivelesService) {}
+
+  /** Lo que gana un revendedor en cada nivel (precio al público menos el mayorista). */
+  @Get('ganancias')
+  @Publica()
+  ganancias() {
+    return this.niveles.ganancias();
   }
 }
 

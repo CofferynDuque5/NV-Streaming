@@ -2,6 +2,7 @@ import type { MiSolicitudRevendedor } from '@nv/shared';
 import { Tag, UserRound, Wallet } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { LineaTiempo, PildoraEstado } from '@/componentes/cliente/pago';
 import { CabeceraCuenta, claseCaja, fechaLarga, PAISES } from '@/componentes/cliente/piezas-cuenta';
 import { SolicitudRevendedor } from '@/componentes/cliente/revendedor-cuenta';
@@ -151,6 +152,13 @@ export default async function SerRevendedor() {
         <Alerta tono="peligro">No pudimos cargar tu solicitud. Recarga la página.</Alerta>
       )}
       <Ventajas />
+      <p className="text-sm text-tinta-suave">
+        Mira{' '}
+        <Link href="/revendedores/ganancias" className="font-medium text-cian hover:underline">
+          lo que ganas en cada nivel
+        </Link>
+        .
+      </p>
       {s?.estado === 'rechazado' && (
         <Alerta tono="aviso" titulo="Tu solicitud anterior no fue aprobada">
           {s.motivoEstado ? `Motivo: ${s.motivoEstado}. ` : ''}Puedes corregir los datos y enviarla
