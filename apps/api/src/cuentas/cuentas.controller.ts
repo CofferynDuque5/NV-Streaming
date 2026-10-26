@@ -18,6 +18,7 @@ import {
   editarCuentaSchema,
   editarPerfilSchema,
   importarCuentasSchema,
+  importarGestorSchema,
   listarCuentasSchema,
   revisarImportacionSchema,
   uuidSchema,
@@ -34,6 +35,7 @@ import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CuentasService } from './cuentas.service.js';
 import { ImportarCuentasService } from './importar-cuentas.service.js';
+import { ImportarGestorService } from './importar-gestor.service.js';
 import { PerfilesClienteService } from './perfiles-cliente.service.js';
 
 const idValido = validar(uuidSchema);
@@ -213,5 +215,55 @@ export class ImportarCuentasController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.importar.importar(auth, cuerpo, cliente);
+  }
+}
+
+/** Importación del Gestor viejo (G6), plataforma por plataforma. Solo administración. */
+@ApiTags('Cuentas de servicio')
+@Controller('cuentas/gestor')
+export class ImportarGestorController {
+  constructor(@Inject(ImportarGestorService) private readonly gestor: ImportarGestorService) {}
+
+  @Get('lotes')
+  @RequierePermiso('cuentas.gestionar')
+  lotes() {
+    return this.gestor.lotes();
+  }
+
+  /** No escribe nada: cuadra conteos y montos de lo que se importaría. */
+  @Post('simular')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(importarGestorSchema)
+  simular(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(importarGestorSchema)) cuerpo: z.output<typeof importarGestorSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.gestor.simular(auth, cuerpo, cliente);
+  }
+
+  @Post('importar')
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(importarGestorSchema)
+  importar(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(importarGestorSchema)) cuerpo: z.output<typeof importarGestorSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.gestor.importar(auth, cuerpo, cliente);
+  }
+
+  @Post('lotes/:id/deshacer')
+  @HttpCode(204)
+  @RequierePermiso('cuentas.gestionar')
+  async deshacer(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    await this.gestor.revertir(auth, id, cliente);
   }
 }

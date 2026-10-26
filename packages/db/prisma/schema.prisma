@@ -2044,3 +2044,42 @@ model PerfilCuenta {
   @@index([cuentaId, estado])
   @@map("perfiles_cuenta")
 }
+
+/// Importación del Gestor viejo (fase G6): una plataforma por lote. Se puede deshacer.
+model LoteGestor {
+  id               String    @id @default(uuid()) @db.Uuid
+  plataformaOrigen String    @map("plataforma_origen") @db.VarChar(120)
+  plataformaNombre String    @map("plataforma_nombre") @db.VarChar(80)
+  servicioId       String    @map("servicio_id") @db.Uuid
+  planId           String    @map("plan_id") @db.Uuid
+  /// Conteos y montos del cuadre; sin correos, claves ni nombres.
+  cuadre           Json
+  creadoPorId      String?   @map("creado_por_id") @db.Uuid
+  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  revertidoEn      DateTime? @map("revertido_en") @db.Timestamptz(3)
+  revertidoPorId   String?   @map("revertido_por_id") @db.Uuid
+
+  registros RegistroGestor[]
+
+  @@index([creadoEn(sort: Desc)])
+  @@map("lotes_gestor")
+}
+
+/// Qué creó cada lote, para no importar dos veces lo mismo y para deshacerlo.
+model RegistroGestor {
+  id        String @id @default(uuid()) @db.Uuid
+  loteId    String @map("lote_id") @db.Uuid
+  /// «cuenta», «perfil» o «cliente».
+  tipo      String @db.VarChar(20)
+  /// Id del documento en el Gestor (o el contacto, para los clientes).
+  origenId  String @map("origen_id") @db.VarChar(260)
+  /// «cuenta_servicio», «perfil_cuenta», «cliente», «contacto_cliente» o «suscripcion».
+  entidad   String @db.VarChar(30)
+  entidadId String @map("entidad_id") @db.Uuid
+
+  lote LoteGestor @relation(fields: [loteId], references: [id], onDelete: Cascade)
+
+  @@unique([tipo, origenId, entidad])
+  @@index([loteId])
+  @@map("registros_gestor")
+}
