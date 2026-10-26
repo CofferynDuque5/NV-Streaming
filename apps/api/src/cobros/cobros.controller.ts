@@ -14,6 +14,7 @@ import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import {
   confirmarPagoSchema,
   cuponSchema,
+  listarCuponesSchema,
   monedaSchema,
   listarFacturasSchema,
   listarPagosSchema,
@@ -204,8 +205,9 @@ export class CuponesController {
 
   @Get()
   @RequierePermiso('cupones.ver')
-  listar() {
-    return this.cupones.listar();
+  @DocConsulta(listarCuponesSchema)
+  listar(@Query(validar(listarCuponesSchema)) filtro: z.output<typeof listarCuponesSchema>) {
+    return this.cupones.listar(filtro);
   }
 
   @Post()

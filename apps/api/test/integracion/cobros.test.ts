@@ -640,6 +640,57 @@ describe('cupones y cartera de ventas', () => {
     ).toBe(403);
   });
 
+  it('lista cupones paginados, con búsqueda, filtro y conteo de vigentes', async () => {
+    const e = await escenario();
+    const ahora = Date.now();
+    for (const codigo of ['ALFA1', 'ALFA2', 'BETA1', 'BETA2', 'GAMA1']) {
+      expect(
+        (await e.admin.post('/cupones', { codigo, tipo: 'porcentaje', valor: '10' })).estado,
+      ).toBe(201);
+    }
+    const agotado = await e.admin.post('/cupones', {
+      codigo: 'AGOTADO',
+      tipo: 'porcentaje',
+      valor: '10',
+      usosMaximos: 2,
+    });
+    await ctx.prisma.cupon.update({ where: { id: agotado.cuerpo.id }, data: { usos: 2 } });
+    await e.admin.post('/cupones', {
+      codigo: 'FUTURO',
+      tipo: 'porcentaje',
+      valor: '10',
+      validoDesde: new Date(ahora + 86_400_000).toISOString(),
+    });
+    const beta2 = await ctx.prisma.cupon.findFirstOrThrow({ where: { codigo: 'BETA2' } });
+    await e.admin.post(`/cupones/${beta2.id}/desactivar`, {});
+
+    const todo = (await e.admin.get('/cupones')).cuerpo;
+    expect(todo.total).toBe(7);
+    expect(todo.vigentes).toBe(4);
+    expect(todo.elementos).toHaveLength(7);
+    expect(todo.elementos.at(-1).codigo).toBe('BETA2');
+
+    const p1 = (await e.admin.get('/cupones?porPagina=3&pagina=1')).cuerpo;
+    const p3 = (await e.admin.get('/cupones?porPagina=3&pagina=3')).cuerpo;
+    expect(p1.elementos).toHaveLength(3);
+    expect(p3.elementos).toHaveLength(1);
+    expect(p1.total).toBe(7);
+
+    const alfa = (await e.admin.get('/cupones?busqueda=alfa')).cuerpo;
+    expect(alfa.elementos.map((c: { codigo: string }) => c.codigo).sort()).toEqual([
+      'ALFA1',
+      'ALFA2',
+    ]);
+    expect(alfa.vigentes).toBe(2);
+
+    const inactivos = (await e.admin.get('/cupones?estado=inactivos')).cuerpo;
+    expect(inactivos.elementos.map((c: { codigo: string }) => c.codigo)).toEqual(['BETA2']);
+    expect(inactivos.vigentes).toBe(0);
+
+    expect((await e.admin.get('/cupones?porPagina=500')).estado).toBe(400);
+    expect((await e.admin.get('/cupones?estado=todos')).estado).toBe(400);
+  });
+
   it('ventas solo ve y gestiona su cartera', async () => {
     const e = await escenario();
     const ventas = await conectar(ctx, 'ventas');

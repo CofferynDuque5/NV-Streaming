@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Cupon, PrismaClient } from '@nv/db';
+import type { Cupon, Prisma, PrismaClient } from '@nv/db';
 import {
   type CuponEntrada,
   type CuponPublico,
   DESCUENTO_MAXIMO_VENTAS,
+  type ListarCuponesEntrada,
   limitadoACartera,
+  type PaginaCupones,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -46,13 +48,39 @@ export class CuponesService {
     @Inject(AuditoriaService) private readonly auditoria: AuditoriaService,
   ) {}
 
-  async listar(): Promise<CuponPublico[]> {
-    const filas = await this.prisma.cupon.findMany({
-      include: INCLUIR,
-      orderBy: [{ activo: 'desc' }, { creadoEn: 'desc' }],
-      take: 200,
-    });
-    return filas.map(cuponPublico);
+  async listar(filtro: ListarCuponesEntrada): Promise<PaginaCupones> {
+    const where: Prisma.CuponWhereInput = {
+      ...(filtro.busqueda ? { codigo: { contains: filtro.busqueda, mode: 'insensitive' } } : {}),
+      ...(filtro.estado ? { activo: filtro.estado === 'activos' } : {}),
+    };
+    const ahora = new Date();
+    const vigente: Prisma.CuponWhereInput = {
+      AND: [
+        where,
+        { activo: true },
+        { OR: [{ validoDesde: null }, { validoDesde: { lte: ahora } }] },
+        { OR: [{ validoHasta: null }, { validoHasta: { gte: ahora } }] },
+        { OR: [{ usosMaximos: null }, { usos: { lt: this.prisma.cupon.fields.usosMaximos } }] },
+      ],
+    };
+    const [total, vigentes, filas] = await this.prisma.$transaction([
+      this.prisma.cupon.count({ where }),
+      this.prisma.cupon.count({ where: vigente }),
+      this.prisma.cupon.findMany({
+        where,
+        include: INCLUIR,
+        orderBy: [{ activo: 'desc' }, { creadoEn: 'desc' }, { id: 'desc' }],
+        skip: (filtro.pagina - 1) * filtro.porPagina,
+        take: filtro.porPagina,
+      }),
+    ]);
+    return {
+      elementos: filas.map(cuponPublico),
+      total,
+      vigentes,
+      pagina: filtro.pagina,
+      porPagina: filtro.porPagina,
+    };
   }
 
   async crear(auth: ContextoAuth, e: CuponEntrada, cliente: InfoCliente): Promise<CuponPublico> {

@@ -101,6 +101,15 @@ export const cuponSchema = z
   });
 export type CuponEntrada = z.infer<typeof cuponSchema>;
 
+export const ESTADOS_FILTRO_CUPON = ['activos', 'inactivos'] as const;
+
+export const listarCuponesSchema = paginacionSchema.extend({
+  /** Parte del código, sin distinguir mayúsculas. */
+  busqueda: z.string().trim().max(40).optional(),
+  estado: z.enum(ESTADOS_FILTRO_CUPON).optional(),
+});
+export type ListarCuponesEntrada = z.infer<typeof listarCuponesSchema>;
+
 export const previsualizarCuponSchema = z.object({
   codigo: codigoCuponSchema,
   planId: uuidSchema,

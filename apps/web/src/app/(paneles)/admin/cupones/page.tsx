@@ -1,11 +1,20 @@
-import { type CuponPublico, DESCUENTO_MAXIMO_VENTAS, type PlanPublico } from '@nv/shared';
+import {
+  type CuponPublico,
+  DESCUENTO_MAXIMO_VENTAS,
+  listarCuponesSchema,
+  type PaginaCupones,
+  type PlanPublico,
+} from '@nv/shared';
 import clsx from 'clsx';
-import { TicketPercent } from 'lucide-react';
+import { Search, TicketPercent } from 'lucide-react';
 import type { Metadata } from 'next';
 import { InterruptorCupon, NuevoCupon } from '@/componentes/admin/cupones';
 import { formatearDescuento } from '@/componentes/admin/formato-admin';
+import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
+import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
+import { clasesEntrada } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
@@ -36,19 +45,39 @@ function vigencia(c: CuponPublico): string {
   return 'Sin límite';
 }
 
-export default async function Cupones() {
+const POR_PAGINA = 50;
+
+export default async function Cupones({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const sesion = await requerirSesion({ permiso: 'cupones.ver' });
   const puedeGestionar = sesion.permisos.includes('cupones.gestionar');
   const esVentas = sesion.usuario.rol === 'ventas';
+  const crudo = await searchParams;
+  const filtro = listarCuponesSchema.safeParse({
+    ...Object.fromEntries(Object.entries(crudo).filter(([, v]) => v)),
+    porPagina: POR_PAGINA,
+  });
+  const f = filtro.success ? filtro.data : listarCuponesSchema.parse({ porPagina: POR_PAGINA });
+  const parametros = { busqueda: f.busqueda, estado: f.estado };
+  const q = new URLSearchParams(
+    Object.entries({
+      ...parametros,
+      pagina: String(f.pagina),
+      porPagina: String(f.porPagina),
+    }).filter((e): e is [string, string] => Boolean(e[1])),
+  );
+  const filtrado = Boolean(f.busqueda || f.estado);
 
   const [{ datos: cupones }, planes] = await Promise.all([
-    leerApi<CuponPublico[]>('/cupones'),
+    leerApi<PaginaCupones>(`/cupones?${q}`),
     puedeGestionar && sesion.permisos.includes('catalogo.ver')
       ? leerApi<PlanPublico[]>('/catalogo/planes').then((r) => r.datos ?? [])
       : Promise.resolve([] as PlanPublico[]),
   ]);
-  const lista = cupones ?? [];
-  const activos = lista.filter((c) => estadoCupon(c).texto === 'Activo').length;
+  const lista = cupones?.elementos ?? [];
 
   return (
     <>
@@ -64,15 +93,59 @@ export default async function Cupones() {
 
       <Tarjeta>
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-borde px-5 py-4 sm:px-6">
-          <h2 className="text-base font-semibold">Todos los cupones</h2>
-          <p className="text-sm text-tinta-tenue tabular-nums">
-            {activos === 1 ? '1 vigente' : `${activos} vigentes`} de {lista.length}
-          </p>
+          <h2 className="text-base font-semibold">
+            {filtrado ? 'Cupones encontrados' : 'Todos los cupones'}
+          </h2>
+          {cupones && (
+            <p className="text-sm text-tinta-tenue tabular-nums">
+              {cupones.vigentes === 1 ? '1 vigente' : `${cupones.vigentes} vigentes`} de{' '}
+              {cupones.total}
+            </p>
+          )}
         </header>
+        <form
+          className="flex flex-wrap items-end gap-3 border-b border-borde px-5 py-4 sm:px-6"
+          role="search"
+        >
+          <div className="relative min-w-52 flex-1">
+            <label htmlFor="busqueda" className="sr-only">
+              Buscar por código
+            </label>
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tinta-tenue"
+              aria-hidden="true"
+            />
+            <input
+              id="busqueda"
+              name="busqueda"
+              defaultValue={f.busqueda}
+              placeholder="Buscar por código"
+              className={`${clasesEntrada} pl-9`}
+            />
+          </div>
+          <label className="sr-only" htmlFor="filtro-estado">
+            Estado
+          </label>
+          <select
+            id="filtro-estado"
+            name="estado"
+            defaultValue={f.estado ?? ''}
+            className={`${clasesEntrada} w-auto`}
+          >
+            <option value="">Activos e inactivos</option>
+            <option value="activos">Solo activos</option>
+            <option value="inactivos">Solo inactivos</option>
+          </select>
+          <Boton type="submit" variante="secundario">
+            Filtrar
+          </Boton>
+        </form>
         {!cupones ? (
           <div className="p-5 sm:p-6">
             <Alerta tono="peligro">No pudimos cargar los cupones. Recarga la página.</Alerta>
           </div>
+        ) : lista.length === 0 && filtrado ? (
+          <EstadoVacio icono={TicketPercent} titulo="No hay cupones con esos filtros" />
         ) : lista.length === 0 ? (
           <EstadoVacio icono={TicketPercent} titulo="Todavía no hay cupones">
             {puedeGestionar
@@ -151,6 +224,15 @@ export default async function Cupones() {
               })}
             </Cuerpo>
           </Tabla>
+        )}
+        {cupones && (
+          <Paginacion
+            ruta="/admin/cupones"
+            parametros={parametros}
+            pagina={cupones.pagina}
+            porPagina={cupones.porPagina}
+            total={cupones.total}
+          />
         )}
       </Tarjeta>
     </>
