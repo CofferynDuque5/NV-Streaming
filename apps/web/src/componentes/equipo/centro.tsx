@@ -418,6 +418,7 @@ const MODULO_DE_ACCION: [RegExp, ModuloEquipo][] = [
   [/^tasa/, 'finanzas'],
   [/^(pasarela|pago_en_linea|reembolso)/, 'pasarelas'],
   [/^(pagina|sitio|tema)/, 'sitio'],
+  [/^(cuenta_servicio|perfil_cuenta)/, 'cuentas'],
   [/^(usuario|sesion|cuenta|dos_pasos|2fa)/, 'equipo'],
   [/^automatizacion/, 'automatizaciones'],
 ];

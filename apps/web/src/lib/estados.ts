@@ -1,5 +1,7 @@
 import type {
   CategoriaTicket,
+  EstadoCuentaServicio,
+  EstadoPerfil,
   EstadoFactura,
   EstadoPago,
   EstadoPedido,
@@ -83,4 +85,16 @@ export const EVENTO_SUSCRIPCION: Record<string, string> = {
   vencimiento: 'Vencimiento',
   suspension: 'Suspensión',
   recuperacion: 'Recuperación',
+};
+
+export const ESTADO_CUENTA_SERVICIO: Etiquetas<EstadoCuentaServicio> = {
+  activa: { texto: 'Activa', tono: 'exito' },
+  caida: { texto: 'Caída', tono: 'peligro' },
+  retirada: { texto: 'Retirada', tono: 'neutro' },
+};
+
+export const ESTADO_PERFIL: Etiquetas<EstadoPerfil> = {
+  libre: { texto: 'Libre', tono: 'exito' },
+  asignado: { texto: 'Asignado', tono: 'marca' },
+  bloqueado: { texto: 'Bloqueado', tono: 'neutro' },
 };

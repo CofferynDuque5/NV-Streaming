@@ -285,6 +285,8 @@ export function estadoModulo(
           ? `${plural(mo.catalogo.servicios, 'servicio', 'servicios')} · ${plural(mo.catalogo.planes, 'plan', 'planes')}`
           : '',
       );
+    case 'cuentas':
+      return ok('Perfiles libres y asignados');
     case 'inventario':
       if (!q.pocosCodigos) return ok('');
       return q.pocosCodigos.length

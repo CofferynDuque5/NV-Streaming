@@ -15,7 +15,7 @@ type Vista = 'cliente' | 'revendedor';
 
 const rutaBase = (vista: Vista) => (vista === 'cliente' ? '/mi/accesos' : '/revendedor/accesos');
 
-function BotonCopiar({ texto, que }: { texto: string; que: string }) {
+export function BotonCopiar({ texto, que }: { texto: string; que: string }) {
   const [copiado, setCopiado] = useState(false);
   async function copiar() {
     try {

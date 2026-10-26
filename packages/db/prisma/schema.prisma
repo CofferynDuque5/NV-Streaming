@@ -116,6 +116,7 @@ model Usuario {
   lotesSubidos               LoteCodigos[]
   codigosAnulados            CodigoInventario[]       @relation("CodigoAnulador")
   cierresCaja                CierreCaja[]
+  cuentasServicioCreadas     CuentaServicio[]
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -435,9 +436,10 @@ model Servicio {
   creadoEn      DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  proveedor Proveedor       @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  proveedor Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
   planes    Plan[]
   alias     AliasServicio[]
+  cuentas   CuentaServicio[]
 
   @@map("servicios")
 }
@@ -590,6 +592,7 @@ model Suscripcion {
   facturas          Factura[]
   tickets           Ticket[]
   entregas          Entrega[]
+  perfilCuenta      PerfilCuenta?
 
   @@index([clienteId, estado])
   @@index([estado, venceEn])
@@ -1918,4 +1921,93 @@ model LicenciaInstalacion {
   cargadaEn    DateTime @default(now()) @map("cargada_en") @db.Timestamptz(3)
 
   @@map("licencia_instalacion")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Gestor: cuentas de servicio y perfiles
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum EstadoCuentaServicio {
+  activa
+  /// El proveedor la cerró o cambió la clave: hay que reponerla.
+  caida
+  /// Ya no se usa. Se conserva para el historial.
+  retirada
+}
+
+enum ModoCuenta {
+  /// Se vende por perfil: cada perfil va a un cliente.
+  perfiles
+  /// La cuenta entera es de un cliente (un solo cupo).
+  completa
+}
+
+enum EstadoPerfil {
+  libre
+  asignado
+  /// No se asigna (perfil del dueño, dañado, etc.).
+  bloqueado
+}
+
+/// Cuenta de un servicio que NV revende (todos los servicios están
+/// autorizados para reventa, confirmado el 24-10-2026). El correo, la clave y
+/// los PIN van cifrados con CLAVE_CIFRADO; `usuarioHuella` (HMAC) permite
+/// buscar y rechazar repetidos sin descifrar. Nunca aparecen en registros,
+/// auditoría ni en el asistente de IA.
+model CuentaServicio {
+  id             String               @id @db.Uuid
+  servicioId     String               @map("servicio_id") @db.Uuid
+  /// Correo o usuario, cifrado (contexto "cuenta:<id>:usuario").
+  usuarioCifrado String               @map("usuario_cifrado") @db.VarChar(1000)
+  usuarioHuella  String               @unique @map("usuario_huella") @db.Char(64)
+  /// Para reconocerla en listas sin descifrar: «ma•••@gmail.com».
+  pista          String               @db.VarChar(120)
+  /// Cifrada (contexto "cuenta:<id>:clave").
+  claveCifrada   String               @map("clave_cifrada") @db.VarChar(1000)
+  modo           ModoCuenta           @default(perfiles)
+  estado         EstadoCuentaServicio @default(activa)
+  plan           String?              @db.VarChar(60)
+  pais           String?              @db.Char(2)
+  /// Lo que cuesta la cuenta al mes, en USD.
+  costoUsd       Decimal              @default(0) @map("costo_usd") @db.Decimal(14, 2)
+  /// Próximo cobro del proveedor de la cuenta.
+  facturaEn      DateTime?            @map("factura_en") @db.Date
+  /// «Tarjeta ···· 1234», «Binance»… Nunca el número completo.
+  metodoPago     String?              @map("metodo_pago") @db.VarChar(60)
+  /// Dónde se compró (tienda, distribuidor).
+  proveedor      String?              @db.VarChar(120)
+  notas          String?              @db.VarChar(1000)
+  creadoPorId    String?              @map("creado_por_id") @db.Uuid
+  creadoEn       DateTime             @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime             @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  servicio  Servicio       @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  creadoPor Usuario?       @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  perfiles  PerfilCuenta[]
+
+  @@index([servicioId, estado])
+  @@index([estado, facturaEn])
+  @@map("cuentas_servicio")
+}
+
+/// Perfil (cupo) de una cuenta. Asignado ⇔ tiene suscripción.
+model PerfilCuenta {
+  id            String       @id @default(uuid()) @db.Uuid
+  cuentaId      String       @map("cuenta_id") @db.Uuid
+  numero        Int
+  nombre        String       @db.VarChar(40)
+  /// Cifrado (contexto "perfil:<id>:pin").
+  pinCifrado    String?      @map("pin_cifrado") @db.VarChar(500)
+  estado        EstadoPerfil @default(libre)
+  suscripcionId String?      @unique @map("suscripcion_id") @db.Uuid
+  asignadoEn    DateTime?    @map("asignado_en") @db.Timestamptz(3)
+  creadoEn      DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cuenta      CuentaServicio @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  suscripcion Suscripcion?   @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+
+  @@unique([cuentaId, numero])
+  @@index([cuentaId, estado])
+  @@map("perfiles_cuenta")
 }
