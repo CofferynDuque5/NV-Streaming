@@ -14,6 +14,7 @@ import { type CalculoFactura, FacturacionService } from '../cobros/facturacion.s
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
+import { LIMITES, LimitesService } from '../limites/limites.service.js';
 import { CERO, type Dec } from '../dinero/dinero.js';
 import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -49,10 +50,12 @@ export class PedidosService {
     @Inject(FacturacionService) private readonly facturacion: FacturacionService,
     @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
     @Inject(BilleteraService) private readonly billetera: BilleteraService,
+    @Inject(LimitesService) private readonly limites: LimitesService,
   ) {}
 
   /** Precio del carrito completo, sin guardar nada. */
   async cotizar(auth: ContextoAuth, e: CotizarPedidoEntrada): Promise<CotizacionPedido> {
+    await this.limites.consumir(`pedido:cotizar:${auth.usuario.id}`, LIMITES.cotizarPedidoUsuario);
     return this.prisma.$transaction(async (tx) => {
       const c = await this.clientes.deUsuario(auth.usuario, tx);
       exigirBilleteraDisponible(c);
@@ -98,6 +101,7 @@ export class PedidosService {
     e: CrearPedidoEntrada,
     cliente: InfoCliente,
   ): Promise<PedidoPublico> {
+    await this.limites.consumir(`pedido:crear:${auth.usuario.id}`, LIMITES.crearPedidoUsuario);
     const { pedidoId, pagos } = await this.prisma.$transaction(async (tx) => {
       const propio = await this.clientes.deUsuario(auth.usuario, tx);
       const c = await bloquearCliente(tx, propio.id);
