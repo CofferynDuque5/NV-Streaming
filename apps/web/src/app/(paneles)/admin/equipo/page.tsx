@@ -6,12 +6,12 @@ import {
   ROLES,
   type UsuarioPublico,
 } from '@nv/shared';
-import { ChevronRight, Search, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
+import { ChevronRight, KeyRound, Search, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { InvitarPersona } from '@/componentes/panel/equipo';
 import { Paginacion } from '@/componentes/panel/paginacion';
-import { Boton } from '@/componentes/ui/boton';
+import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -19,6 +19,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { haceCuanto } from '@/lib/formato';
+import { leerLicencia } from '@/lib/licencia';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Equipo y usuarios' };
@@ -44,7 +45,10 @@ export default async function Equipo({
       porPagina: String(f.porPagina),
     }).filter((e): e is [string, string] => Boolean(e[1])),
   );
-  const { datos } = await leerApi<Pagina<UsuarioPublico>>(`/usuarios?${q}`);
+  const [{ datos }, licencia] = await Promise.all([
+    leerApi<Pagina<UsuarioPublico>>(`/usuarios?${q}`),
+    leerLicencia(),
+  ]);
   const pagina = datos ?? { elementos: [], total: 0, pagina: 1, porPagina: 20 };
 
   return (
@@ -52,7 +56,17 @@ export default async function Equipo({
       <CabeceraPagina
         titulo="Equipo y usuarios"
         descripcion="Todas las cuentas de NV: equipo interno, revendedores y clientes."
-        acciones={puedeGestionar ? <InvitarPersona /> : undefined}
+        acciones={
+          <div className="flex flex-wrap gap-2">
+            {licencia && licencia.estado !== 'sin_control' && (
+              <BotonEnlace href="/admin/licencia" variante="secundario">
+                <KeyRound className="size-4" aria-hidden="true" />
+                Licencia
+              </BotonEnlace>
+            )}
+            {puedeGestionar && <InvitarPersona />}
+          </div>
+        }
       />
 
       <Tarjeta>

@@ -8,7 +8,9 @@ import { MenuCuenta } from '@/componentes/panel/menu-cuenta';
 import { claseEnlaceCabecera, Sello } from '@/componentes/panel/piezas-marco';
 import { colaEquipo, pendientesPorModulo } from '@/lib/equipo';
 import { menuEquipo } from '@/lib/navegacion';
+import { leerLicencia } from '@/lib/licencia';
 import { leerCentro } from '@/lib/panel-equipo';
+import { AvisoLicencia } from './aviso-licencia';
 import { BarraEquipo } from './barra';
 
 /**
@@ -25,7 +27,7 @@ export async function MarcoEquipo({
   children: ReactNode;
 }) {
   const { usuario, permisos } = sesion;
-  const centro = await leerCentro();
+  const [centro, licencia] = await Promise.all([leerCentro(), leerLicencia()]);
   const pendientes = centro
     ? pendientesPorModulo(colaEquipo(centro, limitadoACartera(usuario.rol)))
     : {};
@@ -66,6 +68,7 @@ export async function MarcoEquipo({
         />
       }
     >
+      <AvisoLicencia licencia={licencia} />
       {children}
     </MarcoCuenta>
   );

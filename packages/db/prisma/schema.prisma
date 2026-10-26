@@ -1858,3 +1858,17 @@ model MovimientoBilletera {
   @@index([facturaId])
   @@map("movimientos_billetera")
 }
+
+// ── Licencia de la instalación (G8) ──────────────────────────────────────────
+
+/// Licencia pegada desde el panel (una sola fila, id = 1). Tiene prioridad sobre la
+/// variable LICENCIA. Solo se guarda si la firma es válida para esta instalación.
+model LicenciaInstalacion {
+  id           Int      @id @default(1)
+  licencia     String   @db.VarChar(2000)
+  /// Quién la pegó (sin relación: el registro completo está en la auditoría).
+  cargadaPorId String?  @map("cargada_por_id") @db.Uuid
+  cargadaEn    DateTime @default(now()) @map("cargada_en") @db.Timestamptz(3)
+
+  @@map("licencia_instalacion")
+}

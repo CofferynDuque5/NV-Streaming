@@ -41,6 +41,9 @@ import { CuentaService } from './cuenta/cuenta.service.js';
 import { OrigenGuard } from './guardias/origen.guard.js';
 import { PermisosGuard } from './guardias/permisos.guard.js';
 import { SesionGuard } from './guardias/sesion.guard.js';
+import { LicenciaGuard } from './guardias/licencia.guard.js';
+import { LicenciaController } from './licencia/licencia.controller.js';
+import { LicenciaService } from './licencia/licencia.service.js';
 import { NucleoModule } from './nucleo/nucleo.module.js';
 import {
   CONTROLADORES_PAGOS_EN_LINEA,
@@ -84,6 +87,7 @@ export class AppModule {
         ...CONTROLADORES_PAGOS_EN_LINEA,
         ...CONTROLADORES_ASISTENTE,
         ...CONTROLADORES_ENTREGAS,
+        LicenciaController,
       ],
       providers: [
         CuentaService,
@@ -109,11 +113,13 @@ export class AppModule {
         ...PROVEEDORES_PAGOS_EN_LINEA,
         ...PROVEEDORES_ASISTENTE,
         ...PROVEEDORES_ENTREGAS,
+        LicenciaService,
         { provide: APP_FILTER, useClass: FiltroErrores },
-        // El orden importa: origen → sesión → permisos.
+        // El orden importa: origen → sesión → permisos → licencia.
         { provide: APP_GUARD, useClass: OrigenGuard },
         { provide: APP_GUARD, useClass: SesionGuard },
         { provide: APP_GUARD, useClass: PermisosGuard },
+        { provide: APP_GUARD, useClass: LicenciaGuard },
       ],
     };
   }

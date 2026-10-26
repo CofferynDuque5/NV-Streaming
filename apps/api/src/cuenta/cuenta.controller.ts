@@ -27,6 +27,7 @@ import {
   type ContextoAuth,
   type InfoCliente,
   PermitePendiente,
+  PermiteSinLicencia,
   RequierePermiso,
 } from '../comun/contexto.js';
 import { ponerCookieSesion } from '../comun/cookie.js';
@@ -38,6 +39,7 @@ import { CuentaService } from './cuenta.service.js';
 
 @ApiTags('Mi cuenta')
 @Controller('cuenta')
+@PermiteSinLicencia()
 @RequierePermiso('cuenta.gestionar')
 export class CuentaController {
   constructor(

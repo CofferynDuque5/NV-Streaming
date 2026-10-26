@@ -19,6 +19,7 @@ import {
   type ContextoAuth,
   type InfoCliente,
   PermitePendiente,
+  PermiteSinLicencia,
   Publica,
   UbicacionVisitante,
 } from '../comun/contexto.js';
@@ -38,6 +39,7 @@ const MENSAJE_CORREO_ENVIADO = {
 
 @ApiTags('Autenticación')
 @Controller('auth')
+@PermiteSinLicencia()
 export class AuthController {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,

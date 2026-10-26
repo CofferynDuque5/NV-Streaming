@@ -36,3 +36,4 @@ export * from './tipos-equipo.js';
 export * from './cookies.js';
 export * from './politicas.js';
 export * from './politicas-por-definir.js';
+export * from './licencia.js';

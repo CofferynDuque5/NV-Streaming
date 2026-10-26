@@ -352,6 +352,27 @@ El modelo corre en la misma VM (usa unos 8–10 GB de RAM; la VM tiene 24 GB):
 
 Ollama **no** se publica en internet (no tiene contraseña): solo la API lo usa por la red interna. En CPU ARM una respuesta tarda de 20 a 90 segundos. **Cloudflare corta cualquier respuesta a los 100 segundos**, por eso `OLLAMA_TIEMPO_LIMITE_S` no debe pasar de 90. Más detalles y la opción de pago con Claude en el [README, «Asistente de IA»](../README.md#asistente-de-ia).
 
+### Instalar el sistema para otro negocio (licencia)
+
+Cada negocio que te compra el Gestor tiene **su propia instalación**: su servidor, su dominio y su base PostgreSQL. Los datos de un negocio nunca se mezclan con los de otro. La licencia dice hasta cuándo puede usar el panel del equipo. No usa ningún servicio externo ni de pago: se comprueba con una firma.
+
+1. **Una sola vez, en tu computadora** (no en el servidor del negocio):
+   `node infra/licencias/licencias.mjs claves --salida ~/nv-licencias`
+   Guarda `privada.pem` con copia de seguridad y no la compartas: con ella se fabrican licencias. El comando imprime la línea `LICENCIA_CLAVE_PUBLICA=…`.
+2. **En el `.env.produccion` del negocio** pon esa línea `LICENCIA_CLAVE_PUBLICA=…`. Tu propia instalación la deja vacía y nunca vence.
+3. **Emite su licencia** (prueba gratis o plan pagado), con la dirección exacta de su panel:
+   `node infra/licencias/licencias.mjs emitir --clave ~/nv-licencias/privada.pem --negocio "Nombre" --origen https://panel.negocio.com --plan Mensual --hasta 2026-12-31 --prueba`
+   Sin `--prueba` es un plan pagado. Envíale el texto `NVL1.…` y que administración lo pegue en **/admin/licencia**. Para renovar, emite otra con la fecha nueva y el mismo `--id`.
+
+Qué pasa con las fechas:
+
+- **7 días antes** de vencer, el panel del equipo muestra un aviso.
+- **3 días de gracia** después, todo sigue funcionando con el aviso.
+- Pasada la gracia, **el equipo solo puede consultar**: no crea ni cambia nada hasta cargar la renovación.
+- Los clientes y revendedores del negocio siguen viendo y usando sus servicios. Los avisos de pago de las pasarelas y el trabajador siguen funcionando.
+
+Una licencia emitida para otra dirección o firmada con otra clave no se acepta.
+
 ## 14. Actualizar a una versión nueva
 
 ```bash
