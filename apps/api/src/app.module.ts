@@ -30,6 +30,8 @@ import { MetricasController } from './metricas/metricas.controller.js';
 import { MetricasService } from './metricas/metricas.service.js';
 import { TicketsController } from './soporte/tickets.controller.js';
 import { TicketsService } from './soporte/tickets.service.js';
+import { LectorController } from './lector/lector.controller.js';
+import { LectorService } from './lector/lector.service.js';
 import { SuscripcionesController } from './suscripciones/suscripciones.controller.js';
 import { SuscripcionesService } from './suscripciones/suscripciones.service.js';
 import { VencimientosService } from './suscripciones/vencimientos.service.js';
@@ -71,6 +73,7 @@ export class AppModule {
         CatalogoController,
         ClientesController,
         SuscripcionesController,
+        LectorController,
         FacturasController,
         PagosController,
         CuponesController,
@@ -95,6 +98,7 @@ export class AppModule {
         ClientesService,
         FacturacionService,
         SuscripcionesService,
+        LectorService,
         VencimientosService,
         FacturasService,
         PagosService,
