@@ -37,8 +37,8 @@ export function AvisoLicencia({ licencia }: { licencia: LicenciaPublica | null }
       {licencia.estado === 'vencida'
         ? `La licencia venció el ${fechaPoliticas(licencia.vence!)}.`
         : (licencia.motivo ?? 'Esta instalación no tiene una licencia válida.')}{' '}
-      Puedes consultar todo, pero no crear ni cambiar nada hasta cargar una licencia vigente. Tus clientes
-      siguen viendo sus servicios. {enlace}
+      Puedes consultar todo, pero no crear ni cambiar nada hasta cargar una licencia vigente. Tus
+      clientes siguen viendo sus servicios. {enlace}
     </Alerta>
   );
 }
