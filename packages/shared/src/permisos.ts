@@ -51,6 +51,9 @@ export const PERMISOS = [
   'inventario.gestionar',
   // Carrito y billetera del cliente
   'billeteras.ajustar',
+  // Gestor: caja diaria
+  'caja.ver',
+  'caja.cerrar',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
@@ -100,6 +103,8 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'inventario.gestionar':
     'Subir lotes de códigos de activación, anular códigos y configurar la entrega de los proveedores',
   'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
+  'caja.ver': 'Ver la caja del día: lo cobrado por método y moneda, y los cierres anteriores',
+  'caja.cerrar': 'Cerrar la caja del día (el cierre queda guardado y no se puede editar)',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -132,6 +137,8 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'asistente.usar',
     'entregas.ver',
     'entregas.gestionar',
+    'caja.ver',
+    'caja.cerrar',
   ],
   ventas: [
     'panel.ver',

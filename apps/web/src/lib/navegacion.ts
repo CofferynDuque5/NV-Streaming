@@ -119,6 +119,7 @@ export function navegacionCuenta(
 
 export type ModuloEquipo =
   | 'cobros'
+  | 'caja'
   | 'soporte'
   | 'entregas'
   | 'revendedores'
@@ -166,6 +167,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#4f8dff',
     href: '/admin/cobros',
     permiso: 'facturas.ver',
+  },
+  {
+    clave: 'caja',
+    grupo: 'atender',
+    nombre: 'Caja diaria',
+    descripcion: 'Lo cobrado hoy por método y moneda, y el cierre de caja',
+    color: '#10b981',
+    href: '/admin/caja',
+    permiso: 'caja.ver',
   },
   {
     clave: 'soporte',

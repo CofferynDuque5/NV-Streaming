@@ -16,12 +16,14 @@ import {
   Tag,
   Users,
   UsersRound,
+  Wallet,
 } from 'lucide-react';
 import type { ModuloEquipo } from '@/lib/navegacion';
 
 /** Icono de cada módulo del equipo (menú, cuadrícula y colas del centro). */
 export const ICONOS_MODULO: Record<ModuloEquipo, LucideIcon> = {
   cobros: Landmark,
+  caja: Wallet,
   soporte: MessageCircle,
   entregas: Package,
   revendedores: Store,

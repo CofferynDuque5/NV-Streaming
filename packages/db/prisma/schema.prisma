@@ -115,6 +115,7 @@ model Usuario {
   entregasCompletadas        Entrega[]                @relation("EntregaCompletador")
   lotesSubidos               LoteCodigos[]
   codigosAnulados            CodigoInventario[]       @relation("CodigoAnulador")
+  cierresCaja                CierreCaja[]
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -1864,4 +1865,27 @@ model MovimientoBilletera {
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([facturaId])
   @@map("movimientos_billetera")
+}
+
+/// Cierre de la caja de un día (hora de Venezuela). Se calcula con los pagos,
+/// recargas y reembolsos que ya registra NV Streaming y se guarda como foto:
+/// no se edita ni se borra (lo impide un disparador). Si entra dinero después
+/// del cierre, se cierra otra vez y queda la secuencia 2, 3…
+model CierreCaja {
+  id           String   @id @default(uuid()) @db.Uuid
+  dia          DateTime @db.Date
+  secuencia    Int
+  /// Incluye lo confirmado hasta este instante.
+  hasta        DateTime @db.Timestamptz(3)
+  /// [{ moneda, metodo, monto, cantidad }]
+  totales      Json
+  movimientos  Int
+  notas        String?  @db.VarChar(500)
+  cerradoPorId String   @map("cerrado_por_id") @db.Uuid
+  creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  cerradoPor Usuario @relation(fields: [cerradoPorId], references: [id], onDelete: Restrict)
+
+  @@unique([dia, secuencia])
+  @@map("cierres_caja")
 }
