@@ -19,6 +19,7 @@ import {
   PorEstado,
   Proximos,
 } from '@/componentes/equipo/centro';
+import { EcosistemaNv } from '@/componentes/equipo/ecosistema';
 import { Modulos } from '@/componentes/equipo/modulos';
 import { leerApi } from '@/lib/api-servidor';
 import { colaEquipo, estadoModulo, pendientesPorModulo } from '@/lib/equipo';
@@ -86,6 +87,7 @@ export default async function CentroModulos() {
       <ParaAtender centro={centro} items={items} />
       {metricas && <EsteMes m={metricas} />}
       <Modulos modulos={modulos} grupos={GRUPOS_EQUIPO} />
+      <EcosistemaNv />
       {metricas && (
         <div className="grid gap-5.5 min-[68.75rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <Proximos
