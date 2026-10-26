@@ -5,12 +5,14 @@ import {
   formatearMonto,
   listarCuentasSchema,
   type PaginaCuentas,
+  type PorPagar,
   type ServicioPublico,
 } from '@nv/shared';
 import { KeyRound, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NuevaCuenta } from '@/componentes/admin/cuentas';
+import { PorPagarTarjeta } from '@/componentes/admin/por-pagar';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
@@ -82,11 +84,12 @@ export default async function Cuentas({
   );
   const filtrado = Boolean(f.busqueda || f.estado || f.servicioId || f.conLibres);
 
-  const [{ datos: cuentas }, servicios] = await Promise.all([
+  const [{ datos: cuentas }, servicios, { datos: porPagar }] = await Promise.all([
     leerApi<PaginaCuentas>(`/cuentas?${q}`),
     sesion.permisos.includes('catalogo.ver')
       ? leerApi<ServicioPublico[]>('/catalogo/servicios').then((r) => r.datos ?? [])
       : Promise.resolve([] as ServicioPublico[]),
+    leerApi<PorPagar>('/balance/por-pagar'),
   ]);
   const lista = cuentas?.elementos ?? [];
   const opcionesServicio = servicios.map((s) => ({ id: s.id, nombre: s.nombre }));
@@ -99,6 +102,8 @@ export default async function Cuentas({
         descripcion="Las cuentas que revendes, con sus perfiles. Asigna cada perfil a la suscripción de un cliente. El correo, la clave y los PIN van cifrados y solo se ven con «Ver credenciales»."
         acciones={puedeGestionar ? <NuevaCuenta servicios={opcionesServicio} /> : undefined}
       />
+
+      {porPagar && !filtrado && <PorPagarTarjeta datos={porPagar} />}
 
       <Tarjeta>
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-borde px-5 py-4 sm:px-6">

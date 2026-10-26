@@ -1,9 +1,10 @@
-import { type CuentaServicioDetalle, formatearMonto } from '@nv/shared';
+import { type CuentaServicioDetalle, formatearMonto, type PagoCuentaPublico } from '@nv/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AccionesPerfil, EditarCuenta, VerCredenciales } from '@/componentes/admin/cuentas';
+import { AnularPagoCuenta, RegistrarPagoCuenta } from '@/componentes/admin/pagos-cuenta';
 import { Volver } from '@/componentes/admin/piezas-crm';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
@@ -12,7 +13,7 @@ import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { ESTADO_CUENTA_SERVICIO, ESTADO_PERFIL } from '@/lib/estados';
-import { formatearDia, formatearFecha } from '@/lib/formato';
+import { formatearDia, formatearFecha, textoCiclo } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Cuenta de servicio' };
@@ -33,9 +34,13 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
   const puedeRevelar = sesion.permisos.includes('cuentas.revelar');
   const verClientes = sesion.permisos.includes('clientes.ver');
 
-  const r = await leerApi<CuentaServicioDetalle>(`/cuentas/${encodeURIComponent(id)}`);
+  const [r, rp] = await Promise.all([
+    leerApi<CuentaServicioDetalle>(`/cuentas/${encodeURIComponent(id)}`),
+    leerApi<PagoCuentaPublico[]>(`/cuentas/${encodeURIComponent(id)}/pagos`),
+  ]);
   if (r.estado === 404 || r.estado === 400) notFound();
   const c = r.datos;
+  const pagos = rp.datos;
   if (!c) {
     return <Alerta tono="peligro">No pudimos cargar la cuenta. Recarga la página.</Alerta>;
   }
@@ -78,7 +83,9 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
         <CabeceraTarjeta titulo="Datos de la cuenta" />
         <dl className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
           <Dato etiqueta="Plan">{c.plan ?? '—'}</Dato>
-          <Dato etiqueta="Costo mensual">{formatearMonto(c.costoUsd, 'USD')}</Dato>
+          <Dato etiqueta="Costo">
+            {formatearMonto(c.costoUsd, 'USD')} · {textoCiclo(c.cicloMeses).toLowerCase()}
+          </Dato>
           <Dato etiqueta="Próximo cobro del proveedor">
             {c.facturaEn ? formatearDia(c.facturaEn) : '—'}
           </Dato>
@@ -168,6 +175,86 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
             })}
           </Cuerpo>
         </Tabla>
+      </Tarjeta>
+
+      <Tarjeta>
+        <CabeceraTarjeta
+          titulo="Pagos al proveedor"
+          descripcion="Lo que pagaste por esta cuenta. Suma en los costos del balance."
+          accion={
+            puedeGestionar && c.estado !== 'retirada' ? <RegistrarPagoCuenta cuenta={c} /> : null
+          }
+        />
+        {!pagos ? (
+          <div className="p-5 sm:p-6">
+            <Alerta tono="peligro">No pudimos cargar los pagos. Recarga la página.</Alerta>
+          </div>
+        ) : pagos.length === 0 ? (
+          <p className="p-5 text-sm text-tinta-suave sm:p-6">Todavía no hay pagos registrados.</p>
+        ) : (
+          <Tabla minimo="44rem">
+            <Encabezados
+              columnas={[
+                'Día',
+                'Monto',
+                'Cubre',
+                'Detalle',
+                ...(puedeGestionar
+                  ? [{ texto: 'Acciones', className: 'pr-5 text-right sm:pr-6' }]
+                  : []),
+              ]}
+            />
+            <Cuerpo>
+              {pagos.map((p) => (
+                <tr key={p.id} className={p.anulacion ? 'opacity-60' : undefined}>
+                  <Celda primera>
+                    <span className="block font-medium">{formatearDia(p.pagadoEl)}</span>
+                    <span className="block text-xs text-tinta-tenue">
+                      por {p.registradoPor.nombre}
+                    </span>
+                  </Celda>
+                  <Celda>
+                    <span className={p.anulacion ? 'line-through' : undefined}>
+                      {formatearMonto(p.montoUsd, 'USD')}
+                    </span>
+                    {p.anulacion && (
+                      <span className="mt-1 block">
+                        <Insignia tono="peligro">Anulado</Insignia>
+                      </span>
+                    )}
+                  </Celda>
+                  <Celda>
+                    <span className="block text-sm">
+                      {p.facturaCubierta ? formatearDia(p.facturaCubierta) : 'Sin fecha'} →{' '}
+                      {formatearDia(p.siguienteCobro)}
+                    </span>
+                  </Celda>
+                  <Celda>
+                    <span className="block text-sm">{p.metodoPago ?? '—'}</span>
+                    {p.nota && <span className="block text-xs text-tinta-tenue">{p.nota}</span>}
+                    {p.anulacion && (
+                      <span className="block text-xs text-tinta-tenue">
+                        Anulado{p.anulacion.por ? ` por ${p.anulacion.por.nombre}` : ''}:{' '}
+                        {p.anulacion.motivo}
+                      </span>
+                    )}
+                  </Celda>
+                  {puedeGestionar && (
+                    <Celda className="pr-5 text-right sm:pr-6">
+                      {!p.anulacion && (
+                        <AnularPagoCuenta
+                          cuentaId={c.id}
+                          pagoId={p.id}
+                          revierteCobro={p.revierteCobro}
+                        />
+                      )}
+                    </Celda>
+                  )}
+                </tr>
+              ))}
+            </Cuerpo>
+          </Tabla>
+        )}
       </Tarjeta>
     </div>
   );

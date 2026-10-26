@@ -62,9 +62,9 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await expect(page.getByText('Suscripciones por estado')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toBeVisible();
 
-  // Módulos: los 17 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
-  await expect(page.getByText('17 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(17);
+  // Módulos: los 18 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
+  await expect(page.getByText('18 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(18);
   await page.getByLabel('Buscar módulo').fill('tasa');
   await expect(modulos(page)).toHaveCount(1);
   await expect(modulos(page).first()).toContainText('Monedas y cobro');
