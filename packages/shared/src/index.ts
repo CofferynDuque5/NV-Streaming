@@ -39,3 +39,4 @@ export * from './cookies.js';
 export * from './politicas.js';
 export * from './politicas-por-definir.js';
 export * from './ecosistema.js';
+export * from './lector-pedidos.js';

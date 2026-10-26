@@ -4,12 +4,12 @@ import {
   type Pagina,
   type SuscripcionPublica,
 } from '@nv/shared';
-import { CalendarClock, ChevronRight, Repeat } from 'lucide-react';
+import { CalendarClock, ChevronRight, Repeat, Wand2 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FiltroSelector, Vencimiento } from '@/componentes/admin/piezas-crm';
 import { Paginacion } from '@/componentes/panel/paginacion';
-import { Boton } from '@/componentes/ui/boton';
+import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -49,6 +49,14 @@ export default async function Suscripciones({
           sesion.usuario.rol === 'ventas'
             ? 'Los servicios contratados por los clientes de tu cartera, con su estado y vencimiento.'
             : 'Los servicios contratados por cada cliente, con su estado, vencimiento y factura pendiente.'
+        }
+        acciones={
+          sesion.permisos.includes('suscripciones.crear') && (
+            <BotonEnlace href="/admin/suscripciones/leer">
+              <Wand2 className="size-4" aria-hidden="true" />
+              Leer pedido
+            </BotonEnlace>
+          )
         }
       />
 
