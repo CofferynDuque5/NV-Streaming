@@ -5,6 +5,7 @@ import {
   ContactoSitioSeccion,
   PaginasSitio,
   PaletaSitioSeccion,
+  TemporadaSitioSeccion,
 } from '@/componentes/editor/paginas';
 import { Alerta } from '@/componentes/ui/alerta';
 import { leerApi } from '@/lib/api-servidor';
@@ -26,7 +27,7 @@ export default async function SitioYPaginas() {
         <div className="grid min-w-0 gap-1">
           <h1 className="text-[clamp(1.625rem,4.4vw,2.375rem)] break-words">Sitio y páginas</h1>
           <p className="text-tinta-suave">
-            Las páginas de la tienda, su paleta de colores y tus datos de contacto.
+            Las páginas de la tienda, su paleta de colores, la temporada y tus datos de contacto.
           </p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-borde-fuerte bg-marca/12 px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap text-[#c7d2fe]">
@@ -44,6 +45,7 @@ export default async function SitioYPaginas() {
       {tema ? (
         <>
           <PaletaSitioSeccion tema={tema} puedeCambiar={puedePublicar} />
+          <TemporadaSitioSeccion tema={tema} puedeCambiar={puedePublicar} />
           <ContactoSitioSeccion contacto={tema.contacto} puedeCambiar={puedePublicar} />
         </>
       ) : (

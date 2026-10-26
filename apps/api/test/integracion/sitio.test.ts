@@ -431,6 +431,55 @@ describe('editor visual: imágenes y tema', () => {
     const a = await ctx.prisma.auditoria.findFirst({ where: { accion: 'tema_sitio.cambiado' } });
     expect(a?.despues).toEqual({ paleta: 'esmeralda' });
   });
+
+  it('la temporada se ve hasta su fecha de fin y quitarla vuelve al diseño original', async () => {
+    const e = await escenario();
+    const publico = new Navegador(ctx.app, null);
+    await e.admin.pedir('PUT', '/sitio/tema', { paleta: 'violeta' });
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.temporada).toBeNull();
+
+    const hasta = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    const activar = { temporada: 'halloween', hasta };
+    // Operación edita borradores pero no cambia el aspecto del sitio.
+    expect((await e.operador.pedir('PUT', '/sitio/temporada', activar)).estado).toBe(403);
+    expect(
+      (await e.admin.pedir('PUT', '/sitio/temporada', { temporada: 'halloween' })).estado,
+    ).toBe(400);
+    expect(
+      (await e.admin.pedir('PUT', '/sitio/temporada', { temporada: 'navidad', hasta })).estado,
+    ).toBe(400);
+    const r = await e.admin.pedir('PUT', '/sitio/temporada', activar);
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.temporada).toEqual({ temporada: 'halloween', hasta, vigente: true });
+    // La paleta guardada no cambia: es la que vuelve al terminar.
+    expect(r.cuerpo.paleta).toBe('violeta');
+    const visto = (await publico.get('/sitio/publico/tema')).cuerpo;
+    expect(visto.temporada).toBe('halloween');
+    expect(visto.paleta).toBe('violeta');
+
+    // Pasada la fecha de fin, el público deja de verla sin que nadie haga nada.
+    await ctx.prisma.temaSitio.update({
+      where: { id: 1 },
+      data: { temporadaHasta: new Date(Date.now() - 1000) },
+    });
+    expect((await publico.get('/sitio/publico/tema')).cuerpo.temporada).toBeNull();
+    expect((await e.operador.get('/sitio/tema')).cuerpo.temporada.vigente).toBe(false);
+
+    // «Volver al diseño original» la quita del todo.
+    const q = await e.admin.pedir('PUT', '/sitio/temporada', { temporada: null });
+    expect(q.estado).toBe(200);
+    expect(q.cuerpo.temporada).toBeNull();
+    expect(q.cuerpo.paleta).toBe('violeta');
+    const acciones = await ctx.prisma.auditoria.findMany({
+      where: { accion: { startsWith: 'temporada_sitio.' } },
+      orderBy: { fecha: 'asc' },
+      select: { accion: true },
+    });
+    expect(acciones.map((x) => x.accion)).toEqual([
+      'temporada_sitio.activada',
+      'temporada_sitio.quitada',
+    ]);
+  });
 });
 
 describe('contacto del sitio y métodos de pago públicos', () => {

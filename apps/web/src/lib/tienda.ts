@@ -3,6 +3,7 @@ import {
   type CatalogoPublico,
   CONTACTO_VACIO,
   esPaletaSitio,
+  esTemporadaSitio,
   type Moneda,
   PALETA_PREDETERMINADA,
   type ResumenRevendedor,
@@ -24,6 +25,7 @@ const API = process.env.API_URL_INTERNA ?? 'http://localhost:4000';
 
 const TEMA_PREDETERMINADO: TemaSitioPublico = {
   paleta: PALETA_PREDETERMINADA,
+  temporada: null,
   contacto: CONTACTO_VACIO,
   metodosPago: [],
 };
@@ -31,7 +33,9 @@ const TEMA_PREDETERMINADO: TemaSitioPublico = {
 /**
  * Tema público del sitio: paleta, datos de contacto y métodos de cobro activos
  * (solo nombre y moneda). Si la API no responde, el sitio se ve con la paleta
- * de NV y sin datos de contacto: nunca se inventan.
+ * de NV y sin datos de contacto: nunca se inventan. La temporada llega solo
+ * mientras está vigente; al vencer, como mucho un minuto después (caché), el
+ * sitio vuelve al diseño original.
  */
 export const leerTemaPublico = cache(async (): Promise<TemaSitioPublico> => {
   try {
@@ -42,6 +46,7 @@ export const leerTemaPublico = cache(async (): Promise<TemaSitioPublico> => {
     const datos = (await r.json()) as Partial<TemaSitioPublico>;
     return {
       paleta: esPaletaSitio(datos.paleta) ? datos.paleta : PALETA_PREDETERMINADA,
+      temporada: esTemporadaSitio(datos.temporada) ? datos.temporada : null,
       contacto: { ...CONTACTO_VACIO, ...datos.contacto },
       metodosPago: Array.isArray(datos.metodosPago) ? datos.metodosPago : [],
     };

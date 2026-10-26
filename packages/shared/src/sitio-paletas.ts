@@ -140,3 +140,64 @@ export function cssPaleta(paleta: PaletaSitio, selector: string): string {
   const p: DefinicionPaleta = PALETAS_SITIO[paleta] ?? PALETAS_SITIO.nv;
   return `${selector}{${variables(p)}}`;
 }
+
+/**
+ * Temporadas: una capa encima de la paleta elegida que se apaga sola al llegar
+ * `hasta`. No cambia la paleta guardada, así que al terminar la temporada el
+ * sitio vuelve exactamente al diseño de siempre. Los logos no cambian.
+ */
+export const TEMPORADAS_SITIO = {
+  halloween: {
+    nombre: 'Halloween',
+    descripcion: 'Naranja calabaza y violeta, luna llena y murciélagos. Logos sin cambios.',
+    marca: '#ff9447',
+    marcaFuerte: '#ffb27a',
+    marcaTinta: '#1a0802',
+    acento: '#c084fc',
+    boton: ['#ffa45c', '#f97316'],
+    botonTinta: '#1a0802',
+    /** Degradados de marca (titulares, anillos y bordes): calabaza a violeta. */
+    degradado: 'linear-gradient(95deg, #fbbf24 0%, #f97316 35%, #a855f7 70%, #c084fc 100%)',
+    degradadoTexto: 'linear-gradient(95deg, #ffd08a 0%, #ff9447 35%, #c9a2ff 70%, #e0b3ff 100%)',
+    /** Nebulosa del fondo: brillos naranja, violeta y verde, y la luna. */
+    nebulosa: [
+      'radial-gradient(5% 7% at 86% 12%, rgb(255 236 200 / 0.55), rgb(255 200 140 / 0.12) 70%, transparent 72%)',
+      'radial-gradient(40% 35% at 15% 10%, rgb(249 115 22 / 0.2), transparent 70%)',
+      'radial-gradient(35% 30% at 90% 25%, rgb(147 51 234 / 0.22), transparent 70%)',
+      'radial-gradient(45% 35% at 70% 85%, rgb(234 88 12 / 0.12), transparent 70%)',
+      'radial-gradient(40% 30% at 5% 75%, rgb(74 222 128 / 0.07), transparent 70%)',
+    ],
+  },
+} as const satisfies Record<
+  string,
+  DefinicionPaleta & { degradado: string; degradadoTexto: string; nebulosa: readonly string[] }
+>;
+
+export type TemporadaSitio = keyof typeof TEMPORADAS_SITIO;
+export const IDS_TEMPORADAS = Object.keys(TEMPORADAS_SITIO) as [
+  TemporadaSitio,
+  ...TemporadaSitio[],
+];
+
+export function esTemporadaSitio(v: unknown): v is TemporadaSitio {
+  return typeof v === 'string' && Object.hasOwn(TEMPORADAS_SITIO, v);
+}
+
+/** La temporada guardada, solo si sigue vigente en `ahora` (si no, null: diseño original). */
+export function temporadaVigente(
+  t: { temporada: string | null; temporadaHasta: Date | string | null } | null | undefined,
+  ahora: Date = new Date(),
+): TemporadaSitio | null {
+  if (!t || !esTemporadaSitio(t.temporada) || !t.temporadaHasta) return null;
+  return new Date(t.temporadaHasta).getTime() > ahora.getTime() ? t.temporada : null;
+}
+
+/**
+ * Hoja de estilo de la temporada para `selector` (variables y nebulosa). Igual
+ * que `cssPaleta`, solo usa valores fijos de `TEMPORADAS_SITIO`.
+ */
+export function cssTemporada(temporada: TemporadaSitio, selector: string): string {
+  const t = TEMPORADAS_SITIO[temporada];
+  const degradados = `--nv-degradado:${t.degradado};--nv-degradado-texto:${t.degradadoTexto}`;
+  return `${selector}{${variables(t)};${degradados}}body::before{background:${t.nebulosa.join(',')}}`;
+}

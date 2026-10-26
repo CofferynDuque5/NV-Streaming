@@ -160,6 +160,8 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pagina.desarchivada': 'Página del sitio desarchivada',
   'medio.subido': 'Imagen del sitio subida',
   'tema_sitio.cambiado': 'Paleta del sitio cambiada',
+  'temporada_sitio.activada': 'Temporada del sitio activada',
+  'temporada_sitio.quitada': 'Sitio devuelto al diseño original',
 });
 
 // Automatizaciones (fase 3).

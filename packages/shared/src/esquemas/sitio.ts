@@ -1,6 +1,6 @@
 /** Esquemas del editor visual: bloques, páginas, versiones y tema (fase 2). */
 import { z } from 'zod';
-import { IDS_PALETAS } from '../sitio-paletas.js';
+import { IDS_PALETAS, IDS_TEMPORADAS } from '../sitio-paletas.js';
 import { IDS_PLANTILLAS } from '../sitio-plantillas.js';
 import { enlacesDelTexto, esEnlaceSeguro } from '../sitio-texto.js';
 import { CATEGORIAS_SERVICIO } from '../categorias.js';
@@ -519,6 +519,44 @@ export const temaSitioSchema = z.object({
   paleta: z.enum(IDS_PALETAS, { error: 'Elige una paleta.' }),
 });
 export type TemaSitioEntrada = z.infer<typeof temaSitioSchema>;
+
+/** Días máximos que puede durar una temporada, para que nunca quede puesta por olvido. */
+export const MAX_DIAS_TEMPORADA = 60;
+
+/**
+ * Activa una temporada hasta una fecha (luego el sitio vuelve solo al diseño
+ * original) o la quita ya con `temporada: null`.
+ */
+export const temporadaSitioSchema = z
+  .object({
+    temporada: z.enum(IDS_TEMPORADAS, { error: 'Elige una temporada.' }).nullable(),
+    hasta: z.iso
+      .datetime({ offset: true, error: 'Indica hasta cuándo dura la temporada.' })
+      .nullish(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.temporada === null) return;
+    const fin = v.hasta ? Date.parse(v.hasta) : Number.NaN;
+    const ahora = Date.now();
+    if (!(fin > ahora)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['hasta'],
+        message: 'La fecha de fin debe ser futura.',
+      });
+    } else if (fin - ahora > MAX_DIAS_TEMPORADA * 86_400_000) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['hasta'],
+        message: `La temporada puede durar hasta ${MAX_DIAS_TEMPORADA} días.`,
+      });
+    }
+  })
+  .transform((v) => ({
+    temporada: v.temporada,
+    hasta: v.temporada === null ? null : (v.hasta ?? null),
+  }));
+export type TemporadaSitioEntrada = z.output<typeof temporadaSitioSchema>;
 
 // ---------------------------------------------------------------------------
 // Contacto del sitio: WhatsApp, canal y redes (pie de página y botón de soporte)
