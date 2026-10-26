@@ -155,3 +155,54 @@ export interface MensajePerfil {
   /** Enlace «mailto:» si el cliente tiene correo. */
   correo: string | null;
 }
+
+// ── Verificar e importar la lista del proveedor ──────────────────────────────
+
+/**
+ * nueva: no está guardada y trae clave. sin_clave: no está y no trae clave
+ * (no se puede importar). existe: ya está en este servicio. otro_servicio:
+ * ese correo ya está guardado en otro servicio.
+ */
+export type EstadoFilaRevisada = 'nueva' | 'sin_clave' | 'existe' | 'otro_servicio';
+
+export interface CuentaEncontrada {
+  id: string;
+  pista: string;
+  servicio: Referencia;
+  estado: EstadoCuentaServicio;
+  facturaEn: string | null;
+  proveedor: string | null;
+}
+
+export interface FilaRevisada {
+  /** Posición en las filas enviadas. */
+  indice: number;
+  estado: EstadoFilaRevisada;
+  cuenta: CuentaEncontrada | null;
+  /** El archivo trae otro próximo cobro. */
+  fechaDistinta: boolean;
+  /** El archivo trae un cobro posterior al guardado (el proveedor la renovó). */
+  fechaPosterior: boolean;
+  /** La clave del archivo no es la guardada. Nunca se devuelve ninguna de las dos. */
+  claveDistinta: boolean;
+}
+
+export interface RevisionImportacion {
+  filas: FilaRevisada[];
+  /** Cuentas del servicio (y del proveedor, si se indicó) que no vienen en el archivo. */
+  noEstan: CuentaEncontrada[];
+  conteo: {
+    nuevas: number;
+    sinClave: number;
+    existen: number;
+    otroServicio: number;
+    fechaDistinta: number;
+    claveDistinta: number;
+    noEstan: number;
+  };
+}
+
+export interface ResultadoImportacion {
+  creadas: number;
+  actualizadas: number;
+}

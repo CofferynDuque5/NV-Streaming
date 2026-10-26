@@ -6,8 +6,13 @@ import { CONTROLADORES_ASISTENTE, PROVEEDORES_ASISTENTE } from './asistente/asis
 import { AuthModule } from './auth/auth.module.js';
 import { BalanceController, PagosCuentaController } from './costos/costos.controller.js';
 import { CostosService } from './costos/costos.service.js';
-import { CuentasController, MisPerfilesController } from './cuentas/cuentas.controller.js';
+import {
+  CuentasController,
+  ImportarCuentasController,
+  MisPerfilesController,
+} from './cuentas/cuentas.controller.js';
 import { CuentasService } from './cuentas/cuentas.service.js';
+import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
@@ -79,6 +84,7 @@ export class AppModule {
         FacturasController,
         PagosController,
         CuponesController,
+        ImportarCuentasController,
         CuentasController,
         MisPerfilesController,
         PagosCuentaController,
@@ -110,6 +116,7 @@ export class AppModule {
         CuponesService,
         CuentasService,
         PerfilesClienteService,
+        ImportarCuentasService,
         CostosService,
         TicketsService,
         MetricasService,
