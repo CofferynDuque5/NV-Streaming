@@ -167,6 +167,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
                         cuentaId={c.id}
                         perfil={p}
                         cuentaActiva={c.estado === 'activa'}
+                        puedeRevelar={puedeRevelar}
                       />
                     </Celda>
                   )}

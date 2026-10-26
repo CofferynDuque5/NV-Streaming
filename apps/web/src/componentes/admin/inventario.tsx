@@ -131,8 +131,9 @@ export function SubirLote({ planId }: { planId: string }) {
               className="font-mono"
             />
             <Alerta tono="info">
-              Solo códigos, tarjetas o activaciones oficiales del distribuidor. Nunca usuarios ni
-              contraseñas de cuentas: esas líneas se rechazan.
+              Solo códigos, tarjetas o activaciones oficiales del distribuidor. Las líneas con
+              usuario y contraseña se rechazan: las cuentas compartidas van en «Cuentas de
+              servicio».
             </Alerta>
             <ErrorGeneral error={error} />
             <div className="flex flex-wrap gap-2">

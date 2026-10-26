@@ -544,7 +544,7 @@ export const Plantillas = {
     const p = [
       `Hola, ${nombre}.`,
       `${cliente} pagó ${servicio} y su entrega es manual: falta que alguien del equipo la complete.`,
-      'Escribe los pasos para activar el servicio y, si corresponde, el enlace o el código oficial. Nunca se entregan usuarios ni contraseñas de cuentas.',
+      'Escribe los pasos para activar el servicio y, si corresponde, el enlace o el código oficial. Si es un perfil de una cuenta compartida, asígnalo desde «Cuentas de servicio» en lugar de escribir la clave.',
     ];
     return {
       asunto: `Entrega pendiente: ${servicio}`,

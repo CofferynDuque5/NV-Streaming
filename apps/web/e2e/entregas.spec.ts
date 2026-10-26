@@ -71,7 +71,9 @@ test('el cliente paga NV Originals, operación completa la entrega y el cliente 
     .getByLabel('Pasos para activar el servicio')
     .fill('Entra con usuario: demo@correo.com y contraseña: Clave1234');
   await cajon.getByRole('button', { name: 'Marcar como entregada' }).click();
-  await expect(cajon.getByText(/nunca entrega usuarios ni contraseñas/).last()).toBeVisible();
+  await expect(
+    cajon.getByText(/No escribas usuarios ni contraseñas en una entrega/).last(),
+  ).toBeVisible();
   await cajon
     .getByLabel('Pasos para activar el servicio')
     .fill('Abre la app NV Originals, elige «Canjear» y pega el código.');

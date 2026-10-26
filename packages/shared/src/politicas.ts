@@ -31,9 +31,9 @@ import { COOKIE_MONEDA } from './ubicacion.js';
  * por definir.
  */
 export const POLITICAS = {
-  version: '1.2',
+  version: '1.3',
   /** Fecha (AAAA-MM-DD, hora de Venezuela) desde la que rige esta versión. */
-  vigenteDesde: '2026-10-16',
+  vigenteDesde: '2026-10-25',
 } as const;
 
 export const RUTA_POLITICAS = '/politicas';
@@ -210,9 +210,9 @@ export function textoPoliticas(datos: {
     {
       tipo: 'lista',
       elementos: [
-        'Activaciones, códigos y tarjetas de regalo de **distribuidores oficiales**, y nuestro servicio propio con licencia.',
-        'Todo se activa en **tu propia cuenta** del servicio: la que ya usas o una que creas gratis en su página.',
-        'Nunca vendemos cuentas compartidas ni entregamos usuarios o contraseñas de terceros. El sistema no deja enviar una entrega que lo parezca.',
+        'Activaciones, códigos y tarjetas de regalo de **distribuidores oficiales**, nuestro servicio propio con licencia y **perfiles de cuentas que administramos**, siempre de servicios autorizados para reventa.',
+        'Según el servicio, se activa en **tu propia cuenta** (la que ya usas o una que creas gratis en su página) o te damos un **perfil** en una cuenta que administramos.',
+        'Los datos de un perfil (correo, clave y PIN) los ves en **Mis accesos** y quedan cifrados. Nunca te pediremos la contraseña de tu propia cuenta.',
       ],
     },
     { tipo: 'subtitulo', texto: 'Tu cuenta' },
@@ -414,10 +414,11 @@ export function textoPoliticas(datos: {
     {
       tipo: 'lista',
       elementos: [
-        'Cuando se confirma tu pago, preparamos la entrega. Según el proveedor llega como un **código de activación**, una **activación automática** del distribuidor o los **pasos** que completa el equipo.',
+        'Cuando se confirma tu pago, preparamos la entrega. Según el servicio llega como un **código de activación**, una **activación automática** del distribuidor, los **pasos** que completa el equipo o un **perfil en una cuenta que administra NV**.',
         'La ves en **Mis accesos**, en tu panel. Los códigos se guardan cifrados y se muestran uno por uno al tocar «Mostrar»; cada vez queda registrado.',
-        'Solo entregamos códigos, enlaces de activación oficiales o pasos para activar. **Nunca usuarios ni contraseñas.**',
-        'Tus códigos son personales: trátalos como una contraseña y no los compartas.',
+        'Si tu servicio es un perfil, en **Mis accesos** ves el correo, la clave y el PIN de tu perfil al tocar «Mostrar los datos»; el equipo también puede enviártelos por WhatsApp o correo. Se muestran solo mientras tu suscripción está vigente y cada vez queda registrado.',
+        'Los datos de un perfil son personales: úsalos solo en tu perfil y **no cambies la clave, el correo ni los otros perfiles**. Si la cuenta cambia, te damos los datos nuevos.',
+        'Tus códigos son personales: trátalos como una contraseña y no los compartas. Nunca te pediremos tu contraseña.',
         'Cuando la suscripción termina (cancelada o vencida), las activaciones automáticas del proveedor se revocan. Los códigos ya entregados quedan como están.',
         `Tiempo de entrega: ${pd('tiempoEntrega')}`,
         `Si un código no funciona: ${pd('codigoFalla')}`,
@@ -436,7 +437,7 @@ export function textoPoliticas(datos: {
         'Compras a **precio de mayorista según tu nivel** (por ejemplo Bronce, Plata u Oro). Solo ves los planes que el acuerdo con su proveedor permite revender.',
         '**Saldo prepagado en dólares**: lo recargas con un pago manual que concilia el equipo y compras al momento. El saldo nunca queda en negativo.',
         'El equipo puede fijar un **límite de compras por día** (el día se cuenta en hora de Venezuela).',
-        'Activas siempre en la **cuenta propia de tu cliente**, con las mismas reglas: nada de cuentas compartidas ni contraseñas.',
+        'Según el servicio, se activa en la **cuenta propia de tu cliente** o en un **perfil de una cuenta que administra NV**; en ese caso el equipo le envía los datos del perfil.',
         'Tú le cobras a tu cliente: NV no le emite facturas ni le hace cobros automáticos.',
         'Registra solo datos de clientes que te autorizaron a hacerlo.',
         `El equipo puede suspender tu cuenta de revendedor indicando el motivo. Mientras tanto ves tu panel, pero no recargas ni compras. ${pd('suspensionRevendedor')}`,
@@ -504,7 +505,7 @@ export function textoPoliticas(datos: {
     version: POLITICAS.version,
     vigenteDesde: POLITICAS.vigenteDesde,
     esencial: [
-      'Solo vendemos servicios **autorizados** y los activamos en **tu propia cuenta**. Nunca vendemos cuentas compartidas ni entregamos usuarios o contraseñas de terceros.',
+      'Solo vendemos servicios **autorizados**. Según el servicio, lo activamos en **tu propia cuenta** o te damos un **perfil** en una cuenta que administramos, con sus datos en Mis accesos.',
       'Los precios se fijan en dólares y los ves en tu moneda con la **tasa del día**. Al emitir tu factura, el monto queda fijado.',
       'Si pagas a mano, el equipo **revisa tu comprobante** antes de activar tu pedido. Con el saldo de tu billetera no hace falta.',
       `Si tu suscripción vence sin pago tienes **${dias(R.diasGracia)} de gracia**; después se suspende y, a los ${dias(R.diasSuspension)} suspendida, vence.`,

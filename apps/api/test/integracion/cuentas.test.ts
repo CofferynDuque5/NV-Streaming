@@ -228,4 +228,109 @@ describe('cuentas de servicio', () => {
     expect((await e.operador.n.get('/cuentas?estado=caida')).cuerpo.total).toBe(1);
     expect((await e.operador.n.get('/cuentas?conLibres=true&estado=activa')).cuerpo.total).toBe(0);
   });
+
+  it('el cliente ve los datos de su perfil solo con la suscripción vigente y el equipo arma el mensaje', async () => {
+    const e = await escenario();
+    const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    const p2 = e.cuenta.listaPerfiles[1] as { id: string };
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${p2.id}`, {
+      nombre: 'Sala',
+      pin: '2468',
+    });
+    expect(
+      (
+        await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${p2.id}/asignar`, {
+          suscripcionId,
+        })
+      ).estado,
+    ).toBe(201);
+    const ruta = `/mi/perfiles/${suscripcionId}/revelar`;
+
+    // Sin pagar: aparece, pero sin datos.
+    const lista = await e.cliente.get('/mi/perfiles');
+    expect(lista.cuerpo).toEqual([
+      expect.objectContaining({
+        suscripcionId,
+        estado: 'pendiente_pago',
+        perfil: { numero: 2, nombre: 'Sala', tienePin: true },
+        disponible: false,
+      }),
+    ]);
+    expect(JSON.stringify(lista.cuerpo)).not.toContain(CLAVE);
+    expect((await e.cliente.post(ruta)).cuerpo.error.codigo).toBe('PERFIL_NO_DISPONIBLE');
+
+    await ctx.prisma.suscripcion.update({
+      where: { id: suscripcionId },
+      data: { estado: 'activa' },
+    });
+    const r = await e.cliente.post(ruta);
+    expect(r.estado).toBe(200);
+    expect(r.cabeceras['cache-control']).toContain('no-store');
+    expect(r.cuerpo).toEqual({
+      usuario: 'Maria.Cine@Example.com',
+      clave: CLAVE,
+      perfil: 'Sala',
+      pin: '2468',
+    });
+
+    // Otro cliente no ve el perfil ajeno.
+    const otro = await conectar(ctx, 'cliente');
+    expect((await otro.n.post(ruta)).estado).toBe(404);
+    expect((await otro.n.get('/mi/perfiles')).cuerpo).toEqual([]);
+
+    // El equipo arma el mensaje; el enlace de WhatsApp solo con consentimiento.
+    const clienteId = (
+      await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: suscripcionId } })
+    ).clienteId;
+    await ctx.prisma.contactoCliente.create({
+      data: { clienteId, tipo: 'whatsapp', valor: '+58 414-000-0000' },
+    });
+    const rutaMensaje = `/cuentas/${e.cuenta.id}/perfiles/${p2.id}/mensaje`;
+    const sinPermiso = await conectar(ctx, 'ventas');
+    expect((await sinPermiso.n.post(rutaMensaje)).estado).toBe(403);
+    const m1 = await e.operador.n.post(rutaMensaje);
+    expect(m1.estado).toBe(201);
+    expect(m1.cuerpo.texto).toContain(`Clave: ${CLAVE}`);
+    expect(m1.cuerpo.texto).toContain('PIN: 2468');
+    expect(m1.cuerpo.whatsapp).toBeNull();
+    await ctx.prisma.contactoCliente.updateMany({
+      where: { clienteId },
+      data: { consentimientoEn: new Date() },
+    });
+    const m2 = await e.operador.n.post(rutaMensaje);
+    expect(m2.cuerpo.whatsapp).toMatch(/^https:\/\/wa\.me\/584140000000\?text=/);
+
+    // Cuenta caída: el cliente no ve datos viejos.
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
+    expect((await e.cliente.post(ruta)).cuerpo.error.codigo).toBe('CUENTA_EN_REVISION');
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'activa' });
+
+    // Vencida: desaparece de la lista y no se muestra.
+    await ctx.prisma.suscripcion.update({
+      where: { id: suscripcionId },
+      data: { estado: 'vencida' },
+    });
+    expect((await e.cliente.get('/mi/perfiles')).cuerpo).toEqual([]);
+    expect((await e.cliente.post(ruta)).cuerpo.error.codigo).toBe('PERFIL_NO_DISPONIBLE');
+
+    const auditoria = await ctx.prisma.auditoria.findMany({
+      where: {
+        entidadId: p2.id,
+        accion: { in: ['perfil_cuenta.visto_por_cliente', 'perfil_cuenta.mensaje_armado'] },
+      },
+    });
+    expect(auditoria).toHaveLength(3);
+    const todo = JSON.stringify(auditoria);
+    expect(todo).not.toContain(CLAVE);
+    // El PIN solo son dígitos (podría aparecer al azar en un id): se revisan las claves guardadas.
+    for (const a of auditoria) {
+      expect(Object.keys(a.despues as object).sort()).toEqual(
+        a.accion === 'perfil_cuenta.mensaje_armado'
+          ? ['conCorreo', 'conWhatsapp', 'cuentaId', 'suscripcionId']
+          : ['conPin', 'cuentaId', 'suscripcionId'],
+      );
+    }
+    expect(todo.toLowerCase()).not.toContain('maria.cine');
+  });
 });

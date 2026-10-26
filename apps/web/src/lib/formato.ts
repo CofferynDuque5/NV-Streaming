@@ -93,6 +93,8 @@ Object.assign(ACCIONES_AUDITORIA, {
   'perfil_cuenta.asignado': 'Perfil asignado',
   'perfil_cuenta.liberado': 'Perfil liberado',
   'perfil_cuenta.editado': 'Perfil editado',
+  'perfil_cuenta.visto_por_cliente': 'Datos del perfil vistos por el cliente',
+  'perfil_cuenta.mensaje_armado': 'Mensaje con datos del perfil armado',
   'cupon.creado': 'Cupón creado',
   'cupon.activado': 'Cupón activado',
   'cupon.desactivado': 'Cupón desactivado',

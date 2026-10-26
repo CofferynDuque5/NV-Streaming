@@ -2,10 +2,11 @@ import { z } from 'zod';
 import { paginacionSchema, uuidSchema } from './esquemas/comunes.js';
 
 /**
- * Entregas de servicios autorizados (fase 6). NV solo vende su servicio propio
- * con licencia y activaciones de distribuidores oficiales: se entregan códigos,
- * enlaces de activación o instrucciones. NUNCA usuarios y contraseñas de
- * cuentas de terceros: las funciones de aquí lo impiden también en la web.
+ * Entregas de servicios autorizados (fase 6): códigos, enlaces de activación o
+ * instrucciones. Las credenciales de cuentas compartidas NO van por aquí: viven
+ * cifradas en «Cuentas de servicio» y el cliente las ve en «Mis accesos». Las
+ * funciones de aquí impiden escribirlas a mano en una entrega, para que no
+ * queden en texto plano.
  */
 
 /** Cómo se entrega el servicio de un proveedor. */
@@ -35,7 +36,7 @@ export const LARGO_CODIGO = { min: 4, max: 200 } as const;
 
 /** Mensaje único cuando algo parece un usuario y una contraseña. */
 export const MENSAJE_SIN_CREDENCIALES =
-  'NV Streaming nunca entrega usuarios ni contraseñas de cuentas. Escribe solo los pasos para activar el servicio, un código o un enlace de activación oficial.';
+  'No escribas usuarios ni contraseñas en una entrega. Si es un perfil de una cuenta compartida, asígnalo en «Cuentas de servicio»: el cliente ve los datos en «Mis accesos».';
 
 // ── Detección de credenciales ────────────────────────────────────────────────
 

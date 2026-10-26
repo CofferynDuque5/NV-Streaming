@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   asignarPerfilSchema,
@@ -20,13 +31,20 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CuentasService } from './cuentas.service.js';
+import { PerfilesClienteService } from './perfiles-cliente.service.js';
 
 const idValido = validar(uuidSchema);
+
+/** Las respuestas con credenciales no se guardan en ninguna caché. */
+const SIN_CACHE = 'private, no-store, max-age=0';
 
 @ApiTags('Cuentas de servicio')
 @Controller('cuentas')
 export class CuentasController {
-  constructor(@Inject(CuentasService) private readonly cuentas: CuentasService) {}
+  constructor(
+    @Inject(CuentasService) private readonly cuentas: CuentasService,
+    @Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService,
+  ) {}
 
   /** Cuentas sin credenciales: el correo va como pista. */
   @Get()
@@ -67,6 +85,7 @@ export class CuentasController {
 
   /** Descifra correo, clave y PIN. Queda en la auditoría y tiene límite por hora. */
   @Post(':id/revelar')
+  @Header('Cache-Control', SIN_CACHE)
   @RequierePermiso('cuentas.revelar')
   revelar(
     @Auth() auth: ContextoAuth,
@@ -121,5 +140,43 @@ export class CuentasController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.cuentas.liberar(auth, id, perfilId, cliente);
+  }
+
+  /** Arma el mensaje con los datos del perfil para enviarlo a mano. Cuenta como ver credenciales. */
+  @Post(':id/perfiles/:perfilId/mensaje')
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.revelar')
+  mensaje(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.mensaje(auth, id, perfilId, cliente);
+  }
+}
+
+/** Perfiles de cuentas compartidas del cliente, en «Mis accesos». */
+@ApiTags('Autoservicio del cliente')
+@Controller('mi/perfiles')
+export class MisPerfilesController {
+  constructor(@Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService) {}
+
+  @Get()
+  @RequierePermiso('autoservicio.usar')
+  listar(@Auth() auth: ContextoAuth) {
+    return this.perfiles.mios(auth);
+  }
+
+  @Post(':suscripcionId/revelar')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('autoservicio.usar')
+  revelar(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.revelarMio(auth, suscripcionId, cliente);
   }
 }
