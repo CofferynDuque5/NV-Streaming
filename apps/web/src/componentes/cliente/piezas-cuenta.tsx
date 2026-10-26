@@ -180,7 +180,7 @@ export function Vacio({
   );
 }
 
-/** Nota de seguridad de los accesos: nunca usuarios ni contraseñas. */
+/** Nota de seguridad de los accesos: son personales y nunca pedimos contraseñas. */
 export function NotaSeguridad({ children }: { children: ReactNode }) {
   return (
     <p className="flex items-start gap-2.5 rounded-2xl border border-borde bg-[rgb(8_11_26/0.6)] px-3.5 py-3 text-[0.82rem] text-tinta-suave">

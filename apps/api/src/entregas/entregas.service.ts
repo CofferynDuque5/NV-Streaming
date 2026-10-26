@@ -454,8 +454,8 @@ export class EntregasService implements OnModuleInit {
 
   /**
    * Completa a mano una entrega pendiente o fallida: pasos para activar y, si
-   * corresponde, un enlace o un código oficial. Nunca credenciales de cuentas
-   * (el esquema lo rechaza).
+   * corresponde, un enlace o un código oficial. Nunca credenciales escritas a
+   * mano (el esquema lo rechaza): los perfiles se asignan en «Cuentas de servicio».
    */
   async completar(
     auth: ContextoAuth,

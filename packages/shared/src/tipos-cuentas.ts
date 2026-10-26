@@ -124,3 +124,34 @@ export interface BalancePeriodo {
   /** Ingreso mensual recurrente de las suscripciones activas. */
   ingresoMensualRecurrenteUsd: string;
 }
+
+/** Perfil de una cuenta compartida asignado a una suscripción del cliente («Mis accesos»). */
+export interface PerfilDelCliente {
+  suscripcionId: string;
+  servicio: Referencia;
+  plan: Referencia;
+  estado: EstadoSuscripcion;
+  venceEn: string | null;
+  perfil: { numero: number; nombre: string; tienePin: boolean };
+  /** «perfiles» o la cuenta entera. */
+  modo: ModoCuenta;
+  /** La cuenta está activa: se pueden ver los datos. Si está caída, el equipo la está revisando. */
+  disponible: boolean;
+}
+
+/** Datos para entrar al perfil. Solo los ve su dueño mientras la suscripción está vigente. */
+export interface PerfilRevelado {
+  usuario: string;
+  clave: string;
+  perfil: string;
+  pin: string | null;
+}
+
+/** Mensaje que arma el equipo para enviar a mano. Nunca se envía solo. */
+export interface MensajePerfil {
+  texto: string;
+  /** Enlace para abrir WhatsApp con el texto, si el cliente dio su WhatsApp y aceptó mensajes. */
+  whatsapp: string | null;
+  /** Enlace «mailto:» si el cliente tiene correo. */
+  correo: string | null;
+}

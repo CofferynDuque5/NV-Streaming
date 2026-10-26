@@ -1,7 +1,8 @@
-import type { AccesoServicio } from '@nv/shared';
+import type { AccesoServicio, PerfilDelCliente } from '@nv/shared';
 import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
+import { TarjetaPerfilCliente } from '@/componentes/cliente/perfil-cliente';
 import {
   CabeceraCuenta,
   fechaLarga,
@@ -27,12 +28,18 @@ function detalle(a: AccesoServicio): string {
 
 export default async function MisAccesos() {
   await requerirSesion({ roles: ['cliente'] });
-  const { datos } = await leerApi<AccesoServicio[]>('/mi/accesos');
+  const [{ datos }, { datos: perfiles }] = await Promise.all([
+    leerApi<AccesoServicio[]>('/mi/accesos'),
+    leerApi<PerfilDelCliente[]>('/mi/perfiles'),
+  ]);
   const accesos = datos ?? [];
+  const listaPerfiles = perfiles ?? [];
+  const total = accesos.length + listaPerfiles.length;
   const nota = (
     <NotaSeguridad>
-      Te damos un código o un enlace para activar el servicio en <b>tu propia cuenta</b>. Nunca te
-      enviamos usuarios ni contraseñas, y nunca te los vamos a pedir.
+      Según el servicio te damos un código o un enlace para activarlo en tu propia cuenta, o el
+      correo, la clave y el PIN de tu perfil en una cuenta que administramos. Son solo para ti: no
+      los compartas. Nunca te vamos a pedir tu contraseña.
     </NotaSeguridad>
   );
 
@@ -41,9 +48,9 @@ export default async function MisAccesos() {
       <CabeceraCuenta
         titulo="Mis accesos"
         descripcion={
-          accesos.length
-            ? 'Tus códigos y enlaces para activar cada servicio.'
-            : 'Aquí aparecen los códigos y enlaces de tus servicios cuando estén listos.'
+          total
+            ? 'Tus códigos, enlaces y perfiles de cada servicio.'
+            : 'Aquí aparecen los códigos, enlaces y perfiles de tus servicios cuando estén listos.'
         }
       />
       {!datos && (
@@ -51,7 +58,7 @@ export default async function MisAccesos() {
           Recarga la página en unos segundos.
         </Alerta>
       )}
-      {datos && accesos.length === 0 ? (
+      {datos && total === 0 ? (
         <>
           <Vacio
             icono={<Zap className="size-5" aria-hidden="true" />}
@@ -70,6 +77,20 @@ export default async function MisAccesos() {
       ) : (
         <>
           {nota}
+          {listaPerfiles.map((p) => (
+            <TarjetaPerfilCliente
+              key={p.suscripcionId}
+              perfil={p}
+              detalle={[
+                p.modo === 'completa' ? 'Cuenta completa' : p.perfil.nombre,
+                p.venceEn && p.estado !== 'pendiente_pago'
+                  ? `vence el ${fechaLarga(p.venceEn)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            />
+          ))}
           {accesos.map((a) => (
             <TarjetaAccesoCliente
               key={a.id}
