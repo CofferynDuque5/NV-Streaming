@@ -17,7 +17,9 @@ import {
   crearCuentaSchema,
   editarCuentaSchema,
   editarPerfilSchema,
+  importarCuentasSchema,
   listarCuentasSchema,
+  revisarImportacionSchema,
   uuidSchema,
 } from '@nv/shared';
 import type { z } from 'zod';
@@ -31,6 +33,7 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CuentasService } from './cuentas.service.js';
+import { ImportarCuentasService } from './importar-cuentas.service.js';
 import { PerfilesClienteService } from './perfiles-cliente.service.js';
 
 const idValido = validar(uuidSchema);
@@ -178,5 +181,37 @@ export class MisPerfilesController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.perfiles.revelarMio(auth, suscripcionId, cliente);
+  }
+}
+
+/** Lista del proveedor (TXT o CSV, leída en el navegador): revisar y luego importar. */
+@ApiTags('Cuentas de servicio')
+@Controller('cuentas/importar')
+export class ImportarCuentasController {
+  constructor(@Inject(ImportarCuentasService) private readonly importar: ImportarCuentasService) {}
+
+  /** No escribe nada: dice qué filas son nuevas, cuáles ya están y qué cambió. */
+  @Post('revisar')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(revisarImportacionSchema)
+  revisar(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(revisarImportacionSchema)) cuerpo: z.output<typeof revisarImportacionSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.importar.revisar(auth, cuerpo, cliente);
+  }
+
+  @Post()
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(importarCuentasSchema)
+  crear(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(importarCuentasSchema)) cuerpo: z.output<typeof importarCuentasSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.importar.importar(auth, cuerpo, cliente);
   }
 }

@@ -151,8 +151,43 @@ export class CuentasService {
     @Inject(LimitesService) private readonly limites: LimitesService,
   ) {}
 
-  private huella(usuario: string) {
+  /** Huella del correo o usuario: sirve para buscarlo sin descifrar. */
+  huella(usuario: string) {
     return this.cifrador.huella(normalizarUsuario(usuario), CONTEXTO_HUELLA_USUARIO);
+  }
+
+  /** Datos para crear una cuenta con sus perfiles, ya cifrados. */
+  datosNueva(
+    id: string,
+    e: Omit<CrearCuentaEntrada, 'servicioId'>,
+    servicioId: string,
+    actorId: string,
+  ): Prisma.CuentaServicioUncheckedCreateInput {
+    const perfiles = e.modo === 'completa' ? 1 : e.perfiles;
+    return {
+      id,
+      servicioId,
+      usuarioCifrado: this.cifrador.cifrar(e.usuario.trim(), contextoUsuario(id)),
+      usuarioHuella: this.huella(e.usuario),
+      pista: pistaUsuario(e.usuario),
+      claveCifrada: this.cifrador.cifrar(e.clave, contextoClave(id)),
+      modo: e.modo,
+      plan: e.plan ?? null,
+      pais: e.pais ?? null,
+      costoUsd: e.costoUsd ?? '0',
+      cicloMeses: e.cicloMeses ?? 1,
+      facturaEn: fechaODb(e.facturaEn) ?? null,
+      metodoPago: e.metodoPago ?? null,
+      proveedor: e.proveedor ?? null,
+      notas: e.notas ?? null,
+      creadoPorId: actorId,
+      perfiles: {
+        create: Array.from({ length: perfiles }, (_, i) => ({
+          numero: i + 1,
+          nombre: nombrePerfil(e.modo, i + 1),
+        })),
+      },
+    };
   }
 
   async listar(f: ListarCuentasEntrada): Promise<PaginaCuentas> {
@@ -205,30 +240,7 @@ export class CuentasService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await tx.cuentaServicio.create({
-          data: {
-            id,
-            servicioId: e.servicioId,
-            usuarioCifrado: this.cifrador.cifrar(e.usuario.trim(), contextoUsuario(id)),
-            usuarioHuella: this.huella(e.usuario),
-            pista: pistaUsuario(e.usuario),
-            claveCifrada: this.cifrador.cifrar(e.clave, contextoClave(id)),
-            modo: e.modo,
-            plan: e.plan ?? null,
-            pais: e.pais ?? null,
-            costoUsd: e.costoUsd ?? '0',
-            cicloMeses: e.cicloMeses ?? 1,
-            facturaEn: fechaODb(e.facturaEn) ?? null,
-            metodoPago: e.metodoPago ?? null,
-            proveedor: e.proveedor ?? null,
-            notas: e.notas ?? null,
-            creadoPorId: auth.usuario.id,
-            perfiles: {
-              create: Array.from({ length: perfiles }, (_, i) => ({
-                numero: i + 1,
-                nombre: nombrePerfil(e.modo, i + 1),
-              })),
-            },
-          },
+          data: this.datosNueva(id, e, e.servicioId, auth.usuario.id),
         });
         await this.auditoria.registrar(
           {
