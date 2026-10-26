@@ -36,12 +36,14 @@ const DATOS = {
   copiaBorrado: {
     tema: 'cómo pedir una copia de tus datos o borrar tu cuenta',
     donde: 'Privacidad › Lo que puedes hacer',
-    valor: null,
+    valor:
+      'Pedir una **copia de tus datos** o **borrar tu cuenta** con un ticket desde tu panel (tema «cuenta»). Respondemos en un máximo de **15 días hábiles**. Al borrar tu cuenta se eliminan tus datos personales; solo conservamos lo que la ley nos obliga a guardar (pagos, facturas y registro de seguridad) por el plazo indicado abajo.',
   },
   conservacion: {
     tema: 'plazo de conservación de tus datos, pagos y comprobantes',
     donde: 'Privacidad › Cuánto tiempo los guardamos',
-    valor: null,
+    valor:
+      'Tus datos de cuenta, **mientras tu cuenta exista**. Los pagos, comprobantes y facturas, y el registro de seguridad, **10 años** desde la operación, por las obligaciones contables y fiscales del negocio. Pasado ese plazo se borran.',
   },
   tiempoEntrega: {
     tema: 'tiempo máximo de entrega según el tipo de servicio',
@@ -68,7 +70,8 @@ const DATOS = {
   responsableDatos: {
     tema: 'persona o correo responsable de los datos y de los reclamos',
     donde: 'Contacto › Privacidad y reclamos',
-    valor: null,
+    valor:
+      '**Valeryn Rouse Duque Valladares** y **Nathan Gabriel Quevedo Morales**, dueños de NV Streaming. Mientras publicamos el correo oficial, escríbenos con un ticket desde tu panel (tema «cuenta»).',
   },
   direccion: {
     tema: 'dónde estamos',

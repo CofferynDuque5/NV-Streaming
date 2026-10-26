@@ -31,9 +31,9 @@ import { COOKIE_MONEDA } from './ubicacion.js';
  * por definir.
  */
 export const POLITICAS = {
-  version: '1.3',
+  version: '1.4',
   /** Fecha (AAAA-MM-DD, hora de Venezuela) desde la que rige esta versión. */
-  vigenteDesde: '2026-10-25',
+  vigenteDesde: '2026-10-26',
 } as const;
 
 export const RUTA_POLITICAS = '/politicas';
@@ -205,7 +205,11 @@ export function textoPoliticas(datos: {
         'Estos términos se aplican cuando usas la tienda NV Streaming, creas una cuenta o compras un servicio. Al crear tu cuenta marcas que los aceptas junto con la política de privacidad.',
     },
     { tipo: 'subtitulo', texto: 'Quién vende' },
-    { tipo: 'parrafo', texto: 'NV Streaming, de Nathan y Valeryn.' },
+    {
+      tipo: 'parrafo',
+      texto:
+        'NV Streaming es un negocio de **Valeryn Rouse Duque Valladares** y **Nathan Gabriel Quevedo Morales**, sus dueños y creadores, en Venezuela.',
+    },
     { tipo: 'subtitulo', texto: 'Qué vendemos' },
     {
       tipo: 'lista',
@@ -240,6 +244,27 @@ export function textoPoliticas(datos: {
     {
       tipo: 'parrafo',
       texto: `El equipo puede suspender una cuenta. Mientras está suspendida no puedes entrar; escribe a soporte para saber el motivo. ${pd('motivosSuspension')}`,
+    },
+    { tipo: 'subtitulo', texto: 'Propiedad intelectual' },
+    {
+      tipo: 'parrafo',
+      texto:
+        'La tienda, su diseño, sus textos, el nombre y los logos de NV Streaming son de Valeryn Rouse Duque Valladares y Nathan Gabriel Quevedo Morales, que también desarrollaron el sistema. No puedes copiarlos ni usarlos sin su permiso por escrito. Los nombres y logos de cada servicio (Netflix, Disney+ y otros) son de sus dueños y solo se usan para identificarlos.',
+    },
+    { tipo: 'subtitulo', texto: 'Responsabilidad' },
+    {
+      tipo: 'lista',
+      elementos: [
+        'Cada servicio lo presta su **proveedor oficial**. No controlamos sus caídas, sus cambios de precio ni de catálogo, ni sus reglas; si algo falla, te ayudamos a resolverlo con él.',
+        'Respondemos por entregarte lo que compraste en las condiciones de estas políticas. En ningún caso respondemos por más del monto que pagaste por el plan afectado.',
+        'Si no cumples estas reglas (por ejemplo, si cambias la clave de un perfil o compartes un código), podemos suspender tu cuenta sin devolver lo pagado.',
+      ],
+    },
+    { tipo: 'subtitulo', texto: 'Ley aplicable' },
+    {
+      tipo: 'parrafo',
+      texto:
+        'Estas políticas se rigen por las leyes de la **República Bolivariana de Venezuela**. Antes de cualquier reclamo formal, escríbenos a soporte: intentaremos resolverlo contigo de buena fe.',
     },
     { tipo: 'subtitulo', texto: 'Cambios' },
     {
