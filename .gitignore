@@ -1,28 +1,18 @@
-# Dependencias y build
 node_modules/
 dist/
-build/
-
-# Secretos y entorno (NUNCA subir)
+.next/
+.turbo/
+coverage/
+*.tsbuildinfo
 .env
-.env.local
-.env.*.local
-whatsapp-agent/.env
-# (se conservan los .env.example)
+.env.*
 !.env.example
-!**/.env.example
-
-# Datos locales / runtime
-pgdata/
-*.log
-*.pid
-
-# Sistema
+packages/db/src/generated/
+apps/web/test-results/
+apps/web/playwright-report/
+.lighthouseci/
 .DS_Store
-Thumbs.db
+apps/web/next-env.d.ts
 
-# Copia local del seed (el template versionado es seed-cms.example.json)
-whatsapp-agent/seed-cms.json
-
-# Artefactos de exportación generados por scripts/make-clean-zip.sh
-nv-streaming-*.zip
+# Comprobantes subidos en desarrollo (nunca al repositorio)
+almacen/
