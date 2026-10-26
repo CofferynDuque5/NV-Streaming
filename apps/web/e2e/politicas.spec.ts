@@ -52,13 +52,17 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   const main = page.getByRole('main');
   await expect(main.getByRole('heading', { level: 1 })).toHaveText('Políticas y términos');
   await expect(main.getByText(`Versión ${POLITICAS.version} · vigente desde`)).toBeVisible();
-  await expect(main.getByText('25 de octubre de 2026')).toBeVisible();
+  await expect(main.getByText('26 de octubre de 2026')).toBeVisible();
   const borrador = main.getByRole('note');
   await expect(borrador).toContainText(
     'Borrador: este texto debe revisarlo un abogado antes de publicarlo.',
   );
   const faltan = Object.values(POR_DEFINIR).filter((d) => d.valor === null).length;
-  await expect(borrador).toContainText(`Tiene ${faltan} puntos marcados Por definir`);
+  if (faltan > 0) {
+    await expect(borrador).toContainText(`Tiene ${faltan} puntos marcados Por definir`);
+  } else {
+    await expect(borrador).not.toContainText('Por definir');
+  }
   await expect(main.locator('[data-pd]')).toHaveCount(faltan);
 
   // Resumen y secciones numeradas, con su ancla.

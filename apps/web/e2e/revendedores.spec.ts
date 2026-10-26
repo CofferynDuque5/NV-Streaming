@@ -1,4 +1,9 @@
-import { type CatalogoMayorista, formatearMonto, type PaginaSitioDetalle } from '@nv/shared';
+import {
+  type CatalogoMayorista,
+  formatearMonto,
+  type GananciasRevendedor,
+  type PaginaSitioDetalle,
+} from '@nv/shared';
 import { expect, type Page, test } from '@playwright/test';
 import { entrarEquipo } from './ayudas';
 
@@ -251,4 +256,29 @@ test('el revendedor ve sus precios mayoristas en el sitio público; el resto, lo
   const venta = revendedor.getByRole('dialog', { name: 'Nueva venta' });
   await expect(venta.getByText(`${plan.servicio.nombre} ${plan.nombre}`).first()).toBeVisible();
   await expect(venta.getByLabel('Nombre del cliente')).toBeVisible();
+});
+
+test('cualquiera ve lo que gana un revendedor en cada nivel, sin costos', async ({ page }) => {
+  const datos = (await (
+    await page.request.get('/api/v1/sitio/publico/revendedores/ganancias')
+  ).json()) as GananciasRevendedor;
+  const plata = datos.niveles.find((n) => n.nombre === 'Plata')!;
+  const plan = datos.planes.find((p) => p.porNivel[plata.id])!;
+  const g = plan.porNivel[plata.id]!;
+  expect(Number(g.gananciaUsd)).toBeCloseTo(Number(plan.precioPublicoUsd) - Number(g.precioUsd));
+
+  await page.goto('/revendedores/ganancias');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lo que ganas como revendedor');
+  const fila = page
+    .getByRole('list', { name: 'Ganancia por plan' })
+    .getByRole('listitem')
+    .filter({ hasText: plan.servicio.nombre })
+    .filter({ hasText: plan.nombre })
+    .first();
+  const celda = fila.locator(`[data-nivel="${plata.nombre}"]`);
+  await expect(celda).toContainText(`Ganas ${usd(Number(g.gananciaUsd))}`);
+  await expect(celda).toContainText(`Pagas ${usd(Number(g.precioUsd))}`);
+  await expect(page.getByRole('main').getByText(/costo/i)).toHaveCount(0);
+  await page.getByRole('link', { name: 'Políticas › Revendedores' }).click();
+  await expect(page).toHaveURL(/\/politicas#revendedores$/);
 });

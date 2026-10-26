@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import type {
   ActualizarNivelRevendedorEntrada,
+  GananciasRevendedor,
   NivelPublico,
   NivelRevendedorEntrada,
   PrecioMayoristaEntrada,
@@ -101,6 +102,54 @@ export class NivelesService {
   }
 
   /** Planes revendibles con su precio para cada nivel. */
+  /** Lo que gana un revendedor en cada nivel, para la página pública. */
+  async ganancias(): Promise<GananciasRevendedor> {
+    const nivelActivo = { nivel: { activo: true } };
+    const [niveles, planes] = await Promise.all([
+      this.prisma.nivelRevendedor.findMany({
+        where: { activo: true },
+        select: { id: true, nombre: true, descripcion: true },
+        orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
+      }),
+      this.prisma.plan.findMany({
+        where: { ...planRevendible, visible: true, preciosMayoristas: { some: nivelActivo } },
+        include: {
+          servicio: { select: { nombre: true, slug: true } },
+          preciosMayoristas: { where: nivelActivo, select: { nivelId: true, precioUsd: true } },
+        },
+        orderBy: [{ servicio: { nombre: 'asc' } }, { orden: 'asc' }, { precioUsd: 'asc' }],
+      }),
+    ]);
+    return {
+      niveles,
+      planes: planes.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        servicio: p.servicio,
+        duracionCantidad: p.duracionCantidad,
+        duracionUnidad: p.duracionUnidad,
+        precioPublicoUsd: p.precioUsd.toFixed(2),
+        porNivel: Object.fromEntries(
+          niveles.map((n) => {
+            const m = p.preciosMayoristas.find((x) => x.nivelId === n.id);
+            if (!m) return [n.id, null];
+            const ganancia = p.precioUsd.sub(m.precioUsd);
+            return [
+              n.id,
+              {
+                precioUsd: m.precioUsd.toFixed(2),
+                gananciaUsd: ganancia.toFixed(2),
+                margen: p.precioUsd.isZero()
+                  ? 0
+                  : ganancia.div(p.precioUsd).mul(100).toDecimalPlaces(0).toNumber(),
+              },
+            ];
+          }),
+        ),
+      })),
+    };
+  }
+
   async tabla(): Promise<TablaPreciosMayoristas> {
     const [niveles, planes, bloqueados] = await Promise.all([
       this.listar(),
