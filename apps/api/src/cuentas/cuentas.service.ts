@@ -88,7 +88,8 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
     plan: c.plan,
     pais: c.pais,
     costoUsd: dec2(c.costoUsd),
-    facturaEn: c.facturaEn ? c.facturaEn.toISOString().slice(0, 10) : null,
+    cicloMeses: c.cicloMeses,
+    facturaEn: dia(c.facturaEn),
     metodoPago: c.metodoPago,
     proveedor: c.proveedor,
     perfiles: {
@@ -126,7 +127,10 @@ function detalle(c: FilaDetalle): CuentaServicioDetalle {
   };
 }
 
-const fechaODb = (d: string | null | undefined) =>
+/** «AAAA-MM-DD» de una columna DATE. */
+export const dia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+export const fechaODb = (d: string | null | undefined) =>
   d === undefined ? undefined : d === null ? null : new Date(`${d}T00:00:00Z`);
 
 const cuentaRepetida = () =>
@@ -212,6 +216,7 @@ export class CuentasService {
             plan: e.plan ?? null,
             pais: e.pais ?? null,
             costoUsd: e.costoUsd ?? '0',
+            cicloMeses: e.cicloMeses ?? 1,
             facturaEn: fechaODb(e.facturaEn) ?? null,
             metodoPago: e.metodoPago ?? null,
             proveedor: e.proveedor ?? null,
@@ -278,6 +283,7 @@ export class CuentasService {
           'plan',
           'pais',
           'costoUsd',
+          'cicloMeses',
           'metodoPago',
           'proveedor',
           'notas',

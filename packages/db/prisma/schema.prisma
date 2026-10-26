@@ -117,6 +117,8 @@ model Usuario {
   codigosAnulados            CodigoInventario[]       @relation("CodigoAnulador")
   cierresCaja                CierreCaja[]
   cuentasServicioCreadas     CuentaServicio[]
+  pagosCuentaRegistrados     PagoCuentaServicio[]     @relation("PagoCuentaRegistrador")
+  pagosCuentaAnulados        PagoCuentaServicio[]     @relation("PagoCuentaAnulador")
 
   @@index([rol, estado])
   @@map("usuarios")
@@ -1968,8 +1970,10 @@ model CuentaServicio {
   estado         EstadoCuentaServicio @default(activa)
   plan           String?              @db.VarChar(60)
   pais           String?              @db.Char(2)
-  /// Lo que cuesta la cuenta al mes, en USD.
+  /// Lo que cobra el proveedor en cada ciclo, en USD.
   costoUsd       Decimal              @default(0) @map("costo_usd") @db.Decimal(14, 2)
+  /// Cada cuántos meses cobra el proveedor (1 = mensual).
+  cicloMeses     Int                  @default(1) @map("ciclo_meses")
   /// Próximo cobro del proveedor de la cuenta.
   facturaEn      DateTime?            @map("factura_en") @db.Date
   /// «Tarjeta ···· 1234», «Binance»… Nunca el número completo.
@@ -1981,13 +1985,42 @@ model CuentaServicio {
   creadoEn       DateTime             @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn  DateTime             @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  servicio  Servicio       @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  creadoPor Usuario?       @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  servicio  Servicio             @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  creadoPor Usuario?             @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
   perfiles  PerfilCuenta[]
+  pagos     PagoCuentaServicio[]
 
   @@index([servicioId, estado])
   @@index([estado, facturaEn])
   @@map("cuentas_servicio")
+}
+
+/// Pago al proveedor de una cuenta (cuentas por pagar). No se borra: se anula con motivo.
+model PagoCuentaServicio {
+  id              String    @id @default(uuid()) @db.Uuid
+  cuentaId        String    @map("cuenta_id") @db.Uuid
+  montoUsd        Decimal   @map("monto_usd") @db.Decimal(14, 2)
+  /// Día del pago, en hora de Venezuela.
+  pagadoEl        DateTime  @map("pagado_el") @db.Date
+  /// Próximo cobro que tenía la cuenta antes del pago (para deshacerlo al anular).
+  facturaCubierta DateTime? @map("factura_cubierta") @db.Date
+  /// Próximo cobro que quedó en la cuenta con este pago.
+  siguienteCobro  DateTime  @map("siguiente_cobro") @db.Date
+  metodoPago      String?   @map("metodo_pago") @db.VarChar(60)
+  nota            String?   @db.VarChar(500)
+  registradoPorId String    @map("registrado_por_id") @db.Uuid
+  creadoEn        DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  anuladoEn       DateTime? @map("anulado_en") @db.Timestamptz(3)
+  anuladoPorId    String?   @map("anulado_por_id") @db.Uuid
+  motivoAnulacion String?   @map("motivo_anulacion") @db.VarChar(500)
+
+  cuenta        CuentaServicio @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  registradoPor Usuario        @relation("PagoCuentaRegistrador", fields: [registradoPorId], references: [id], onDelete: Restrict)
+  anuladoPor    Usuario?       @relation("PagoCuentaAnulador", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+
+  @@index([cuentaId, creadoEn(sort: Desc)])
+  @@index([pagadoEl])
+  @@map("pagos_cuenta_servicio")
 }
 
 /// Perfil (cupo) de una cuenta. Asignado ⇔ tiene suscripción.

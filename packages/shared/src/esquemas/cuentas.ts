@@ -20,6 +20,7 @@ export const ESTADOS_PERFIL = ['libre', 'asignado', 'bloqueado'] as const;
 export type EstadoPerfil = (typeof ESTADOS_PERFIL)[number];
 
 export const MAX_PERFILES_CUENTA = 20;
+export const MAX_CICLO_MESES = 12;
 
 /** Usuario o correo de la cuenta (algunos servicios usan usuario, no correo). */
 export const usuarioCuentaSchema = z
@@ -47,6 +48,11 @@ const fechaSchema = z
     return !Number.isNaN(f.getTime()) && f.toISOString().startsWith(d);
   }, 'La fecha no existe.');
 
+/** Sin números de tarjeta completos: solo los últimos dígitos. */
+const sinNumeroTarjeta = (v: string | null | undefined) =>
+  !v || !/\d{9,}/.test(v.replace(/[\s-]/g, ''));
+const MENSAJE_TARJETA = 'No guardes números de tarjeta: solo los últimos 4 dígitos.';
+
 const textoOpcional = (max: number) =>
   z
     .string()
@@ -59,15 +65,19 @@ const textoOpcional = (max: number) =>
 const camposCuenta = {
   plan: textoOpcional(60),
   pais: paisSchema.nullable().optional(),
-  /** Lo que te cuesta la cuenta al mes, en USD. */
+  /** Lo que cobra el proveedor en cada ciclo, en USD. */
   costoUsd: montoOCeroSchema.optional(),
+  /** Cada cuántos meses cobra el proveedor (1 = mensual). */
+  cicloMeses: z.coerce
+    .number({ error: 'Indica cada cuántos meses cobra el proveedor.' })
+    .int()
+    .min(1, 'Mínimo 1 mes.')
+    .max(MAX_CICLO_MESES, `Máximo ${MAX_CICLO_MESES} meses.`)
+    .optional(),
   /** Próximo cobro del proveedor de la cuenta. */
   facturaEn: fechaSchema.nullable().optional(),
   /** Cómo la pagas («Tarjeta ···· 1234», «Binance»…). Nunca el número completo. */
-  metodoPago: textoOpcional(60).refine(
-    (v) => !v || !/\d{9,}/.test(v.replace(/[\s-]/g, '')),
-    'No guardes números de tarjeta: solo los últimos 4 dígitos.',
-  ),
+  metodoPago: textoOpcional(60).refine(sinNumeroTarjeta, MENSAJE_TARJETA),
   proveedor: textoOpcional(120),
   notas: textoOpcional(1000),
 };
@@ -132,3 +142,43 @@ export const buscarAsignablesSchema = z.object({
   /** Parte del nombre del cliente. */
   busqueda: z.string().trim().max(80).optional(),
 });
+
+// ── Pagos al proveedor (cuentas por pagar) ───────────────────────────────────
+
+export const registrarPagoCuentaSchema = z.object({
+  /** Vacío: el costo de la cuenta. */
+  montoUsd: montoOCeroSchema.optional(),
+  /** Vacío: hoy (hora de Venezuela). */
+  pagadoEl: fechaSchema.optional(),
+  /** Vacío: el cobro pendiente más el ciclo de la cuenta. */
+  siguienteCobro: fechaSchema.optional(),
+  metodoPago: textoOpcional(60).refine(sinNumeroTarjeta, MENSAJE_TARJETA),
+  nota: textoOpcional(500),
+});
+export type RegistrarPagoCuentaEntrada = z.infer<typeof registrarPagoCuentaSchema>;
+
+export const anularPagoCuentaSchema = z.object({
+  motivo: z
+    .string({ error: 'Escribe el motivo.' })
+    .trim()
+    .min(3, 'Escribe el motivo.')
+    .max(500, 'Máximo 500 caracteres.'),
+});
+
+export const porPagarSchema = z.object({
+  /** Cobros que vencen en los próximos N días (los atrasados siempre salen). */
+  dias: z.coerce.number().int().min(0).max(60).default(7),
+});
+
+export const balanceSchema = z
+  .object({
+    /** Primer día incluido (hora de Venezuela). Vacío: el 1 del mes. */
+    desde: fechaSchema.optional(),
+    /** Último día incluido. Vacío: hoy. */
+    hasta: fechaSchema.optional(),
+  })
+  .refine((o) => !o.desde || !o.hasta || o.desde <= o.hasta, {
+    message: 'La fecha inicial va antes que la final.',
+    path: ['hasta'],
+  });
+export type BalanceEntrada = z.infer<typeof balanceSchema>;
