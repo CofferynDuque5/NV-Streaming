@@ -47,7 +47,7 @@ reparar_permisos_almacen || fallo "No se pudieron ajustar los permisos de los co
 if [[ -n "$(dc ps -q respaldos 2>/dev/null)" ]]; then dc up -d --no-deps --no-build respaldos; fi
 ok "Listo"
 
-if ((copia)) && [[ -n "$(dc ps -q postgres 2>/dev/null)" ]]; then
+if ((copia)) && [[ -n "$(dc ps -q respaldos 2>/dev/null)" ]]; then
   paso "Copia de seguridad previa"
   dc exec -T respaldos respaldar || fallo "La copia previa falló; no se actualiza. Revisa: bash infra/estado.sh"
 fi
@@ -58,8 +58,10 @@ dc pull --ignore-buildable --quiet
 ok "Imágenes listas"
 
 paso "Aplicando migraciones de la base de datos"
-dc up -d postgres
-esperar_sano postgres 120 || fallo "PostgreSQL no responde."
+if base_local; then
+  dc up -d postgres
+  esperar_sano postgres 120 || fallo "PostgreSQL no responde."
+fi
 dc run --rm migrar || fallo "Las migraciones fallaron: la versión anterior sigue en marcha. Revisa el mensaje de arriba."
 ok "Base de datos al día"
 

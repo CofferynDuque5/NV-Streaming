@@ -29,7 +29,9 @@ base="https://$dominio:$puerto"
 
 paso "Servicios"
 dc ps --format 'table {{.Service}}\t{{.Status}}'
-for s in postgres api trabajador web caddy respaldos; do
+servicios=(api trabajador web caddy respaldos)
+if base_local; then servicios=(postgres "${servicios[@]}"); fi
+for s in "${servicios[@]}"; do
   id="$(dc ps -q "$s" 2>/dev/null || true)"
   if [[ -z "$id" ]]; then
     mal "$s no está en marcha"
@@ -40,7 +42,7 @@ for s in postgres api trabajador web caddy respaldos; do
 done
 
 paso "Web y API (a través de Caddy, como un visitante)"
-if salud="$(curl "${curl_opts[@]}" -f "$base/api/v1/salud" 2>&1)"; then
+if salud="$(curl "${curl_opts[@]}" -f "$base/api/v1/salud?base=1" 2>&1)"; then
   ok "API: $salud"
 else
   mal "La API no responde por HTTPS: $salud"
@@ -61,7 +63,14 @@ fi
 
 paso "Trabajador (automatizaciones)"
 latido="$(psql_nv -c "SELECT COALESCE(EXTRACT(EPOCH FROM now() - max(ultimo_latido_en))::int, -1) FROM latidos_trabajador" 2>/dev/null || echo -1)"
-if [[ "$latido" =~ ^[0-9]+$ ]] && ((latido < 120)); then
+# Con BASE_AHORRO el trabajador duerme TRABAJADOR_PAUSA_MINUTOS entre latidos.
+limite_latido=120
+if [[ "$(valor BASE_AHORRO)" =~ ^(true|1)$ ]]; then
+  pausa="$(valor TRABAJADOR_PAUSA_MINUTOS)"
+  [[ "$pausa" =~ ^[0-9]+$ ]] || pausa=15
+  limite_latido=$((pausa * 60 + 120))
+fi
+if [[ "$latido" =~ ^[0-9]+$ ]] && ((latido < limite_latido)); then
   ok "Último latido hace ${latido}s"
 else
   mal "El trabajador no da señales (${latido}s). Logs: docker compose ... logs trabajador"

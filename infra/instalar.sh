@@ -131,8 +131,16 @@ else
     NV_CORREO_REMITENTE="$(preguntar 'Remitente' "NV Streaming <no-responder@$NV_DOMINIO>")"
     if [[ "$NV_SMTP_PUERTO" == "465" ]]; then NV_SMTP_SEGURO=true; fi
   fi
+  if [[ -z "${NV_BASE_HOST:-}" && -z "${NV_NO_INTERACTIVO:-}" ]] &&
+    confirmar '¿Usas una base de datos externa como Neon? (si no, va en este servidor)'; then
+    echo "  En Neon: Connect → desactiva «Connection pooling» → copia los datos de la conexión."
+    NV_BASE_HOST="$(preguntar 'Host (p. ej. ep-xxxx.sa-east-1.aws.neon.tech)')"
+    NV_BASE_NOMBRE="$(preguntar 'Base de datos' nv)"
+    NV_BASE_USUARIO="$(preguntar 'Usuario' nv)"
+    NV_BASE_CLAVE="$(preguntar_secreto 'Contraseña (no se muestra)')"
+  fi
   export NV_DOMINIO NV_CORREO_ADMIN NV_SMTP_HOST NV_SMTP_PUERTO NV_SMTP_SEGURO NV_SMTP_USUARIO \
-    NV_SMTP_CONTRASENA NV_CORREO_REMITENTE
+    NV_SMTP_CONTRASENA NV_CORREO_REMITENTE NV_BASE_HOST NV_BASE_NOMBRE NV_BASE_USUARIO NV_BASE_CLAVE
   bash "$RAIZ/infra/generar-entorno.sh" "$ENTORNO"
   echo
   aviso "IMPORTANTE: copia AHORA estas dos claves a tu gestor de contraseñas (p. ej. Bitwarden)."

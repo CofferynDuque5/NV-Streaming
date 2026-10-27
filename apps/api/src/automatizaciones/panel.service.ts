@@ -32,7 +32,7 @@ import { ConfigAutomatizacionesService, interpretar } from './configuracion.serv
 import { programaDe, proximaRanura } from './horario.js';
 import { ErrorFuenteTasa } from './tasas/fuentes.js';
 import { FuentesTasaService, TasaAutomaticaService } from './tasas/tasa-automatica.service.js';
-import { LATIDO_VIGENTE_MS } from './trabajador.service.js';
+import { latidoVigenteMs } from './ahorro.js';
 import { TRABAJO } from './trabajos.js';
 import { TrabajosService } from './trabajos.service.js';
 import type { filtroNotificacionesSchema } from '@nv/shared';
@@ -107,7 +107,9 @@ export class PanelAutomatizacionesService {
       fuentesTasa: this.fuentes.configuradas(),
       trabajador: {
         ultimoLatidoEn: iso(latido?.ultimoLatidoEn),
-        activo: Boolean(latido && Date.now() - latido.ultimoLatidoEn.getTime() < LATIDO_VIGENTE_MS),
+        activo: Boolean(
+          latido && Date.now() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
+        ),
       },
     };
   }

@@ -37,9 +37,21 @@ dc() {
   docker_cmd compose -f "$COMPOSE_ARCHIVO" --env-file "$ENTORNO" "$@"
 }
 
-# Consulta SQL en la base de producción (dentro del contenedor de PostgreSQL).
+# ¿La base es el contenedor «postgres» (perfil base-local) o una externa como Neon (BASE_HOST)?
+base_local() {
+  local host
+  host="$(valor BASE_HOST)"
+  [[ -z "$host" || "$host" == "postgres" ]]
+}
+
+# Consulta SQL en la base de producción: dentro del contenedor de PostgreSQL o, con una
+# base externa, desde el servicio de copias (ya tiene psql y los datos de conexión PG*).
 psql_nv() {
-  dc exec -T postgres psql -XAtq -U "$(valor POSTGRES_USER)" -d "$(valor POSTGRES_DB)" "$@"
+  if base_local; then
+    dc exec -T postgres psql -XAtq -U "$(valor POSTGRES_USER)" -d "$(valor POSTGRES_DB)" "$@"
+  else
+    dc exec -T respaldos psql -XAtq "$@"
+  fi
 }
 
 # Comprobantes legibles por el grupo de la API (gid 1000), que el servicio de copias también

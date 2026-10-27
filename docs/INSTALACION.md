@@ -165,12 +165,13 @@ bash infra/instalar.sh
 
 El instalador te hará unas preguntas:
 
-| Pregunta                            | Qué responder                                                                                     |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Dominio de la tienda                | `tudominio.com` (sin `https://` ni `www`)                                                         |
-| Tu correo                           | Tu correo de administración                                                                       |
-| ¿Configuras ahora el correo (SMTP)? | `s` si ya tienes los datos de Brevo o Resend ([paso 9](#9-configurar-el-correo-smtp)); si no, `n` |
-| Tu nombre para la cuenta de admin   | Como quieras que aparezca en el panel                                                             |
+| Pregunta                            | Qué responder                                                                                      |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Dominio de la tienda                | `tudominio.com` (sin `https://` ni `www`)                                                          |
+| Tu correo                           | Tu correo de administración                                                                        |
+| ¿Configuras ahora el correo (SMTP)? | `s` si ya tienes los datos de Brevo o Resend ([paso 9](#9-configurar-el-correo-smtp)); si no, `n`  |
+| ¿Usas una base de datos externa?    | `s` para Neon ([paso 6.1](#61-base-de-datos-en-neon-plan-gratis)); `n` para tenerla en el servidor |
+| Tu nombre para la cuenta de admin   | Como quieras que aparezca en el panel                                                              |
 
 Qué hace, en orden (puedes leerlo en la cabecera de `infra/instalar.sh`):
 
@@ -184,6 +185,24 @@ Qué hace, en orden (puedes leerlo en la cabecera de `infra/instalar.sh`):
 > ⚠️ **Muy importante:** a mitad de la instalación se muestran `CLAVE_CIFRADO` y `RESPALDO_CLAVE`. **Cópialas a tu gestor de contraseñas antes de seguir.** Si pierdes el servidor y no las tienes, las copias de seguridad no se pueden abrir y los datos cifrados (2FA, tokens de pagos) no se pueden leer. Mejor aún: guarda una copia completa de `.env.produccion` (`cat ~/nv-streaming/.env.produccion` y cópialo como nota segura).
 
 El instalador se puede repetir sin miedo: salta lo que ya está hecho y **nunca** regenera las claves.
+
+### 6.1 Base de datos en Neon (plan gratis)
+
+Por defecto PostgreSQL corre en el mismo servidor. Si prefieres [Neon](https://neon.com):
+
+1. En Neon, abre el proyecto **NV Streaming** (rama `produccion`, base `nv`, usuario `nv`).
+2. **Connect** → desactiva **Connection pooling**. El host debe ser el directo, sin `-pooler` (las migraciones y las copias lo necesitan).
+3. En el instalador responde `s` a «¿Usas una base de datos externa?» y escribe el host, la base, el usuario y la contraseña. La contraseña no se muestra y solo queda en `.env.produccion` del servidor: no la envíes por chat ni por correo.
+
+Con Neon el instalador deja `BASE_AHORRO=true`, y así el sistema consulta la base lo menos posible para que Neon la apague cuando nadie la usa:
+
+- El trabajador revisa recordatorios, avisos y vencimientos cada `TRABAJADOR_PAUSA_MINUTOS` (15 por defecto). **Esos avisos pueden llegar hasta 15 minutos tarde.**
+- Las compras, pagos y entregas no esperan: cada cambio hecho en la tienda despierta al trabajador al instante.
+- La comprobación de salud de Docker ya no consulta la base. Para comprobarla de verdad usa `/api/v1/salud?base=1` (lo hace `infra/estado.sh`).
+- El servidor no ejecuta PostgreSQL (el perfil `base-local` queda fuera de `COMPOSE_PROFILES`).
+- Las copias de seguridad diarias y la prueba semanal de restauración siguen igual, ahora contra Neon.
+
+> **Límite del plan gratis de Neon:** 100 CU-horas al mes por proyecto, que con la base al tamaño mínimo (0,25 CU, ya configurado) son unas 400 horas encendida, unas 13 al día; 1 GB de datos por proyecto y 5 GB de tráfico al mes. La base se apaga tras 5 minutos sin consultas. Con poco tráfico alcanza; si la tienda tiene visitas casi todo el día, las horas se pueden agotar antes de fin de mes y **la base se detiene hasta el mes siguiente** (la tienda deja de funcionar). Si pasa de 1 GB, deja de aceptar cambios. Revisa el consumo en Neon → **Billing**. Si se queda corto, la salida es Neon Launch (de pago) o volver a la base en el servidor, que es gratis.
 
 ## 7. Primer ingreso y verificación en dos pasos
 
@@ -305,6 +324,8 @@ Uptime Kuma te avisa (por Telegram, correo, etc.) si la tienda se cae o si una n
 | HTTP(s) | API (pública)       | `https://tudominio.com/api/v1/salud`       | 60 s      |
 | HTTP(s) | API (interna)       | `http://api:4000/api/v1/salud`             | 60 s      |
 | Push    | Copias de seguridad | _Heartbeat Interval_: `93600` s (26 horas) | —         |
+
+> Con la base en Neon (`BASE_AHORRO=true`), `/api/v1/salud` no consulta la base. Si quieres un monitor que sí la compruebe, usa `/api/v1/salud?base=1` con un intervalo de **6 horas o más**: cada consulta la despierta y gasta horas del plan gratis.
 
 4. Del monitor **Push**, copia la URL que muestra y **cambia el principio** por `http://uptime-kuma:3001` (la dirección interna). Queda algo como `http://uptime-kuma:3001/api/push/AbCdEf?status=up&msg=OK&ping=`. Pégala en `.env.produccion` como `RESPALDO_URL_AVISO=…` y ejecuta `bash infra/actualizar.sh`. Cada copia correcta avisa a Kuma; si una noche falla, te llega la alerta.
 5. **Settings → Notifications:** configura cómo quieres enterarte. Telegram es gratis y el más cómodo (Kuma explica cómo crear el bot).

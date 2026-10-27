@@ -8,6 +8,9 @@
 # Opcionales: NV_WEB_ORIGEN (por defecto https://NV_DOMINIO), NV_CADDY_TLS (acme),
 #   NV_SMTP_HOST, NV_SMTP_PUERTO (587), NV_SMTP_SEGURO (false), NV_SMTP_USUARIO,
 #   NV_SMTP_CONTRASENA, NV_CORREO_REMITENTE, NV_RESPALDO_DIR (/var/backups/nv-streaming).
+# Base externa (p. ej. Neon) en vez del contenedor «postgres»: NV_BASE_HOST (el host de la
+#   conexión DIRECTA, sin «-pooler»), NV_BASE_CLAVE, NV_BASE_USUARIO (nv), NV_BASE_NOMBRE (nv).
+#   Activa además BASE_AHORRO para que la base pueda apagarse cuando nadie la usa.
 # NUNCA sobrescribe un archivo existente: las claves de la base de datos y de cifrado
 # no se pueden cambiar sin perder datos.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -33,7 +36,30 @@ literal() {
   printf "'%s'" "$1"
 }
 
-pg_clave="$(openssl rand -hex 24)"
+base_host="${NV_BASE_HOST:-}"
+if [[ -n "$base_host" ]]; then
+  [[ "$base_host" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || fallo "Host de la base no válido: $base_host"
+  [[ "$base_host" != *-pooler.* ]] || fallo "Usa el host de la conexión directa (sin «-pooler»): las migraciones y las copias lo necesitan."
+  pg_usuario="${NV_BASE_USUARIO:-nv}"
+  pg_base="${NV_BASE_NOMBRE:-nv}"
+  pg_clave="${NV_BASE_CLAVE:?Falta NV_BASE_CLAVE (la contraseña de la base externa)}"
+  # Van dentro de una URL: solo caracteres que no necesitan codificarse.
+  for v in "$pg_usuario" "$pg_base" "$pg_clave"; do
+    [[ "$v" =~ ^[A-Za-z0-9._~-]+$ ]] || fallo "El usuario, la base y la contraseña solo pueden tener letras, números y . _ ~ -"
+  done
+  url_base="postgresql://$pg_usuario:$pg_clave@$base_host/$pg_base?sslmode=require"
+  perfiles=""
+  base_ahorro=true
+  base_ssl=require
+else
+  pg_usuario=nv
+  pg_base=nv
+  pg_clave="$(openssl rand -hex 24)"
+  url_base="postgresql://nv:$pg_clave@postgres:5432/nv"
+  perfiles="base-local"
+  base_ahorro=false
+  base_ssl=prefer
+fi
 umask 077
 cat >"$destino" <<EOF
 # ─────────────────────────────────────────────────────────────────────────────
@@ -54,11 +80,19 @@ WEB_ORIGEN=$web_origen
 # Vacía = WEB_ORIGEN (Caddy envía /api a la API). URL de los webhooks de las pasarelas.
 API_URL_PUBLICA=
 
-# ── Base de datos (PostgreSQL en el contenedor «postgres», no expuesto) ────
-POSTGRES_USER=nv
-POSTGRES_DB=nv
+# ── Base de datos ───────────────────────────────────────────────────────────
+# BASE_HOST vacío = PostgreSQL en el contenedor «postgres» (perfil base-local, no expuesto).
+# Con un host externo (p. ej. Neon) quita «base-local» de COMPOSE_PROFILES.
+BASE_HOST=$base_host
+BASE_SSL=$base_ssl
+POSTGRES_USER=$pg_usuario
+POSTGRES_DB=$pg_base
 POSTGRES_PASSWORD=$pg_clave
-DATABASE_URL=postgresql://nv:$pg_clave@postgres:5432/nv
+DATABASE_URL=$url_base
+# true con una base que se apaga sola sin uso (Neon gratis): el trabajador duerme entre
+# vueltas y los avisos programados pueden llegar hasta TRABAJADOR_PAUSA_MINUTOS tarde.
+BASE_AHORRO=$base_ahorro
+TRABAJADOR_PAUSA_MINUTOS=15
 
 # ── Seguridad ───────────────────────────────────────────────────────────────
 # Clave AES-256 de los datos cifrados (2FA, tokens de pasarelas). NO la cambies nunca.
@@ -104,8 +138,9 @@ MERCADOPAGO_MONEDA=
 
 # ── Asistente de IA (opcional; ver docs/INSTALACION.md) ─────────────────────
 ASISTENTE_SANDBOX_HABILITADO=false
-# Motor local: pon COMPOSE_PROFILES=ia y OLLAMA_URL=http://ollama:11434
-COMPOSE_PROFILES=
+# Motor local: añade «ia» a COMPOSE_PROFILES (separado por comas) y pon
+# OLLAMA_URL=http://ollama:11434. «base-local» es el PostgreSQL del servidor.
+COMPOSE_PROFILES=$perfiles
 OLLAMA_URL=
 OLLAMA_MODELO=qwen2.5:7b-instruct
 # Cloudflare corta las respuestas a los 100 s: no subas de 90.

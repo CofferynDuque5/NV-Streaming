@@ -225,6 +225,17 @@ jobs:
           echo "$prueba"
           grep -Eq 'Comprobantes en la copia +2$' <<<"$prueba"
           bash infra/estado.sh --breve || true
+      - name: Modo ahorro de la base (Neon gratis)
+        run: |
+          set -euo pipefail
+          dc() { docker compose -f docker-compose.prod.yml --env-file .env.produccion "$@"; }
+          sed -i 's/^BASE_AHORRO=.*/BASE_AHORRO=true/' .env.produccion
+          dc up -d --no-build --wait --wait-timeout 240 api trabajador
+          curl -fsSk https://localhost/api/v1/salud | grep -q '"ok"'
+          curl -fsSk 'https://localhost/api/v1/salud?base=1' | grep -q '"ok"'
+          # La API despierta al trabajador por la red interna.
+          dc exec -T api node -e "fetch('http://trabajador:4100/despertar', { method: 'POST' }).then(r => process.exit(r.status === 204 ? 0 : 1), () => process.exit(1))"
+          bash infra/estado.sh --breve || true
       - name: Logs si algo falló
         if: failure()
         run: docker compose -f docker-compose.prod.yml --env-file .env.produccion logs --tail=200
