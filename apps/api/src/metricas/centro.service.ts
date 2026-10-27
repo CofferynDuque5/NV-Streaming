@@ -11,7 +11,7 @@ import {
 import { AsistenteService } from '../asistente/asistente.service.js';
 import { ConfigAutomatizacionesService } from '../automatizaciones/configuracion.service.js';
 import { PanelAutomatizacionesService } from '../automatizaciones/panel.service.js';
-import { LATIDO_VIGENTE_MS } from '../automatizaciones/trabajador.service.js';
+import { latidoVigenteMs } from '../automatizaciones/ahorro.js';
 import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth } from '../comun/contexto.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
@@ -164,7 +164,7 @@ export class CentroService {
     });
     const trabajador = {
       activo: Boolean(
-        latido && ahora.getTime() - latido.ultimoLatidoEn.getTime() < LATIDO_VIGENTE_MS,
+        latido && ahora.getTime() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
       ),
       ultimoLatidoEn: latido?.ultimoLatidoEn.toISOString() ?? null,
     };

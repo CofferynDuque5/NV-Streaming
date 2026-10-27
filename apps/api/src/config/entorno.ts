@@ -93,6 +93,22 @@ const EntornoSchema = z
     VENCIMIENTOS_EN_API: booleano.default(false),
     /** Cada cuántos segundos el trabajador busca trabajos pendientes cuando la cola está vacía. */
     TRABAJADOR_ESPERA_SEGUNDOS: z.coerce.number().int().min(1).max(300).default(5),
+    /**
+     * Base de datos que se apaga sola cuando nadie la usa (p. ej. Neon gratis). El
+     * trabajador duerme TRABAJADOR_PAUSA_MINUTOS entre vueltas y la comprobación de salud
+     * no consulta la base, para que pueda apagarse. Los avisos programados pueden llegar
+     * con ese retraso; lo que hace la API (compras, pagos) despierta al trabajador.
+     */
+    BASE_AHORRO: booleano.default(false),
+    TRABAJADOR_PAUSA_MINUTOS: z.coerce.number().int().min(5).max(60).default(15),
+    /** Puerto interno del trabajador para «despertar» y su comprobación de salud (solo con BASE_AHORRO). */
+    TRABAJADOR_PUERTO: z.coerce.number().int().min(1024).max(65535).default(4100),
+    /** Dirección interna del trabajador; la API lo avisa cuando hay trabajo nuevo. Vacía = no avisa. */
+    TRABAJADOR_URL_INTERNA: z
+      .string()
+      .trim()
+      .regex(/^(https?:\/\/[^\s/]+)?$/, 'TRABAJADOR_URL_INTERNA es como http://trabajador:4100.')
+      .default(''),
     /** WhatsApp: "desactivado", "sandbox" (solo registra) o "cloud_api" (WhatsApp Cloud API de Meta). */
     WHATSAPP_PROVEEDOR: z.enum(['desactivado', 'sandbox', 'cloud_api']).default('desactivado'),
     WHATSAPP_TOKEN: z.string().trim().default(''),
@@ -249,6 +265,14 @@ const EntornoSchema = z
     ASISTENTE_SANDBOX_HABILITADO: e.ASISTENTE_SANDBOX_HABILITADO ?? e.NODE_ENV !== 'production',
   }))
   .superRefine((e, ctx) => {
+    if (e.BASE_AHORRO && e.ENTREGAS_EN_API) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENTREGAS_EN_API'],
+        message:
+          'Con BASE_AHORRO la API no puede revisar las entregas cada 2 segundos: la base nunca se apagaría.',
+      });
+    }
     if (e.NODE_ENV !== 'production') return;
     if (e.PASARELA_SANDBOX_HABILITADA) {
       ctx.addIssue({

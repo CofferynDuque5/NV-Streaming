@@ -9,6 +9,7 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { MEDIO_MAX_MB } from '@nv/shared';
 import { AppModule } from './app.module.js';
+import { crearDespertador } from './automatizaciones/ahorro.js';
 import type { Entorno } from './config/entorno.js';
 import { instalarCuerpoCrudo } from './pagos-en-linea/cuerpo-crudo.js';
 
@@ -65,6 +66,20 @@ export async function crearAplicacion(entorno: Entorno, opciones: { registros?: 
       void respuesta.header('x-request-id', peticion.id);
       if (!respuesta.hasHeader('cache-control')) void respuesta.header('cache-control', 'no-store');
     });
+
+  // Con BASE_AHORRO el trabajador duerme entre vueltas: cada cambio que salió bien lo
+  // despierta para que las entregas y los avisos que dejó en cola salgan enseguida.
+  if (entorno.BASE_AHORRO && entorno.TRABAJADOR_URL_INTERNA) {
+    const despertar = crearDespertador(entorno.TRABAJADOR_URL_INTERNA);
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .addHook('onResponse', async (peticion, respuesta) => {
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(peticion.method) && respuesta.statusCode < 400) {
+          despertar();
+        }
+      });
+  }
 
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();

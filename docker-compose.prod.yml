@@ -8,6 +8,9 @@
 #
 # Solo Caddy publica puertos (80 y 443). PostgreSQL, la API y la web quedan en la red
 # interna de Docker. Uptime Kuma escucha solo en 127.0.0.1 (se abre con un túnel SSH).
+#
+# Base de datos: el servicio «postgres» (perfil «base-local», el de siempre) o una base
+# externa como Neon (BASE_HOST en .env.produccion, sin el perfil). Ver docs/INSTALACION.md.
 # ─────────────────────────────────────────────────────────────────────────────
 name: nv
 
@@ -32,6 +35,7 @@ x-entorno-app: &entorno-app
 services:
   postgres:
     image: postgres:16-alpine
+    profiles: ['base-local']
     <<: *registros
     restart: unless-stopped
     environment:
@@ -81,7 +85,7 @@ services:
     <<: [*registros, *entorno-app]
     restart: 'no'
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres: { condition: service_healthy, required: false }
     deploy:
       resources:
         limits: { cpus: '1', memory: 512m }
@@ -96,7 +100,7 @@ services:
     restart: unless-stopped
     init: true
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres: { condition: service_healthy, required: false }
       migrar: { condition: service_completed_successfully }
     volumes:
       - almacen:/datos/almacen
@@ -106,6 +110,8 @@ services:
       ALMACEN_DIR: /datos/almacen
       NO_COLOR: '1'
       NODE_OPTIONS: --max-old-space-size=768
+      # Solo se usa con BASE_AHORRO: la API despierta al trabajador cuando hay trabajo nuevo.
+      TRABAJADOR_URL_INTERNA: http://trabajador:${TRABAJADOR_PUERTO:-4100}
     deploy:
       resources:
         limits: { cpus: '2', memory: 1g }
@@ -128,7 +134,8 @@ services:
       NO_COLOR: '1'
       NODE_OPTIONS: --max-old-space-size=512
     healthcheck:
-      # Sano si dejó su latido en la base en los últimos 2 minutos.
+      # Sano si dejó su latido en la base en los últimos 2 minutos (con BASE_AHORRO se lo
+      # pregunta al propio trabajador, sin despertar la base).
       test: ['CMD', 'node', 'salud-trabajador.mjs']
       interval: 60s
       timeout: 15s
@@ -217,12 +224,15 @@ services:
     # guarda legibles solo para su grupo.
     group_add: ['1000']
     depends_on:
-      postgres: { condition: service_healthy }
+      postgres: { condition: service_healthy, required: false }
     env_file:
       - path: .env.produccion
         required: true
     environment:
-      PGHOST: postgres
+      # La base local («postgres») o la externa (BASE_HOST, p. ej. Neon, siempre con TLS).
+      PGHOST: ${BASE_HOST:-postgres}
+      PGPORT: ${BASE_PUERTO:-5432}
+      PGSSLMODE: ${BASE_SSL:-prefer}
       PGUSER: ${POSTGRES_USER:-nv}
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: ${POSTGRES_DB:-nv}
