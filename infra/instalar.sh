@@ -93,7 +93,11 @@ fi
 paso "Revisando la memoria"
 ram_mb="$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)"
 swap_mb="$(awk '/SwapTotal/{print int($2/1024)}' /proc/meminfo)"
-if ((ram_mb < 8000 && swap_mb < 1000)); then
+# En contenedores (LXC/Proxmox) SwapTotal puede marcar 0 aunque /swapfile ya
+# esté activo: si ya está en uso no se vuelve a crear (fallocate fallaría).
+if grep -q '^/swapfile ' /proc/swaps; then
+  ok "El swap /swapfile ya está activo (RAM: ${ram_mb} MB)"
+elif ((ram_mb < 8000 && swap_mb < 1000)); then
   "${SUDO[@]}" fallocate -l 4G /swapfile
   "${SUDO[@]}" chmod 600 /swapfile
   "${SUDO[@]}" mkswap /swapfile >/dev/null
