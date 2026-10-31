@@ -42,6 +42,10 @@ const config: NextConfig = {
     // Las reescrituras a /api cortan a los 30 s por defecto; el asistente con el modelo
     // local puede tardar hasta un par de minutos en contestar.
     proxyTimeout: 150_000,
+    // En contenedores (LXC/Proxmox) Next.js ve los núcleos del equipo anfitrión (p. ej.
+    // 87) y lanza un proceso por cada uno al «Collecting page data»: en un VPS de 6 GB la
+    // memoria se agota y la compilación se queda congelada. Con 2 basta y no se atasca.
+    ...(autonomo ? { cpus: Number(process.env.WEB_COMPILAR_NUCLEOS) || 2 } : {}),
   },
   // La web y la API comparten origen: el navegador llama a /api y Next.js lo reenvía.
   // Así la cookie de sesión es de primera parte y no hace falta CORS.
