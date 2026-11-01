@@ -54,7 +54,11 @@ fi
 
 paso "Compilando las imágenes nuevas (la tienda sigue funcionando)"
 dc build --pull
-dc pull --ignore-buildable --quiet
+# Solo las imágenes de terceros (Caddy, Uptime Kuma…): «trabajador» usa la imagen
+# de la API compilada aquí mismo y no tiene «build», así que --ignore-buildable no
+# la salta y Docker intentaba descargarla de Docker Hub (pull access denied).
+mapfile -t externos < <(dc config --services | grep -vx trabajador)
+dc pull --ignore-buildable --quiet "${externos[@]}"
 ok "Imágenes listas"
 
 paso "Aplicando migraciones de la base de datos"
