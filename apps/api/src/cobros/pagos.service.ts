@@ -64,7 +64,7 @@ export class PagosService {
       ...(filtro.estado ? { estado: filtro.estado } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.pago.count({ where }),
       this.prisma.pago.findMany({
         where,

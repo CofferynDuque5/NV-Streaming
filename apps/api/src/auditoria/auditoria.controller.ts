@@ -20,11 +20,20 @@ export class AuditoriaController {
     @Query(validar(listarAuditoriaSchema)) filtro: z.output<typeof listarAuditoriaSchema>,
   ): Promise<Pagina<RegistroAuditoria>> {
     const where: Prisma.AuditoriaWhereInput = {
-      ...(filtro.accion ? { accion: { startsWith: filtro.accion } } : {}),
+      // Uno o varios prefijos separados por comas («pagina.,tema_sitio.»).
+      ...(filtro.accion
+        ? {
+            OR: filtro.accion
+              .split(',')
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((p) => ({ accion: { startsWith: p } })),
+          }
+        : {}),
       ...(filtro.entidad ? { entidad: filtro.entidad } : {}),
       ...(filtro.actorId ? { actorId: filtro.actorId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.auditoria.count({ where }),
       this.prisma.auditoria.findMany({
         where,

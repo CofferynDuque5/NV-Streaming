@@ -114,7 +114,7 @@ export class CobrosAutomaticosService implements OnModuleInit {
       factura: { cliente: alcanceClientes(auth) },
       ...(filtro.estado ? { estado: filtro.estado } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.cobroAutomatico.count({ where }),
       this.prisma.cobroAutomatico.findMany({
         where,

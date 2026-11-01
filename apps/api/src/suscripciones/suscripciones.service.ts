@@ -77,7 +77,7 @@ export class SuscripcionesService {
           }
         : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.suscripcion.count({ where }),
       this.prisma.suscripcion.findMany({
         where,

@@ -217,7 +217,7 @@ export class PedidosService {
   ): Promise<Pagina<PedidoPublico>> {
     const c = await this.clientes.deUsuario(auth.usuario);
     const where = { clienteId: c.id };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.pedido.count({ where }),
       this.prisma.pedido.findMany({
         where,

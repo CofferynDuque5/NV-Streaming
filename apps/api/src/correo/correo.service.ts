@@ -12,6 +12,14 @@ export function correoSinConfigurar(
   return entorno.CORREO_PROVEEDOR === 'smtp' && entorno.SMTP_HOST.trim() === '';
 }
 
+/** Estado que muestran todas las pantallas: un solo chequeo para el aviso, el centro y automatizaciones. */
+export function estadoCorreo(
+  entorno: Pick<Entorno, 'CORREO_PROVEEDOR' | 'SMTP_HOST'>,
+): 'listo' | 'sin_configurar' | 'pruebas' {
+  if (entorno.CORREO_PROVEEDOR === 'sandbox') return 'pruebas';
+  return correoSinConfigurar(entorno) ? 'sin_configurar' : 'listo';
+}
+
 /**
  * Envía correos transaccionales. Con `CORREO_PROVEEDOR=sandbox` no sale nada:
  * el correo se guarda en `correos_salientes` y se muestra en consola.

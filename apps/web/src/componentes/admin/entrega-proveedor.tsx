@@ -7,6 +7,7 @@ import {
   type PruebaWebhook,
   type SecretoRotado,
   TIEMPO_LIMITE_WEBHOOK,
+  ZONA_HORARIA,
 } from '@nv/shared';
 import { Check, Copy, KeyRound, Send, TriangleAlert } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
@@ -184,7 +185,7 @@ export function ClaveFirma({
     <div className="grid gap-3">
       <p className="text-sm text-tinta-suave">
         {tieneSecreto
-          ? `Hay una clave activa${rotadoEn ? ` desde el ${new Date(rotadoEn).toLocaleDateString('es-VE')}` : ''}. Solo se mostró al generarla.`
+          ? `Hay una clave activa${rotadoEn ? ` desde el ${new Date(rotadoEn).toLocaleDateString('es-VE', { timeZone: ZONA_HORARIA })}` : ''}. Solo se mostró al generarla.`
           : 'Todavía no hay clave: genera una y entrégasela al proveedor por un canal seguro.'}
       </p>
       {secreto && (

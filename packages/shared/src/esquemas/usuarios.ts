@@ -28,7 +28,7 @@ export const cambiarEstadoSchema = z.object({
 });
 
 export const listarAuditoriaSchema = paginacionSchema.extend({
-  accion: z.string().trim().max(80).optional(),
+  accion: z.string().trim().max(300).optional(),
   entidad: z.string().trim().max(80).optional(),
   actorId: z.uuid().optional(),
 });

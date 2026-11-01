@@ -147,7 +147,7 @@ export class AccionesAsistenteService {
       ...(todas ? {} : { solicitadaPorId: auth.usuario.id }),
       ...(filtro.estado ? { estado: filtro.estado } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.accionPropuesta.count({ where }),
       this.prisma.accionPropuesta.findMany({
         where,

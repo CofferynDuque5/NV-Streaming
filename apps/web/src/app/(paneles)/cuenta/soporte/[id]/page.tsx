@@ -1,4 +1,4 @@
-import type { TicketDetalle } from '@nv/shared';
+import { type TicketDetalle, ZONA_HORARIA } from '@nv/shared';
 import clsx from 'clsx';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -24,6 +24,7 @@ const cuando = new Intl.DateTimeFormat('es', {
   month: 'short',
   hour: 'numeric',
   minute: '2-digit',
+  timeZone: ZONA_HORARIA,
 });
 
 export default async function Solicitud({ params }: { params: Promise<{ id: string }> }) {

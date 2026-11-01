@@ -82,7 +82,7 @@ describe('centro de módulos del equipo', () => {
     for (const v of [...Object.values(a.colas), ...Object.values(a.modulos)]) {
       expect(v).not.toBeNull();
     }
-    expect(a.sistema.canales).toEqual({ correo: 'sandbox', whatsapp: 'sin_configurar' });
+    expect(a.sistema.canales).toEqual({ correo: 'pruebas', whatsapp: 'sin_configurar' });
     expect(a.sistema.asistente).not.toBeNull();
     expect(a.tasasFaltantes).not.toContain('VES');
     // De las pasarelas solo si están configuradas y su modo: nunca claves ni direcciones.

@@ -36,7 +36,7 @@ export class FacturasService {
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
       ...(filtro.vencidas ? { estado: 'emitida', venceEn: { lt: new Date() } } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.factura.count({ where }),
       this.prisma.factura.findMany({
         where,

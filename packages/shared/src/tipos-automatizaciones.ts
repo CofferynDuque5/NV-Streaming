@@ -38,8 +38,15 @@ export interface AutomatizacionResumen extends Pick<
   actualizadoEn: string;
 }
 
+/** Estado real del correo: listo (SMTP con servidor), sin servidor o en modo de pruebas. */
+export type EstadoCorreo = 'listo' | 'sin_configurar' | 'pruebas';
+
 export interface EstadoCanales {
-  correo: { proveedor: 'sandbox' | 'smtp' };
+  /**
+   * `sin_configurar`: está en SMTP pero sin servidor (SMTP_HOST vacío), así que no sale
+   * ningún correo. Todas las pantallas leen este mismo estado.
+   */
+  correo: { proveedor: 'sandbox' | 'smtp'; estado: EstadoCorreo };
   whatsapp: {
     proveedor: 'desactivado' | 'sandbox' | 'cloud_api';
     /** Tiene las credenciales que necesita su proveedor. */

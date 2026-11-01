@@ -13,7 +13,7 @@ import { InvitarPersona } from '@/componentes/panel/equipo';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntrada, clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
@@ -97,7 +97,7 @@ export default async function Equipo({
             id="filtro-rol"
             name="rol"
             defaultValue={f.rol ?? ''}
-            className={`${clasesEntrada} w-auto`}
+            className={clasesEntradaAuto}
           >
             <option value="">Todos los roles</option>
             {ROLES.map((r) => (
@@ -113,7 +113,7 @@ export default async function Equipo({
             id="filtro-estado"
             name="estado"
             defaultValue={f.estado ?? ''}
-            className={`${clasesEntrada} w-auto`}
+            className={clasesEntradaAuto}
           >
             <option value="">Todos los estados</option>
             {ESTADOS_USUARIO.map((e) => (

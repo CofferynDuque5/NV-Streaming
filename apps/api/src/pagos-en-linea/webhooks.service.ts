@@ -178,7 +178,7 @@ export class WebhooksService implements OnModuleInit {
       ...(filtro.pasarela ? { pasarela: filtro.pasarela } : {}),
       ...(filtro.estado ? { estado: filtro.estado } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.eventoPasarela.count({ where }),
       this.prisma.eventoPasarela.findMany({
         where,

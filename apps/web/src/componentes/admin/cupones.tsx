@@ -7,13 +7,16 @@ import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { Casilla, Selector } from '@/componentes/ui/selector';
-import { formatearDuracion } from '@/lib/formato';
+import { formatearDuracion, formatearFecha } from '@/lib/formato';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
-/** Fecha de un `<input type="date">` al inicio o al final de ese día, en hora local. */
+/**
+ * Fecha de un `<input type="date">` al inicio o al final de ese día en hora de Venezuela
+ * (UTC−4, sin horario de verano), sin depender de la zona del navegador.
+ */
 function fechaLocal(valor: string | undefined, finDelDia: boolean): string | undefined {
   if (!valor) return undefined;
-  const d = new Date(`${valor}T${finDelDia ? '23:59:59' : '00:00:00'}`);
+  const d = new Date(`${valor}T${finDelDia ? '23:59:59' : '00:00:00'}-04:00`);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
 }
 
@@ -21,7 +24,7 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
   const [abierto, setAbierto] = useState(false);
   const [codigo, setCodigo] = useState('');
   const [tipo, setTipo] = useState<TipoCupon>('porcentaje');
-  const [creado, setCreado] = useState<string | null>(null);
+  const [creado, setCreado] = useState<{ codigo: string; desde: string | null } | null>(null);
   const { cargando, error, campos, ejecutar } = useAccion();
 
   // Planes agrupados por servicio para las casillas.
@@ -46,7 +49,11 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
       planIds: d.getAll('planIds').map(String),
     });
     if (r) {
-      setCreado(codigo.trim());
+      const desde = fechaLocal(textoDe(d, 'validoDesde'), false) ?? null;
+      setCreado({
+        codigo: codigo.trim(),
+        desde: desde && new Date(desde).getTime() > Date.now() ? desde : null,
+      });
       setCodigo('');
       formulario.reset();
       setTipo('porcentaje');
@@ -84,7 +91,10 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
             name="codigo"
             required
             value={codigo}
-            onChange={(e) => setCodigo(e.currentTarget.value.toUpperCase().replace(/\s/g, ''))}
+            onChange={(e) => {
+              setCodigo(e.currentTarget.value.toUpperCase().replace(/\s/g, ''));
+              setCreado(null);
+            }}
             placeholder="BIENVENIDA10"
             maxLength={40}
             autoComplete="off"
@@ -194,7 +204,10 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
         <ErrorGeneral error={error} />
         {creado && !error && (
           <Alerta tono="exito">
-            Cupón <span className="font-mono">{creado}</span> creado y activo.
+            Cupón <span className="font-mono">{creado.codigo}</span> creado.{' '}
+            {creado.desde
+              ? `Queda programado: empieza a valer el ${formatearFecha(creado.desde)}.`
+              : 'Ya se puede usar.'}
           </Alerta>
         )}
         <div className="flex flex-wrap gap-2">
@@ -202,7 +215,7 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
             Crear cupón
           </Boton>
           <Boton variante="fantasma" onClick={() => setAbierto(false)}>
-            Cerrar
+            Cancelar
           </Boton>
         </div>
       </form>

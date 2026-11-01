@@ -35,7 +35,7 @@ export function Campo({
     .join(' ');
 
   return (
-    <div className={clsx('grid gap-1.5', className)}>
+    <div className={clsx('grid content-start gap-1.5', className)}>
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="text-sm font-semibold text-tinta">
           {etiqueta}

@@ -513,9 +513,11 @@ export function EstadoSistema({ centro }: { centro: CentroEquipo }) {
           ],
     );
     filas.push(
-      s.canales.correo === 'smtp'
-        ? ['Correo', 'Listo para enviar', 'ok']
-        : ['Correo', 'Modo de pruebas: no sale', 'aviso'],
+      s.canales.correo === 'listo'
+        ? ['Correo', 'Servidor SMTP configurado', 'ok']
+        : s.canales.correo === 'sin_configurar'
+          ? ['Correo', 'Sin servidor SMTP: no sale ningún correo', 'mal']
+          : ['Correo', 'Modo de pruebas: no sale', 'aviso'],
     );
     filas.push(
       s.canales.whatsapp === 'listo'

@@ -17,7 +17,7 @@ import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntrada, clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
@@ -167,7 +167,7 @@ export default async function Cuentas({
                 id="filtro-servicio"
                 name="servicioId"
                 defaultValue={f.servicioId ?? ''}
-                className={`${clasesEntrada} w-auto`}
+                className={clasesEntradaAuto}
               >
                 <option value="">Todos los servicios</option>
                 {opcionesServicio.map((s) => (
@@ -185,7 +185,7 @@ export default async function Cuentas({
             id="filtro-estado"
             name="estado"
             defaultValue={f.estado ?? ''}
-            className={`${clasesEntrada} w-auto`}
+            className={clasesEntradaAuto}
           >
             <option value="">Todos los estados</option>
             {ESTADOS_CUENTA_SERVICIO.map((e) => (

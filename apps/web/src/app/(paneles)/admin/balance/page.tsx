@@ -69,6 +69,10 @@ function Cifra({
 const plural = (n: number, uno: string, varios: string) =>
   n === 1 ? `1 ${uno}` : `${n} ${varios}`;
 
+/** Monto que se resta, con el signo solo si no es cero (nada de «− $0.00»). */
+const restado = (usd: string | number) =>
+  Number(usd) === 0 ? formatearMonto('0', 'USD') : `− ${formatearMonto(usd, 'USD')}`;
+
 export default async function Balance({
   searchParams,
 }: {
@@ -166,7 +170,7 @@ export default async function Balance({
           <Tarjeta>
             <CabeceraTarjeta
               titulo={`Del ${formatearDia(b.desde)} al ${formatearDia(b.hasta)}`}
-              descripcion="Ventas: facturas con pago confirmado (como en Métricas) y compras de revendedores. Las recargas de saldo cuentan cuando se gastan."
+              descripcion="Ventas: facturas con pago confirmado y compras de revendedores. Las recargas de saldo cuentan cuando se gastan."
             />
             <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
               <Cifra
@@ -179,10 +183,10 @@ export default async function Balance({
                 valor={formatearMonto(b.ventasRevendedoresUsd, 'USD')}
                 detalle={plural(b.comprasRevendedores, 'compra', 'compras')}
               />
-              <Cifra titulo="Reembolsos" valor={`− ${formatearMonto(b.reembolsosUsd, 'USD')}`} />
+              <Cifra titulo="Reembolsos" valor={restado(b.reembolsosUsd)} />
               <Cifra
                 titulo="Costo de las cuentas"
-                valor={`− ${formatearMonto(b.costosProveedorUsd, 'USD')}`}
+                valor={restado(b.costosProveedorUsd)}
                 detalle={plural(b.pagosProveedor, 'pago al proveedor', 'pagos al proveedor')}
               />
               <Cifra

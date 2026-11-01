@@ -1,5 +1,11 @@
-const fechaHora = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' });
-const fecha = new Intl.DateTimeFormat('es', { dateStyle: 'medium' });
+import { ZONA_HORARIA } from '@nv/shared';
+
+const fechaHora = new Intl.DateTimeFormat('es', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: ZONA_HORARIA,
+});
+const fecha = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeZone: ZONA_HORARIA });
 const relativo = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
 
 export const formatearFechaHora = (iso: string) => fechaHora.format(new Date(iso));
@@ -27,6 +33,8 @@ export const ACCIONES_AUDITORIA: Record<string, string> = {
   'usuario.correo_verificado': 'Correo confirmado',
   'usuario.invitado': 'Persona invitada',
   'usuario.invitacion_reenviada': 'Invitación reenviada',
+  'usuario.invitacion_reenviada_instalador': 'Invitación reenviada desde el servidor',
+  'usuario.creado_instalador': 'Administración creada desde el servidor',
   'usuario.invitacion_aceptada': 'Invitación aceptada',
   'usuario.rol_cambiado': 'Rol cambiado',
   'usuario.suspendido': 'Cuenta suspendida',
