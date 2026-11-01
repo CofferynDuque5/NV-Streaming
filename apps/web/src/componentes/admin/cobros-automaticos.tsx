@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, Fila, Tabla } from '@/componentes/ui/tabla';
@@ -65,7 +65,7 @@ export async function TablaCobrosAutomaticos({
           id="filtro-cobro-estado"
           name="estado"
           defaultValue={filtro.estado ?? ''}
-          className={`${clasesEntrada} w-auto`}
+          className={clasesEntradaAuto}
         >
           <option value="">Todos los estados</option>
           {ESTADOS_COBRO_AUTOMATICO.map((e) => (

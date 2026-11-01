@@ -87,7 +87,7 @@ export class TicketsService {
       ...(f.asignacion === 'mios' ? { asignadoAId: auth.usuario.id } : {}),
       ...(f.asignacion === 'sin_asignar' ? { asignadoAId: null } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.ticket.count({ where }),
       this.prisma.ticket.findMany({
         where,

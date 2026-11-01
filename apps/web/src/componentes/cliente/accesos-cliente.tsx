@@ -1,6 +1,6 @@
 'use client';
 
-import type { AccesoRevelado, AccesoServicio } from '@nv/shared';
+import { type AccesoRevelado, type AccesoServicio, ZONA_HORARIA } from '@nv/shared';
 import clsx from 'clsx';
 import { ExternalLink, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,11 @@ const TONO: Record<AccesoServicio['estado'], TonoEstado> = {
   anulada: 'neutro',
 };
 
-const larga = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' });
+const larga = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: ZONA_HORARIA,
+});
 
 /** Pasos de activación: una lista si vienen en varias líneas. */
 function Instrucciones({ texto, titulo }: { texto: string; titulo: string }) {

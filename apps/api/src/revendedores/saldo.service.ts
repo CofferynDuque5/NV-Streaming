@@ -396,7 +396,7 @@ export class SaldoService {
       ...(filtro.estado ? { estado: filtro.estado } : {}),
       ...(filtro.revendedorId ? { revendedorId: filtro.revendedorId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.recargaSaldo.count({ where }),
       this.prisma.recargaSaldo.findMany({
         where,
@@ -421,7 +421,7 @@ export class SaldoService {
     equipo: boolean,
   ): Promise<Pagina<MovimientoSaldoPublico>> {
     const where = { revendedorId, ...(filtro.tipo ? { tipo: filtro.tipo } : {}) };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.movimientoSaldo.count({ where }),
       this.prisma.movimientoSaldo.findMany({
         where,

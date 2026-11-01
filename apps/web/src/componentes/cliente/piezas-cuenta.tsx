@@ -6,6 +6,7 @@ import {
   type EstadoFactura,
   type EstadoSuscripcion,
   type EstadoTicket,
+  ZONA_HORARIA,
 } from '@nv/shared';
 import clsx from 'clsx';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
@@ -271,8 +272,16 @@ export const ESTADO_SOLICITUD: Record<EstadoTicket, [string, TonoEstado]> = {
 };
 
 /** Fecha corta («3 oct.») y larga («3 de octubre»). Se forman en el servidor. */
-const corta = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
-const larga = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' });
+const corta = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: ZONA_HORARIA,
+});
+const larga = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: ZONA_HORARIA,
+});
 export const fechaCorta = (iso: string) => corta.format(new Date(iso));
 export const fechaLarga = (iso: string) => larga.format(new Date(iso));
 

@@ -5,6 +5,7 @@ import type { InfoCliente } from '../comun/contexto.js';
 import { sha256, tokenAleatorio } from '../comun/cripto.js';
 import type { Entorno } from '../config/entorno.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
+import { versionDatos } from '../comun/version-datos.js';
 
 export interface SesionValidada {
   sesion: Sesion;
@@ -26,8 +27,21 @@ export function pasoPendiente(
 /** Actualizar la última actividad como mucho una vez por minuto. */
 const INTERVALO_ACTIVIDAD_MS = 60_000;
 
+/**
+ * Cuánto se reutiliza una sesión ya leída. Cada petición del panel la comprobaba en la
+ * base (un viaje de ida y vuelta a Neon); se reutiliza solo si en este proceso no hubo
+ * ningún cambio desde entonces (cerrar sesión, suspender, cambiar rol o contraseña
+ * pasan todos por la API y la invalidan al momento). Ver comun/version-datos.ts.
+ */
+const SESION_VIGENCIA_MS = 10_000;
+
 @Injectable()
 export class SesionesService {
+  private readonly validadas = new Map<
+    string,
+    { version: number; vence: number; sesion: Sesion & { usuario: Usuario } }
+  >();
+
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(ENTORNO) private readonly entorno: Entorno,
@@ -54,10 +68,27 @@ export class SesionesService {
   }
 
   async validar(token: string): Promise<SesionValidada | null> {
-    const sesion = await this.prisma.sesion.findUnique({
-      where: { tokenHash: sha256(token) },
-      include: { usuario: true },
-    });
+    const tokenHash = sha256(token);
+    const version = versionDatos();
+    const guardada = this.validadas.get(tokenHash);
+    const ahoraMs = Date.now();
+    let sesion: (Sesion & { usuario: Usuario }) | null;
+    let reciente = false;
+    if (guardada && guardada.version === version && guardada.vence > ahoraMs) {
+      sesion = guardada.sesion;
+      reciente = true;
+    } else {
+      sesion = await this.prisma.sesion.findUnique({
+        where: { tokenHash },
+        include: { usuario: true },
+      });
+      if (sesion && versionDatos() === version) {
+        if (this.validadas.size > 2000) this.validadas.clear();
+        this.validadas.set(tokenHash, { version, vence: ahoraMs + SESION_VIGENCIA_MS, sesion });
+      } else {
+        this.validadas.delete(tokenHash);
+      }
+    }
     if (!sesion || sesion.revocadaEn) return null;
     const ahora = Date.now();
     const limiteInactividad = this.entorno.SESION_INACTIVIDAD_MINUTOS * 60_000;
@@ -65,7 +96,7 @@ export class SesionesService {
     if (sesion.ultimaActividadEn.getTime() + limiteInactividad <= ahora) return null;
     if (sesion.usuario.estado !== 'activo') return null;
 
-    if (ahora - sesion.ultimaActividadEn.getTime() > INTERVALO_ACTIVIDAD_MS) {
+    if (!reciente && ahora - sesion.ultimaActividadEn.getTime() > INTERVALO_ACTIVIDAD_MS) {
       await this.prisma.sesion.update({
         where: { id: sesion.id },
         data: { ultimaActividadEn: new Date(ahora) },

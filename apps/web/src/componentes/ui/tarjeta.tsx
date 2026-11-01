@@ -5,7 +5,7 @@ export function Tarjeta({ className, ...resto }: ComponentProps<'section'>) {
   return (
     <section
       className={clsx(
-        'rounded-nv border border-borde bg-[linear-gradient(180deg,rgb(15_21_48/0.85),rgb(10_14_32/0.92))] shadow-nv',
+        'min-w-0 rounded-nv border border-borde bg-[linear-gradient(180deg,rgb(15_21_48/0.85),rgb(10_14_32/0.92))] shadow-nv',
         className,
       )}
       {...resto}

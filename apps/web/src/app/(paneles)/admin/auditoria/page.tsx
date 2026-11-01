@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
@@ -19,6 +19,20 @@ const GRUPOS = [
   ['usuario.', 'Usuarios'],
   ['contrasena.', 'Contraseñas'],
   ['dos_pasos.', 'Verificación en dos pasos'],
+  ['cliente.', 'Clientes'],
+  ['suscripcion.,cuenta_servicio.,perfil_cuenta.', 'Suscripciones y cuentas'],
+  [
+    'pago.,pago_en_linea.,factura.,recarga.,reembolso.,cobro_automatico.,evento_pasarela.,caja.',
+    'Pagos y cobros',
+  ],
+  ['cupon.', 'Cupones'],
+  ['catalogo.,proveedor.,servicio.,plan.,inventario.', 'Catálogo e inventario'],
+  ['entrega.', 'Entregas'],
+  ['revendedor.,nivel_revendedor.,precio_mayorista.,compra_revendedor.', 'Revendedores'],
+  ['ticket.', 'Soporte'],
+  ['tasa.,metodo_cobro.,metodo_autorizado.', 'Monedas y métodos de cobro'],
+  ['pagina.,medio.,tema_sitio.,temporada_sitio.', 'Sitio y páginas'],
+  ['automatizacion.,aviso.', 'Automatizaciones y avisos'],
 ] as const;
 
 function actorDe(e: RegistroAuditoria) {
@@ -64,7 +78,7 @@ export default async function Auditoria({
             id="accion"
             name="accion"
             defaultValue={f.accion ?? ''}
-            className={`${clasesEntrada} w-auto`}
+            className={clasesEntradaAuto}
           >
             {GRUPOS.map(([v, t]) => (
               <option key={v} value={v}>

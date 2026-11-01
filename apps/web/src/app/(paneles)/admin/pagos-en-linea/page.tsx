@@ -17,7 +17,7 @@ import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, Fila, Tabla } from '@/componentes/ui/tabla';
@@ -235,7 +235,7 @@ async function Eventos({ crudo }: { crudo: Crudo }) {
           id="filtro-pasarela"
           name="pasarela"
           defaultValue={filtro.pasarela ?? ''}
-          className={`${clasesEntrada} w-auto`}
+          className={clasesEntradaAuto}
         >
           <option value="">Todas las pasarelas</option>
           {PASARELAS.map((p) => (
@@ -251,7 +251,7 @@ async function Eventos({ crudo }: { crudo: Crudo }) {
           id="filtro-evento-estado"
           name="estado"
           defaultValue={filtro.estado ?? ''}
-          className={`${clasesEntrada} w-auto`}
+          className={clasesEntradaAuto}
         >
           <option value="">Todos los estados</option>
           {ESTADOS_EVENTO_PASARELA.map((e) => (

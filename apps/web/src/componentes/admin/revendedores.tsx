@@ -471,8 +471,12 @@ function CamposNivel({
         <Campo
           etiqueta="Orden"
           name="orden"
-          inputMode="numeric"
+          type="number"
+          min={0}
+          max={999}
+          step={1}
           defaultValue={nivel?.orden ?? 0}
+          ayuda="Menor aparece antes."
           error={campos.orden}
         />
       </div>

@@ -79,6 +79,54 @@ export default async function Catalogo() {
         ))}
       </dl>
 
+      {planes.length === 0 && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Cómo poner a la venta lo que ofreces"
+            descripcion="Son tres pasos, en este orden. Cada uno se habilita al terminar el anterior."
+          />
+          <ol className="grid gap-px bg-borde sm:grid-cols-3">
+            {(
+              [
+                [
+                  'Proveedor',
+                  'Quién te da el servicio. Si lo gestionas tú, crea uno «Propio» con el nombre de tu negocio.',
+                  proveedores.length > 0,
+                ],
+                [
+                  'Servicio',
+                  'Lo que vendes, por ejemplo «Netflix» o «Disney+». Elige su proveedor y su categoría.',
+                  servicios.length > 0,
+                ],
+                [
+                  'Plan',
+                  'Cada opción con su precio en USD, por ejemplo «1 pantalla · 1 mes». Usa «Nuevo plan».',
+                  false,
+                ],
+              ] as const
+            ).map(([titulo, texto, hecho], i) => (
+              <li key={titulo} className="grid content-start gap-1 bg-superficie px-5 py-4 sm:px-6">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <span
+                    className={
+                      hecho
+                        ? 'grid size-6 place-items-center rounded-full bg-exito/15 text-xs text-exito'
+                        : 'grid size-6 place-items-center rounded-full bg-hundida text-xs text-tinta-suave'
+                    }
+                    aria-hidden="true"
+                  >
+                    {hecho ? '✓' : i + 1}
+                  </span>
+                  {titulo}
+                  {hecho && <span className="sr-only">(listo)</span>}
+                </span>
+                <p className="text-sm text-tinta-suave">{texto}</p>
+              </li>
+            ))}
+          </ol>
+        </Tarjeta>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
         <Tarjeta>
           <CabeceraTarjeta

@@ -40,7 +40,10 @@ export function CuerpoMarco({
         {!completa && lado}
         <main
           id="contenido"
-          className={clsx('grid min-w-0 content-start', completa ? 'gap-3.5' : 'gap-5.5')}
+          className={clsx(
+            'grid min-w-0 grid-cols-[minmax(0,1fr)] content-start',
+            completa ? 'gap-3.5' : 'gap-5.5',
+          )}
         >
           {children}
         </main>

@@ -63,7 +63,7 @@ export class CuponesService {
         { OR: [{ usosMaximos: null }, { usos: { lt: this.prisma.cupon.fields.usosMaximos } }] },
       ],
     };
-    const [total, vigentes, filas] = await this.prisma.$transaction([
+    const [total, vigentes, filas] = await Promise.all([
       this.prisma.cupon.count({ where }),
       this.prisma.cupon.count({ where: vigente }),
       this.prisma.cupon.findMany({

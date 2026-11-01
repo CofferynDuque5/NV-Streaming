@@ -695,7 +695,7 @@ describe('panel de automatizaciones', () => {
     );
     expect(gracia.proximaEjecucionEn).toBeNull();
     expect(panel.cuerpo.canales).toEqual({
-      correo: { proveedor: 'sandbox' },
+      correo: { proveedor: 'sandbox', estado: 'pruebas' },
       whatsapp: { proveedor: 'sandbox', listo: true },
       fuentesTasa: { bcv: true, json: false },
       trabajador: { ultimoLatidoEn: null, activo: false },

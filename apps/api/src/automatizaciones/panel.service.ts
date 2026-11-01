@@ -25,7 +25,7 @@ import { ErrorApp } from '../comun/errores.js';
 import { iso } from '../comun/formato.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
-import { CorreoService } from '../correo/correo.service.js';
+import { CorreoService, estadoCorreo } from '../correo/correo.service.js';
 import { Plantillas } from '../correo/plantillas.js';
 import { LimitesService } from '../limites/limites.service.js';
 import { ConfigAutomatizacionesService, interpretar } from './configuracion.service.js';
@@ -102,7 +102,10 @@ export class PanelAutomatizacionesService {
       orderBy: { ultimoLatidoEn: 'desc' },
     });
     return {
-      correo: { proveedor: this.entorno.CORREO_PROVEEDOR },
+      correo: {
+        proveedor: this.entorno.CORREO_PROVEEDOR,
+        estado: estadoCorreo(this.entorno),
+      },
       whatsapp: { proveedor: this.whatsapp.proveedor, listo: this.whatsapp.listo },
       fuentesTasa: this.fuentes.configuradas(),
       trabajador: {
@@ -258,7 +261,7 @@ export class PanelAutomatizacionesService {
 
   async ejecuciones(tipo: TipoAutomatizacion, pagina: number): Promise<Pagina<EjecucionResumen>> {
     const where = { tipo };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.ejecucionAutomatizacion.count({ where }),
       this.prisma.ejecucionAutomatizacion.findMany({
         where,
@@ -284,7 +287,7 @@ export class PanelAutomatizacionesService {
       ...(f.automatizacion ? { automatizacion: f.automatizacion } : {}),
       ...(f.clienteId ? { clienteId: f.clienteId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.notificacion.count({ where }),
       this.prisma.notificacion.findMany({
         where,

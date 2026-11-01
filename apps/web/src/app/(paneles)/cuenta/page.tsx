@@ -7,6 +7,7 @@ import {
   type ResumenCliente,
   type SuscripcionPublica,
   type TicketResumen,
+  ZONA_HORARIA,
 } from '@nv/shared';
 import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -27,8 +28,16 @@ import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Mis servicios' };
 
-const corta = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
-const larga = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'long' });
+const corta = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: ZONA_HORARIA,
+});
+const larga = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: ZONA_HORARIA,
+});
 const fCorta = (iso: string) => corta.format(new Date(iso));
 const fLarga = (iso: string) => larga.format(new Date(iso));
 const dias = (n: number) => `${n} ${n === 1 ? 'día' : 'días'}`;

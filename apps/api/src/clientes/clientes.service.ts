@@ -57,7 +57,7 @@ export class ClientesService {
           : {},
       ],
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.cliente.count({ where }),
       this.prisma.cliente.findMany({
         where,

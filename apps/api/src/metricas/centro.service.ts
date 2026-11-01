@@ -20,6 +20,10 @@ import { correoSinConfigurar } from '../correo/correo.service.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { InventarioService } from '../entregas/inventario.service.js';
 import { RegistroPasarelas } from '../pagos-en-linea/registro.service.js';
+import { versionDatos } from '../comun/version-datos.js';
+
+/** Cuánto vale un centro ya calculado si no hubo cambios (ver `centro`). */
+const CENTRO_VIGENCIA_MS = 15_000;
 
 const TICKETS_ABIERTOS = ['abierto', 'en_progreso', 'esperando_cliente'] as const;
 
@@ -43,7 +47,35 @@ export class CentroService {
     @Inject(ENTORNO) private readonly entorno: Entorno,
   ) {}
 
+  /** Último centro calculado por persona, mientras no cambie nada y por pocos segundos. */
+  private readonly guardados = new Map<
+    string,
+    { version: number; vence: number; valor: CentroEquipo }
+  >();
+
+  /**
+   * El marco del panel pide el centro en cada página para sus insignias. Calcularlo
+   * son unas 20 consultas: con la base lejos (Neon) eso sumaba más de un segundo a
+   * cada clic. Se reutiliza el de hace menos de CENTRO_VIGENCIA_MS si desde entonces
+   * no hubo ningún cambio en este proceso (lo que hace el trabajador aparece al vencer).
+   */
   async centro(auth: ContextoAuth, ahora = new Date()): Promise<CentroEquipo> {
+    const clave = `${auth.usuario.id}:${auth.usuario.rol}`;
+    const version = versionDatos();
+    const guardado = this.guardados.get(clave);
+    if (guardado && guardado.version === version && guardado.vence > ahora.getTime()) {
+      return guardado.valor;
+    }
+    const valor = await this.calcular(auth, ahora);
+    // Solo se guarda si nada cambió mientras se calculaba.
+    if (versionDatos() === version) {
+      if (this.guardados.size > 200) this.guardados.clear();
+      this.guardados.set(clave, { version, vence: ahora.getTime() + CENTRO_VIGENCIA_MS, valor });
+    }
+    return valor;
+  }
+
+  private async calcular(auth: ContextoAuth, ahora: Date): Promise<CentroEquipo> {
     const puede = (p: Permiso) => tienePermiso(auth.usuario.rol, p);
     /** La consulta solo si tiene el permiso; si no, null sin tocar la base. */
     const si = <T>(p: Permiso, consulta: () => Promise<T>): Promise<T | null> =>
@@ -68,6 +100,7 @@ export class CentroService {
       canales,
       asistente,
       tasasFaltantes,
+      latido,
     ] = await Promise.all([
       si('pagos.gestionar', () => this.prisma.pago.count({ where: { estado: 'en_revision' } })),
       si('pagos.gestionar', () =>
@@ -156,12 +189,10 @@ export class CentroService {
       si('automatizaciones.ver', () => this.panel.estadoCanales()),
       si('asistente.usar', () => this.asistente.estado(auth)),
       si('finanzas.configurar', () => this.tasas.faltantes()),
+      // El trabajador lo ve todo el equipo: si se detiene, nadie recibe sus avisos.
+      this.prisma.latidoTrabajador.findFirst({ orderBy: { ultimoLatidoEn: 'desc' } }),
     ]);
 
-    // El trabajador lo ve todo el equipo: si se detiene, nadie recibe sus avisos.
-    const latido = await this.prisma.latidoTrabajador.findFirst({
-      orderBy: { ultimoLatidoEn: 'desc' },
-    });
     const trabajador = {
       activo: Boolean(
         latido && ahora.getTime() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
@@ -195,7 +226,7 @@ export class CentroService {
       sistema: {
         canales: canales
           ? {
-              correo: canales.correo.proveedor,
+              correo: canales.correo.estado,
               whatsapp:
                 canales.whatsapp.proveedor === 'sandbox'
                   ? 'pruebas'

@@ -14,7 +14,7 @@ import { CerrarCaja } from '@/componentes/admin/caja';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
-import { clasesEntrada } from '@/componentes/ui/clases';
+import { clasesEntradaAuto } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
@@ -80,6 +80,10 @@ export default async function Caja({
   const dia = diaCajaSchema.safeParse(crudo).success ? crudo : undefined;
   const { datos: caja, estado } = await leerApi<CajaDia>(dia ? `/caja?dia=${dia}` : '/caja');
 
+  // Hoy en Venezuela (AAAA-MM-DD): no se puede pedir la caja de un día que no ha llegado.
+  const hoyCaracas = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(
+    new Date(),
+  );
   const ultimo = caja?.cierres.at(-1);
   const puedeCerrarAhora = puedeCerrar && caja && (!ultimo || caja.movimientosDespuesDelCierre > 0);
   const titulo = caja ? diaLargo.format(new Date(`${caja.dia}T12:00:00Z`)) : '';
@@ -107,8 +111,9 @@ export default async function Caja({
             id="dia"
             name="dia"
             type="date"
-            defaultValue={caja?.dia}
-            className={`${clasesEntrada} w-auto`}
+            defaultValue={caja?.dia ?? dia ?? hoyCaracas}
+            max={hoyCaracas}
+            className={clasesEntradaAuto}
           />
         </label>
         <Boton type="submit" variante="secundario" icono={<CalendarDays className="size-4" />}>

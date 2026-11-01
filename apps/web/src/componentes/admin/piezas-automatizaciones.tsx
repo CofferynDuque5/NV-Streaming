@@ -141,12 +141,26 @@ export function FranjaEstado({ canales }: { canales: EstadoCanales }) {
         <CeldaEstado
           icono={Mail}
           titulo="Correo"
-          estado={correo.proveedor === 'smtp' ? 'SMTP' : 'Sandbox'}
-          tono={correo.proveedor === 'smtp' ? 'exito' : 'aviso'}
+          estado={
+            correo.estado === 'listo'
+              ? 'SMTP'
+              : correo.estado === 'sin_configurar'
+                ? 'Sin servidor'
+                : 'Sandbox'
+          }
+          tono={
+            correo.estado === 'listo'
+              ? 'exito'
+              : correo.estado === 'sin_configurar'
+                ? 'peligro'
+                : 'aviso'
+          }
         >
-          {correo.proveedor === 'smtp'
-            ? 'Los correos se envían de verdad por el servidor SMTP.'
-            : 'Modo de pruebas: los correos no salen, solo quedan en el registro de avisos.'}
+          {correo.estado === 'listo'
+            ? 'Hay un servidor SMTP configurado. Para confirmar que de verdad salen, manda un aviso de prueba por correo en Avisos.'
+            : correo.estado === 'sin_configurar'
+              ? 'No sale ningún correo: falta el servidor SMTP (SMTP_HOST) en .env.produccion.'
+              : 'Modo de pruebas: los correos no salen, solo quedan en el registro de avisos.'}
         </CeldaEstado>
         <CeldaEstado
           icono={MessageCircle}

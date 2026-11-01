@@ -129,7 +129,7 @@ export class RevendedoresService {
           }
         : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.revendedor.count({ where }),
       this.prisma.revendedor.findMany({
         where,

@@ -15,6 +15,7 @@ import {
   type RecargaPublica,
   type TipoMovimientoBilletera,
   type TipoMovimientoSaldo,
+  ZONA_HORARIA,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -120,7 +121,11 @@ const ID_ACCION = 'recarga-accion';
 const COLORES_METODO = ['#4f8dff', '#22d3ee', '#10b981', '#a855f7', '#f59e0b'];
 
 const usd = (v: string | number) => formatearMonto(Number(v).toFixed(2), 'USD');
-const fechaCorta = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
+const fechaCorta = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: ZONA_HORARIA,
+});
 
 /** Fecha corta; el servidor y el navegador pueden estar en otra zona horaria. */
 function Fecha({ iso }: { iso: string }) {

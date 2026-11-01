@@ -1,3 +1,4 @@
+import type { EstadoCorreo } from './tipos-automatizaciones.js';
 import type { MonedaConTasa } from './monedas.js';
 import type { Pasarela } from './pagos-en-linea.js';
 
@@ -63,7 +64,7 @@ export interface CentroEquipo {
     /** Canales de aviso (automatizaciones.ver). */
     canales: {
       /** `smtp`: envía de verdad; `sandbox`: los guarda sin enviarlos. */
-      correo: 'smtp' | 'sandbox';
+      correo: EstadoCorreo;
       whatsapp: 'listo' | 'pruebas' | 'sin_configurar';
     } | null;
     /** Asistente de IA de quien consulta (asistente.usar). */

@@ -13,7 +13,7 @@ import {
 } from '@nv/shared';
 import { Calculator, PencilLine, Plus, ReceiptText, Send, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ComponentProps, type FormEvent, type ReactNode, useId, useState } from 'react';
+import { type ComponentProps, type FormEvent, type ReactNode, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -41,31 +41,25 @@ function ErrorGeneral({ error }: { error: ErrorLlamada | null }) {
 
 /* ───────────────────────────── Campos reutilizados ───────────────────────────── */
 
+/**
+ * País como lista con nombres: antes era un campo de 2 letras y al escribir
+ * «Venezuela» se cortaba en silencio a «VE». Se guarda el código igual que antes.
+ */
 function CampoPais({ defaultValue, error }: { defaultValue?: string; error?: string }) {
-  const lista = useId();
+  const actual = defaultValue?.toUpperCase() ?? '';
+  const codigos = [
+    ...PAISES_FRECUENTES,
+    ...(actual && !(PAISES_FRECUENTES as readonly string[]).includes(actual) ? [actual] : []),
+  ];
   return (
-    <>
-      <Campo
-        etiqueta="País"
-        name="pais"
-        defaultValue={defaultValue}
-        maxLength={2}
-        autoComplete="off"
-        autoCapitalize="characters"
-        list={lista}
-        placeholder="VE"
-        className="[&_input]:uppercase"
-        ayuda="Código de 2 letras: VE Venezuela, CO Colombia, AR Argentina, PE Perú…"
-        error={error}
-      />
-      <datalist id={lista}>
-        {PAISES_FRECUENTES.map((p) => (
-          <option key={p} value={p}>
-            {nombrePais(p)}
-          </option>
-        ))}
-      </datalist>
-    </>
+    <Selector etiqueta="País" name="pais" defaultValue={actual} error={error}>
+      <option value="">Sin indicar</option>
+      {codigos.map((p) => (
+        <option key={p} value={p}>
+          {nombrePais(p)}
+        </option>
+      ))}
+    </Selector>
   );
 }
 

@@ -627,7 +627,7 @@ export class ComprasService {
       ...(filtro.estado ? { estado: filtro.estado } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.compraRevendedor.count({ where }),
       this.prisma.compraRevendedor.findMany({
         where,

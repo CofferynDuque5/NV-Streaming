@@ -17,7 +17,7 @@ export function Selector({ etiqueta, error, ayuda, className, children, ...resto
     .filter(Boolean)
     .join(' ');
   return (
-    <div className={clsx('grid gap-1.5', className)}>
+    <div className={clsx('grid content-start gap-1.5', className)}>
       <label htmlFor={id} className="text-sm font-medium text-tinta">
         {etiqueta}
       </label>
@@ -57,7 +57,7 @@ export function AreaTexto({ etiqueta, error, ayuda, className, rows = 4, ...rest
     .filter(Boolean)
     .join(' ');
   return (
-    <div className={clsx('grid gap-1.5', className)}>
+    <div className={clsx('grid content-start gap-1.5', className)}>
       <label htmlFor={id} className="text-sm font-medium text-tinta">
         {etiqueta}
       </label>

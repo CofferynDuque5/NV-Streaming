@@ -558,7 +558,7 @@ export class BilleteraService {
       ...(filtro.estado ? { estado: filtro.estado } : {}),
       ...(filtro.clienteId ? { clienteId: filtro.clienteId } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.recargaBilletera.count({ where }),
       this.prisma.recargaBilletera.findMany({
         where,
@@ -586,7 +586,7 @@ export class BilleteraService {
       clienteId,
       ...(filtro.tipo ? { tipo: filtro.tipo } : {}),
     };
-    const [total, filas] = await this.prisma.$transaction([
+    const [total, filas] = await Promise.all([
       this.prisma.movimientoBilletera.count({ where }),
       this.prisma.movimientoBilletera.findMany({
         where,

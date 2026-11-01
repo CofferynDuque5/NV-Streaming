@@ -12,6 +12,7 @@ import { AppModule } from './app.module.js';
 import { crearDespertador } from './automatizaciones/ahorro.js';
 import type { Entorno } from './config/entorno.js';
 import { instalarCuerpoCrudo } from './pagos-en-linea/cuerpo-crudo.js';
+import { esMetodoDeLectura, marcarCambioDatos } from './comun/version-datos.js';
 
 const ID_PETICION_VALIDO = /^[A-Za-z0-9._-]{8,64}$/;
 
@@ -65,6 +66,17 @@ export async function crearAplicacion(entorno: Entorno, opciones: { registros?: 
     .addHook('onSend', async (peticion, respuesta) => {
       void respuesta.header('x-request-id', peticion.id);
       if (!respuesta.hasHeader('cache-control')) void respuesta.header('cache-control', 'no-store');
+    });
+
+  // Cada cambio invalida las lecturas guardadas en memoria (ver comun/version-datos.ts).
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .addHook('onRequest', async (peticion) => {
+      if (!esMetodoDeLectura(peticion.method)) marcarCambioDatos();
+    })
+    .addHook('onResponse', async (peticion) => {
+      if (!esMetodoDeLectura(peticion.method)) marcarCambioDatos();
     });
 
   // Con BASE_AHORRO el trabajador duerme entre vueltas: cada cambio que salió bien lo

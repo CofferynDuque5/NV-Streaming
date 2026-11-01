@@ -240,6 +240,9 @@ export function NuevoTicket({ clienteInicial }: { clienteInicial: OpcionCliente 
         <Boton type="submit" cargando={cargando} disabled={!clienteId}>
           Abrir ticket
         </Boton>
+        {!clienteId && (
+          <p className="text-sm text-tinta-tenue">Primero busca y elige el cliente.</p>
+        )}
         <BotonEnlace href="/admin/soporte" variante="fantasma" scroll={false}>
           Cancelar
         </BotonEnlace>

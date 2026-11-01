@@ -3,20 +3,35 @@
 import clsx from 'clsx';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 
 type Metodo = 'POST' | 'PATCH' | 'PUT';
 
+/** Tope de espera del refresco: si tarda más, el formulario sigue igual. */
+const ESPERA_MAXIMA_REFRESCO_MS = 15_000;
+
 /**
  * Estado común de una acción contra la API: espera, error y refresco de la
- * página de servidor al terminar bien.
+ * página de servidor al terminar bien. `ejecutar` no vuelve hasta que la página
+ * ya muestra los datos nuevos: así un formulario no se cierra antes de que lo
+ * creado aparezca en la lista, y el botón sigue en «cargando» mientras tanto.
  */
 export function useAccion() {
   const router = useRouter();
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [refrescando, iniciarRefresco] = useTransition();
+  const esperando = useRef<(() => void)[]>([]);
+
+  // Al terminar el refresco (la transición deja de estar pendiente) se liberan las esperas.
+  useEffect(() => {
+    if (refrescando || esperando.current.length === 0) return;
+    const listos = esperando.current;
+    esperando.current = [];
+    for (const fin of listos) fin();
+  }, [refrescando]);
 
   const ejecutar = useCallback(
     async <T,>(
@@ -28,12 +43,20 @@ export function useAccion() {
       setCargando(true);
       setError(null);
       const r = await llamarApi<T>(metodo, ruta, cuerpo ?? {}, cabeceras);
-      setCargando(false);
       if (!r.ok) {
+        setCargando(false);
         setError(r.error);
         return null;
       }
-      router.refresh();
+      await new Promise<void>((fin) => {
+        const tope = setTimeout(fin, ESPERA_MAXIMA_REFRESCO_MS);
+        esperando.current.push(() => {
+          clearTimeout(tope);
+          fin();
+        });
+        iniciarRefresco(() => router.refresh());
+      });
+      setCargando(false);
       return { datos: r.datos };
     },
     [router],

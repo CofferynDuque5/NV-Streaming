@@ -68,8 +68,10 @@ function FormularioProveedor({
   }
 
   return (
-    <form onSubmit={enviar} className="grid gap-4" noValidate>
-      <div className="grid gap-4 sm:grid-cols-[1fr_14rem]">
+    <form onSubmit={enviar} className="@container grid gap-4" noValidate>
+      {/* Según el ancho de la tarjeta, no de la pantalla: en dos columnas del catálogo
+          el nombre quedaba de 60 px. */}
+      <div className="grid gap-4 @lg:grid-cols-[minmax(0,1fr)_12rem]">
         <Campo
           etiqueta="Nombre"
           name="nombre"
@@ -278,8 +280,8 @@ function FormularioServicio({
   }
 
   return (
-    <form onSubmit={enviar} className="grid gap-4" noValidate>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <form onSubmit={enviar} className="@container grid gap-4" noValidate>
+      <div className="grid gap-4 @lg:grid-cols-2">
         <Campo
           etiqueta="Nombre"
           name="nombre"

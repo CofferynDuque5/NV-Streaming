@@ -1,3 +1,4 @@
+import './esquemas/mensajes.js';
 export * from './roles.js';
 export * from './permisos.js';
 export * from './monedas.js';
