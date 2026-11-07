@@ -6,18 +6,8 @@ import { AuditoriaController } from './auditoria/auditoria.controller.js';
 import { AlmacenService } from './almacen/almacen.service.js';
 import { CONTROLADORES_ASISTENTE, PROVEEDORES_ASISTENTE } from './asistente/asistente.js';
 import { AuthModule } from './auth/auth.module.js';
-import { BalanceController, PagosCuentaController } from './costos/costos.controller.js';
-import { CostosService } from './costos/costos.service.js';
-import {
-  CuentasController,
-  ImportarCuentasController,
-  ImportarGestorController,
-  MisPerfilesController,
-} from './cuentas/cuentas.controller.js';
-import { CuentasService } from './cuentas/cuentas.service.js';
-import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
-import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
-import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
+import { BalanceController } from './balance/balance.controller.js';
+import { BalanceService } from './balance/balance.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
   PROVEEDORES_AUTOMATIZACIONES,
@@ -94,11 +84,6 @@ export class AppModule {
         FacturasController,
         PagosController,
         CuponesController,
-        ImportarCuentasController,
-        ImportarGestorController,
-        CuentasController,
-        MisPerfilesController,
-        PagosCuentaController,
         BalanceController,
         TicketsController,
         MetricasController,
@@ -128,11 +113,7 @@ export class AppModule {
         FacturasService,
         PagosService,
         CuponesService,
-        CuentasService,
-        PerfilesClienteService,
-        ImportarCuentasService,
-        ImportarGestorService,
-        CostosService,
+        BalanceService,
         TicketsService,
         MetricasService,
         CentroService,

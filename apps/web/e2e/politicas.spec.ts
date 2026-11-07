@@ -52,7 +52,7 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
   const main = page.getByRole('main');
   await expect(main.getByRole('heading', { level: 1 })).toHaveText('Políticas y términos');
   await expect(main.getByText(`Versión ${POLITICAS.version} · vigente desde`)).toBeVisible();
-  await expect(main.getByText('26 de octubre de 2026')).toBeVisible();
+  await expect(main.getByText('7 de noviembre de 2026')).toBeVisible();
   const borrador = main.getByRole('note');
   await expect(borrador).toContainText(
     'Borrador: este texto debe revisarlo un abogado antes de publicarlo.',
@@ -86,6 +86,12 @@ test('políticas: versión, resumen, siete secciones, plazos reales y datos por 
     `Tienes ${REGLAS_COBRO.diasParaPagar} días para pagar una factura emitida`,
   );
   await expect(main.locator('#reembolsos')).toContainText('No hacemos reembolsos.');
+  // NV no vende cuentas compartidas ni entrega usuarios o contraseñas de terceros.
+  await expect(main.locator('#esencial')).toContainText(
+    'Nunca vendemos cuentas compartidas ni entregamos usuarios o contraseñas de terceros.',
+  );
+  await expect(main.locator('#entregas')).toContainText('Nunca usuarios ni contraseñas.');
+  await expect(main).not.toContainText('perfil');
   await expect(main.locator('#terminos')).toContainText('Edad mínima: 18 años');
   await expect(main.locator('#entregas')).toContainText('de 10 a 15 minutos');
   await expect(main.locator('#contacto')).toContainText(

@@ -1928,6 +1928,10 @@ model LicenciaInstalacion {
 // ═════════════════════════════════════════════════════════════════════════════
 // Gestor: cuentas de servicio y perfiles
 // ═════════════════════════════════════════════════════════════════════════════
+// Retirado el 07-11-2026: NV no entrega cuentas ni perfiles compartidos con
+// correo, clave y PIN. Estas tablas (y sus enums y relaciones) se conservan solo
+// para no perder los datos que ya existan; nada en la aplicación las usa. Borrarlas
+// necesita una migración aparte y la autorización expresa del dueño.
 
 enum EstadoCuentaServicio {
   activa

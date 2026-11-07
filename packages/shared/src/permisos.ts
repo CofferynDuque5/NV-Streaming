@@ -54,11 +54,7 @@ export const PERMISOS = [
   // Gestor: caja diaria
   'caja.ver',
   'caja.cerrar',
-  // Gestor: cuentas de servicio y perfiles
-  'cuentas.ver',
-  'cuentas.gestionar',
-  'cuentas.revelar',
-  // Gestor: balance (ventas, costos, por cobrar y por pagar)
+  // Gestor: balance (ventas, reembolsos y por cobrar)
   'balance.ver',
 ] as const;
 export type Permiso = (typeof PERMISOS)[number];
@@ -111,13 +107,7 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'billeteras.ajustar': 'Ajustar a mano el saldo de la billetera de un cliente (con motivo)',
   'caja.ver': 'Ver la caja del día: lo cobrado por método y moneda, y los cierres anteriores',
   'caja.cerrar': 'Cerrar la caja del día (el cierre queda guardado y no se puede editar)',
-  'cuentas.ver':
-    'Ver las cuentas de servicio y sus perfiles (sin correos completos, claves ni PIN)',
-  'cuentas.gestionar':
-    'Crear y editar cuentas de servicio, asignar o liberar sus perfiles y registrar los pagos al proveedor',
-  'cuentas.revelar': 'Ver el correo, la clave y los PIN de una cuenta (queda registrado)',
-  'balance.ver':
-    'Ver el balance del negocio: ventas, costos de las cuentas, por cobrar y por pagar',
+  'balance.ver': 'Ver el balance del negocio: ventas, reembolsos y por cobrar',
 };
 
 const SOLO_CLIENTES: readonly Permiso[] = [
@@ -152,9 +142,6 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'entregas.gestionar',
     'caja.ver',
     'caja.cerrar',
-    'cuentas.ver',
-    'cuentas.gestionar',
-    'cuentas.revelar',
   ],
   ventas: [
     'panel.ver',

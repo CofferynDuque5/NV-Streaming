@@ -93,6 +93,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pago.rechazado': 'Pago rechazado',
   'pago.comprobante_consultado': 'Comprobante consultado',
   'caja.cerrada': 'Caja cerrada',
+  // Módulo de cuentas compartidas, ya retirado: solo para leer el historial.
   'cuenta_servicio.creada': 'Cuenta de servicio guardada',
   'cuenta_servicio.editada': 'Cuenta de servicio editada',
   'cuenta_servicio.credenciales_vistas': 'Credenciales de cuenta vistas',
@@ -220,16 +221,3 @@ Object.assign(ACCIONES_AUDITORIA, {
   'reembolso.fallido': 'Devolución fallida',
   'evento_pasarela.reprocesado': 'Aviso de pasarela reprocesado',
 });
-
-/** Cada cuánto cobra el proveedor de una cuenta de servicio. */
-export const CICLOS_CUENTA = [
-  [1, 'Cada mes'],
-  [2, 'Cada 2 meses'],
-  [3, 'Cada 3 meses'],
-  [6, 'Cada 6 meses'],
-  [12, 'Cada año'],
-] as const;
-
-/** «Cada mes», «Cada 3 meses»… */
-export const textoCiclo = (meses: number): string =>
-  CICLOS_CUENTA.find(([m]) => m === meses)?.[1] ?? `Cada ${meses} meses`;

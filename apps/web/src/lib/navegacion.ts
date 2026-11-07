@@ -129,7 +129,6 @@ export type ModuloEquipo =
   | 'cupones'
   | 'catalogo'
   | 'inventario'
-  | 'cuentas'
   | 'balance'
   | 'finanzas'
   | 'pasarelas'
@@ -246,7 +245,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'balance',
     grupo: 'ventas',
     nombre: 'Balance',
-    descripcion: 'Ventas, costos de las cuentas, por cobrar y por pagar',
+    descripcion: 'Ventas, reembolsos y por cobrar',
     color: '#10b981',
     href: '/admin/balance',
     permiso: 'balance.ver',
@@ -268,15 +267,6 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#22c55e',
     href: '/admin/inventario',
     permiso: 'inventario.gestionar',
-  },
-  {
-    clave: 'cuentas',
-    grupo: 'tienda',
-    nombre: 'Cuentas de servicio',
-    descripcion: 'Correos, claves y perfiles de las cuentas que revendes',
-    color: '#a855f7',
-    href: '/admin/cuentas',
-    permiso: 'cuentas.ver',
   },
   {
     clave: 'finanzas',

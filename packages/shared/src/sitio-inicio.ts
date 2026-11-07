@@ -63,7 +63,7 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
       {
         icono: 'escudo',
         titulo: 'Solo servicios autorizados',
-        texto: 'En tu cuenta o en un perfil, siempre autorizado',
+        texto: 'Nada de cuentas compartidas',
       },
       {
         icono: 'soporte',

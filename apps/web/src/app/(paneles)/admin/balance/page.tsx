@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { PorPagarTarjeta } from '@/componentes/admin/por-pagar';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
@@ -97,7 +96,7 @@ export default async function Balance({
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <CabeceraPagina
         titulo="Balance"
-        descripcion="Lo que vendiste, lo que devolviste y lo que te costaron las cuentas en el período, en USD. Abajo, lo que hoy está por cobrar y por pagar."
+        descripcion="Lo que vendiste y lo que devolviste en el período, en USD. Abajo, lo que hoy está por cobrar."
       />
 
       <Tarjeta>
@@ -172,7 +171,7 @@ export default async function Balance({
               titulo={`Del ${formatearDia(b.desde)} al ${formatearDia(b.hasta)}`}
               descripcion="Ventas: facturas con pago confirmado y compras de revendedores. Las recargas de saldo cuentan cuando se gastan."
             />
-            <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+            <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
               <Cifra
                 titulo="Ventas a clientes"
                 valor={formatearMonto(b.ventasClientesUsd, 'USD')}
@@ -185,52 +184,13 @@ export default async function Balance({
               />
               <Cifra titulo="Reembolsos" valor={restado(b.reembolsosUsd)} />
               <Cifra
-                titulo="Costo de las cuentas"
-                valor={restado(b.costosProveedorUsd)}
-                detalle={plural(b.pagosProveedor, 'pago al proveedor', 'pagos al proveedor')}
-              />
-              <Cifra
                 titulo="Resultado"
                 valor={formatearMonto(b.netoUsd, 'USD')}
                 tono={Number(b.netoUsd) < 0 ? 'peligro' : 'exito'}
-                detalle="Ventas − reembolsos − costos"
-              />
-              <Cifra
-                titulo="Margen mensual estimado"
-                valor={formatearMonto(
-                  (
-                    Number(b.ingresoMensualRecurrenteUsd) - Number(b.costoMensualCuentasUsd)
-                  ).toFixed(2),
-                  'USD',
-                )}
-                detalle={`${formatearMonto(b.ingresoMensualRecurrenteUsd, 'USD')} de suscripciones − ${formatearMonto(b.costoMensualCuentasUsd, 'USD')} de cuentas activas, al mes`}
+                detalle="Ventas − reembolsos"
               />
             </div>
           </Tarjeta>
-
-          {b.costosPorServicio.length > 0 && (
-            <Tarjeta>
-              <CabeceraTarjeta titulo="Costos por servicio" />
-              <ul className="divide-y divide-borde">
-                {b.costosPorServicio.map((c) => (
-                  <li
-                    key={c.servicio.id}
-                    className="flex items-center justify-between gap-4 px-5 py-3 sm:px-6"
-                  >
-                    <span className="min-w-0 truncate">
-                      {c.servicio.nombre}{' '}
-                      <span className="text-xs text-tinta-tenue">
-                        · {plural(c.pagos, 'pago', 'pagos')}
-                      </span>
-                    </span>
-                    <span className="font-semibold tabular-nums">
-                      {formatearMonto(c.montoUsd, 'USD')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Tarjeta>
-          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Cifra
@@ -246,23 +206,7 @@ export default async function Balance({
                 </>
               }
             />
-            <Cifra
-              titulo="Por pagar a proveedores"
-              valor={formatearMonto(
-                (Number(b.porPagar.totalAtrasadoUsd) + Number(b.porPagar.totalProximoUsd)).toFixed(
-                  2,
-                ),
-                'USD',
-              )}
-              tono={b.porPagar.atrasadas.length ? 'peligro' : undefined}
-              detalle={
-                b.porPagar.atrasadas.length
-                  ? `${formatearMonto(b.porPagar.totalAtrasadoUsd, 'USD')} atrasado`
-                  : 'Atrasado y de los próximos 7 días'
-              }
-            />
           </div>
-          <PorPagarTarjeta datos={b.porPagar} />
         </>
       )}
     </div>

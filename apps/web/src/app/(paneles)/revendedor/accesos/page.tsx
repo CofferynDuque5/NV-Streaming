@@ -26,8 +26,7 @@ export default async function AccesosClientes() {
   const nota = (
     <NotaSeguridad>
       Son códigos o enlaces para activar el servicio en <b>la cuenta propia de tu cliente</b>.
-      Entrégaselos solo a él. Si su servicio es un perfil de una cuenta que administra NV, el equipo
-      le envía los datos.
+      Entrégaselos solo a él. Nunca entregamos usuarios ni contraseñas.
     </NotaSeguridad>
   );
 
