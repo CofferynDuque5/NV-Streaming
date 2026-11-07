@@ -22,6 +22,7 @@ import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { formatearFecha } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Cupones' };
 
@@ -98,8 +99,8 @@ export default async function Cupones({
           </h2>
           {cupones && (
             <p className="text-sm text-tinta-tenue tabular-nums">
-              {cupones.vigentes === 1 ? '1 vigente' : `${cupones.vigentes} vigentes`} de{' '}
-              {cupones.total}
+              {cupones.total === 1 ? '1 cupón' : `${cupones.total} cupones`} ·{' '}
+              {cupones.vigentes === 1 ? '1 vigente' : `${cupones.vigentes} vigentes`}
             </p>
           )}
         </header>
@@ -107,6 +108,7 @@ export default async function Cupones({
           className="flex flex-wrap items-end gap-3 border-b border-borde px-5 py-4 sm:px-6"
           role="search"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-52 flex-1">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por código

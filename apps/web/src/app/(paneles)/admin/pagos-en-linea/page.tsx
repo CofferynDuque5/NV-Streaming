@@ -142,11 +142,13 @@ async function Pasarelas() {
                   ) : (
                     <Insignia tono="aviso">Sin configurar</Insignia>
                   )}
-                  {p.modo === 'produccion' ? (
-                    <Insignia tono="marca">Producción</Insignia>
-                  ) : (
-                    <Insignia>Pruebas</Insignia>
-                  )}
+                  {/* Sin credenciales no cobra en ningún modo: mostrarlo confundía. */}
+                  {p.configurada &&
+                    (p.modo === 'produccion' ? (
+                      <Insignia tono="marca">Producción</Insignia>
+                    ) : (
+                      <Insignia>Pruebas</Insignia>
+                    ))}
                 </div>
               </div>
               <dl className="grid gap-3 px-5 pt-4 pb-5 text-sm">

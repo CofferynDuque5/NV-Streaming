@@ -46,6 +46,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { formatearFecha, haceCuanto, nombrePais } from '@/lib/formato';
 import { ESTADO_REVENDEDOR } from '@/lib/revendedores';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Revendedores' };
 
@@ -272,6 +273,7 @@ async function ListaRevendedores({ crudo }: { crudo: Crudo }) {
         className="flex flex-wrap items-center gap-3 border-b border-borde px-5 py-4 sm:px-6"
         role="search"
       >
+        <EnvioAutomatico />
         <input type="hidden" name="vista" value="revendedores" />
         <div className="relative min-w-0 flex-1 basis-52">
           <label htmlFor="busqueda" className="sr-only">

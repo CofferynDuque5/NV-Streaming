@@ -26,6 +26,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { ADAPTADOR_ENTREGA, ESTADO_ENTREGA, MOTIVO_ENTREGA } from '@/lib/entregas';
 import { ACCIONES_AUDITORIA, formatearFechaHora, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Entregas' };
 
@@ -126,6 +127,7 @@ export default async function Entregas({
           role="search"
           aria-label="Filtrar entregas"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-0 flex-1 basis-52">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por cliente o referencia del proveedor

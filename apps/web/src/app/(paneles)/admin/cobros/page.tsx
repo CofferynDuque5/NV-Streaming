@@ -41,6 +41,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { formatearFecha, formatearMonto, haceCuanto } from '@/lib/formato';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Cobros' };
 
@@ -348,6 +349,7 @@ async function Facturas({ crudo }: { crudo: Crudo }) {
         role="search"
         aria-label="Filtrar facturas"
       >
+        <EnvioAutomatico />
         <input type="hidden" name="vista" value="facturas" />
         {filtro.clienteId && <input type="hidden" name="clienteId" value={filtro.clienteId} />}
         <label htmlFor="filtro-estado" className="sr-only">

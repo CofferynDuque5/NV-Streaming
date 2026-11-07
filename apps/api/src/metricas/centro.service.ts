@@ -100,6 +100,7 @@ export class CentroService {
       canales,
       asistente,
       tasasFaltantes,
+      metodosCobro,
       latido,
     ] = await Promise.all([
       si('pagos.gestionar', () => this.prisma.pago.count({ where: { estado: 'en_revision' } })),
@@ -167,11 +168,12 @@ export class CentroService {
         };
       }),
       si('catalogo.ver', async () => {
-        const [servicios, planes] = await Promise.all([
+        const [proveedores, servicios, planes] = await Promise.all([
+          this.prisma.proveedor.count({ where: { activo: true } }),
           this.prisma.servicio.count({ where: { activo: true } }),
           this.prisma.plan.count({ where: { activo: true, servicio: { activo: true } } }),
         ]);
-        return { servicios, planes };
+        return { proveedores, servicios, planes };
       }),
       si('cupones.ver', () =>
         this.prisma.cupon.count({
@@ -192,6 +194,9 @@ export class CentroService {
       si('automatizaciones.ver', () => this.panel.estadoCanales()),
       si('asistente.usar', () => this.asistente.estado(auth)),
       si('finanzas.configurar', () => this.tasas.faltantes()),
+      si('finanzas.configurar', () =>
+        this.prisma.metodoCobro.count({ where: { activo: true, tipo: 'manual' } }),
+      ),
       // El trabajador lo ve todo el equipo: si se detiene, nadie recibe sus avisos.
       this.prisma.latidoTrabajador.findFirst({ orderBy: { ultimoLatidoEn: 'desc' } }),
     ]);
@@ -226,6 +231,7 @@ export class CentroService {
           : null,
         automatizacionesActivas,
         paginasPublicadas,
+        metodosCobro,
       },
       trabajador,
       sistema: {

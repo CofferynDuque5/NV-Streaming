@@ -9,7 +9,17 @@ import {
   type SuscripcionPublica,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { Check, Clock, Coins, Mail, Settings, ShieldCheck, UserRound, Wallet } from 'lucide-react';
+import {
+  Check,
+  Clock,
+  Coins,
+  Mail,
+  Settings,
+  ShieldCheck,
+  Store,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { PildoraEstado } from '@/componentes/cliente/pago';
@@ -22,6 +32,9 @@ import { MODULOS_EQUIPO, type ModuloEquipo } from '@/lib/navegacion';
 import { ICONOS_MODULO } from './iconos';
 
 const ZONA = 'America/Caracas';
+/** Paso 9 de la guía de instalación: correo con Brevo o Resend. */
+const GUIA_CORREO =
+  'https://github.com/CofferynDuque5/NV-Streaming/blob/main/docs/INSTALACION.md#9-configurar-el-correo-smtp';
 const usd = (v: string) => formatearMonto(Number(v).toFixed(2), 'USD');
 const bs = (v: string) => formatearMonto(v, 'VES');
 const COLOR = Object.fromEntries(MODULOS_EQUIPO.map((m) => [m.clave, m.color])) as Record<
@@ -107,18 +120,59 @@ export function AvisosCentro({
 }) {
   const t = centro.trabajador;
   const faltan = centro.tasasFaltantes ?? [];
-  if (t.activo && faltan.length === 0 && !centro.correoSinConfigurar) return null;
+  const sinPlanes = centro.modulos.catalogo?.planes === 0;
+  if (t.activo && faltan.length === 0 && !centro.correoSinConfigurar && !sinPlanes) return null;
   return (
     <section aria-label="Avisos" className="grid gap-2">
+      {sinPlanes && (
+        <Aviso
+          tono="aviso"
+          icono={<Store className="size-4" aria-hidden="true" />}
+          titulo="Tu tienda es pública pero no tiene nada a la venta"
+          accion={
+            puede('catalogo.gestionar') && (
+              <BotonEnlace href="/admin/catalogo" tamano="sm">
+                Crear el primer plan
+              </BotonEnlace>
+            )
+          }
+        >
+          Quien entra ve «Estamos preparando el catálogo». Mientras tanto, el catálogo ofrece
+          escribir por WhatsApp (si lo pusiste en Sitio y páginas) o crear una cuenta.
+        </Aviso>
+      )}
       {centro.correoSinConfigurar && (
         <Aviso
           tono="peligro"
           icono={<Mail className="size-4" aria-hidden="true" />}
           titulo="El correo no está configurado: no sale ningún correo"
+          accion={
+            puede('automatizaciones.configurar') && (
+              <a
+                href={GUIA_CORREO}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={claseEnlace}
+              >
+                Cómo configurarlo
+              </a>
+            )
+          }
         >
           Los clientes no pueden confirmar su cuenta ni recuperar su contraseña, y no llegan
-          facturas ni avisos por correo. Pon el servidor SMTP (SMTP_HOST, SMTP_USUARIO y
-          SMTP_CONTRASENA) en .env.produccion y ejecuta infra/actualizar.sh.
+          facturas ni avisos por correo.{' '}
+          {puede('automatizaciones.configurar') ? (
+            <>
+              En el servidor, pon SMTP_HOST, SMTP_USUARIO y SMTP_CONTRASENA en .env.produccion y
+              ejecuta infra/actualizar.sh. Después pruébalo en{' '}
+              <Link href="/admin/automatizaciones/avisos" className={claseEnlace}>
+                Avisos → Enviar aviso de prueba
+              </Link>
+              .
+            </>
+          ) : (
+            'Avisa a un administrador: se configura en el servidor.'
+          )}
         </Aviso>
       )}
       {!t.activo && (
@@ -497,9 +551,37 @@ export function Actividad({ registros }: { registros: RegistroAuditoria[] }) {
 type Tono = 'ok' | 'aviso' | 'mal';
 
 /** Estado del sistema: solo si está configurado o no, nunca sus valores. */
-export function EstadoSistema({ centro }: { centro: CentroEquipo }) {
+export function EstadoSistema({
+  centro,
+  puede,
+}: {
+  centro: CentroEquipo;
+  puede: (p: Permiso) => boolean;
+}) {
   const { trabajador: t, sistema: s } = centro;
   const filas: [string, string, Tono][] = [];
+  /** Dónde se arregla cada línea que no está bien, si quien mira puede hacerlo. */
+  const arreglo = (nombre: string): { href: string; texto: string } | null => {
+    if (nombre === 'Trabajador')
+      return puede('automatizaciones.ver')
+        ? { href: '/admin/automatizaciones', texto: 'Ver estado' }
+        : null;
+    if (nombre === 'Correo')
+      return puede('automatizaciones.configurar')
+        ? { href: '/admin/automatizaciones/avisos', texto: 'Probar envío' }
+        : null;
+    if (nombre === 'WhatsApp')
+      return puede('automatizaciones.configurar')
+        ? { href: '/admin/automatizaciones', texto: 'Ver canales' }
+        : null;
+    if (nombre === 'Asistente')
+      return puede('asistente.configurar')
+        ? { href: '/admin/asistente/configuracion', texto: 'Configurar' }
+        : null;
+    return puede('pasarelas.configurar')
+      ? { href: '/admin/pagos-en-linea', texto: 'Configurar' }
+      : null;
+  };
   if (s.canales) {
     filas.push(
       t.activo
@@ -562,31 +644,40 @@ export function EstadoSistema({ centro }: { centro: CentroEquipo }) {
   return (
     <Seccion id="titulo-sistema" titulo="Estado del sistema">
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-2.5">
-        {filas.map(([nombre, texto, tono]) => (
-          <li
-            key={nombre}
-            className="flex items-center gap-2.5 rounded-2xl border border-borde bg-[rgb(8_11_26/0.6)] px-3.5 py-3"
-          >
-            <i
-              className={clsx(
-                'size-2.5 shrink-0 rounded-full',
-                tono === 'ok' && 'bg-[#22c55e] shadow-[0_0_0_4px_rgb(34_197_94/0.15)]',
-                tono === 'aviso' && 'bg-[#f59e0b] shadow-[0_0_0_4px_rgb(245_158_11/0.15)]',
-                tono === 'mal' && 'bg-[#ef4444] shadow-[0_0_0_4px_rgb(239_68_68/0.18)]',
-              )}
-              aria-hidden="true"
-            />
-            <span className="grid min-w-0 gap-px">
-              <b className="text-sm">{nombre}</b>
-              <span className="truncate text-[0.78rem] text-tinta-suave" title={texto}>
-                <span className="sr-only">
-                  {tono === 'ok' ? 'Bien: ' : tono === 'aviso' ? 'Atención: ' : 'Problema: '}
+        {filas.map(([nombre, texto, tono]) => {
+          const ir = tono === 'ok' ? null : arreglo(nombre);
+          return (
+            <li
+              key={nombre}
+              className="flex items-center gap-2.5 rounded-2xl border border-borde bg-[rgb(8_11_26/0.6)] px-3.5 py-3"
+            >
+              <i
+                className={clsx(
+                  'size-2.5 shrink-0 rounded-full',
+                  tono === 'ok' && 'bg-[#22c55e] shadow-[0_0_0_4px_rgb(34_197_94/0.15)]',
+                  tono === 'aviso' && 'bg-[#f59e0b] shadow-[0_0_0_4px_rgb(245_158_11/0.15)]',
+                  tono === 'mal' && 'bg-[#ef4444] shadow-[0_0_0_4px_rgb(239_68_68/0.18)]',
+                )}
+                aria-hidden="true"
+              />
+              <span className="grid min-w-0 gap-px">
+                <b className="text-sm">{nombre}</b>
+                <span className="truncate text-[0.78rem] text-tinta-suave" title={texto}>
+                  <span className="sr-only">
+                    {tono === 'ok' ? 'Bien: ' : tono === 'aviso' ? 'Atención: ' : 'Problema: '}
+                  </span>
+                  {texto}
                 </span>
-                {texto}
+                {ir && (
+                  <Link href={ir.href} className={clsx(claseEnlace, 'text-[0.78rem]')}>
+                    {ir.texto}
+                    <span className="sr-only"> ({nombre})</span>
+                  </Link>
+                )}
               </span>
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </Seccion>
   );

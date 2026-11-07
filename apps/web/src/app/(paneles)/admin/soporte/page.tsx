@@ -26,6 +26,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { CATEGORIA_TICKET, ESTADO_TICKET, PRIORIDAD_TICKET } from '@/lib/estados';
 import { formatearFechaHora, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Soporte' };
 
@@ -125,6 +126,7 @@ export default async function Soporte({
           role="search"
           aria-label="Filtrar tickets"
         >
+          <EnvioAutomatico />
           <FiltroSelector
             id="filtro-estado"
             etiqueta="Estado"

@@ -26,6 +26,7 @@ import { leerApi } from '@/lib/api-servidor';
 import { ESTADO_CUENTA_SERVICIO } from '@/lib/estados';
 import { formatearDia } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Cuentas de servicio' };
 
@@ -142,6 +143,7 @@ export default async function Cuentas({
           className="flex flex-wrap items-end gap-3 border-b border-borde px-5 py-4 sm:px-6"
           role="search"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-52 flex-1">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por correo

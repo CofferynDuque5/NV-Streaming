@@ -20,6 +20,7 @@ import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { leerFiltro } from '@/lib/consulta';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Clientes' };
 
@@ -79,6 +80,7 @@ export default async function Clientes({
           className="flex flex-wrap items-center gap-3 border-b border-borde px-5 py-4 sm:px-6"
           role="search"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-52 flex-1">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por nombre, correo, documento o WhatsApp

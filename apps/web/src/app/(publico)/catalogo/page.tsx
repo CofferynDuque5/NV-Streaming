@@ -1,11 +1,13 @@
-import { INFO_MONEDA, REGLAS_COBRO, serviciosTienda } from '@nv/shared';
+import { enlaceWhatsapp, INFO_MONEDA, REGLAS_COBRO, serviciosTienda } from '@nv/shared';
 import { Layers } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { AvisoMayorista } from '@/componentes/tienda/aviso-mayorista';
 import { CatalogoTienda } from '@/componentes/tienda/catalogo';
 import { estadoDesdeUrl } from '@/componentes/tienda/catalogo-estado';
 import { Migas } from '@/componentes/tienda/migas';
 import { SinServicio } from '@/componentes/tienda/sin-servicio';
+import { clasesBoton } from '@/componentes/ui/boton';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { nombrePais } from '@/lib/formato';
 import { catalogoTienda, leerTemaPublico, mayoristaTienda, monedaTienda } from '@/lib/tienda';
@@ -64,9 +66,36 @@ export default async function Catalogo({ searchParams }: { searchParams: Promise
         {mayorista && <AvisoMayorista mayorista={mayorista} />}
         {servicios.length === 0 ? (
           <div className="rounded-[1.3rem] border border-borde bg-superficie">
-            <EstadoVacio icono={Layers} titulo="Estamos preparando el catálogo">
+            <EstadoVacio
+              icono={Layers}
+              titulo="Estamos preparando el catálogo"
+              accion={
+                catalogo && (
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {tema.contacto.whatsapp && (
+                      <a
+                        href={enlaceWhatsapp(
+                          tema.contacto.whatsapp,
+                          'Hola, quiero saber qué servicios van a tener.',
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={clasesBoton('primario', 'md')}
+                      >
+                        Preguntar por WhatsApp
+                      </a>
+                    )}
+                    <Link href="/registro" className={clasesBoton('secundario', 'md')}>
+                      Crear mi cuenta
+                    </Link>
+                  </div>
+                )
+              }
+            >
               {catalogo
-                ? 'Vuelve pronto: el equipo está cargando los servicios.'
+                ? tema.contacto.whatsapp
+                  ? 'El equipo está cargando los servicios. Pregúntanos qué viene o crea tu cuenta para tenerla lista.'
+                  : 'El equipo está cargando los servicios. Crea tu cuenta para tenerla lista cuando abramos.'
                 : 'No pudimos cargar el catálogo. Recarga la página en unos segundos.'}
             </EstadoVacio>
           </div>

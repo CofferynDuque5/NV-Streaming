@@ -105,7 +105,7 @@ describe('centro de módulos del equipo', () => {
     expect(o.colas.pagosEnRevision).toBe(0);
     expect(o.colas.entregas).toEqual({ fallidas: 0, pendientes: 0 });
     expect(o.modulos).toMatchObject({ cuponesActivos: null, equipo: 3 });
-    expect(o.modulos.catalogo).toEqual({ servicios: 1, planes: 1 });
+    expect(o.modulos.catalogo).toEqual({ proveedores: 1, servicios: 1, planes: 1 });
     expect(o.sistema.pasarelas).toBeNull();
     expect(o.tasasFaltantes).toBeNull();
 
@@ -122,13 +122,14 @@ describe('centro de módulos del equipo', () => {
       accionesAsistente: 0,
     });
     expect(v.modulos).toEqual({
-      catalogo: { servicios: 1, planes: 1 },
+      catalogo: { proveedores: 1, servicios: 1, planes: 1 },
       planesConCodigos: null,
       cuponesActivos: 0,
       equipo: null,
       revendedores: null,
       automatizacionesActivas: null,
       paginasPublicadas: null,
+      metodosCobro: null,
     });
     expect(v.sistema.canales).toBeNull();
     expect(v.sistema.pasarelas).toBeNull();

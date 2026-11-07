@@ -10,6 +10,7 @@ import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { ACCIONES_AUDITORIA, formatearFechaHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Auditoría' };
 
@@ -71,6 +72,7 @@ export default async function Auditoria({
       />
       <Tarjeta>
         <form className="flex flex-wrap items-end gap-3 border-b border-borde px-5 py-4 sm:px-6">
+          <EnvioAutomatico />
           <label htmlFor="accion" className="sr-only">
             Tipo de acción
           </label>
