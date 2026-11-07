@@ -44,6 +44,8 @@ export interface CentroEquipo {
   modulos: {
     /** Servicios y planes activos (catalogo.ver). */
     catalogo: { servicios: number; planes: number } | null;
+    /** Planes activos que entregan códigos de inventario (inventario.gestionar). */
+    planesConCodigos: number | null;
     /** Cupones activos y sin vencer (cupones.ver). */
     cuponesActivos: number | null;
     /** Personas activas del equipo (usuarios.ver). */
@@ -59,7 +61,7 @@ export interface CentroEquipo {
    * Proceso trabajador (para todo el equipo: sin él no salen recordatorios,
    * facturas de renovación ni entregas automáticas).
    */
-  trabajador: { activo: boolean; ultimoLatidoEn: string | null };
+  trabajador: { activo: boolean; ultimoLatidoEn: string | null; pausaMinutos: number | null };
   sistema: {
     /** Canales de aviso (automatizaciones.ver). */
     canales: {

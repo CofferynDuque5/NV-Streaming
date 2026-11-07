@@ -503,7 +503,13 @@ export function EstadoSistema({ centro }: { centro: CentroEquipo }) {
   if (s.canales) {
     filas.push(
       t.activo
-        ? ['Trabajador', `En marcha · latido ${haceCuanto(t.ultimoLatidoEn!)}`, 'ok']
+        ? [
+            'Trabajador',
+            `En marcha · latido ${haceCuanto(t.ultimoLatidoEn!)}${
+              t.pausaMinutos ? ` (late cada ${t.pausaMinutos} min en modo ahorro)` : ''
+            }`,
+            'ok',
+          ]
         : [
             'Trabajador',
             t.ultimoLatidoEn

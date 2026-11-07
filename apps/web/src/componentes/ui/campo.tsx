@@ -75,7 +75,7 @@ export function Campo({
         </p>
       )}
       {error && (
-        <p id={`${id}-error`} className="text-xs font-medium text-peligro">
+        <p id={`${id}-error`} role="alert" className="text-xs font-medium text-peligro">
           {error}
         </p>
       )}

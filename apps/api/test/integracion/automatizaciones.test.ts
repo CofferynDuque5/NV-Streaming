@@ -698,7 +698,7 @@ describe('panel de automatizaciones', () => {
       correo: { proveedor: 'sandbox', estado: 'pruebas' },
       whatsapp: { proveedor: 'sandbox', listo: true },
       fuentesTasa: { bcv: true, json: false },
-      trabajador: { ultimoLatidoEn: null, activo: false },
+      trabajador: { ultimoLatidoEn: null, activo: false, pausaMinutos: null },
     });
     expect(
       (await e.operador.n.patch('/automatizaciones/recordatorio_vencimiento', { activa: false }))

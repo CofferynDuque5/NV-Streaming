@@ -292,6 +292,7 @@ export function estadoModulo(
     case 'inventario':
       if (!q.pocosCodigos) return ok('');
       if (mo.catalogo && mo.catalogo.planes === 0) return ok('Aún no hay planes');
+      if (mo.planesConCodigos === 0) return ok('Sin planes con códigos');
       return q.pocosCodigos.length
         ? aviso(`${plural(q.pocosCodigos.length, 'plan', 'planes')} con pocos códigos`)
         : ok('Stock suficiente');

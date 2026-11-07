@@ -98,7 +98,7 @@ describe('centro de módulos del equipo', () => {
       { pasarela: 'sandbox', configurada: true, modo: 'pruebas' },
     ]);
     expect(JSON.stringify(a)).not.toMatch(/https?:|webhook|clave|token/i);
-    expect(a.trabajador).toEqual({ activo: false, ultimoLatidoEn: null });
+    expect(a.trabajador).toEqual({ activo: false, ultimoLatidoEn: null, pausaMinutos: null });
 
     const o = await centro(operador.n);
     expect(o.colas.pocosCodigos).toBeNull();
@@ -123,6 +123,7 @@ describe('centro de módulos del equipo', () => {
     });
     expect(v.modulos).toEqual({
       catalogo: { servicios: 1, planes: 1 },
+      planesConCodigos: null,
       cuponesActivos: 0,
       equipo: null,
       revendedores: null,
@@ -224,6 +225,7 @@ describe('centro de módulos del equipo', () => {
       { planId: cat.planId, plan: 'Mensual', servicio: 'NV Cine', disponibles: 0, pendientes: 0 },
     ]);
     expect(a.modulos).toMatchObject({
+      planesConCodigos: 1,
       cuponesActivos: 1,
       revendedores: { aprobados: 1, suspendidos: 0 },
     });

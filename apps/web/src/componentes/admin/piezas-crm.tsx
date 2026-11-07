@@ -3,6 +3,7 @@ import { ArrowLeft, X } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { diasHasta, formatearFecha } from '@/lib/formato';
+import { CuerpoPanelAlta } from './cuerpo-panel-alta';
 
 /*
  * Piezas compartidas por las pantallas de clientes, suscripciones y soporte.
@@ -168,7 +169,7 @@ export function PanelAlta({
           <X className="size-4" aria-hidden="true" />
         </Link>
       </header>
-      <div className="px-5 pt-5 pb-5 sm:px-6 sm:pb-6">{children}</div>
+      <CuerpoPanelAlta cerrarHref={cerrarHref}>{children}</CuerpoPanelAlta>
     </section>
   );
 }

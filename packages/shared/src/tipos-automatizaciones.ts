@@ -58,6 +58,8 @@ export interface EstadoCanales {
     /** Último latido del proceso trabajador; null si nunca arrancó. */
     ultimoLatidoEn: string | null;
     activo: boolean;
+    /** Minutos entre latidos en modo ahorro (la base se apaga); null si late cada 30 s. */
+    pausaMinutos: number | null;
   };
 }
 

@@ -91,7 +91,7 @@ export class CentroService {
       revendedores,
       facturasVencidas,
       accionesAsistente,
-      pocosCodigos,
+      inventario,
       catalogo,
       cuponesActivos,
       equipo,
@@ -154,14 +154,17 @@ export class CentroService {
       ),
       si('inventario.gestionar', async () => {
         const config = await this.automatizaciones.leer('stock_bajo_codigos');
-        const planes = await this.inventario.conPocosCodigos(config.parametros.umbral);
-        return planes.map((p) => ({
-          planId: p.plan.id,
-          plan: p.plan.nombre,
-          servicio: p.plan.servicio,
-          disponibles: p.disponibles,
-          pendientes: p.pendientes,
-        }));
+        const { pocos, conCodigos } = await this.inventario.estadoStock(config.parametros.umbral);
+        return {
+          conCodigos,
+          pocos: pocos.map((p) => ({
+            planId: p.plan.id,
+            plan: p.plan.nombre,
+            servicio: p.plan.servicio,
+            disponibles: p.disponibles,
+            pendientes: p.pendientes,
+          })),
+        };
       }),
       si('catalogo.ver', async () => {
         const [servicios, planes] = await Promise.all([
@@ -198,6 +201,7 @@ export class CentroService {
         latido && ahora.getTime() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
       ),
       ultimoLatidoEn: latido?.ultimoLatidoEn.toISOString() ?? null,
+      pausaMinutos: this.entorno.BASE_AHORRO ? this.entorno.TRABAJADOR_PAUSA_MINUTOS : null,
     };
 
     return {
@@ -210,10 +214,11 @@ export class CentroService {
         solicitudesRevendedor: revendedores?.solicitudes ?? null,
         facturasVencidas,
         accionesAsistente,
-        pocosCodigos,
+        pocosCodigos: inventario?.pocos ?? null,
       },
       modulos: {
         catalogo,
+        planesConCodigos: inventario?.conCodigos ?? null,
         cuponesActivos,
         equipo,
         revendedores: revendedores

@@ -113,6 +113,7 @@ export class PanelAutomatizacionesService {
         activo: Boolean(
           latido && Date.now() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
         ),
+        pausaMinutos: this.entorno.BASE_AHORRO ? this.entorno.TRABAJADOR_PAUSA_MINUTOS : null,
       },
     };
   }
