@@ -669,9 +669,12 @@ export function EstadoSistema({
                   {texto}
                 </span>
                 {ir && (
-                  <Link href={ir.href} className={clsx(claseEnlace, 'text-[0.78rem]')}>
+                  <Link
+                    href={ir.href}
+                    aria-label={`${ir.texto}: ${nombre.toLowerCase()}`}
+                    className={clsx(claseEnlace, 'text-[0.78rem]')}
+                  >
                     {ir.texto}
-                    <span className="sr-only"> ({nombre})</span>
                   </Link>
                 )}
               </span>
