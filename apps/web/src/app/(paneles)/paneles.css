@@ -1456,6 +1456,10 @@
     color: var(--nv-tinta-suave);
     font-size: 0.78rem;
   }
+  .ed-soltar-zip {
+    padding: 0.75rem 1rem;
+    border-style: dotted;
+  }
   .ed-subida {
     display: grid;
     gap: 0.75rem;

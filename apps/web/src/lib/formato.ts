@@ -184,6 +184,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pagina.archivada': 'Página del sitio archivada',
   'pagina.desarchivada': 'Página del sitio desarchivada',
   'medio.subido': 'Imagen del sitio subida',
+  'medio.zip_subido': 'ZIP de imágenes del sitio subido',
   'tema_sitio.cambiado': 'Paleta del sitio cambiada',
   'temporada_sitio.activada': 'Temporada del sitio activada',
   'temporada_sitio.quitada': 'Sitio devuelto al diseño original',

@@ -1,5 +1,12 @@
-import { AUTOMATIZACIONES, ID_BLOQUE_HISTORIA, MEDIO_MAX_MB, PLANTILLAS_PAGINA } from '@nv/shared';
+import {
+  AUTOMATIZACIONES,
+  ID_BLOQUE_HISTORIA,
+  MEDIO_MAX_MB,
+  MEDIOS_ZIP_MAX_MB,
+  PLANTILLAS_PAGINA,
+} from '@nv/shared';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { armarZip } from '../armar-zip.js';
 import { conectar, type Contexto, crearContexto, limpiar, Navegador, PNG_1X1 } from './ayudas.js';
 
 let ctx: Contexto;
@@ -343,6 +350,59 @@ describe('editor visual: imágenes y tema', () => {
     } finally {
       await pequeno.app.close();
     }
+  });
+
+  it('sube un ZIP de imágenes de hasta 30 MB y dice cuáles no entraron', async () => {
+    const { n } = await conectar(ctx, 'operador');
+    // 8 imágenes de ~3,6 MB sin comprimir: el ZIP queda cerca de 30 MB.
+    const png = (relleno: number) =>
+      Buffer.concat([PNG_1X1.subarray(0, 8), Buffer.alloc(3.6 * 1024 * 1024, relleno)]);
+    const imagenes = Array.from({ length: 8 }, (_, i) => ({
+      ruta: `fotos/portada_${i + 1}.png`,
+      datos: png(i),
+    }));
+    const zip = armarZip([
+      ...imagenes,
+      { ruta: 'fotos/notas.txt', datos: Buffer.from('no es imagen') },
+      { ruta: 'fotos/enorme.png', datos: Buffer.concat([png(9), png(9)]), deflate: true },
+    ]);
+    expect(zip.length).toBeGreaterThan(28 * 1024 * 1024);
+    expect(zip.length).toBeLessThan(MEDIOS_ZIP_MAX_MB * 1024 * 1024);
+    const subir = (contenido: Buffer, quien = n) =>
+      quien.formulario(
+        '/sitio/medios/zip',
+        {},
+        {
+          campo: 'archivo',
+          nombre: 'imagenes.zip',
+          tipo: 'application/zip',
+          contenido,
+        },
+      );
+
+    const r = await subir(zip);
+    expect(r.estado).toBe(201);
+    expect(r.cuerpo.subidas).toHaveLength(8);
+    expect(r.cuerpo.subidas[0].textoAlternativo).toBe('Portada 1');
+    expect(r.cuerpo.omitidas.map((o: { nombre: string }) => o.nombre).sort()).toEqual([
+      'enorme.png',
+      'notas.txt',
+    ]);
+    expect((await n.get('/sitio/medios')).cuerpo).toHaveLength(8);
+    const auditado = await ctx.prisma.auditoria.findFirst({
+      where: { accion: 'medio.zip_subido' },
+    });
+    expect(auditado).not.toBeNull();
+
+    // Más de 30 MB no entra, y quien no edita el sitio no puede subir.
+    const grande = armarZip([
+      ...imagenes,
+      { ruta: 'extra.png', datos: Buffer.concat([png(1), png(2)]) },
+    ]);
+    expect((await subir(grande)).estado).toBe(413);
+    const { n: ventas } = await conectar(ctx, 'ventas');
+    expect((await subir(armarZip([imagenes[0]!]), ventas)).estado).toBe(403);
+    expect((await subir(Buffer.from('no soy un zip'))).estado).toBe(400);
   });
 
   it('solo acepta imágenes y las sirve públicamente con caché larga', async () => {

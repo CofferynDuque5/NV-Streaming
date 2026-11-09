@@ -13,6 +13,9 @@ export * from '../sitio-texto.js';
 export const MAX_BLOQUES = 40;
 /** Tamaño máximo de una imagen del sitio. */
 export const MEDIO_MAX_MB = 4;
+/** ZIP con varias imágenes para la biblioteca del sitio: peso máximo y cuántas imágenes. */
+export const MEDIOS_ZIP_MAX_MB = 30;
+export const MEDIOS_ZIP_MAX_IMAGENES = 100;
 
 /** Misma expresión que la restricción `paginas_ruta_valida` de la base de datos. */
 export const RUTA_PAGINA_REGEX = /^\/([a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)*)?$/;

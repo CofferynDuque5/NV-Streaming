@@ -62,6 +62,13 @@ export interface MedioSitio {
   creadoEn: string;
 }
 
+/** Resultado de subir un ZIP de imágenes a la biblioteca. */
+export interface ResultadoZipMedios {
+  subidas: MedioSitio[];
+  /** Archivos del ZIP que no se subieron y por qué. */
+  omitidas: { nombre: string; motivo: string }[];
+}
+
 /** Temporada guardada (aunque ya haya vencido) y hasta cuándo dura. */
 export interface TemporadaGuardada {
   temporada: TemporadaSitio;

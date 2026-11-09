@@ -42,6 +42,9 @@ const config: NextConfig = {
     // Las reescrituras a /api cortan a los 30 s por defecto; el asistente con el modelo
     // local puede tardar hasta un par de minutos en contestar.
     proxyTimeout: 150_000,
+    // Sin Caddy delante (desarrollo, pruebas), /api pasa por Next.js, que corta el cuerpo a
+    // los 10 MB: el ZIP de imágenes del sitio llega a 30 MB y los comprobantes a 20 MB.
+    proxyClientMaxBodySize: '32mb',
     // En contenedores (LXC/Proxmox) Next.js ve los núcleos del equipo anfitrión (p. ej.
     // 87) y lanza un proceso por cada uno al «Collecting page data»: en un VPS de 6 GB la
     // memoria se agota y la compilación se queda congelada. Con 2 basta y no se atasca.
