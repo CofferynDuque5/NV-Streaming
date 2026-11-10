@@ -367,6 +367,72 @@ describe('carrito', () => {
     );
   });
 
+  it('una recarga de juego no tiene duración y pide el ID de jugador antes de cobrar', async () => {
+    const e = await escenario();
+    const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();
+    const servicio = await e.admin.post('/catalogo/servicios', {
+      proveedorId: proveedor.id,
+      nombre: 'Free Fire',
+      slug: 'free-fire',
+      categoria: 'juegos',
+      datosRequeridos: [
+        { clave: 'id-de-jugador', etiqueta: 'ID de jugador', ayuda: null, obligatorio: true },
+      ],
+    });
+    expect(servicio.estado).toBe(201);
+    const plan = await e.admin.post('/catalogo/planes', {
+      servicioId: servicio.cuerpo.id,
+      nombre: '100 diamantes',
+      tipo: 'recarga',
+      precioUsd: '1.00',
+      costoUsd: '0.50',
+      precioRevendedorUsd: '0.80',
+      duracionCantidad: 6,
+      duracionUnidad: 'mes',
+      renovable: true,
+      beneficios: [],
+    });
+    expect(plan.estado).toBe(201);
+    // Compra única: ni duración ni renovación, y el precio de revendedor queda guardado.
+    expect(plan.cuerpo).toMatchObject({
+      tipo: 'recarga',
+      duracionCantidad: 1,
+      renovable: false,
+      revendible: true,
+      precioRevendedorUsd: '0.80',
+    });
+    const caro = await e.admin.patch(`/catalogo/planes/${plan.cuerpo.id}`, {
+      precioRevendedorUsd: '2.00',
+    });
+    expect(caro.estado).toBe(409);
+
+    await conSaldo(e, '5');
+    const sinDatos = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+    });
+    expect(sinDatos.estado).toBe(400);
+    expect(sinDatos.cuerpo.error.codigo).toBe('DATOS_INVALIDOS');
+    expect(sinDatos.cuerpo.error.campos[`datos.${plan.cuerpo.id}.id-de-jugador`]).toBeDefined();
+    expect(await ctx.prisma.pedido.count()).toBe(0);
+
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+      datos: { [plan.cuerpo.id]: { 'id-de-jugador': ' 123456789 ', extra: 'no' } },
+    });
+    expect(pedido.estado).toBe(201);
+    const s = await ctx.prisma.suscripcion.findFirstOrThrow({ where: { planId: plan.cuerpo.id } });
+    expect(s.datosCliente).toEqual({ 'id-de-jugador': '123456789' });
+    const detalle = await e.admin.get(`/suscripciones/${s.id}`);
+    expect(detalle.cuerpo).toMatchObject({
+      plan: { tipo: 'recarga' },
+      datosCliente: [{ etiqueta: 'ID de jugador', valor: '123456789' }],
+    });
+  });
+
   it('repetir el pedido con la misma clave no crea ni cobra otro; otra clave sí es un pedido nuevo', async () => {
     const e = await escenario();
     await conSaldo(e, '20');

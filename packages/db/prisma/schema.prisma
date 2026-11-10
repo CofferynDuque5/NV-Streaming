@@ -393,6 +393,16 @@ enum UnidadDuracion {
 }
 
 /// Universo del servicio en la tienda (nombres y colores en `CATEGORIAS_SERVICIO` de @nv/shared).
+/// Qué se vende en un plan. Solo «suscripcion» tiene duración, vence y se renueva;
+/// el resto son compras únicas (monedas de un juego, paquetes, pases, tarjetas).
+enum TipoPlan {
+  suscripcion
+  recarga
+  paquete
+  pase
+  tarjeta
+}
+
 enum CategoriaServicio {
   streaming
   musica
@@ -427,18 +437,23 @@ model Proveedor {
 }
 
 model Servicio {
-  id            String             @id @default(uuid()) @db.Uuid
-  proveedorId   String             @map("proveedor_id") @db.Uuid
-  nombre        String             @db.VarChar(80)
-  slug          String             @unique @db.VarChar(80)
-  descripcion   String?            @db.VarChar(1000)
+  id              String             @id @default(uuid()) @db.Uuid
+  proveedorId     String             @map("proveedor_id") @db.Uuid
+  nombre          String             @db.VarChar(80)
+  slug            String             @unique @db.VarChar(80)
+  descripcion     String?            @db.VarChar(1000)
   /// Universo en el que aparece en la tienda. Sin categoría solo sale en «Todo».
-  categoria     CategoriaServicio?
-  activo        Boolean            @default(true)
-  creadoEn      DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  categoria       CategoriaServicio?
+  /// Logo o imagen subida a la biblioteca del sitio; sin ella se usa la tarjeta de la marca o un ícono.
+  imagenId        String?            @map("imagen_id") @db.Uuid
+  /// Datos que el cliente escribe al comprar (ID de jugador, servidor…): [{clave, etiqueta, ayuda, obligatorio}].
+  datosRequeridos Json               @default("[]") @map("datos_requeridos")
+  activo          Boolean            @default(true)
+  creadoEn        DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   proveedor Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  imagen    Medio?           @relation(fields: [imagenId], references: [id], onDelete: SetNull)
   planes    Plan[]
   alias     AliasServicio[]
   cuentas   CuentaServicio[]
@@ -468,6 +483,7 @@ model Plan {
   descripcion      String?        @db.VarChar(1000)
   /// Precio base. El resto de monedas se calcula con la tasa vigente salvo precio fijo.
   precioUsd        Decimal        @map("precio_usd") @db.Decimal(14, 2)
+  tipo             TipoPlan       @default(suscripcion)
   duracionCantidad Int            @map("duracion_cantidad")
   duracionUnidad   UnidadDuracion @map("duracion_unidad")
   beneficios       String[]       @default([])
@@ -574,6 +590,8 @@ model Suscripcion {
   segundosRestantes  Int?              @map("segundos_restantes")
   /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
   cancelarAlVencer   Boolean           @default(false) @map("cancelar_al_vencer")
+  /// Datos que pidió el servicio al comprar (ID de jugador, servidor…): {clave: valor}.
+  datosCliente       Json?             @map("datos_cliente")
   /// Método autorizado con el que se cobra sola al vencer. Nulo = pago manual.
   metodoAutorizadoId String?           @map("metodo_autorizado_id") @db.Uuid
   canceladaEn        DateTime?         @map("cancelada_en") @db.Timestamptz(3)
@@ -1154,8 +1172,9 @@ model Medio {
   subidoPorId      String?  @map("subido_por_id") @db.Uuid
   creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  archivo   Archivo  @relation(fields: [archivoId], references: [id], onDelete: Restrict)
-  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  archivo   Archivo    @relation(fields: [archivoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario?   @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  servicios Servicio[]
 
   @@map("medios")
 }

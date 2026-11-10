@@ -198,6 +198,8 @@ export class SuscripcionesService {
       cupon: string | null;
       pedidoId: string;
       cliente: InfoCliente;
+      /** Datos que escribió el cliente (ID de jugador…), ya revisados. */
+      datosCliente?: Record<string, string> | null;
     },
   ): Promise<Factura> {
     const plan = await this.planContratable(tx, auth, e.planId);
@@ -216,6 +218,7 @@ export class SuscripcionesService {
       cupon: string | null;
       pedidoId: string | null;
       cliente: InfoCliente;
+      datosCliente?: Record<string, string> | null;
     },
   ): Promise<{ s: Suscripcion; factura: Factura }> {
     const { plan } = e;
@@ -225,6 +228,9 @@ export class SuscripcionesService {
         planId: plan.id,
         moneda: e.moneda,
         creadoPorId: auth.usuario.id,
+        ...(e.datosCliente && Object.keys(e.datosCliente).length > 0
+          ? { datosCliente: e.datosCliente }
+          : {}),
       },
     });
     await this.evento(tx, s.id, 'alta', auth.usuario.id, null, {
@@ -601,7 +607,8 @@ export class SuscripcionesService {
         let cambios = 0;
         for (const paso of pasos) {
           const filas = await tx.suscripcion.findMany({
-            where: paso.where,
+            // Las compras únicas (recargas, paquetes, pases, tarjetas) no vencen.
+            where: { ...paso.where, plan: { tipo: 'suscripcion' } },
             select: { id: true, estado: true, venceEn: true, revendedorId: true },
             take: 500,
           });

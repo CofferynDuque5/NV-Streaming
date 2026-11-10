@@ -167,7 +167,11 @@ export default async function Suscripciones({
                         {s.plan.servicio} · {s.plan.nombre}
                       </span>
                       <span className="text-xs text-tinta-tenue">
-                        {formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad)}
+                        {formatearDuracion(
+                          s.plan.duracionCantidad,
+                          s.plan.duracionUnidad,
+                          s.plan.tipo,
+                        )}
                         {s.plan.renovable ? '' : ' · no renovable'}
                       </span>
                     </span>

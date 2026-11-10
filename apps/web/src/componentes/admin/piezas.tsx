@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { refrescarTienda } from '@/app/(paneles)/admin/sitio/acciones';
 import { Alerta } from '@/componentes/ui/alerta';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 
@@ -48,6 +49,8 @@ export function useAccion() {
         setError(r.error);
         return null;
       }
+      // Lo que cambia en el catálogo se ve en la tienda sin esperar a su caché.
+      if (ruta.startsWith('/catalogo/')) void refrescarTienda();
       await new Promise<void>((fin) => {
         const tope = setTimeout(fin, ESPERA_MAXIMA_REFRESCO_MS);
         esperando.current.push(() => {

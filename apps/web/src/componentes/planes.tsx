@@ -1,4 +1,10 @@
-import { formatearMonto, INFO_MONEDA, type Moneda, type PlanPublico } from '@nv/shared';
+import {
+  esCompraUnica,
+  formatearMonto,
+  INFO_MONEDA,
+  type Moneda,
+  type PlanPublico,
+} from '@nv/shared';
 import clsx from 'clsx';
 import { Check } from 'lucide-react';
 import Link from 'next/link';
@@ -62,7 +68,9 @@ export function PrecioPlan({ plan, moneda }: { plan: PlanPublico; moneda: Moneda
         {Number(precio.precio) === 0 ? 'Gratis' : formatearMonto(precio.precio, moneda)}
       </span>
       <span className="text-sm text-tinta-tenue">
-        / {formatearDuracion(plan.duracionCantidad, plan.duracionUnidad)}
+        {esCompraUnica(plan.tipo)
+          ? 'pago único'
+          : `/ ${formatearDuracion(plan.duracionCantidad, plan.duracionUnidad)}`}
       </span>
     </p>
   );

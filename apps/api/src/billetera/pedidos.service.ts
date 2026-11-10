@@ -7,8 +7,9 @@ import {
   type LineaCotizacionPedido,
   type Pagina,
   type PedidoPublico,
+  revisarDatos,
 } from '@nv/shared';
-import type { PlanCompleto } from '../catalogo/catalogo.service.js';
+import { datosDeServicio, type PlanCompleto } from '../catalogo/catalogo.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
 import { type CalculoFactura, FacturacionService } from '../cobros/facturacion.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -122,6 +123,28 @@ export class PedidosService {
         );
       }
       const calculo = await this.calcular(tx, auth, c.id, e.planes, e.moneda, e.cupon ?? null);
+      // Lo que pide cada servicio (ID de jugador…) tiene que venir completo antes de cobrar.
+      const datosPorPlan = new Map<string, Record<string, string>>();
+      const erroresDatos: Record<string, string[]> = {};
+      for (const { plan } of calculo.lineas) {
+        const { limpios, errores } = revisarDatos(
+          datosDeServicio(plan.servicio.datosRequeridos),
+          e.datos?.[plan.id],
+        );
+        datosPorPlan.set(plan.id, limpios);
+        for (const [clave, m] of Object.entries(errores)) {
+          erroresDatos[`datos.${plan.id}.${clave}`] = [m];
+        }
+      }
+      const faltan = Object.keys(erroresDatos);
+      if (faltan.length > 0) {
+        throw new ErrorApp(
+          400,
+          'DATOS_INVALIDOS',
+          'Faltan datos para entregar tu compra. Complétalos en el carrito.',
+          erroresDatos,
+        );
+      }
       if (e.pago === 'billetera') this.exigirSaldo(c, calculo.totalUsd);
       const pedido = await tx.pedido.create({
         data: {
@@ -142,6 +165,7 @@ export class PedidosService {
             cupon: plan.id === calculo.planConCupon ? (e.cupon ?? null) : null,
             pedidoId: pedido.id,
             cliente,
+            datosCliente: datosPorPlan.get(plan.id) ?? null,
           }),
         );
       }

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import {
+  BLOQUES_INICIO,
   type BloqueSitio,
   bloqueSitioSchema,
   type ContactoSitio,
@@ -184,9 +185,13 @@ export class SitioService {
     cliente: InfoCliente,
   ): Promise<PaginaSitioDetalle> {
     // Con plantilla, el borrador empieza con sus bloques (validados como cualquier borrador).
+    // La portada («/») sin plantilla empieza con la portada de fábrica, que es la que se ve
+    // mientras no exista: así se edita lo mismo que el visitante ya está viendo.
     const bloques = e.plantilla
       ? contenidoPaginaSchema.parse(PLANTILLAS_PAGINA[e.plantilla].bloques)
-      : [];
+      : e.ruta === '/'
+        ? contenidoPaginaSchema.parse(BLOQUES_INICIO)
+        : [];
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const p = await tx.pagina.create({

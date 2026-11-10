@@ -1,6 +1,10 @@
 'use client';
 
-import type { MetodoAutorizadoPublico, SuscripcionPublica } from '@nv/shared';
+import {
+  type MetodoAutorizadoPublico,
+  NOMBRE_TIPO_PLAN,
+  type SuscripcionPublica,
+} from '@nv/shared';
 import clsx from 'clsx';
 import { CircleCheck, Clapperboard, Clock, MessageCircle, Tag, UserRound, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -106,7 +110,8 @@ type Grupo = 'todos' | 'activos' | 'vencer' | 'pendientes' | 'terminados';
 
 export interface VistaServicio {
   s: SuscripcionPublica;
-  duracion: string;
+  /** Duración del plan; null en las compras únicas (recargas, paquetes, pases…). */
+  duracion: string | null;
   vigencia: string;
   barra: { pct: number; tono: 'normal' | 'ambar' | 'rojo'; desde: string; resta: string } | null;
   venceLargo: string | null;
@@ -329,10 +334,12 @@ function TarjetaServicio({
           slug={s.plan.servicioSlug}
           categoria={s.plan.categoria}
           nombre={s.plan.servicio}
+          imagen={s.plan.servicioImagen}
         />
         <div className="grid min-w-0 gap-0.5">
           <small className="truncate text-xs text-tinta-suave">
-            {s.plan.servicio} · plan de {v.duracion} · {s.moneda}
+            {s.plan.servicio} ·{' '}
+            {v.duracion ? `plan de ${v.duracion}` : NOMBRE_TIPO_PLAN[s.plan.tipo]} · {s.moneda}
           </small>
           <h3 id={titulo} className="text-[1.0625rem] leading-tight text-balance">
             {s.plan.nombre}
@@ -369,6 +376,17 @@ function TarjetaServicio({
           </>
         )}
       </div>
+
+      {s.datosCliente.length > 0 && (
+        <dl className="grid gap-x-3 gap-y-0.5 text-[0.8rem] sm:grid-cols-[auto_minmax(0,1fr)]">
+          {s.datosCliente.map((d) => (
+            <div key={d.etiqueta} className="contents">
+              <dt className="text-tinta-tenue">{d.etiqueta}</dt>
+              <dd className="break-words text-tinta-suave">{d.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {v.admiteCobroAutomatico && <CobroAutomatico s={s} metodos={metodos} vence={v.venceLargo} />}
 

@@ -1,4 +1,4 @@
-import { ZONA_HORARIA } from '@nv/shared';
+import { esCompraUnica, NOMBRE_TIPO_PLAN, type TipoPlan, ZONA_HORARIA } from '@nv/shared';
 
 const fechaHora = new Intl.DateTimeFormat('es', {
   dateStyle: 'medium',
@@ -154,7 +154,13 @@ Object.assign(ACCIONES_AUDITORIA, {
 });
 
 /** "1 mes", "3 meses", "7 días". */
-export function formatearDuracion(cantidad: number, unidad: 'dia' | 'mes'): string {
+export function formatearDuracion(
+  cantidad: number,
+  unidad: 'dia' | 'mes',
+  tipo?: TipoPlan,
+): string {
+  // Las compras únicas (recargas, paquetes, pases…) no tienen duración.
+  if (tipo && esCompraUnica(tipo)) return `${NOMBRE_TIPO_PLAN[tipo]} · pago único`;
   if (unidad === 'mes') return `${cantidad} ${cantidad === 1 ? 'mes' : 'meses'}`;
   return `${cantidad} ${cantidad === 1 ? 'día' : 'días'}`;
 }

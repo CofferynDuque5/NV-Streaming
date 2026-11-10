@@ -201,7 +201,7 @@ export default async function Catalogo() {
                         >
                           <span className="font-medium">{p.nombre}</span>
                           <span className="text-xs text-tinta-tenue">
-                            {formatearDuracion(p.duracionCantidad, p.duracionUnidad)}
+                            {formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo)}
                           </span>
                         </Link>
                       </Celda>

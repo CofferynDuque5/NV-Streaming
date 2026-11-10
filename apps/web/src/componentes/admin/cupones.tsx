@@ -191,7 +191,7 @@ export function NuevoCupon({ planes, esVentas }: { planes: PlanPublico[]; esVent
                       name="planIds"
                       value={p.id}
                       etiqueta={p.nombre}
-                      ayuda={`${formatearDuracion(p.duracionCantidad, p.duracionUnidad)}${p.activo ? '' : ' · inactivo'}`}
+                      ayuda={`${formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo)}${p.activo ? '' : ' · inactivo'}`}
                     />
                   ))}
                 </div>

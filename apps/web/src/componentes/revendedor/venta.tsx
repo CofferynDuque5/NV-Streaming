@@ -24,7 +24,8 @@ import { CeldaPlan, claseTabla, usd } from './panel';
 /** Clave nueva por intento de venta: si la red falla y se reintenta, no se cobra dos veces. */
 const claveNueva = () => crypto.randomUUID();
 
-const duracion = (p: PlanMayorista) => formatearDuracion(p.duracionCantidad, p.duracionUnidad);
+const duracion = (p: PlanMayorista) =>
+  formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo);
 
 interface ClienteBreve {
   id: string;

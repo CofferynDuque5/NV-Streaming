@@ -1,6 +1,13 @@
 'use client';
 
-import { etiquetaDuracion, formatearMonto, type Moneda, type PlanPublico } from '@nv/shared';
+import {
+  esCompraUnica,
+  etiquetaPlan,
+  formatearMonto,
+  NOMBRE_TIPO_PLAN,
+  type Moneda,
+  type PlanPublico,
+} from '@nv/shared';
 import clsx from 'clsx';
 import { Check, Link2, ShieldCheck, Store, Wallet } from 'lucide-react';
 import Link from 'next/link';
@@ -193,7 +200,7 @@ export function DetalleServicio({
   const repetidas = new Set<string>();
   const duraciones = new Map<string, number>();
   for (const p of planes) {
-    const d = etiquetaDuracion(p.duracionCantidad, p.duracionUnidad);
+    const d = etiquetaPlan(p);
     duraciones.set(d, (duraciones.get(d) ?? 0) + 1);
   }
   for (const [d, n] of duraciones) if (n > 1) repetidas.add(d);
@@ -224,8 +231,9 @@ export function DetalleServicio({
         <ul className="grid gap-2 text-sm">
           <li className="flex gap-2.5">
             <Check className="mt-0.5 size-4 shrink-0 text-exito" aria-hidden="true" />
-            {nombre}, plan {plan.nombre}, por{' '}
-            {etiquetaDuracion(plan.duracionCantidad, plan.duracionUnidad)}
+            {esCompraUnica(plan.tipo)
+              ? `${nombre}: ${plan.nombre} (${NOMBRE_TIPO_PLAN[plan.tipo].toLowerCase()}, pago único)`
+              : `${nombre}, plan ${plan.nombre}, por ${etiquetaPlan(plan)}`}
           </li>
           {plan.beneficios.map((b) => (
             <li key={b} className="flex gap-2.5">
@@ -297,11 +305,15 @@ export function DetalleServicio({
 
         {planes.length > 1 && (
           <fieldset className="grid gap-2.5">
-            <legend className="mb-2.5 font-titulo font-bold">Elige la duración</legend>
+            <legend className="mb-2.5 font-titulo font-bold">
+              {planes.every((p) => esCompraUnica(p.tipo))
+                ? 'Elige tu paquete'
+                : 'Elige la duración'}
+            </legend>
             <div className="grid grid-cols-2 gap-2.5 @2xl:grid-cols-4">
               {planes.map((p) => {
                 const pr = precioDeTarjeta(p, moneda, mayorista);
-                const d = etiquetaDuracion(p.duracionCantidad, p.duracionUnidad);
+                const d = etiquetaPlan(p);
                 const elegido = p.id === plan.id;
                 return (
                   <label
@@ -395,7 +407,7 @@ export function DetalleServicio({
         >
           <div className="grid min-w-0 flex-1">
             <span className="truncate text-xs text-tinta-suave">
-              {nombre} · {etiquetaDuracion(plan.duracionCantidad, plan.duracionUnidad)}
+              {nombre} · {etiquetaPlan(plan)}
             </span>
             <b className="font-titulo tabular-nums">{precio.principal}</b>
           </div>

@@ -1,3 +1,4 @@
+import { datosConEtiqueta } from '../suscripciones/presentacion.js';
 import type { Prisma } from '@nv/db';
 import type {
   AccesoServicio,
@@ -15,10 +16,18 @@ export const huellaVisible = (h: string) => h.slice(0, LARGO_HUELLA_VISIBLE);
 
 export const INCLUIR_ENTREGA = {
   proveedor: { select: { id: true, nombre: true } },
-  plan: { select: { id: true, nombre: true, servicio: { select: { nombre: true } } } },
+  plan: {
+    select: {
+      id: true,
+      nombre: true,
+      servicio: { select: { nombre: true, datosRequeridos: true } },
+    },
+  },
   cliente: { select: { id: true, nombre: true } },
   revendedor: { select: { id: true, nombreComercial: true } },
   factura: { select: { id: true, numero: true } },
+  suscripcion: { select: { datosCliente: true } },
+  compraRevendedor: { select: { suscripcion: { select: { datosCliente: true } } } },
 } as const satisfies Prisma.EntregaInclude;
 
 export type EntregaConRelaciones = Prisma.EntregaGetPayload<{ include: typeof INCLUIR_ENTREGA }>;
@@ -79,6 +88,10 @@ export function entregaDetalle(
   return {
     ...entregaResumen(e),
     instrucciones: e.instrucciones,
+    datosCliente: datosConEtiqueta(
+      e.plan.servicio.datosRequeridos,
+      (e.suscripcion ?? e.compraRevendedor?.suscripcion)?.datosCliente,
+    ),
     motivoAnulacion: e.motivoAnulacion,
     completadaPor: e.completadaPor,
     periodoInicio: iso(e.periodoInicio),

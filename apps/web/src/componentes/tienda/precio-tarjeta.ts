@@ -1,5 +1,5 @@
 import {
-  etiquetaDuracion,
+  etiquetaPlan,
   formatearMonto,
   INFO_CATEGORIA,
   type Moneda,
@@ -60,6 +60,6 @@ export function precioDeTarjeta(
 
 /** «Streaming · 1 mes» para la línea de categoría de la tarjeta. */
 export function lineaCategoria(plan: PlanPublico, categoria: keyof typeof INFO_CATEGORIA | null) {
-  const duracion = etiquetaDuracion(plan.duracionCantidad, plan.duracionUnidad);
+  const duracion = etiquetaPlan(plan);
   return categoria ? `${INFO_CATEGORIA[categoria].nombre} · ${duracion}` : duracion;
 }

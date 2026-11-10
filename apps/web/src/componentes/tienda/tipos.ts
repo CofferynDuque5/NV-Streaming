@@ -1,4 +1,4 @@
-import type { CategoriaServicio, ClaveArte, Moneda } from '@nv/shared';
+import type { CategoriaServicio, Moneda } from '@nv/shared';
 
 /** Servicio tal como lo muestran el buscador y el megamenú (precios ya formateados). */
 export interface ServicioMenu {
@@ -7,7 +7,8 @@ export interface ServicioMenu {
   slug: string;
   categoria: CategoriaServicio | null;
   color: string;
-  arte: ClaveArte | null;
+  /** Dirección de la imagen del servicio. */
+  arte: string | null;
   /** Precio del plan más barato en la moneda elegida, tal como lo dio la API. */
   desde: string | null;
   duracion: string | null;

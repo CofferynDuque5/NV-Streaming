@@ -1,6 +1,7 @@
 import {
   type AccesoServicio,
   type BilleteraPublica,
+  esCompraUnica,
   formatearMonto,
   type MetodoAutorizadoPublico,
   type Pagina,
@@ -52,6 +53,11 @@ function porVencer(s: SuscripcionPublica) {
 }
 
 function vigencia(s: SuscripcionPublica): string {
+  if (esCompraUnica(s.plan.tipo)) {
+    if (s.estado === 'pendiente_pago') return 'Se entrega cuando confirmemos tu pago.';
+    if (s.estado === 'cancelada') return 'Cancelada.';
+    return s.inicioEn ? `Compra única · pagada el ${fLarga(s.inicioEn)}.` : 'Compra única.';
+  }
   if (s.estado === 'pendiente_pago')
     return s.gestionadaPorRevendedor
       ? 'Se activa cuando tu revendedor confirme el pago.'
@@ -70,6 +76,7 @@ function vigencia(s: SuscripcionPublica): string {
 }
 
 function barra(s: SuscripcionPublica, ahora = Date.now()): VistaServicio['barra'] {
+  if (esCompraUnica(s.plan.tipo)) return null;
   if (!s.inicioEn || !s.venceEn || ['cancelada', 'pendiente_pago'].includes(s.estado)) return null;
   const ini = new Date(s.inicioEn).getTime();
   const total = Math.max(new Date(s.venceEn).getTime() - ini, 1);
@@ -123,9 +130,12 @@ export default async function MisServicios() {
     const fin = s.estado === 'cancelada';
     const terminado = TERMINADOS.has(s.estado);
     const acceso = listos.find((a) => a.suscripcion?.id === s.id);
+    const unica = esCompraUnica(s.plan.tipo);
     return {
       s,
-      duracion: formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad),
+      duracion: unica
+        ? null
+        : formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad, s.plan.tipo),
       vigencia: vigencia(s),
       barra: barra(s),
       venceLargo: s.venceEn ? fLarga(s.venceEn) : null,
@@ -140,7 +150,9 @@ export default async function MisServicios() {
       puedeCancelar:
         propia &&
         !s.cancelarAlVencer &&
-        ['activa', 'en_gracia', 'pendiente_pago'].includes(s.estado),
+        (unica
+          ? s.estado === 'pendiente_pago'
+          : ['activa', 'en_gracia', 'pendiente_pago'].includes(s.estado)),
       admiteCobroAutomatico:
         !conRevendedor &&
         s.plan.renovable &&
@@ -155,7 +167,7 @@ export default async function MisServicios() {
       grupos: [
         'todos',
         ...(['activa', 'en_gracia'].includes(s.estado) ? (['activos'] as const) : []),
-        ...(porVencer(s) || s.estado === 'en_gracia' ? (['vencer'] as const) : []),
+        ...(!unica && (porVencer(s) || s.estado === 'en_gracia') ? (['vencer'] as const) : []),
         ...(s.estado === 'pendiente_pago' ? (['pendientes'] as const) : []),
         ...(terminado ? (['terminados'] as const) : []),
       ],

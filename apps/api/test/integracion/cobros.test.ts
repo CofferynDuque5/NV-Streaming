@@ -125,6 +125,8 @@ describe('catálogo y monedas', () => {
         slug: 'nv-cine',
         descripcion: 'Películas con licencia.',
         categoria: 'musica',
+        imagen: null,
+        datosRequeridos: [],
       },
     ]);
     // Una categoría que no existe se rechaza; vacía la quita.

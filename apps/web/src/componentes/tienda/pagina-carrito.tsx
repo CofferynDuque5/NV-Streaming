@@ -11,6 +11,7 @@ import {
   type PedidoPublico,
   type PlanPublico,
   planMasBarato,
+  revisarDatos,
   type ServicioTienda,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -36,10 +37,11 @@ import {
   useState,
 } from 'react';
 import { AvisoSaldoInsuficiente } from '@/componentes/cliente/saldo-insuficiente';
+import { DatosCompra, type PideDatos, type ValoresCompra } from '@/componentes/tienda/datos-compra';
 import { Boton, clasesBoton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { useNotificar } from '@/componentes/ui/notificaciones';
-import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
+import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import {
   ID_TITULO_CARRITO,
   MAX_CARRITO,
@@ -489,6 +491,18 @@ function CarritoConPlanes({
           <ResumenCliente
             cliente={cliente}
             ids={ids}
+            pideDatos={elegidos.flatMap(({ plan, item }) =>
+              item.servicio.datosRequeridos.length > 0
+                ? [
+                    {
+                      planId: plan.id,
+                      servicio: item.servicio.nombre,
+                      plan: plan.nombre,
+                      datos: item.servicio.datosRequeridos,
+                    },
+                  ]
+                : [],
+            )}
             moneda={moneda}
             nPlanes={nPlanes}
             metodosPago={metodosPago}
@@ -773,6 +787,7 @@ const TEXTO_BOTON: Record<FormaPagoPedido, string> = {
 function ResumenCliente({
   cliente,
   ids,
+  pideDatos,
   moneda,
   nPlanes,
   metodosPago,
@@ -790,6 +805,7 @@ function ResumenCliente({
 }: {
   cliente: Extract<CuentaCarrito, { tipo: 'cliente' }>;
   ids: string[];
+  pideDatos: PideDatos[];
   moneda: Moneda;
   nPlanes: string;
   metodosPago: string[];
@@ -812,6 +828,8 @@ function ResumenCliente({
   const [clave, setClave] = useState(() => crypto.randomUUID());
   const [errorPedido, setErrorPedido] = useState<ErrorLlamada | null>(null);
   const [avisoSaldo, setAvisoSaldo] = useState(false);
+  const [valores, setValores] = useState<ValoresCompra>({});
+  const [erroresDatos, setErroresDatos] = useState<Record<string, string>>({});
   const opcionSaldo = useRef<HTMLButtonElement>(null);
 
   const saldoUsd = cotizacion?.saldoUsd ?? cliente.saldoUsd;
@@ -848,6 +866,19 @@ function ResumenCliente({
   async function crear(e: FormEvent) {
     e.preventDefault();
     if (!cotizacion || cotizando) return;
+    // Datos para la entrega (ID de jugador…): se revisan antes de cobrar.
+    const datos: ValoresCompra = {};
+    const faltan: Record<string, string> = {};
+    for (const p of pideDatos) {
+      const { limpios, errores } = revisarDatos(p.datos, valores[p.planId]);
+      datos[p.planId] = limpios;
+      for (const [c, m] of Object.entries(errores)) faltan[`datos.${p.planId}.${c}`] = m;
+    }
+    setErroresDatos(faltan);
+    if (Object.keys(faltan).length > 0) {
+      document.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
     setCreando(true);
     setErrorPedido(null);
     const r = await llamarApi<PedidoPublico>('POST', '/mi/pedidos', {
@@ -856,12 +887,16 @@ function ResumenCliente({
       cupon: cotizacion.cupon ?? '',
       pago: elegida,
       claveIdempotencia: clave,
+      ...(pideDatos.length > 0 ? { datos } : {}),
     });
     setCreando(false);
     // Tras un corte de red se conserva la clave: el reintento devuelve el mismo pedido.
     if (!r.ok && r.error.estado === 0) return setErrorPedido(r.error);
     setClave(crypto.randomUUID());
-    if (!r.ok) return setErrorPedido(r.error);
+    if (!r.ok) {
+      if (r.error.codigo === 'DATOS_INVALIDOS') setErroresDatos(erroresPorCampo(r.error));
+      return setErrorPedido(r.error);
+    }
     alHacerPedido(r.datos, elegida);
   }
 
@@ -947,6 +982,20 @@ function ResumenCliente({
           )}
         </p>
       </div>
+
+      <DatosCompra
+        pedidos={pideDatos}
+        valores={valores}
+        errores={erroresDatos}
+        alCambiar={(planId, c, v) => {
+          setValores((x) => ({ ...x, [planId]: { ...x[planId], [c]: v } }));
+          setErroresDatos((x) => {
+            const resto = { ...x };
+            delete resto[`datos.${planId}.${c}`];
+            return resto;
+          });
+        }}
+      />
 
       <Totales cotizacion={cotizacion} cotizando={cotizando} nPlanes={nPlanes} moneda={moneda} />
 

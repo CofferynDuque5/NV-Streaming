@@ -1,5 +1,6 @@
 import {
-  etiquetaDuracion,
+  esCompraUnica,
+  etiquetaPlan,
   type Pagina,
   type PlanPublico,
   type ServicioTienda,
@@ -52,7 +53,8 @@ export function Esqueleto({ ancho = 'w-16' }: { ancho?: string }) {
 
 /** Nombre de la opción de un plan: su duración (y su nombre si hay dos con la misma). */
 export function nombreOpcion(p: PlanPublico, planes: PlanPublico[]) {
-  const d = etiquetaDuracion(p.duracionCantidad, p.duracionUnidad);
+  const d = etiquetaPlan(p);
+  if (esCompraUnica(p.tipo)) return d;
   const repetida = planes.some(
     (x) =>
       x.id !== p.id &&

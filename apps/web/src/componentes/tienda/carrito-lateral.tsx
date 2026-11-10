@@ -2,7 +2,7 @@
 
 import {
   type CotizacionPedido,
-  etiquetaDuracion,
+  etiquetaPlan,
   formatearMonto,
   type Moneda,
   type Pagina,
@@ -493,8 +493,7 @@ export function CarritoLateral({
                       <div className="grid min-w-0">
                         <b className="truncate text-[0.82rem]">{item.servicio.nombre}</b>
                         <span className="text-xs text-tinta-suave">
-                          {etiquetaDuracion(plan.duracionCantidad, plan.duracionUnidad)} ·{' '}
-                          {precioTexto(plan, moneda)}
+                          {etiquetaPlan(plan)} · {precioTexto(plan, moneda)}
                         </span>
                       </div>
                       <button

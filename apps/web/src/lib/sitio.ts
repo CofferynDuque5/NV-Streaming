@@ -31,7 +31,9 @@ export async function leerPaginaPublicada(
 /** Catálogo público (planes visibles con su precio en cada moneda). */
 export async function leerCatalogo(): Promise<CatalogoPublico | null> {
   try {
-    const r = await fetch(`${API}/api/v1/catalogo`, { next: { revalidate: 300 } });
+    const r = await fetch(`${API}/api/v1/catalogo`, {
+      next: { tags: [ETIQUETA_SITIO], revalidate: 300 },
+    });
     return r.ok ? ((await r.json()) as CatalogoPublico) : null;
   } catch {
     return null;

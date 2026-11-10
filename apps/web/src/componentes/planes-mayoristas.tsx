@@ -1,4 +1,4 @@
-import { formatearMonto, type PlanMayorista, type PlanPublico } from '@nv/shared';
+import { esCompraUnica, formatearMonto, type PlanMayorista, type PlanPublico } from '@nv/shared';
 import clsx from 'clsx';
 import { ArrowRight, Check, Store, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
@@ -88,7 +88,9 @@ function TarjetaMayorista({
             {formatearMonto(x.precio, x.moneda)}
           </span>
           <span className="text-sm text-tinta-tenue">
-            / {formatearDuracion(p.duracionCantidad, p.duracionUnidad)}
+            {esCompraUnica(p.tipo)
+              ? 'pago único'
+              : `/ ${formatearDuracion(p.duracionCantidad, p.duracionUnidad)}`}
           </span>
         </p>
         <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-borde text-sm">

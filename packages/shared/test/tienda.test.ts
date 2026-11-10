@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   type CatalogoPublico,
   categoriasTienda,
+  claveDato,
   claveArte,
   duracionesCatalogo,
   etiquetaDuracion,
+  etiquetaPlan,
   filtrarCatalogo,
   type PlanPublico,
   planMasBarato,
+  revisarDatos,
   serviciosTienda,
 } from '../src/index.js';
 
@@ -27,6 +30,7 @@ function plan(
     precioUsd: usd,
     duracionCantidad: meses,
     duracionUnidad: 'mes',
+    tipo: 'suscripcion',
     beneficios: [],
     activo: true,
     visible: true,
@@ -92,7 +96,7 @@ describe('tienda: servicios y universos', () => {
   it('agrupa por servicio, ordena por duración y omite servicios sin planes', () => {
     expect(servicios.map((s) => s.servicio.id)).toEqual(['s1', 's2', 's3']);
     expect(servicios[0]?.planes.map((p) => p.id)).toEqual(['c1', 'c3', 'c12']);
-    expect(servicios[1]?.arte).toBe('spotify');
+    expect(servicios[1]?.arte).toBe('/servicios/spotify.webp');
     expect(servicios[1]?.ranking).toBe(0);
     expect(servicios[0]?.ranking).toBeNull();
   });
@@ -145,5 +149,33 @@ describe('tienda: filtros y orden del catálogo', () => {
     expect(ids(filtrarCatalogo(servicios, 'USD', { orden: 'menor' }))).toEqual(['n1', 'm1', 'c1']);
     expect(ids(filtrarCatalogo(servicios, 'USD', { orden: 'mayor' }))).toEqual(['c1', 'm1', 'n1']);
     expect(ids(filtrarCatalogo(servicios, 'USD', { orden: 'az' }))).toEqual(['n1', 'c1', 'm1']);
+  });
+});
+
+describe('tienda: compras únicas (juegos)', () => {
+  it('nombra la opción por su nombre y no la cuenta como duración', () => {
+    const s = { id: 's9', nombre: 'Free Fire', slug: 'free-fire' };
+    const recarga = {
+      ...plan('r1', s, '1.00', null, 1),
+      nombre: '100 diamantes',
+      tipo: 'recarga' as const,
+    };
+    expect(etiquetaPlan(recarga)).toBe('100 diamantes');
+    expect(etiquetaPlan(plan('p1', s, '1.00', null, 3))).toBe('3 meses');
+  });
+
+  it('revisa los datos que pide el servicio', () => {
+    const pedidos = [
+      { clave: 'id-de-jugador', etiqueta: 'ID de jugador', ayuda: null, obligatorio: true },
+      { clave: 'servidor', etiqueta: 'Servidor', ayuda: null, obligatorio: false },
+    ];
+    expect(revisarDatos(pedidos, {}).errores).toEqual({
+      'id-de-jugador': 'Escribe ID de jugador.',
+    });
+    expect(revisarDatos(pedidos, { 'id-de-jugador': ' 123 ', otro: 'x' })).toEqual({
+      limpios: { 'id-de-jugador': '123' },
+      errores: {},
+    });
+    expect(claveDato('ID de jugador')).toBe('id-de-jugador');
   });
 });

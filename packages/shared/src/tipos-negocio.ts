@@ -1,5 +1,10 @@
 import type { CategoriaServicio } from './categorias.js';
-import type { TipoProveedor, UnidadDuracion } from './esquemas/catalogo.js';
+import type {
+  DatoRequerido,
+  TipoPlan,
+  TipoProveedor,
+  UnidadDuracion,
+} from './esquemas/catalogo.js';
 import type { EstadoCliente } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';
@@ -92,6 +97,10 @@ export interface ServicioPublico {
   slug: string;
   descripcion: string | null;
   categoria: CategoriaServicio | null;
+  /** Logo o imagen subida; null usa la tarjeta de la marca o un ícono. */
+  imagen: { id: string; url: string } | null;
+  /** Datos que el cliente escribe al comprar (ID de jugador, servidor…). */
+  datosRequeridos: DatoRequerido[];
   activo: boolean;
 }
 
@@ -104,6 +113,8 @@ export interface PlanPublico {
   nombre: string;
   descripcion: string | null;
   precioUsd: Decimal;
+  /** Qué se vende: suscripción con duración o compra única (recarga, paquete, pase, tarjeta). */
+  tipo: TipoPlan;
   duracionCantidad: number;
   duracionUnidad: UnidadDuracion;
   beneficios: string[];
@@ -115,6 +126,11 @@ export interface PlanPublico {
   costoUsd?: Decimal | null;
   /** Referencia en el sistema del proveedor (fase 6). Solo la recibe el equipo. */
   skuProveedor?: string | null;
+  /**
+   * Precio para revendedores si es el mismo en todos los niveles; «varios» si
+   * cambia según el nivel; null si no tiene. Solo lo recibe el equipo.
+   */
+  precioRevendedorUsd?: Decimal | 'varios' | null;
   orden: number;
   precios: PreciosPorMoneda;
 }
@@ -129,10 +145,15 @@ export interface SuscripcionPublica {
     /** Slug y universo del servicio: eligen su imagen o su orbe. */
     servicioSlug: string;
     categoria: CategoriaServicio | null;
+    /** Logo subido del servicio (si tiene). */
+    servicioImagen: string | null;
+    tipo: TipoPlan;
     duracionCantidad: number;
     duracionUnidad: UnidadDuracion;
     renovable: boolean;
   };
+  /** Lo que escribió el cliente al comprar (ID de jugador…), con el nombre de cada dato. */
+  datosCliente: { etiqueta: string; valor: string }[];
   estado: EstadoSuscripcion;
   moneda: Moneda;
   inicioEn: string | null;
@@ -363,6 +384,10 @@ export interface ServicioCatalogo {
   slug: string;
   descripcion: string | null;
   categoria: CategoriaServicio | null;
+  /** Dirección del logo subido; null usa la tarjeta de la marca o un ícono. */
+  imagen: string | null;
+  /** Datos que el cliente escribe al comprar (ID de jugador, servidor…). */
+  datosRequeridos: DatoRequerido[];
 }
 
 export interface CatalogoPublico {
