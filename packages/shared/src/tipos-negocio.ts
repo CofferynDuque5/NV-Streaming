@@ -390,8 +390,25 @@ export interface ServicioCatalogo {
   datosRequeridos: DatoRequerido[];
 }
 
+/** Combo: varios planes juntos a un precio especial. */
+export interface ComboPublico {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  precioUsd: Decimal;
+  /** Precio del combo en cada moneda (null si esa moneda no tiene tasa). */
+  precios: Record<Moneda, Decimal | null>;
+  /** Lo que costarían sus planes por separado en cada moneda. */
+  sinCombo: Record<Moneda, Decimal | null>;
+  planes: { id: string; nombre: string; servicio: { id: string; nombre: string; slug: string } }[];
+  activo: boolean;
+  orden: number;
+}
+
 export interface CatalogoPublico {
   planes: PlanPublico[];
+  /** Combos activos cuyos planes están todos a la venta. */
+  combos: ComboPublico[];
   /** Servicios que tienen planes en `planes`, en el orden del catálogo. */
   servicios: ServicioCatalogo[];
   /**

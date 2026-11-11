@@ -4,7 +4,9 @@ import {
   type BloqueDe,
   type BloqueSitio,
   type BotonSitio,
+  CATEGORIAS_CARTELERA,
   CATEGORIAS_SERVICIO,
+  type CategoriaCartelera,
   type CategoriaServicio,
   FONDOS_BLOQUE,
   ICONOS_SITIO,
@@ -13,12 +15,15 @@ import {
   type MedioSitio,
   ORDENES_SERVICIOS,
   PROPORCIONES_IMAGEN,
+  TONOS_CARTELERA,
+  type TonoCartelera,
   VARIANTES_SERVICIOS,
   VISUALES_PANEL,
 } from '@nv/shared';
 import clsx from 'clsx';
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Settings, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { INFO_CARTELERA, TONOS_CARTELERA_INFO } from '@/componentes/bloques/bloques-vitrina';
 import { ICONOS } from '@/componentes/bloques/piezas';
 import { claseEnlace } from '@/componentes/cliente/piezas-cuenta';
 import { Casilla } from '@/componentes/ui/selector';
@@ -251,6 +256,8 @@ function Encabezado<
     | 'universos'
     | 'servicios'
     | 'ranking'
+    | 'cartelera'
+    | 'combos'
     | 'metodos-pago'
   >,
 >({ p }: { p: PropsFormulario<B> }) {
@@ -1187,7 +1194,136 @@ function FormRanking({ p }: P<'ranking'>) {
   );
 }
 
-function FormSoloEncabezado({ p }: P<'universos' | 'metodos-pago'>) {
+function FormCartelera({ p }: P<'cartelera'>) {
+  const { b } = p;
+  const q = comun(p);
+  return (
+    <>
+      <Encabezado p={p} />
+      <Casilla
+        etiqueta="Chips para filtrar por tipo"
+        ayuda="Todo, Series, Películas, Deportes, Anime y Novelas (solo los tipos que haya)."
+        checked={b.filtros}
+        onChange={(e) => p.cambiar({ filtros: e.currentTarget.checked })}
+      />
+      <Lista
+        p={q}
+        ruta="elementos"
+        titulo="Títulos"
+        uno="título"
+        elementos={b.elementos}
+        min={1}
+        max={24}
+        nuevo={() => ({
+          titulo: '',
+          categoria: 'serie' as const,
+          plataforma: null,
+          insignia: null,
+          detalle: null,
+          tono: 'azul' as const,
+          imagen: null,
+        })}
+        resumen={(e) => [e.insignia, e.titulo].filter(Boolean).join(' · ')}
+        onCambio={(elementos, o) => p.cambiar({ elementos }, o)}
+      >
+        {(e, i, set) => (
+          <>
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.titulo`}
+              etiqueta="Título"
+              valor={e.titulo}
+              max={80}
+              placeholder="Monster: The Lizzie Borden Story"
+              onCambio={(titulo) => set({ titulo }, 'titulo')}
+            />
+            <CampoLista
+              etiqueta="Tipo"
+              value={e.categoria}
+              onChange={(ev) =>
+                set({ categoria: ev.currentTarget.value as CategoriaCartelera }, 'categoria')
+              }
+            >
+              {CATEGORIAS_CARTELERA.map((c) => (
+                <option key={c} value={c}>
+                  {INFO_CARTELERA[c].nombre}
+                </option>
+              ))}
+            </CampoLista>
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.plataforma`}
+              etiqueta="Plataforma"
+              opcional
+              valor={e.plataforma}
+              max={30}
+              placeholder="Netflix"
+              onCambio={(plataforma) => set({ plataforma }, 'plataforma')}
+            />
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.insignia`}
+              etiqueta="Insignia"
+              opcional
+              valor={e.insignia}
+              max={20}
+              placeholder="TOP 1, ESTRENO o 29 SEPT"
+              ayuda="Con «TOP 1», «TOP 2»… la tarjeta muestra el número grande"
+              onCambio={(insignia) => set({ insignia }, 'insignia')}
+            />
+            <Texto
+              p={q}
+              ruta={`elementos.${i}.detalle`}
+              etiqueta="Detalle"
+              opcional
+              valor={e.detalle}
+              max={80}
+              placeholder="Película · Estreno 25 sept"
+              ayuda="La línea pequeña bajo la tarjeta. Vacío muestra el tipo."
+              onCambio={(detalle) => set({ detalle }, 'detalle')}
+            />
+            <CampoLista
+              etiqueta="Color de la tarjeta"
+              value={e.tono}
+              onChange={(ev) => set({ tono: ev.currentTarget.value as TonoCartelera }, 'tono')}
+            >
+              {TONOS_CARTELERA.map((t) => (
+                <option key={t} value={t}>
+                  {TONOS_CARTELERA_INFO[t].nombre}
+                </option>
+              ))}
+            </CampoLista>
+            <CampoMedio
+              p={q}
+              ruta={`elementos.${i}.imagen.medioId`}
+              etiqueta="Póster"
+              opcional
+              medioId={e.imagen?.medioId}
+              ayuda="Vertical (2:3). Sin póster se usa el color con el ícono del tipo."
+              onElegir={(m) =>
+                set(
+                  { imagen: { medioId: m.id, alt: e.imagen?.alt || m.textoAlternativo } },
+                  'imagen',
+                )
+              }
+              onQuitar={() => set({ imagen: null }, 'imagen')}
+            />
+          </>
+        )}
+      </Lista>
+      <GrupoBoton
+        p={q}
+        ruta="boton"
+        etiqueta="Enlace «Ver cartelera»"
+        boton={b.boton}
+        etiquetaTexto="Texto del enlace"
+        onCambio={(boton, ruta) => escribir(p, { boton }, ruta)}
+      />
+    </>
+  );
+}
+
+function FormSoloEncabezado({ p }: P<'universos' | 'metodos-pago' | 'combos'>) {
   return <Encabezado p={p} />;
 }
 
@@ -1365,7 +1501,10 @@ export function FormularioBloque(props: PropsFormulario) {
       return <FormBanner p={con(b)} />;
     case 'universos':
     case 'metodos-pago':
+    case 'combos':
       return <FormSoloEncabezado p={con(b)} />;
+    case 'cartelera':
+      return <FormCartelera p={con(b)} />;
     case 'servicios':
       return <FormServicios p={con(b)} />;
     case 'planes':

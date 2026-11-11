@@ -8,7 +8,7 @@ import { refrescarTienda } from '@/app/(paneles)/admin/sitio/acciones';
 import { Alerta } from '@/componentes/ui/alerta';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 
-type Metodo = 'POST' | 'PATCH' | 'PUT';
+type Metodo = 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 /** Tope de espera del refresco: si tarda más, el formulario sigue igual. */
 const ESPERA_MAXIMA_REFRESCO_MS = 15_000;

@@ -6,7 +6,12 @@
 import { CATEGORIAS_SERVICIO, type CategoriaServicio, INFO_CATEGORIA } from './categorias.js';
 import { esCompraUnica, type TipoPlan, type UnidadDuracion } from './esquemas/catalogo.js';
 import type { Moneda } from './monedas.js';
-import type { CatalogoPublico, PlanPublico, ServicioCatalogo } from './tipos-negocio.js';
+import type {
+  CatalogoPublico,
+  ComboPublico,
+  PlanPublico,
+  ServicioCatalogo,
+} from './tipos-negocio.js';
 
 /** Tarjetas de servicio disponibles como imagen (archivo /servicios/<clave>.webp) y su color. */
 export const ARTE_SERVICIOS = {
@@ -304,4 +309,20 @@ export function duracionesCatalogo(
 /** Enlace para abrir un chat de WhatsApp con el número (y un texto opcional). */
 export function enlaceWhatsapp(numero: string, texto?: string): string {
   return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
+}
+
+/**
+ * Precio de un combo en una moneda, lo que costaría por separado y el
+ * porcentaje que se ahorra (redondeado hacia abajo). null si esa moneda no
+ * tiene precio o el combo no ahorra nada.
+ */
+export function ahorroCombo(
+  combo: Pick<ComboPublico, 'precios' | 'sinCombo'>,
+  moneda: Moneda,
+): { precio: string; sinCombo: string; porcentaje: number } | null {
+  const precio = combo.precios[moneda];
+  const sinCombo = combo.sinCombo[moneda];
+  if (!precio || !sinCombo || !(Number(sinCombo) > Number(precio))) return null;
+  const porcentaje = Math.floor(((Number(sinCombo) - Number(precio)) / Number(sinCombo)) * 100);
+  return { precio, sinCombo, porcentaje };
 }

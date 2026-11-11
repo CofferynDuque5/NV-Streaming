@@ -31,13 +31,22 @@ paso "Servicios"
 dc ps --format 'table {{.Service}}\t{{.Status}}'
 servicios=(api trabajador web caddy respaldos)
 if base_local; then servicios=(postgres "${servicios[@]}"); fi
+leer_estado() {
+  docker_cmd inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$1"
+}
 for s in "${servicios[@]}"; do
   id="$(dc ps -q "$s" 2>/dev/null || true)"
   if [[ -z "$id" ]]; then
     mal "$s no está en marcha"
     continue
   fi
-  estado="$(docker_cmd inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id")"
+  estado="$(leer_estado "$id")"
+  # Recién reiniciado (p. ej. justo después de actualizar): espera hasta 90 s a que arranque.
+  for _ in $(seq 1 18); do
+    [[ "$estado" == "starting" ]] || break
+    sleep 5
+    estado="$(leer_estado "$id")"
+  done
   [[ "$estado" == "healthy" || "$estado" == "running" ]] || mal "$s: $estado"
 done
 

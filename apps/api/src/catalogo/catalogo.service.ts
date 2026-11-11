@@ -182,6 +182,7 @@ export class CatalogoService {
 
   // ── Público ────────────────────────────────────────────────────────────────
 
+  /** Catálogo sin combos (los añade el controlador con CombosService). */
   async publico(): Promise<CatalogoPublico> {
     const [planes, tasas, vigentes, pedidos] = await Promise.all([
       this.prisma.plan.findMany({
@@ -215,6 +216,7 @@ export class CatalogoService {
         (m) => tasas.has(m) || planes.some((p) => p.preciosFijos.some((f) => f.moneda === m)),
       ),
       tasas: vigentes,
+      combos: [],
     };
   }
 

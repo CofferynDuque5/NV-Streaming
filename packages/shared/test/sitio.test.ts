@@ -14,6 +14,7 @@ import {
   ID_BLOQUE_HISTORIA,
   IDS_PLANTILLAS,
   MAX_BLOQUES,
+  mediosDeBloques,
   mezcla,
   PALETAS_SITIO,
   PLANTILLAS_PAGINA,
@@ -342,5 +343,45 @@ describe('temporadas del sitio', () => {
       temporada: null,
       hasta: null,
     });
+  });
+});
+
+describe('cartelera de la semana', () => {
+  const titulo = (extra: Record<string, unknown> = {}) => ({
+    titulo: 'Serie de prueba',
+    categoria: 'serie',
+    plataforma: 'Plataforma',
+    insignia: 'TOP 1',
+    detalle: '',
+    ...extra,
+  });
+  const bloque = (elementos: unknown[]) => ({
+    id: 'cart1234',
+    tipo: 'cartelera',
+    titulo: 'Cartelera de la semana',
+    elementos,
+  });
+
+  it('acepta títulos con insignia, plataforma y póster, y cuenta sus imágenes', () => {
+    const medio = '0b0e3c2a-6d1f-4e8b-9a35-2f7c1d4e5a6b';
+    const r = contenidoPaginaSchema.safeParse([
+      bloque([titulo(), titulo({ categoria: 'anime', imagen: { medioId: medio, alt: 'Póster' } })]),
+    ]);
+    expect(r.success).toBe(true);
+    const b = r.data![0]!;
+    expect(b).toMatchObject({ filtros: true });
+    expect(b.tipo === 'cartelera' && b.elementos[0]).toMatchObject({ detalle: null, tono: 'azul' });
+    expect(mediosDeBloques(r.data!)).toEqual([medio]);
+  });
+
+  it('pide título y un tipo de la lista, y como mucho 24 títulos', () => {
+    expect(contenidoPaginaSchema.safeParse([bloque([titulo({ titulo: '' })])]).success).toBe(false);
+    expect(
+      contenidoPaginaSchema.safeParse([bloque([titulo({ categoria: 'reality' })])]).success,
+    ).toBe(false);
+    expect(contenidoPaginaSchema.safeParse([bloque([])]).success).toBe(false);
+    expect(
+      contenidoPaginaSchema.safeParse([bloque(Array.from({ length: 25 }, () => titulo()))]).success,
+    ).toBe(false);
   });
 });

@@ -197,3 +197,26 @@ export const actualizarProveedorSchema = parcialSinDefectos(proveedorSchema);
 export const actualizarServicioSchema = parcialSinDefectos(
   servicioSchema.omit({ proveedorId: true }),
 );
+
+// ---------------------------------------------------------------------------
+// Combos: varios planes juntos a un precio especial
+
+export const MIN_PLANES_COMBO = 2;
+export const MAX_PLANES_COMBO = 4;
+
+export const comboSchema = z.object({
+  nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80, 'Máximo 80 caracteres.'),
+  descripcion: textoOpcional(200),
+  /** Precio del combo completo en USD; tiene que ser menor que la suma de sus planes. */
+  precioUsd: montoSchema,
+  planes: z
+    .array(uuidSchema, { error: 'Elige los planes del combo.' })
+    .min(MIN_PLANES_COMBO, `Elige al menos ${MIN_PLANES_COMBO} planes.`)
+    .max(MAX_PLANES_COMBO, `Máximo ${MAX_PLANES_COMBO} planes.`)
+    .refine((ids) => new Set(ids).size === ids.length, 'Un plan está repetido.'),
+  activo: z.boolean().default(true),
+  orden: z.coerce.number().int().min(0).max(999).default(0),
+});
+export type ComboEntrada = z.infer<typeof comboSchema>;
+export const actualizarComboSchema = parcialSinDefectos(comboSchema);
+export type ActualizarComboEntrada = z.infer<typeof actualizarComboSchema>;

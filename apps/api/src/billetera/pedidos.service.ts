@@ -10,6 +10,8 @@ import {
   revisarDatos,
 } from '@nv/shared';
 import { datosDeServicio, type PlanCompleto } from '../catalogo/catalogo.service.js';
+import { CombosService, combosDelCarrito, repartirDescuento } from '../catalogo/combos.service.js';
+import { TasasService } from '../dinero/tasas.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
 import { type CalculoFactura, FacturacionService } from '../cobros/facturacion.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -26,6 +28,8 @@ import { INCLUIR_PEDIDO, numeroPedido, pedidoPublico } from './presentacion.js';
 interface LineaCalculada {
   plan: PlanCompleto;
   calculo: CalculoFactura;
+  /** Combo que agrupa esta línea (su descuento ya está en `calculo`). */
+  combo: string | null;
 }
 
 interface Calculo {
@@ -52,6 +56,8 @@ export class PedidosService {
     @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
     @Inject(BilleteraService) private readonly billetera: BilleteraService,
     @Inject(LimitesService) private readonly limites: LimitesService,
+    @Inject(CombosService) private readonly combos: CombosService,
+    @Inject(TasasService) private readonly tasas: TasasService,
   ) {}
 
   /** Precio del carrito completo, sin guardar nada. */
@@ -61,10 +67,12 @@ export class PedidosService {
       const c = await this.clientes.deUsuario(auth.usuario, tx);
       exigirBilleteraDisponible(c);
       const calculo = await this.calcular(tx, auth, c.id, e.planes, e.moneda, e.cupon ?? null);
-      const lineas: LineaCotizacionPedido[] = calculo.lineas.map(({ plan, calculo: l }) => ({
+      const lineas: LineaCotizacionPedido[] = calculo.lineas.map(({ plan, calculo: l, combo }) => ({
         planId: plan.id,
         plan: plan.nombre,
         servicio: plan.servicio.nombre,
+        combo,
+        descuentoCombo: l.descuentoCombo.toFixed(2),
         subtotal: l.subtotal.toFixed(2),
         descuento: l.descuento.toFixed(2),
         total: l.total.toFixed(2),
@@ -156,7 +164,7 @@ export class PedidosService {
         },
       });
       const facturas = [];
-      for (const { plan } of calculo.lineas) {
+      for (const { plan, calculo: l } of calculo.lineas) {
         facturas.push(
           await this.suscripciones.altaDePedido(tx, auth, {
             clienteId: c.id,
@@ -166,6 +174,7 @@ export class PedidosService {
             pedidoId: pedido.id,
             cliente,
             datosCliente: datosPorPlan.get(plan.id) ?? null,
+            descuentoCombo: l.descuentoCombo,
           }),
         );
       }
@@ -328,9 +337,10 @@ export class PedidosService {
   // ── Interno ────────────────────────────────────────────────────────────────
 
   /**
-   * Calcula cada línea del carrito. El cupón vale para un solo plan: el que
-   * obtiene el mayor descuento en USD. Si no aplica a ninguno, se informa el
-   * motivo del primero.
+   * Calcula cada línea del carrito. Si el carrito tiene todos los planes de un
+   * combo, el ahorro del combo se reparte entre esas líneas. El cupón vale para
+   * un solo plan fuera de los combos: el que obtiene el mayor descuento en USD.
+   * Si no aplica a ninguno, se informa el motivo del primero.
    */
   private async calcular(
     tx: Tx,
@@ -349,14 +359,41 @@ export class PedidosService {
         concepto: 'alta',
         clienteId,
       });
-      lineas.push({ plan, calculo });
+      lineas.push({ plan, calculo, combo: null });
+    }
+    // Combos: el ahorro se reparte entre sus líneas según el precio de cada una.
+    const descuentoCombo = new Map<number, Dec>();
+    if (lineas.length >= 2) {
+      const tasas = await this.tasas.mapa(tx);
+      const aplicados = combosDelCarrito(await this.combos.activos(tx), planes, moneda, tasas);
+      for (const { combo, precio } of aplicados) {
+        const indices = combo.planes.map((cp) => lineas.findIndex((l) => l.plan.id === cp.planId));
+        const subtotales = indices.map((i) => lineas[i]!.calculo.subtotal);
+        const suma = subtotales.reduce((a, x) => a.add(x), CERO);
+        const partes = repartirDescuento(subtotales, suma.sub(precio), moneda);
+        for (const [k, i] of indices.entries()) {
+          descuentoCombo.set(i, partes[k]!);
+          lineas[i]!.combo = combo.nombre;
+        }
+      }
+      for (const [i, parte] of descuentoCombo) {
+        const l = lineas[i]!;
+        l.calculo = await this.facturacion.calcular(tx, {
+          plan: l.plan,
+          moneda,
+          concepto: 'alta',
+          clienteId,
+          descuentoCombo: parte,
+        });
+      }
     }
     let planConCupon: string | null = null;
     let codigoCupon: string | null = null;
     if (cupon) {
       let mejor: { i: number; calculo: CalculoFactura; ahorroUsd: Dec } | null = null;
       let primerError: unknown = null;
-      for (const [i, { plan, calculo: base }] of lineas.entries()) {
+      for (const [i, { plan, calculo: base, combo }] of lineas.entries()) {
+        if (combo) continue;
         try {
           const con = await this.facturacion.calcular(tx, {
             plan,
@@ -372,8 +409,12 @@ export class PedidosService {
           primerError ??= err;
         }
       }
-      if (!mejor) throw primerError;
-      lineas[mejor.i] = { plan: lineas[mejor.i]!.plan, calculo: mejor.calculo };
+      if (!mejor) {
+        if (primerError) throw primerError;
+        const m = 'Los planes de tu carrito ya tienen el precio de combo: el cupón no se suma.';
+        throw new ErrorApp(409, 'CUPON_NO_VALIDO', m, { cupon: [m] });
+      }
+      lineas[mejor.i] = { ...lineas[mejor.i]!, calculo: mejor.calculo };
       planConCupon = lineas[mejor.i]!.plan.id;
       codigoCupon = mejor.calculo.cupon?.codigo ?? null;
     }

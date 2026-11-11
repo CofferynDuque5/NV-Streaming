@@ -363,6 +363,56 @@ export const bloqueRankingSchema = z.object({
   limite: z.coerce.number().int().min(3, 'Muestra al menos 3.').max(10, 'Máximo 10.').default(5),
 });
 
+export const CATEGORIAS_CARTELERA = ['serie', 'pelicula', 'deporte', 'anime', 'novela'] as const;
+export type CategoriaCartelera = (typeof CATEGORIAS_CARTELERA)[number];
+export const TONOS_CARTELERA = [
+  'rojo',
+  'vino',
+  'naranja',
+  'azul',
+  'celeste',
+  'morado',
+  'verde',
+  'gris',
+] as const;
+export type TonoCartelera = (typeof TONOS_CARTELERA)[number];
+
+/**
+ * «Cartelera de la semana»: lo más visto y los estrenos, escritos a mano en el
+ * editor. Cada título lleva su plataforma, una insignia («TOP 1», «ESTRENO»,
+ * «29 SEPT») y, si se quiere, un póster de la biblioteca.
+ */
+export const bloqueCarteleraSchema = z.object({
+  ...base,
+  tipo: z.literal('cartelera'),
+  ...encabezado,
+  /** Chips Todo / Series / Películas / Deportes / Anime / Novelas. */
+  filtros: z.boolean().default(true),
+  boton: opcional(botonSitioSchema),
+  elementos: z
+    .array(
+      z.object({
+        titulo: texto(80, 'Escribe el título.'),
+        categoria: z.enum(CATEGORIAS_CARTELERA, { error: 'Elige el tipo.' }),
+        plataforma: textoOpcional(30),
+        /** «TOP 1» pinta el número grande; «ESTRENO» o una fecha, solo la insignia. */
+        insignia: textoOpcional(20),
+        detalle: textoOpcional(80),
+        tono: z.enum(TONOS_CARTELERA, { error: 'Elige un color.' }).default('azul'),
+        imagen: opcional(imagenSitioSchema),
+      }),
+    )
+    .min(1, 'Añade al menos un título.')
+    .max(24, 'Máximo 24 títulos.'),
+});
+
+/** Combos del catálogo (dos o más servicios con precio especial). */
+export const bloqueCombosSchema = z.object({
+  ...base,
+  tipo: z.literal('combos'),
+  ...encabezado,
+});
+
 /** Métodos de pago activos en el panel de cobros (más el saldo de la billetera). */
 export const bloqueMetodosPagoSchema = z.object({
   ...base,
@@ -415,6 +465,8 @@ export const bloqueSitioSchema = z.discriminatedUnion(
     bloqueUniversosSchema,
     bloqueServiciosSchema,
     bloqueRankingSchema,
+    bloqueCarteleraSchema,
+    bloqueCombosSchema,
     bloqueMetodosPagoSchema,
     bloqueCanalSchema,
     bloquePanelSchema,
@@ -439,6 +491,8 @@ export const TIPOS_BLOQUE = [
   'universos',
   'servicios',
   'ranking',
+  'cartelera',
+  'combos',
   'metodos-pago',
   'canal',
   'panel',
@@ -475,6 +529,9 @@ export function mediosDeBloques(bloques: readonly BloqueSitio[]): string[] {
   for (const b of bloques) {
     if (b.tipo === 'imagen') ids.add(b.medioId);
     if (b.tipo === 'portada' && b.imagen) ids.add(b.imagen.medioId);
+    if (b.tipo === 'cartelera') {
+      for (const e of b.elementos) if (e.imagen) ids.add(e.imagen.medioId);
+    }
   }
   return [...ids];
 }

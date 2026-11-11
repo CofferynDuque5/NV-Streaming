@@ -25,6 +25,7 @@ import {
 import { AutoservicioController } from './autoservicio/autoservicio.controller.js';
 import { CatalogoController } from './catalogo/catalogo.controller.js';
 import { CatalogoService } from './catalogo/catalogo.service.js';
+import { CombosService } from './catalogo/combos.service.js';
 import { ClientesController } from './clientes/clientes.controller.js';
 import { ClientesService } from './clientes/clientes.service.js';
 import {
@@ -120,6 +121,7 @@ export class AppModule {
         TasasService,
         MetodosCobroService,
         CatalogoService,
+        CombosService,
         ClientesService,
         FacturacionService,
         SuscripcionesService,

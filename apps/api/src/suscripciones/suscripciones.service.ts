@@ -26,7 +26,7 @@ import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
-import { sumarDuracion } from '../dinero/dinero.js';
+import { type Dec, sumarDuracion } from '../dinero/dinero.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
@@ -200,6 +200,8 @@ export class SuscripcionesService {
       cliente: InfoCliente;
       /** Datos que escribió el cliente (ID de jugador…), ya revisados. */
       datosCliente?: Record<string, string> | null;
+      /** Descuento de combo de esta línea, en `moneda`. */
+      descuentoCombo?: Dec | null;
     },
   ): Promise<Factura> {
     const plan = await this.planContratable(tx, auth, e.planId);
@@ -219,6 +221,7 @@ export class SuscripcionesService {
       pedidoId: string | null;
       cliente: InfoCliente;
       datosCliente?: Record<string, string> | null;
+      descuentoCombo?: Dec | null;
     },
   ): Promise<{ s: Suscripcion; factura: Factura }> {
     const { plan } = e;
@@ -247,6 +250,7 @@ export class SuscripcionesService {
       cupon: e.cupon,
       actorId: auth.usuario.id,
       pedidoId: e.pedidoId,
+      descuentoCombo: e.descuentoCombo ?? null,
     });
     await this.auditoria.registrar(
       {

@@ -67,7 +67,7 @@ export async function contextoPublico(
   };
 }
 
-const TIPOS_CON_PRECIOS = new Set<string>(['planes', 'servicios', 'ranking']);
+const TIPOS_CON_PRECIOS = new Set<string>(['planes', 'servicios', 'ranking', 'combos']);
 /** Título y descripción para buscadores y redes a partir de la página publicada. */
 export function metadatosPagina(p: { titulo: string; descripcion: string | null }): Metadata {
   return {

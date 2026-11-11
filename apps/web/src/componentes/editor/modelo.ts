@@ -9,7 +9,9 @@ import {
   AlignLeft,
   CircleHelp,
   CreditCard,
+  Clapperboard,
   Flag,
+  Gift,
   ImageIcon,
   Landmark,
   LayoutGrid,
@@ -130,6 +132,20 @@ export const INFO_BLOQUES: Record<
     icono: Trophy,
     color: '#f59e0b',
   },
+  cartelera: {
+    nombre: 'Cartelera de la semana',
+    descripcion: 'Lo más visto y los estrenos, con filtros por tipo',
+    grupo: 'tienda',
+    icono: Clapperboard,
+    color: '#e11d48',
+  },
+  combos: {
+    nombre: 'Combos',
+    descripcion: 'Combos del catálogo con su ahorro y el botón Agregar',
+    grupo: 'tienda',
+    icono: Gift,
+    color: '#22c55e',
+  },
   'metodos-pago': {
     nombre: 'Métodos de pago',
     descripcion: 'Los métodos activos en Monedas y cobro',
@@ -161,6 +177,10 @@ export const EN_VIVO: Partial<Record<TipoBloque, string>> = {
   planes: 'Muestra los planes reales con su precio en la moneda de quien visita.',
   ranking:
     'El orden sale de las activaciones y renovaciones de los últimos 30 días. Sin ninguna, no se muestra.',
+  combos:
+    'Se llena solo con los combos activos de Catálogo → Combos, con su precio y lo que se ahorra. Sin combos, no se muestra.',
+  cartelera:
+    'Los títulos se escriben aquí. «TOP 1», «TOP 2»… pintan el número grande; «ESTRENO» o una fecha, solo la insignia.',
   'metodos-pago': 'Muestra los métodos activos en Monedas y cobro, más el saldo de la billetera.',
   canal:
     'El botón lleva al canal de WhatsApp de Contacto y redes. Sin ese enlace, el bloque no se muestra.',
@@ -274,6 +294,35 @@ export function bloqueNuevo(tipo: TipoBloque): BloqueSitio {
         subtitulo: null,
         limite: 5,
       };
+    case 'cartelera':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Cartelera de la semana',
+        subtitulo: 'Lo más visto y lo que se estrena',
+        filtros: true,
+        boton: null,
+        elementos: [
+          {
+            titulo: '',
+            categoria: 'serie',
+            plataforma: null,
+            insignia: 'TOP 1',
+            detalle: null,
+            tono: 'rojo',
+            imagen: null,
+          },
+        ],
+      };
+    case 'combos':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Combos',
+        subtitulo: 'Dos universos en un solo pago',
+      };
     case 'metodos-pago':
       return { ...comun, tipo, etiqueta: null, titulo: 'Métodos de pago', subtitulo: null };
     case 'canal':
@@ -328,6 +377,8 @@ export function resumenBloque(b: BloqueSitio): string {
       return `Top ${Number.isFinite(b.limite) ? b.limite : '?'} del mes`;
     case 'planes':
       return b.servicio ? b.servicio : 'Todo el catálogo';
+    case 'cartelera':
+      return `${b.elementos.length} ${b.elementos.length === 1 ? 'título' : 'títulos'}`;
     case 'canal':
       return b.titulo || 'Enlace de Contacto y redes';
     default:

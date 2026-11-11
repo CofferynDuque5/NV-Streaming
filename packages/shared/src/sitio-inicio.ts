@@ -95,6 +95,14 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     limite: 5,
   },
   {
+    id: 'combos',
+    tipo: 'combos',
+    fondo: 'normal',
+    etiqueta: null,
+    titulo: 'Combos',
+    subtitulo: 'Dos universos en un solo pago',
+  },
+  {
     id: 'streaming',
     tipo: 'panel',
     fondo: 'normal',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ahorroCombo,
   type CatalogoPublico,
   categoriasTienda,
   claveDato,
@@ -177,5 +178,25 @@ describe('tienda: compras únicas (juegos)', () => {
       errores: {},
     });
     expect(claveDato('ID de jugador')).toBe('id-de-jugador');
+  });
+});
+
+describe('ahorroCombo', () => {
+  const combo = {
+    precios: { USD: '6.00', VES: '240.00', COP: null, EUR: null },
+    sinCombo: { USD: '8.00', VES: '320.00', COP: null, EUR: null },
+  } as unknown as Parameters<typeof ahorroCombo>[0];
+
+  it('da el precio, lo que costaría por separado y el porcentaje redondeado hacia abajo', () => {
+    expect(ahorroCombo(combo, 'VES')).toEqual({
+      precio: '240.00',
+      sinCombo: '320.00',
+      porcentaje: 25,
+    });
+  });
+
+  it('sin precio en la moneda o sin ahorro, no hay combo que mostrar', () => {
+    expect(ahorroCombo(combo, 'COP')).toBeNull();
+    expect(ahorroCombo({ ...combo, precios: { ...combo.precios, USD: '8.00' } }, 'USD')).toBeNull();
   });
 });
