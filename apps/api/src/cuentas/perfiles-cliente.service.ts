@@ -86,6 +86,15 @@ export class PerfilesClienteService {
 
   /** Perfiles asignados a las suscripciones del cliente que inició sesión. Sin credenciales. */
   async mios(auth: ContextoAuth): Promise<PerfilDelCliente[]> {
+    const [buzones, conAsuntos] = await Promise.all([
+      this.prisma.buzonCodigos.count({ where: { activo: true } }),
+      this.prisma.asuntoCodigo.findMany({
+        where: { activo: true },
+        select: { servicioId: true },
+        distinct: ['servicioId'],
+      }),
+    ]);
+    const conCodigos = new Set(buzones > 0 ? conAsuntos.map((a) => a.servicioId) : []);
     const filas = await this.prisma.perfilCuenta.findMany({
       where: {
         estado: 'asignado',
@@ -125,6 +134,7 @@ export class PerfilesClienteService {
               perfil: { numero: p.numero, nombre: p.nombre, tienePin: Boolean(p.pinCifrado) },
               modo: p.cuenta.modo,
               disponible: p.cuenta.estado === 'activa' && VIGENTES.includes(p.suscripcion.estado),
+              pideCodigos: conCodigos.has(p.cuenta.servicio.id),
             },
           ]
         : [],

@@ -58,6 +58,9 @@ export const PERMISOS = [
   'cuentas.ver',
   'cuentas.gestionar',
   'cuentas.revelar',
+  // Correos de códigos (lector IMAP)
+  'codigos.consultar',
+  'codigos.configurar',
   // Gestor: balance (ventas, costos, por cobrar y por pagar)
   'balance.ver',
 ] as const;
@@ -116,6 +119,9 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'cuentas.gestionar':
     'Crear y editar cuentas de servicio, asignar o liberar sus perfiles y registrar los pagos al proveedor',
   'cuentas.revelar': 'Ver el correo, la clave y los PIN de una cuenta (queda registrado)',
+  'codigos.consultar':
+    'Buscar en los buzones el último código o enlace que llegó al correo de una cuenta (queda registrado)',
+  'codigos.configurar': 'Agregar los buzones de correo donde llegan los códigos y sus asuntos',
   'balance.ver':
     'Ver el balance del negocio: ventas, costos de las cuentas, por cobrar y por pagar',
 };
@@ -155,6 +161,7 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'cuentas.ver',
     'cuentas.gestionar',
     'cuentas.revelar',
+    'codigos.consultar',
   ],
   ventas: [
     'panel.ver',

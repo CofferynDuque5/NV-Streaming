@@ -36,6 +36,7 @@ import { validar } from '../comun/zod.pipe.js';
 import { CuentasService } from './cuentas.service.js';
 import { ImportarCuentasService } from './importar-cuentas.service.js';
 import { ImportarGestorService } from './importar-gestor.service.js';
+import { InventarioCuentasService } from './inventario-cuentas.service.js';
 import { PerfilesClienteService } from './perfiles-cliente.service.js';
 
 const idValido = validar(uuidSchema);
@@ -49,7 +50,15 @@ export class CuentasController {
   constructor(
     @Inject(CuentasService) private readonly cuentas: CuentasService,
     @Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService,
+    @Inject(InventarioCuentasService) private readonly inventario: InventarioCuentasService,
   ) {}
+
+  /** Todas las cuentas con sus perfiles y quién los usa (sin secretos). */
+  @Get('inventario')
+  @RequierePermiso('cuentas.ver')
+  verInventario(@Query('retiradas') retiradas?: string) {
+    return this.inventario.ver(retiradas === 'true');
+  }
 
   /** Cuentas sin credenciales: el correo va como pista. */
   @Get()

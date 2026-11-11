@@ -452,11 +452,12 @@ model Servicio {
   creadoEn        DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn   DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  proveedor Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  imagen    Medio?           @relation(fields: [imagenId], references: [id], onDelete: SetNull)
-  planes    Plan[]
-  alias     AliasServicio[]
-  cuentas   CuentaServicio[]
+  proveedor     Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  imagen        Medio?           @relation(fields: [imagenId], references: [id], onDelete: SetNull)
+  planes        Plan[]
+  alias         AliasServicio[]
+  cuentas       CuentaServicio[]
+  asuntosCodigo AsuntoCodigo[]
 
   @@map("servicios")
 }
@@ -2085,6 +2086,8 @@ model PerfilCuenta {
   /// Cifrado (contexto "perfil:<id>:pin").
   pinCifrado    String?      @map("pin_cifrado") @db.VarChar(500)
   estado        EstadoPerfil @default(libre)
+  /// Nota corta del perfil («TV de la sala»). Sin claves.
+  nota          String?      @db.VarChar(120)
   suscripcionId String?      @unique @map("suscripcion_id") @db.Uuid
   asignadoEn    DateTime?    @map("asignado_en") @db.Timestamptz(3)
   creadoEn      DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
@@ -2135,4 +2138,59 @@ model RegistroGestor {
   @@unique([tipo, origenId, entidad])
   @@index([loteId])
   @@map("registros_gestor")
+}
+
+// ── Correos de códigos (lector IMAP) ─────────────────────────────────────────
+
+/// Buzón de correo donde llegan los códigos de las cuentas (IMAP, solo lectura).
+model BuzonCodigos {
+  id             String    @id @db.Uuid
+  nombre         String    @unique @db.VarChar(60)
+  host           String    @db.VarChar(120)
+  puerto         Int       @default(993)
+  /// TLS directo (puerto 993). Sin TLS solo para servidores internos.
+  seguro         Boolean   @default(true)
+  /// Cifrado (contexto "buzon:<id>:usuario").
+  usuarioCifrado String    @map("usuario_cifrado") @db.VarChar(1000)
+  /// Para reconocerlo en listas: «co•••@gmail.com».
+  pista          String    @db.VarChar(120)
+  /// Cifrada (contexto "buzon:<id>:clave").
+  claveCifrada   String    @map("clave_cifrada") @db.VarChar(1000)
+  carpeta        String    @default("INBOX") @db.VarChar(120)
+  activo         Boolean   @default(true)
+  probadoEn      DateTime? @map("probado_en") @db.Timestamptz(3)
+  /// Último error al conectar (sin datos sensibles); null si la última prueba salió bien.
+  ultimoError    String?   @map("ultimo_error") @db.VarChar(300)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@map("buzones_codigos")
+}
+
+/// Asunto (o parte) de los correos que traen códigos de un servicio.
+model AsuntoCodigo {
+  id         String   @id @default(uuid()) @db.Uuid
+  servicioId String   @map("servicio_id") @db.Uuid
+  asunto     String   @db.VarChar(160)
+  activo     Boolean  @default(true)
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  servicio Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+
+  @@unique([servicioId, asunto])
+  @@map("asuntos_codigo")
+}
+
+/// Registro de cada consulta de código (nunca guarda el código ni el correo).
+model ConsultaCodigo {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String?  @map("usuario_id") @db.Uuid
+  cuentaId  String?  @map("cuenta_id") @db.Uuid
+  /// encontrado | sin_resultados | error
+  resultado String   @db.VarChar(20)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  @@index([usuarioId, creadoEn])
+  @@index([creadoEn])
+  @@map("consultas_codigo")
 }

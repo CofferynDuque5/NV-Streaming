@@ -90,7 +90,7 @@ export default async function EntregaProveedor({ params }: { params: Promise<{ i
           {c.adaptador === 'codigos' && (
             <Alerta tono="info" titulo="Códigos de inventario">
               Sube los códigos de cada plan en{' '}
-              <Link href="/admin/inventario" className="underline">
+              <Link href="/admin/inventario/codigos" className="underline">
                 Inventario de códigos
               </Link>
               .

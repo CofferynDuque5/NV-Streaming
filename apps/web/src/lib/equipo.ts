@@ -187,7 +187,7 @@ export function colaEquipo(c: CentroEquipo, soloCartera: boolean): ItemCola[] {
         ? `${plural(p.pendientes, 'entrega espera', 'entregas esperan')} un código`
         : 'Carga un lote nuevo antes de que se agoten',
       urgente: p.disponibles === 0 || p.pendientes > 0,
-      href: `/admin/inventario?plan=${p.planId}`,
+      href: `/admin/inventario/codigos?plan=${p.planId}`,
       libre: null,
       cuenta: 0,
     });
@@ -286,7 +286,11 @@ export function estadoModulo(
           : '',
       );
     case 'cuentas':
-      return ok('Perfiles libres y asignados');
+      return ok('Correos, claves y pagos al proveedor');
+    case 'existencias':
+      return ok('Perfiles libres, ocupados y por vencer');
+    case 'codigos':
+      return ok('Último código de cada cuenta');
     case 'balance':
       return ok('Resultado del mes');
     case 'inventario':
