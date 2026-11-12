@@ -83,14 +83,25 @@ export function Papelera({
     if (r) setRestaurado(e.nombre);
   }
 
+  // El aviso de lo restaurado se queda aunque la papelera quede vacía.
+  const avisos = (
+    <>
+      {restaurado && !error && <Alerta tono="exito">{restaurado} volvió a su lugar.</Alerta>}
+      {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+    </>
+  );
+
   if (elementos.length === 0) {
     return (
-      <Tarjeta>
-        <EstadoVacio icono={Trash2} titulo="La papelera está vacía">
-          Aquí aparecen los clientes que archives, las cuentas que retires y las plataformas que
-          apagues, para restaurarlos cuando quieras.
-        </EstadoVacio>
-      </Tarjeta>
+      <div className="grid gap-5">
+        {avisos}
+        <Tarjeta>
+          <EstadoVacio icono={Trash2} titulo="La papelera está vacía">
+            Aquí aparecen los clientes que archives, las cuentas que retires y las plataformas que
+            apagues, para restaurarlos cuando quieras.
+          </EstadoVacio>
+        </Tarjeta>
+      </div>
     );
   }
 
@@ -133,8 +144,7 @@ export function Papelera({
         </div>
       </Tarjeta>
 
-      {restaurado && !error && <Alerta tono="exito">{restaurado} volvió a su lugar.</Alerta>}
-      {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+      {avisos}
 
       <Tarjeta>
         {visibles.length === 0 ? (
