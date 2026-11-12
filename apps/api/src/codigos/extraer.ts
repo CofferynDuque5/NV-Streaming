@@ -30,7 +30,7 @@ export function textoDeHtml(html: string): string {
       .replace(/<\/(p|div|tr|td|h[1-6]|li|table)>/gi, '\n')
       .replace(/<[^>]+>/g, ' '),
   )
-    .replace(/[ \t ]+/g, ' ')
+    .replace(/[ \t\u00a0]+/g, ' ')
     .replace(/ *\n */g, '\n')
     .replace(/\n+/g, '\n')
     .trim();
