@@ -3,6 +3,8 @@
 import {
   type AsuntoCodigoPublico,
   type BuzonPublico,
+  type CuentaServicioResumen,
+  type Pagina,
   MINUTOS_CODIGO,
   PROVEEDORES_IMAP,
   type ResultadoCodigo,
@@ -11,16 +13,19 @@ import clsx from 'clsx';
 import {
   ExternalLink,
   Inbox,
+  KeyRound,
+  LoaderCircle,
   MailSearch,
   Pencil,
   Plug,
   Plus,
   Sparkles,
+  Timer,
   Trash2,
   TriangleAlert,
   X,
 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { BotonCopiar } from '@/componentes/accesos';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
@@ -55,26 +60,92 @@ export function BuscarCodigo({
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [resultado, setResultado] = useState<ResultadoCodigo | null>(null);
+  const [correo, setCorreo] = useState('');
+  const [sugeridas, setSugeridas] = useState<CuentaServicioResumen[]>([]);
+  // Espera: vuelve a buscar cada 20 s hasta que llegue un código nuevo o pasen 3 minutos.
+  const [espera, setEspera] = useState<{ hasta: number; desde: number } | null>(null);
+  const [ahora, setAhora] = useState(() => Date.now());
+  const ultima = useRef<Record<string, unknown> | null>(null);
   const campos = erroresPorCampo(error);
+
+  // Cuentas del inventario que coinciden con lo escrito (por correo o pista).
+  useEffect(() => {
+    const q = correo.trim();
+    if (elegida || q.length < 3) return;
+    let vigente = true;
+    const t = setTimeout(() => {
+      void llamarApi<Pagina<CuentaServicioResumen>>(
+        'GET',
+        `/cuentas?busqueda=${encodeURIComponent(q)}&porPagina=6`,
+      ).then((r) => {
+        if (vigente) setSugeridas(r.ok ? r.datos.elementos : []);
+      });
+    }, 300);
+    return () => {
+      vigente = false;
+      clearTimeout(t);
+    };
+  }, [correo, elegida]);
+
+  async function consultar(cuerpo: Record<string, unknown>): Promise<ResultadoCodigo | null> {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<ResultadoCodigo>('POST', '/codigos/buscar', cuerpo);
+    setCargando(false);
+    if (r.ok) {
+      setResultado(r.datos);
+      return r.datos;
+    }
+    setError(r.error);
+    setResultado(null);
+    setEspera(null);
+    return null;
+  }
 
   async function buscar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
-    setCargando(true);
-    setError(null);
-    const r = await llamarApi<ResultadoCodigo>('POST', '/codigos/buscar', {
+    const cuerpo = {
       ...(elegida
         ? { cuentaId: elegida.id }
         : { correo: textoDe(d, 'correo') ?? '', servicioId: textoDe(d, 'servicioId') }),
       minutos: Number(d.get('minutos') || 60),
-    });
-    setCargando(false);
-    if (r.ok) setResultado(r.datos);
-    else {
-      setError(r.error);
-      setResultado(null);
-    }
+    };
+    ultima.current = cuerpo;
+    setEspera(null);
+    await consultar(cuerpo);
   }
+
+  const llegoNuevo = (r: ResultadoCodigo | null, desde: number) =>
+    Boolean(
+      r?.mensajes.some((m) => (m.codigo || m.enlace) && Date.parse(m.recibidoEn) >= desde - 60_000),
+    );
+
+  useEffect(() => {
+    if (!espera) return;
+    const reloj = setInterval(() => setAhora(Date.now()), 1000);
+    const ronda = setInterval(() => {
+      if (Date.now() > espera.hasta || !ultima.current) {
+        setEspera(null);
+        return;
+      }
+      void consultar(ultima.current).then((r) => {
+        if (llegoNuevo(r, espera.desde)) setEspera(null);
+      });
+    }, 20_000);
+    return () => {
+      clearInterval(reloj);
+      clearInterval(ronda);
+    };
+  }, [espera]);
+
+  function esperar() {
+    const inicio = Date.now();
+    setAhora(inicio);
+    setEspera({ desde: inicio, hasta: inicio + 3 * 60_000 });
+  }
+
+  const quedan = espera ? Math.max(0, Math.ceil((espera.hasta - ahora) / 1000)) : 0;
 
   return (
     <div className="grid gap-5">
@@ -90,7 +161,11 @@ export function BuscarCodigo({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setElegida(null)}
+                  onClick={() => {
+                    setElegida(null);
+                    setResultado(null);
+                    setEspera(null);
+                  }}
                   className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
                   aria-label="Buscar otro correo"
                 >
@@ -100,15 +175,41 @@ export function BuscarCodigo({
             </div>
           ) : (
             <>
-              <Campo
-                etiqueta="Correo de la cuenta"
-                name="correo"
-                type="email"
-                required
-                spellCheck={false}
-                placeholder="cuenta@tudominio.com"
-                error={campos.correo}
-              />
+              <div className="grid content-start gap-1.5">
+                <Campo
+                  etiqueta="Correo de la cuenta"
+                  name="correo"
+                  type="email"
+                  required
+                  spellCheck={false}
+                  placeholder="cuenta@tudominio.com"
+                  value={correo}
+                  onChange={(e) => setCorreo(e.currentTarget.value)}
+                  ayuda="Escribe parte del correo para elegirla del inventario."
+                  error={campos.correo}
+                />
+                {sugeridas.length > 0 && correo.trim().length >= 3 && (
+                  <ul className="grid gap-1" aria-label="Cuentas del inventario">
+                    {sugeridas.map((k) => (
+                      <li key={k.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setElegida({ id: k.id, pista: k.pista, servicio: k.servicio.nombre });
+                            setSugeridas([]);
+                            setCorreo('');
+                          }}
+                          className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-borde px-3 text-left text-sm hover:border-cian"
+                        >
+                          <KeyRound className="size-4 shrink-0 text-cian" aria-hidden="true" />
+                          <span className="min-w-0 flex-1 truncate font-mono">{k.pista}</span>
+                          <span className="text-xs text-tinta-tenue">{k.servicio.nombre}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <Selector
                 etiqueta="Servicio"
                 name="servicioId"
@@ -133,11 +234,41 @@ export function BuscarCodigo({
           </Selector>
         </div>
         {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
-        <div>
-          <Boton type="submit" cargando={cargando} icono={<MailSearch className="size-4" />}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Boton
+            type="submit"
+            cargando={cargando && !espera}
+            icono={<MailSearch className="size-4" />}
+          >
             Buscar código
           </Boton>
+          {resultado &&
+            (espera ? (
+              <Boton
+                variante="secundario"
+                onClick={() => setEspera(null)}
+                icono={<X className="size-4" />}
+              >
+                Dejar de esperar
+              </Boton>
+            ) : (
+              <Boton variante="secundario" onClick={esperar} icono={<Timer className="size-4" />}>
+                Esperar el código nuevo
+              </Boton>
+            ))}
+          {espera && (
+            <p className="flex items-center gap-2 text-sm text-tinta-suave" role="status">
+              <LoaderCircle className="size-4 animate-spin text-cian" aria-hidden="true" />
+              Revisando cada 20 s · {Math.floor(quedan / 60)}:{String(quedan % 60).padStart(2, '0')}
+            </p>
+          )}
         </div>
+        {resultado && !espera && (
+          <p className="text-xs text-tinta-tenue">
+            ¿Pediste un código nuevo en la app? Pulsa «Esperar el código nuevo»: buscamos sola
+            durante 3 minutos y paramos cuando llegue.
+          </p>
+        )}
       </form>
 
       {resultado && (
