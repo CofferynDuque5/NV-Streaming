@@ -1,6 +1,6 @@
 /** Tipos de respuesta del programa de revendedores (fase 2). */
 import type { CategoriaServicio } from './categorias.js';
-import type { TipoPlan, UnidadDuracion } from './esquemas/catalogo.js';
+import type { TipoPlan, UnidadDuracion } from './tipos-plan.js';
 import type {
   EstadoCompra,
   EstadoRecarga,

@@ -6,7 +6,7 @@ import type {
   MotivoEntrega,
 } from './entregas.js';
 import type { CategoriaServicio } from './categorias.js';
-import type { TipoProveedor } from './esquemas/catalogo.js';
+import type { TipoProveedor } from './tipos-plan.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
 import type { Referencia } from './tipos-negocio.js';
 import type { Pagina } from './tipos.js';

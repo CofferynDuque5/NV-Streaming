@@ -1,10 +1,6 @@
 import type { CategoriaServicio } from './categorias.js';
-import type {
-  DatoRequerido,
-  TipoPlan,
-  TipoProveedor,
-  UnidadDuracion,
-} from './esquemas/catalogo.js';
+import type { DatoRequerido } from './esquemas/catalogo.js';
+import type { TipoPlan, TipoProveedor, UnidadDuracion } from './tipos-plan.js';
 import type { EstadoCliente } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';

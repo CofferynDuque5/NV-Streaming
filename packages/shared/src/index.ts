@@ -10,6 +10,7 @@ export * from './esquemas/auth.js';
 export * from './esquemas/usuarios.js';
 export * from './esquemas/dinero.js';
 export * from './esquemas/clientes.js';
+export * from './tipos-plan.js';
 export * from './esquemas/catalogo.js';
 export * from './esquemas/suscripciones.js';
 export * from './esquemas/cobros.js';

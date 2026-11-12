@@ -4,7 +4,7 @@
  * que ya vienen del servidor en cada moneda.
  */
 import { CATEGORIAS_SERVICIO, type CategoriaServicio, INFO_CATEGORIA } from './categorias.js';
-import { esCompraUnica, type TipoPlan, type UnidadDuracion } from './esquemas/catalogo.js';
+import { esCompraUnica, type TipoPlan, type UnidadDuracion } from './tipos-plan.js';
 import type { Moneda } from './monedas.js';
 import type {
   CatalogoPublico,
