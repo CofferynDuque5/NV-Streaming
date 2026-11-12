@@ -291,6 +291,52 @@ describe('cuentas de servicio', () => {
     ).toBeNull();
   });
 
+  it('un perfil de respaldo se usa primero al reponer y una cuenta completa pasa a individuales', async () => {
+    const e = await escenario();
+    const completa = await e.operador.n.post('/cuentas', {
+      servicioId: e.servicioId,
+      usuario: 'completa@example.com',
+      clave: 'x',
+      modo: 'completa',
+      perfiles: 1,
+    });
+    const cupo = completa.cuerpo.listaPerfiles[0] as { id: string };
+    const ruta = (c: string, p: string) => `/cuentas/${c}/perfiles/${p}`;
+
+    // Respaldo: solo un perfil libre; no cuenta como libre.
+    const resp = await e.operador.n.patch(ruta(completa.cuerpo.id, cupo.id), { respaldo: true });
+    expect(resp.cuerpo.perfiles).toMatchObject({ libres: 0, respaldos: 1 });
+
+    // Una suscripción en la cuenta caída va al respaldo, no a la cuenta con más libres.
+    const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    const p1 = e.cuenta.listaPerfiles[0] as { id: string };
+    await e.operador.n.post(`${ruta(e.cuenta.id, p1.id)}/asignar`, { suscripcionId });
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
+    expect((await e.operador.n.get('/cuentas/reposicion')).cuerpo[0].libres).toBe(1);
+    const r = await e.operador.n.post(`/cuentas/reposicion/${p1.id}`, { compensar: false });
+    expect(r.cuerpo).toMatchObject({ cuentaId: completa.cuerpo.id, diasCompensados: 0 });
+
+    // Pasar a individuales: el cliente queda en el perfil 1 y se agregan los demás libres.
+    const ind = await e.operador.n.post(`/cuentas/${completa.cuerpo.id}/individuales`, {
+      perfiles: 4,
+    });
+    expect(ind.estado).toBe(200);
+    expect(ind.cuerpo.modo).toBe('perfiles');
+    expect(ind.cuerpo.perfiles).toMatchObject({ total: 4, asignados: 1, libres: 3 });
+    expect(ind.cuerpo.listaPerfiles[0]).toMatchObject({
+      nombre: 'Perfil 1',
+      asignacion: { suscripcionId },
+    });
+    expect(
+      (await e.operador.n.post(`/cuentas/${completa.cuerpo.id}/individuales`, { perfiles: 4 }))
+        .cuerpo.error.codigo,
+    ).toBe('YA_INDIVIDUAL');
+    expect(
+      (await e.operador.n.post(`/cuentas/${e.cuenta.id}/individuales`, { perfiles: 1 })).estado,
+    ).toBe(400);
+  });
+
   it('el cliente ve los datos de su perfil solo con la suscripción vigente y el equipo arma el mensaje', async () => {
     const e = await escenario();
     const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });

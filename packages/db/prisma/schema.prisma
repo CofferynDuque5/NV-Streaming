@@ -2015,6 +2015,8 @@ enum EstadoPerfil {
   asignado
   /// No se asigna (perfil del dueño, dañado, etc.).
   bloqueado
+  /// Libre, guardado para reponer a los clientes de una cuenta caída.
+  respaldo
 }
 
 /// Cuenta de un servicio que NV revende (todos los servicios están

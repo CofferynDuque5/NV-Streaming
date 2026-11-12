@@ -18,7 +18,14 @@ export interface CuentaServicioResumen {
   facturaEn: string | null;
   metodoPago: string | null;
   proveedor: string | null;
-  perfiles: { total: number; libres: number; asignados: number; bloqueados: number };
+  perfiles: {
+    total: number;
+    libres: number;
+    asignados: number;
+    bloqueados: number;
+    /** Libres guardados para reponer caídas. */
+    respaldos: number;
+  };
   creadoEn: string;
 }
 
@@ -249,6 +256,7 @@ export interface ServicioInventario {
     libres: number;
     ocupados: number;
     bloqueados: number;
+    respaldos: number;
     /** Perfiles ocupados que vencen en los próximos 3 días. */
     porVencer: number;
     /** Perfiles ocupados con la suscripción vencida o cancelada (conviene liberarlos). */

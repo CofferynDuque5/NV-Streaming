@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  LifeBuoy,
   Link2,
   Mail,
   MessageCircle,
@@ -26,6 +27,7 @@ import {
   Unlink,
   Unlock,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { BotonCopiar } from '@/componentes/accesos';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -877,6 +879,19 @@ export function AccionesPerfil({
             Liberar
           </Boton>
         )}
+        {(perfil.estado === 'libre' || perfil.estado === 'respaldo') && (
+          <Boton
+            tamano="sm"
+            variante="fantasma"
+            cargando={cargando}
+            icono={<LifeBuoy className="size-3.5" />}
+            onClick={() => void ejecutar('PATCH', ruta, { respaldo: perfil.estado !== 'respaldo' })}
+            aria-label={`${perfil.estado === 'respaldo' ? 'Quitar de respaldo' : 'Guardar de respaldo'} ${perfil.nombre}`}
+            title="Un perfil de respaldo se usa primero para reponer a los clientes de una cuenta caída."
+          >
+            {perfil.estado === 'respaldo' ? 'Quitar respaldo' : 'Respaldo'}
+          </Boton>
+        )}
         {perfil.estado !== 'asignado' && (
           <Boton
             tamano="sm"
@@ -909,5 +924,48 @@ export function AccionesPerfil({
       </div>
       {error && <p className="max-w-56 text-right text-xs text-peligro">{error.mensaje}</p>}
     </div>
+  );
+}
+
+/** Una cuenta completa pasa a venderse por perfiles; quien la tenga queda en el perfil 1. */
+export function PasarAIndividuales({ cuentaId }: { cuentaId: string }) {
+  const router = useRouter();
+  const [perfiles, setPerfiles] = useState('4');
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function enviar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setOcupado(true);
+    setError(null);
+    const r = await llamarApi('POST', `/cuentas/${cuentaId}/individuales`, { perfiles });
+    setOcupado(false);
+    if (!r.ok) {
+      setError(r.error.mensaje);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <form
+      onSubmit={(e) => void enviar(e)}
+      className="flex flex-wrap items-end gap-3 border-t border-borde px-5 py-4 sm:px-6"
+    >
+      <Campo
+        etiqueta="Pasar a perfiles individuales"
+        ayuda="Quien tenga la cuenta queda en el perfil 1; los demás quedan libres para vender."
+        type="number"
+        min={2}
+        max={20}
+        value={perfiles}
+        onChange={(e) => setPerfiles(e.currentTarget.value)}
+        className="w-44"
+      />
+      <Boton type="submit" variante="secundario" cargando={ocupado}>
+        Pasar a individuales
+      </Boton>
+      {error && <p className="w-full text-sm text-peligro">{error}</p>}
+    </form>
   );
 }

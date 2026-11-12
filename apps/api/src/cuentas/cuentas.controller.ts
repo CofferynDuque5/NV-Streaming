@@ -13,6 +13,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import {
   asignarPerfilSchema,
+  pasarAIndividualesSchema,
   reponerPerfilSchema,
   buscarAsignablesSchema,
   crearCuentaSchema,
@@ -118,6 +119,19 @@ export class CuentasController {
   }
 
   /** Descifra correo, clave y PIN. Queda en la auditoría y tiene límite por hora. */
+  @Post(':id/individuales')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(pasarAIndividualesSchema)
+  pasarAIndividuales(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(pasarAIndividualesSchema)) cuerpo: z.output<typeof pasarAIndividualesSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.pasarAIndividuales(auth, id, cuerpo.perfiles, cliente);
+  }
+
   @Post(':id/revelar')
   @Header('Cache-Control', SIN_CACHE)
   @RequierePermiso('cuentas.revelar')

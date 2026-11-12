@@ -20,7 +20,7 @@ import { formatearDia } from '@/lib/formato';
 const DIAS_POR_VENCER = 3;
 const DIA_MS = 86_400_000;
 
-type Situacion = 'libre' | 'ocupado' | 'por_vencer' | 'vencido' | 'bloqueado';
+type Situacion = 'libre' | 'respaldo' | 'ocupado' | 'por_vencer' | 'vencido' | 'bloqueado';
 type Filtro = 'todos' | Situacion | 'caidas';
 
 const FILTROS: { clave: Filtro; nombre: string }[] = [
@@ -29,6 +29,7 @@ const FILTROS: { clave: Filtro; nombre: string }[] = [
   { clave: 'ocupado', nombre: 'Ocupados' },
   { clave: 'por_vencer', nombre: 'Por vencer' },
   { clave: 'vencido', nombre: 'Vencidos' },
+  { clave: 'respaldo', nombre: 'Respaldo' },
   { clave: 'bloqueado', nombre: 'Bloqueados' },
   { clave: 'caidas', nombre: 'Cuentas caídas' },
 ];
@@ -38,12 +39,14 @@ const ESTILO: Record<Situacion, { punto: string; fila: string; texto: string }> 
   ocupado: { punto: 'bg-acento', fila: 'border-borde bg-white/[0.02]', texto: 'Ocupado' },
   por_vencer: { punto: 'bg-aviso', fila: 'border-aviso/30 bg-aviso-suave/50', texto: 'Por vencer' },
   vencido: { punto: 'bg-peligro', fila: 'border-peligro/30 bg-peligro-suave/50', texto: 'Vencido' },
+  respaldo: { punto: 'bg-aviso', fila: 'border-aviso/25 bg-aviso-suave/30', texto: 'Respaldo' },
   bloqueado: { punto: 'bg-tinta-tenue', fila: 'border-borde bg-hundida/60', texto: 'Bloqueado' },
 };
 
 function situacion(p: PerfilInventario, ahora: number): Situacion {
   if (p.estado === 'libre') return 'libre';
   if (p.estado === 'bloqueado') return 'bloqueado';
+  if (p.estado === 'respaldo') return 'respaldo';
   if (p.estadoSuscripcion === 'vencida' || p.estadoSuscripcion === 'cancelada') return 'vencido';
   if (p.venceEn && new Date(p.venceEn).getTime() <= ahora + DIAS_POR_VENCER * DIA_MS) {
     return 'por_vencer';

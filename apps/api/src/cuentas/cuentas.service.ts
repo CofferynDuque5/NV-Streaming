@@ -105,6 +105,7 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
       libres: cuenta('libre'),
       asignados: cuenta('asignado'),
       bloqueados: cuenta('bloqueado'),
+      respaldos: cuenta('respaldo'),
     },
     creadoEn: c.creadoEn.toISOString(),
   };
@@ -424,6 +425,17 @@ export class CuentasService {
         data.pinCifrado = e.pin === null ? null : this.cifrador.cifrar(e.pin, contextoPin(p.id));
         cambios.push(e.pin === null ? 'pin_quitado' : 'pin');
       }
+      if (e.respaldo !== undefined && e.respaldo !== (p.estado === 'respaldo')) {
+        if (p.estado === 'asignado' || p.estado === 'bloqueado') {
+          throw new ErrorApp(
+            409,
+            'PERFIL_NO_LIBRE',
+            'Solo un perfil libre se guarda como respaldo.',
+          );
+        }
+        data.estado = e.respaldo ? 'respaldo' : 'libre';
+        cambios.push(e.respaldo ? 'respaldo' : 'respaldo_quitado');
+      }
       if (e.bloqueado !== undefined && e.bloqueado !== (p.estado === 'bloqueado')) {
         if (p.estado === 'asignado') {
           throw new ErrorApp(409, 'PERFIL_ASIGNADO', 'Libera el perfil antes de bloquearlo.');
@@ -459,7 +471,7 @@ export class CuentasService {
       if (p.cuenta.estado !== 'activa') {
         throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
       }
-      if (p.estado !== 'libre') {
+      if (p.estado !== 'libre' && p.estado !== 'respaldo') {
         throw new ErrorApp(
           409,
           'PERFIL_NO_LIBRE',
@@ -487,7 +499,7 @@ export class CuentasService {
       }
       // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
       const r = await tx.perfilCuenta.updateMany({
-        where: { id: p.id, estado: 'libre' },
+        where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
         data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
       });
       if (r.count === 0) {
@@ -538,6 +550,46 @@ export class CuentasService {
     });
   }
 
+  /** Una cuenta completa pasa a venderse por perfiles; lo asignado queda en el perfil 1. */
+  async pasarAIndividuales(
+    auth: ContextoAuth,
+    id: string,
+    perfiles: number,
+    cliente: InfoCliente,
+  ): Promise<CuentaServicioDetalle> {
+    return this.prisma.$transaction(async (tx) => {
+      const [fila] = await tx.$queryRaw<{ modo: string }[]>`
+        SELECT modo FROM cuentas_servicio WHERE id = ${id}::uuid FOR UPDATE`;
+      if (!fila) throw Errores.noEncontrado('La cuenta');
+      if (fila.modo !== 'completa') {
+        throw new ErrorApp(409, 'YA_INDIVIDUAL', 'Esta cuenta ya se vende por perfiles.');
+      }
+      const actuales = await tx.perfilCuenta.findMany({
+        where: { cuentaId: id },
+        select: { id: true, numero: true, estado: true },
+      });
+      await tx.cuentaServicio.update({ where: { id }, data: { modo: 'perfiles' } });
+      await tx.perfilCuenta.updateMany({
+        where: { cuentaId: id, numero: 1 },
+        data: { nombre: nombrePerfil('perfiles', 1) },
+      });
+      await this.ajustarPerfiles(tx, id, actuales, perfiles);
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'cuenta_servicio.individuales',
+          entidad: 'cuenta_servicio',
+          entidadId: id,
+          antes: { modo: 'completa' },
+          despues: { modo: 'perfiles', perfiles },
+          cliente,
+        },
+        tx,
+      );
+      return this.ver(id, tx);
+    });
+  }
+
   /** Cola de reposición: perfiles con clientes vigentes en cuentas caídas, la caída más vieja primero. */
   async porReponer(ahora = new Date()): Promise<PerfilPorReponer[]> {
     const perfiles = await this.prisma.perfilCuenta.findMany({
@@ -571,7 +623,10 @@ export class CuentasService {
     const libres = servicios.length
       ? await this.prisma.perfilCuenta.groupBy({
           by: ['cuentaId'],
-          where: { estado: 'libre', cuenta: { estado: 'activa', servicioId: { in: servicios } } },
+          where: {
+            estado: { in: ['libre', 'respaldo'] },
+            cuenta: { estado: 'activa', servicioId: { in: servicios } },
+          },
           _count: true,
         })
       : [];
@@ -635,23 +690,32 @@ export class CuentasService {
           'Este perfil no tiene un cliente en una cuenta caída.',
         );
       }
-      const destino = await tx.perfilCuenta.findFirst({
-        where: {
-          estado: 'libre',
-          cuenta: {
-            estado: 'activa',
-            servicioId: viejo.cuenta.servicioId,
-            ...(e.cuentaId ? { id: e.cuentaId } : {}),
+      // Primero un perfil de respaldo; si no hay, uno libre de la cuenta que conviene llenar.
+      const incluir = { cuenta: { select: { id: true, pista: true } } } as const;
+      const enCuenta = {
+        estado: 'activa',
+        servicioId: viejo.cuenta.servicioId,
+        ...(e.cuentaId ? { id: e.cuentaId } : {}),
+      } as const;
+      const destino =
+        (await tx.perfilCuenta.findFirst({
+          where: { estado: 'respaldo', cuenta: enCuenta },
+          orderBy: [{ cuenta: { creadoEn: 'asc' } }, { numero: 'asc' }],
+          include: incluir,
+        })) ??
+        (await tx.perfilCuenta.findFirst({
+          where: {
+            estado: 'libre',
+            cuenta: enCuenta,
+            ...(e.cuentaId
+              ? {}
+              : {
+                  cuentaId: (await this.cuentaParaLlenar(tx, viejo.cuenta.servicioId)) ?? undefined,
+                }),
           },
-          ...(e.cuentaId
-            ? {}
-            : {
-                cuentaId: (await this.cuentaParaLlenar(tx, viejo.cuenta.servicioId)) ?? undefined,
-              }),
-        },
-        orderBy: { numero: 'asc' },
-        include: { cuenta: { select: { id: true, pista: true } } },
-      });
+          orderBy: { numero: 'asc' },
+          include: incluir,
+        }));
       if (!destino) {
         throw new ErrorApp(
           409,
@@ -668,7 +732,7 @@ export class CuentasService {
         data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
       });
       const r = await tx.perfilCuenta.updateMany({
-        where: { id: destino.id, estado: 'libre' },
+        where: { id: destino.id, estado: destino.estado },
         data: { estado: 'asignado', suscripcionId, asignadoEn: new Date() },
       });
       if (r.count === 0) {

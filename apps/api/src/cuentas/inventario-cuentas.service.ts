@@ -65,6 +65,7 @@ export class InventarioCuentasService {
             libres: 0,
             ocupados: 0,
             bloqueados: 0,
+            respaldos: 0,
             porVencer: 0,
             vencidos: 0,
           },
@@ -89,6 +90,7 @@ export class InventarioCuentasService {
           k.perfiles++;
           if (p.estado === 'libre') k.libres++;
           else if (p.estado === 'bloqueado') k.bloqueados++;
+          else if (p.estado === 'respaldo') k.respaldos++;
           else {
             k.ocupados++;
             if (s && TERMINADAS.includes(s.estado)) k.vencidos++;

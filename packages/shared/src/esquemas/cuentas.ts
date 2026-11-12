@@ -17,7 +17,8 @@ export const ETIQUETA_ESTADO_CUENTA: Record<EstadoCuentaServicio, string> = {
 export const MODOS_CUENTA = ['perfiles', 'completa'] as const;
 export type ModoCuenta = (typeof MODOS_CUENTA)[number];
 
-export const ESTADOS_PERFIL = ['libre', 'asignado', 'bloqueado'] as const;
+/** `respaldo`: libre pero guardado para reponer caídas (no se ofrece primero). */
+export const ESTADOS_PERFIL = ['libre', 'asignado', 'bloqueado', 'respaldo'] as const;
 export type EstadoPerfil = (typeof ESTADOS_PERFIL)[number];
 
 export const MAX_PERFILES_CUENTA = 20;
@@ -155,11 +156,22 @@ export const editarPerfilSchema = z
     /** Vacío o null quita la nota. */
     nota: notaPerfilSchema.optional(),
     bloqueado: z.boolean().optional(),
+    /** Guardarlo para reponer caídas. */
+    respaldo: z.boolean().optional(),
   })
   .refine((o) => Object.values(o).some((v) => v !== undefined), 'No hay cambios.');
 export type EditarPerfilEntrada = z.infer<typeof editarPerfilSchema>;
 
 export const asignarPerfilSchema = z.object({ suscripcionId: uuidSchema });
+
+/** Pasar una cuenta completa a perfiles individuales (el cliente que tenga queda en el perfil 1). */
+export const pasarAIndividualesSchema = z.object({
+  perfiles: z.coerce
+    .number()
+    .int()
+    .min(2, 'Al menos 2 perfiles.')
+    .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
+});
 
 /** Reponer un perfil de una cuenta caída en otra cuenta activa del mismo servicio. */
 export const reponerPerfilSchema = z.object({
