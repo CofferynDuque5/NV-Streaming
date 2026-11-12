@@ -483,7 +483,7 @@ export class HerramientasAsistenteService {
       }
       case 'emitir_renovacion': {
         const p = PARAMETROS_HERRAMIENTA.emitir_renovacion.parse(parametros);
-        const r = await this.suscripciones.renovar(auth, p.suscripcionId, undefined, cliente);
+        const r = await this.suscripciones.renovar(auth, p.suscripcionId, {}, cliente);
         return `Factura ${r.factura.numero} emitida para ${r.suscripcion.cliente.nombre}.`;
       }
       case 'responder_ticket': {

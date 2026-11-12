@@ -476,6 +476,42 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
     expect(despues.getTime() - antes.getTime()).toBeGreaterThan(27 * DIA);
   });
 
+  it('el equipo renueva 3 meses de una vez, desde hoy o desde el vencimiento', async () => {
+    const e = await escenario();
+    const id = await activa(e);
+    expect(
+      (await e.operador.post(`/suscripciones/${id}/renovar`, { periodos: 4 })).cuerpo.error.codigo,
+    ).toBe('DATOS_INVALIDOS');
+    const ren = await e.operador.post(`/suscripciones/${id}/renovar`, {
+      periodos: 3,
+      desde: 'hoy',
+    });
+    expect(ren.estado).toBe(200);
+    const f = await e.operador.get(`/facturas/${ren.cuerpo.factura.id}`);
+    expect(f.cuerpo.total).toBe('15.00');
+    expect(f.cuerpo.lineas[0]).toMatchObject({ cantidad: 3, precioUnitario: '5.00' });
+    await e.operador.formulario(`/facturas/${ren.cuerpo.factura.id}/pagos`, {
+      metodoCobroId: e.zelleId,
+      monto: '15',
+      fechaPago: hoy(),
+    });
+    // Desde hoy: el mes que le quedaba no se suma (3 meses, no 4).
+    const vence = new Date((await e.operador.get(`/suscripciones/${id}`)).cuerpo.venceEn);
+    const dias = (vence.getTime() - Date.now()) / DIA;
+    expect(dias).toBeGreaterThan(88);
+    expect(dias).toBeLessThan(93);
+
+    const otra = await e.operador.post(`/suscripciones/${id}/renovar`, { periodos: 2 });
+    await e.operador.formulario(`/facturas/${otra.cuerpo.factura.id}/pagos`, {
+      metodoCobroId: e.zelleId,
+      monto: '10',
+      fechaPago: hoy(),
+    });
+    // Desde el vencimiento: se suman al final (5 meses en total).
+    const final = new Date((await e.operador.get(`/suscripciones/${id}`)).cuerpo.venceEn);
+    expect((final.getTime() - Date.now()) / DIA).toBeGreaterThan(148);
+  });
+
   it('pausar guarda el tiempo restante y reanudar lo devuelve; el cliente no puede pausar', async () => {
     const e = await escenario();
     const id = await activa(e);

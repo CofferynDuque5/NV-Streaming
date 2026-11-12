@@ -166,7 +166,7 @@ export class AutoservicioController {
     @Body(validar(renovarSchema)) cuerpo: z.output<typeof renovarSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.suscripciones.renovar(auth, id, cuerpo.moneda, cliente);
+    return this.suscripciones.renovar(auth, id, { moneda: cuerpo.moneda }, cliente);
   }
 
   /** El cliente programa la cancelación al vencimiento (o la cancela si aún no pagó). */

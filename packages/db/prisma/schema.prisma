@@ -712,6 +712,10 @@ model Factura {
   cuponId           String?         @map("cupon_id") @db.Uuid
   /// Parte del descuento que viene de un combo, en USD (se mantiene al recotizar).
   descuentoComboUsd Decimal?        @map("descuento_combo_usd") @db.Decimal(14, 2)
+  /// Periodos del plan que cubre (renovar 1, 2, 3, 6 o 12 de una vez).
+  periodos          Int             @default(1)
+  /// La renovación cuenta desde el pago y no desde el vencimiento.
+  desdeHoy          Boolean         @default(false) @map("desde_hoy")
   venceEn           DateTime        @map("vence_en") @db.Timestamptz(3)
   pagadaEn          DateTime?       @map("pagada_en") @db.Timestamptz(3)
   anuladaEn         DateTime?       @map("anulada_en") @db.Timestamptz(3)
