@@ -1,12 +1,13 @@
 'use client';
 
 import type { PerfilPorReponer, ResultadoReposicion } from '@nv/shared';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
+import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Casilla } from '@/componentes/ui/selector';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { llamarApi } from '@/lib/api-cliente';
@@ -52,7 +53,7 @@ export function ColaReposicion({
 
   return (
     <div className="grid gap-5">
-      {puedeReponer && (
+      {puedeReponer && pendientes.length > 0 && (
         <Casilla
           etiqueta="Sumar al vencimiento los días que estuvieron sin servicio"
           ayuda="Se cuentan desde que marcaste la cuenta como caída."
@@ -72,6 +73,13 @@ export function ColaReposicion({
           {hecho.r.diasCompensados > 0 && `, con ${dias(hecho.r.diasCompensados)} más`}. Envíale sus
           datos nuevos desde la cuenta.
         </Alerta>
+      )}
+      {pendientes.length === 0 && (
+        <Tarjeta>
+          <EstadoVacio icono={ShieldCheck} titulo="Nadie espera reposición">
+            Cuando marques una cuenta como caída, sus clientes con perfil aparecerán aquí.
+          </EstadoVacio>
+        </Tarjeta>
       )}
       {porCuenta(pendientes).map((grupo) => {
         const c = grupo[0]!;

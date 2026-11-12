@@ -43,10 +43,11 @@ test('una cuenta caída manda a su cliente a la cola y se repone en otra cuenta'
     { data: { suscripcionId: suscripcion.id }, headers: { origin } },
   );
   expect(asignar.status()).toBe(201);
-  await page.request.patch(api(`/cuentas/${caida.id}`), {
+  const marcar = await page.request.patch(api(`/cuentas/${caida.id}`), {
     data: { estado: 'caida' },
     headers: { origin },
   });
+  expect(marcar.status(), await marcar.text()).toBe(200);
   // Se cayó hace 2 días.
   ejecutarSql(
     `UPDATE cuentas_servicio SET caida_en = now() - interval '2 days 1 minute' WHERE id = '${caida.id}'::uuid;`,
