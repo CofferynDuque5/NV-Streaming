@@ -51,7 +51,7 @@ registro "Inicio de la copia $nombre"
 pg_isready -q -t 30 || fallo "PostgreSQL no responde."
 
 # 1) Base de datos. -Z0: sin comprimir en pg_dump para que gzip lo haga en el flujo.
-pg_dump --format=custom --compress=0 --no-owner | gzip -6 | cifrar "$parcial/bd.dump.gz.gpg"
+pg_dump --format=custom --compress=0 --no-owner --no-privileges | gzip -6 | cifrar "$parcial/bd.dump.gz.gpg"
 
 # 2) Comprobantes (si la carpeta existe; al principio puede estar vacía).
 if [[ -d "$ALMACEN" ]]; then
