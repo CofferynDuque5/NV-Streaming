@@ -28,12 +28,16 @@ export async function leerPaginaPublicada(
   }
 }
 
-/** Catálogo público (planes visibles con su precio en cada moneda). */
-export async function leerCatalogo(): Promise<CatalogoPublico | null> {
+/**
+ * Catálogo público (planes visibles con su precio en cada moneda). Con
+ * `fresco`, se lee sin caché (p. ej. un servicio recién creado).
+ */
+export async function leerCatalogo(fresco = false): Promise<CatalogoPublico | null> {
   try {
-    const r = await fetch(`${API}/api/v1/catalogo`, {
-      next: { tags: [ETIQUETA_SITIO], revalidate: 300 },
-    });
+    const r = await fetch(
+      `${API}/api/v1/catalogo`,
+      fresco ? { cache: 'no-store' } : { next: { tags: [ETIQUETA_SITIO], revalidate: 300 } },
+    );
     return r.ok ? ((await r.json()) as CatalogoPublico) : null;
   } catch {
     return null;
