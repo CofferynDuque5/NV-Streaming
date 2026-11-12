@@ -14,7 +14,7 @@ import type { CSSProperties } from 'react';
 import { ArteServicio } from '@/componentes/tienda/arte';
 import { AvisoMayorista } from '@/componentes/tienda/aviso-mayorista';
 import { Carril } from '@/componentes/tienda/deslizables';
-import { CopiarEnlace, DetalleServicio, type SaldoDetalle } from '@/componentes/tienda/detalle';
+import { CompartirEnlace, DetalleServicio, type SaldoDetalle } from '@/componentes/tienda/detalle';
 import { Migas } from '@/componentes/tienda/migas';
 import { TarjetaServicio } from '@/componentes/tienda/tarjeta-servicio';
 import { leerPaginaPublicada } from '@/lib/sitio';
@@ -120,6 +120,7 @@ export default async function DetalleServicioPagina({
   const otros =
     similares.length > 0 ? similares : todos.filter((s) => s.servicio.id !== servicio.id);
   const metodos = [...new Set(tema.metodosPago.map((m) => m.nombre))];
+  const juego = item.planes.length > 0 && item.planes.every((p) => p.tipo !== 'suscripcion');
   const whatsapp = tema.contacto.whatsapp;
 
   return (
@@ -137,8 +138,10 @@ export default async function DetalleServicioPagina({
         />
         {mayorista && <AvisoMayorista mayorista={mayorista} />}
         <DetalleServicio
+          servicioId={servicio.id}
           nombre={servicio.nombre}
           planes={item.planes}
+          datos={servicio.datosRequeridos}
           inicial={inicial}
           moneda={moneda}
           mayorista={mayorista}
@@ -172,13 +175,15 @@ export default async function DetalleServicioPagina({
                 </h1>
                 {servicio.descripcion && <p className="text-tinta-suave">{servicio.descripcion}</p>}
               </div>
-              <CopiarEnlace />
+              <CompartirEnlace nombre={servicio.nombre} />
             </div>
           }
           confianza={
             <Confianza
               items={[
-                { icono: Zap, texto: 'Lo gestionas desde tu panel', color: '#22d3ee' },
+                juego
+                  ? { icono: Zap, texto: 'Recarga directa a tu ID', color: '#22d3ee' }
+                  : { icono: Zap, texto: 'Lo gestionas desde tu panel', color: '#22d3ee' },
                 { icono: Globe, texto: 'Pagas en tu moneda', color: '#5b98ff' },
                 {
                   icono: Headset,
@@ -205,20 +210,36 @@ export default async function DetalleServicioPagina({
           }
           comoSeActiva={
             <ol className="grid gap-3 @3xl:grid-cols-3">
-              {[
-                [
-                  'Elige tu plan',
-                  `Agrégalo al carrito (hasta ${REGLAS_COBRO.articulosPorPedido} planes por pedido) o cómpralo ahora.`,
-                ],
-                [
-                  'Paga y sube el comprobante',
-                  'Con uno de los métodos de pago activos o con el saldo de tu billetera.',
-                ],
-                [
-                  'Se activa en tu panel',
-                  'Cuando el equipo confirma tu pago, el plan se activa y lo ves en tu panel con su vencimiento.',
-                ],
-              ].map(([titulo, texto], i) => (
+              {(juego
+                ? [
+                    [
+                      'Elige y escribe tu ID',
+                      'Elige el paquete y escribe los datos de tu cuenta del juego. Revísalos bien.',
+                    ],
+                    [
+                      'Paga y sube el comprobante',
+                      'Con uno de los métodos de pago activos o con el saldo de tu billetera.',
+                    ],
+                    [
+                      'Lo recargamos',
+                      'Cuando el equipo confirma tu pago, hacemos la recarga y te avisamos en tu panel.',
+                    ],
+                  ]
+                : [
+                    [
+                      'Elige tu plan',
+                      `Agrégalo al carrito (hasta ${REGLAS_COBRO.articulosPorPedido} planes por pedido) o cómpralo ahora.`,
+                    ],
+                    [
+                      'Paga y sube el comprobante',
+                      'Con uno de los métodos de pago activos o con el saldo de tu billetera.',
+                    ],
+                    [
+                      'Se activa en tu panel',
+                      'Cuando el equipo confirma tu pago, el plan se activa y lo ves en tu panel con su vencimiento.',
+                    ],
+                  ]
+              ).map(([titulo, texto], i) => (
                 <li
                   key={titulo}
                   className="grid content-start gap-1.5 rounded-2xl border border-borde bg-white/[0.02] p-5"

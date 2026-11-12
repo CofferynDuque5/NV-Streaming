@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec/,
+        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec|juegos\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -99,6 +99,12 @@ export default defineConfig({
       name: 'pago',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /\/pago\.spec/,
+    },
+    // Recargas de juegos: agrega un juego de prueba al catálogo, por eso va tras la tienda.
+    {
+      name: 'juegos',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /juegos\.spec/,
     },
     // Ingresar y registro: al final, porque frena los ingresos desde la IP de las pruebas
     // (límite de intentos) y usa la verificación en dos pasos que dejó roles.spec.ts.
