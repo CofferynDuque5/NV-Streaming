@@ -319,3 +319,60 @@ export function AccionesSuscripcion({
   }
   return <div className="divide-y divide-borde">{bloques}</div>;
 }
+
+/**
+ * Datos que dio el cliente al comprar con la contraseña de su cuenta a la
+ * vista (activación en su correo). Queda en la auditoría.
+ */
+export function VerDatosCompra({ id }: { id: string }) {
+  const [datos, setDatos] = useState<{ etiqueta: string; valor: string }[] | null>(null);
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  async function ver() {
+    setCargando(true);
+    setError('');
+    const r = await llamarApi<{ datos: { etiqueta: string; valor: string }[] }>(
+      'POST',
+      `/suscripciones/${id}/revelar-datos`,
+      {},
+    );
+    setCargando(false);
+    if (r.ok) setDatos(r.datos.datos);
+    else setError(r.error.mensaje);
+  }
+
+  if (datos) {
+    return (
+      <div className="grid gap-2 rounded-xl border border-borde bg-hundida/50 p-3">
+        <dl className="grid gap-1.5 text-sm">
+          {datos.map((d) => (
+            <div key={d.etiqueta} className="flex flex-wrap gap-x-2">
+              <dt className="text-tinta-suave">{d.etiqueta}:</dt>
+              <dd className="font-mono break-all select-all">{d.valor}</dd>
+            </div>
+          ))}
+        </dl>
+        <div>
+          <Boton variante="fantasma" tamano="sm" onClick={() => setDatos(null)}>
+            Ocultar
+          </Boton>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-1">
+      <div>
+        <Boton variante="secundario" tamano="sm" cargando={cargando} onClick={() => void ver()}>
+          Ver contraseña para activar
+        </Boton>
+      </div>
+      {error && (
+        <p role="alert" className="text-xs font-medium text-peligro">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}

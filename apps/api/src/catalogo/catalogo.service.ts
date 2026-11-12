@@ -65,10 +65,18 @@ export function datosDeServicio(v: unknown): DatoRequerido[] {
   return r.success ? r.data : [];
 }
 
-/** Una compra única no vence ni se renueva: su duración no se usa. */
+/**
+ * Una compra única no vence ni se renueva: su duración no se usa, y se
+ * entrega en la cuenta de juego del cliente (no hay alquiler ni activación).
+ */
 function ajustesCompraUnica(tipo: Plan['tipo'] | undefined) {
   return tipo && esCompraUnica(tipo)
-    ? { renovable: false, duracionCantidad: 1, duracionUnidad: 'mes' as const }
+    ? {
+        renovable: false,
+        duracionCantidad: 1,
+        duracionUnidad: 'mes' as const,
+        entrega: 'alquiler' as const,
+      }
     : {};
 }
 
@@ -92,6 +100,7 @@ export function planPublico(
     descripcion: p.descripcion,
     precioUsd: p.precioUsd.toFixed(2),
     tipo: p.tipo,
+    entrega: p.entrega,
     duracionCantidad: p.duracionCantidad,
     duracionUnidad: p.duracionUnidad,
     beneficios: p.beneficios,

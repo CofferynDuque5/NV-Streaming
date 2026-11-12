@@ -1,6 +1,6 @@
 import type { CategoriaServicio } from './categorias.js';
 import type { DatoRequerido } from './esquemas/catalogo.js';
-import type { TipoPlan, TipoProveedor, UnidadDuracion } from './tipos-plan.js';
+import type { EntregaPlan, TipoPlan, TipoProveedor, UnidadDuracion } from './tipos-plan.js';
 import type { EstadoCliente } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';
@@ -111,6 +111,8 @@ export interface PlanPublico {
   precioUsd: Decimal;
   /** Qué se vende: suscripción con duración o compra única (recarga, paquete, pase, tarjeta). */
   tipo: TipoPlan;
+  /** Suscripciones: alquiler de una cuenta del inventario o activación en el correo del cliente. */
+  entrega: EntregaPlan;
   duracionCantidad: number;
   duracionUnidad: UnidadDuracion;
   beneficios: string[];

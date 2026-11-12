@@ -96,6 +96,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'cuenta_servicio.creada': 'Cuenta de servicio guardada',
   'cuenta_servicio.editada': 'Cuenta de servicio editada',
   'cuenta_servicio.credenciales_vistas': 'Credenciales de cuenta vistas',
+  'suscripcion.datos_vistos': 'Datos de la compra vistos (contraseña del cliente)',
   'cuenta_servicio.pago_registrado': 'Pago al proveedor registrado',
   'cuenta_servicio.pago_anulado': 'Pago al proveedor anulado',
   'perfil_cuenta.asignado': 'Perfil asignado',

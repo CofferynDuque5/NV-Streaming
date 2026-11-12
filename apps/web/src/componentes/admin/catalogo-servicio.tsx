@@ -3,9 +3,13 @@
 import {
   claveDato,
   type DatoRequerido,
+  ETIQUETA_TIPO_DATO,
   MAX_DATOS_REQUERIDOS,
+  MAX_OPCIONES_DATO,
   MEDIO_MAX_MB,
   type MedioSitio,
+  TIPOS_DATO,
+  type TipoDato,
 } from '@nv/shared';
 import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { type ChangeEvent, useId, useRef, useState } from 'react';
@@ -115,10 +119,68 @@ export function ImagenServicio({
   );
 }
 
-type Fila = { id: number; etiqueta: string; ayuda: string; obligatorio: boolean };
+type Fila = {
+  id: number;
+  etiqueta: string;
+  ayuda: string;
+  obligatorio: boolean;
+  tipo: TipoDato;
+  opciones: string;
+  largo: string;
+};
+
+type Plantilla = Omit<Fila, 'id'>;
+const fila = (p: Partial<Plantilla> & { etiqueta: string }): Plantilla => ({
+  ayuda: '',
+  obligatorio: true,
+  tipo: 'texto',
+  opciones: '',
+  largo: '',
+  ...p,
+});
+
+/** Atajos para los casos más comunes; se pueden editar después. */
+const PLANTILLAS: { nombre: string; filas: Plantilla[] }[] = [
+  {
+    nombre: 'ID de jugador',
+    filas: [
+      fila({ etiqueta: 'ID de jugador', tipo: 'numero', ayuda: 'Lo ves en tu perfil del juego' }),
+    ],
+  },
+  {
+    nombre: 'ID + Zona',
+    filas: [
+      fila({ etiqueta: 'ID de jugador', tipo: 'numero' }),
+      fila({ etiqueta: 'Zona', tipo: 'numero', largo: '6', ayuda: 'El número entre paréntesis' }),
+    ],
+  },
+  {
+    nombre: 'Inicio de sesión',
+    filas: [
+      fila({
+        etiqueta: 'Forma de acceso',
+        tipo: 'lista',
+        opciones: 'Activision, Facebook, Google',
+      }),
+      fila({ etiqueta: 'Correo o usuario', tipo: 'texto' }),
+      fila({ etiqueta: 'Contraseña', tipo: 'clave', ayuda: 'Se guarda cifrada' }),
+    ],
+  },
+  { nombre: 'Correo', filas: [fila({ etiqueta: 'Correo', tipo: 'correo' })] },
+];
+
+const opcionesDe = (texto: string) =>
+  [
+    ...new Set(
+      texto
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, MAX_OPCIONES_DATO);
 
 /**
- * Datos que el cliente escribe al comprar (p. ej. «ID de jugador», «Servidor»).
+ * Datos que el cliente escribe al comprar (p. ej. «ID de jugador», «Zona»).
  * Se envían en `datosRequeridos` con `leerDatosRequeridos`.
  */
 export function DatosRequeridosServicio({
@@ -136,64 +198,136 @@ export function DatosRequeridosServicio({
       etiqueta: d.etiqueta,
       ayuda: d.ayuda ?? '',
       obligatorio: d.obligatorio,
+      tipo: d.tipo ?? 'texto',
+      opciones: (d.opciones ?? []).join(', '),
+      largo: d.largo ? String(d.largo) : '',
     })),
   );
   const cambiar = (n: number, cambio: Partial<Fila>) =>
     setFilas((l) => l.map((f) => (f.id === n ? { ...f, ...cambio } : f)));
+  const agregar = (nuevas: Plantilla[]) =>
+    setFilas((l) => {
+      const usadas = new Set(l.map((f) => claveDato(f.etiqueta)));
+      const extra = nuevas
+        .filter((n) => !n.etiqueta || !usadas.has(claveDato(n.etiqueta)))
+        .map((n) => ({ ...n, id: siguiente.current++ }));
+      return [...l, ...extra].slice(0, MAX_DATOS_REQUERIDOS);
+    });
 
   return (
     <fieldset className="grid gap-3 rounded-xl border border-borde bg-hundida/50 p-4">
       <legend className="px-1 text-sm font-medium">Datos que pide al comprar</legend>
       <p id={`${id}-a`} className="text-xs text-tinta-tenue">
-        Para juegos y servicios que necesitan datos del cliente: ID de jugador, servidor, zona,
-        usuario… El cliente los escribe en el carrito y el equipo los ve en Entregas. Déjalo vacío
-        si no hace falta.
+        Para juegos y servicios que necesitan datos del cliente: ID de jugador, zona, usuario… El
+        cliente los escribe en la ficha del producto y el equipo los ve en Entregas. Las contraseñas
+        se guardan cifradas. Déjalo vacío si no hace falta.
       </p>
+      {filas.length < MAX_DATOS_REQUERIDOS && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-tinta-suave">Plantillas:</span>
+          {PLANTILLAS.map((p) => (
+            <button
+              key={p.nombre}
+              type="button"
+              className="min-h-9 rounded-full border border-borde px-3 text-xs font-medium hover:border-acento hover:text-acento"
+              onClick={() => agregar(p.filas)}
+            >
+              + {p.nombre}
+            </button>
+          ))}
+        </div>
+      )}
       {filas.map((f, i) => (
-        <div
-          key={f.id}
-          className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto_auto]"
-        >
-          <label className="grid gap-1 text-xs font-semibold">
-            Dato {i + 1}
-            <input
-              className={clasesEntrada}
-              name="datoEtiqueta"
-              value={f.etiqueta}
-              maxLength={40}
-              placeholder="ID de jugador"
-              onChange={(e) => cambiar(f.id, { etiqueta: e.currentTarget.value })}
-            />
-          </label>
-          <label className="grid gap-1 text-xs font-semibold">
-            Ayuda (opcional)
-            <input
-              className={clasesEntrada}
-              name="datoAyuda"
-              value={f.ayuda}
-              maxLength={120}
-              placeholder="Lo ves en tu perfil del juego"
-              onChange={(e) => cambiar(f.id, { ayuda: e.currentTarget.value })}
-            />
-          </label>
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="datoObligatorio"
-              value={String(f.id)}
-              checked={f.obligatorio}
-              onChange={(e) => cambiar(f.id, { obligatorio: e.currentTarget.checked })}
-            />
-            Obligatorio
-          </label>
-          <button
-            type="button"
-            className="grid size-11 place-items-center rounded-xl text-tinta-suave hover:bg-white/5 hover:text-peligro"
-            aria-label={`Quitar el dato ${f.etiqueta || i + 1}`}
-            onClick={() => setFilas((l) => l.filter((x) => x.id !== f.id))}
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-          </button>
+        <div key={f.id} className="grid gap-2 rounded-xl border border-borde bg-superficie p-3">
+          <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]">
+            <label className="grid gap-1 text-xs font-semibold">
+              Dato {i + 1}
+              <input
+                className={clasesEntrada}
+                name="datoEtiqueta"
+                value={f.etiqueta}
+                maxLength={40}
+                placeholder="ID de jugador"
+                onChange={(e) => cambiar(f.id, { etiqueta: e.currentTarget.value })}
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold">
+              Cómo se escribe
+              <select
+                className={clasesEntrada}
+                name="datoTipo"
+                value={f.tipo}
+                onChange={(e) => cambiar(f.id, { tipo: e.currentTarget.value as TipoDato })}
+              >
+                {TIPOS_DATO.map((t) => (
+                  <option key={t} value={t}>
+                    {ETIQUETA_TIPO_DATO[t]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="grid size-11 place-items-center rounded-xl text-tinta-suave hover:bg-white/5 hover:text-peligro"
+              aria-label={`Quitar el dato ${f.etiqueta || i + 1}`}
+              onClick={() => setFilas((l) => l.filter((x) => x.id !== f.id))}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+          {f.tipo === 'lista' && (
+            <label className="grid gap-1 text-xs font-semibold">
+              Opciones, separadas por coma
+              <input
+                className={clasesEntrada}
+                name="datoOpciones"
+                value={f.opciones}
+                maxLength={400}
+                placeholder="Activision, Facebook, Google"
+                onChange={(e) => cambiar(f.id, { opciones: e.currentTarget.value })}
+              />
+            </label>
+          )}
+          <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
+            <label className="grid gap-1 text-xs font-semibold">
+              Ayuda (opcional)
+              <input
+                className={clasesEntrada}
+                name="datoAyuda"
+                value={f.ayuda}
+                maxLength={120}
+                placeholder="Lo ves en tu perfil del juego"
+                onChange={(e) => cambiar(f.id, { ayuda: e.currentTarget.value })}
+              />
+            </label>
+            {f.tipo === 'texto' || f.tipo === 'numero' ? (
+              <label className="grid gap-1 text-xs font-semibold">
+                Largo máx.
+                <input
+                  className={clasesEntrada}
+                  name="datoLargo"
+                  inputMode="numeric"
+                  value={f.largo}
+                  placeholder="Sin límite"
+                  onChange={(e) =>
+                    cambiar(f.id, { largo: e.currentTarget.value.replace(/\D/g, '').slice(0, 3) })
+                  }
+                />
+              </label>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="datoObligatorio"
+                value={String(f.id)}
+                checked={f.obligatorio}
+                onChange={(e) => cambiar(f.id, { obligatorio: e.currentTarget.checked })}
+              />
+              Obligatorio
+            </label>
+          </div>
         </div>
       ))}
       <input
@@ -207,6 +341,12 @@ export function DatosRequeridosServicio({
               etiqueta: f.etiqueta.trim(),
               ayuda: f.ayuda.trim() || null,
               obligatorio: f.obligatorio,
+              tipo: f.tipo,
+              opciones: f.tipo === 'lista' ? opcionesDe(f.opciones) : [],
+              largo:
+                (f.tipo === 'texto' || f.tipo === 'numero') && Number(f.largo) > 0
+                  ? Math.min(120, Number(f.largo))
+                  : null,
             })),
         )}
       />
@@ -216,12 +356,7 @@ export function DatosRequeridosServicio({
             variante="secundario"
             tamano="sm"
             icono={<Plus className="size-4" />}
-            onClick={() =>
-              setFilas((l) => [
-                ...l,
-                { id: siguiente.current++, etiqueta: '', ayuda: '', obligatorio: true },
-              ])
-            }
+            onClick={() => agregar([fila({ etiqueta: '' })])}
           >
             Añadir dato
           </Boton>

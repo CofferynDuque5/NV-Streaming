@@ -3,31 +3,51 @@ import { CATEGORIAS_SERVICIO } from '../categorias.js';
 import { parcialSinDefectos, textoOpcional, uuidSchema } from './comunes.js';
 import { monedaConTasaSchema, montoOCeroSchema, montoSchema } from './dinero.js';
 import {
+  ENTREGAS_PLAN,
   MAX_DATOS_REQUERIDOS,
+  MAX_OPCIONES_DATO,
+  TIPOS_DATO,
   TIPOS_PLAN,
   TIPOS_PROVEEDOR,
   UNIDADES_DURACION,
 } from '../tipos-plan.js';
 
 /** Dato que el cliente escribe al comprar (p. ej. «ID de jugador»). */
-export const datoRequeridoSchema = z.object({
-  /** Identificador estable del dato (se deriva de la etiqueta). */
-  clave: z
-    .string()
-    .trim()
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Clave no válida.')
-    .max(40),
-  etiqueta: z
-    .string()
-    .trim()
-    .min(2, 'Escribe el nombre del dato.')
-    .max(40, 'Máximo 40 caracteres.'),
-  ayuda: z.preprocess(
-    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
-    z.string().trim().max(120, 'Máximo 120 caracteres.').nullable().optional(),
-  ),
-  obligatorio: z.boolean().default(true),
-});
+export const datoRequeridoSchema = z
+  .object({
+    /** Identificador estable del dato (se deriva de la etiqueta). */
+    clave: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Clave no válida.')
+      .max(40),
+    etiqueta: z
+      .string()
+      .trim()
+      .min(2, 'Escribe el nombre del dato.')
+      .max(40, 'Máximo 40 caracteres.'),
+    ayuda: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+      z.string().trim().max(120, 'Máximo 120 caracteres.').nullable().optional(),
+    ),
+    obligatorio: z.boolean().default(true),
+    /** Cómo se escribe: texto libre, solo números, correo, contraseña o una lista. */
+    tipo: z.enum(TIPOS_DATO).default('texto'),
+    /** Opciones de la lista (p. ej. «Activision», «Facebook»). */
+    opciones: z
+      .array(z.string().trim().min(1).max(40, 'Máximo 40 caracteres por opción.'))
+      .max(MAX_OPCIONES_DATO, `Máximo ${MAX_OPCIONES_DATO} opciones.`)
+      .default([]),
+    /** Largo máximo (p. ej. 13 cifras en un ID); vacío sin límite propio. */
+    largo: z.preprocess(
+      (v) => (v === '' || v === undefined ? null : v),
+      z.coerce.number().int().min(1).max(120).nullable(),
+    ),
+  })
+  .refine((d) => d.tipo !== 'lista' || d.opciones.length >= 2, {
+    message: 'Una lista necesita al menos dos opciones.',
+    path: ['opciones'],
+  });
 export type DatoRequerido = z.infer<typeof datoRequeridoSchema>;
 
 export const datosRequeridosSchema = z
@@ -89,6 +109,8 @@ export const planSchema = z.object({
   descripcion: textoOpcional(1000),
   precioUsd: montoOCeroSchema,
   tipo: z.enum(TIPOS_PLAN, { error: 'Elige qué se vende.' }).default('suscripcion'),
+  /** Solo suscripciones: alquiler de cuenta del inventario o activación en el correo del cliente. */
+  entrega: z.enum(ENTREGAS_PLAN, { error: 'Elige cómo se entrega.' }).default('alquiler'),
   duracionCantidad: z.coerce.number().int().min(1, 'Mínimo 1.').max(365, 'Máximo 365.'),
   duracionUnidad: z.enum(UNIDADES_DURACION, { error: 'Elige días o meses.' }),
   beneficios: z

@@ -11,6 +11,7 @@ import type {
 import {
   type CancelarSuscripcionEntrada,
   type Cotizacion,
+  DATOS_ACTIVACION,
   type ListarSuscripcionesEntrada,
   type Pagina,
   REGLAS_COBRO,
@@ -19,7 +20,16 @@ import {
   tienePermiso,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
-import { INCLUIR_PLAN, planVendible, type PlanCompleto } from '../catalogo/catalogo.service.js';
+import {
+  datosDeServicio,
+  INCLUIR_PLAN,
+  planVendible,
+  type PlanCompleto,
+} from '../catalogo/catalogo.service.js';
+import { Cifrador } from '../comun/cripto.js';
+import { descifrarDatosSecretos, valoresDeDatos } from '../comun/datos-cliente.js';
+import { LIMITE_REVELAR_CUENTA } from '../cuentas/cuentas.service.js';
+import { LimitesService } from '../limites/limites.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
 import { FacturacionService } from '../cobros/facturacion.service.js';
 import { alcanceClientes } from '../comun/alcance.js';
@@ -59,6 +69,8 @@ export class SuscripcionesService {
     @Inject(AuditoriaService) private readonly auditoria: AuditoriaService,
     @Inject(FacturacionService) private readonly facturacion: FacturacionService,
     @Inject(ClientesService) private readonly clientes: ClientesService,
+    @Inject(Cifrador) private readonly cifrador: Cifrador,
+    @Inject(LimitesService) private readonly limites: LimitesService,
   ) {}
 
   async listar(
@@ -110,6 +122,52 @@ export class SuscripcionesService {
     });
     if (!s) throw Errores.noEncontrado('La suscripción');
     return suscripcionDetalle(s);
+  }
+
+  /**
+   * Datos que dio el cliente al comprar, con la contraseña de su cuenta
+   * descifrada (activación en su correo). Con límite por hora y auditado.
+   */
+  async revelarDatos(
+    auth: ContextoAuth,
+    id: string,
+    cliente: InfoCliente,
+  ): Promise<{ datos: { etiqueta: string; valor: string }[] }> {
+    await this.limites.consumir(`revelar_datos:${auth.usuario.id}`, LIMITE_REVELAR_CUENTA);
+    const s = await this.prisma.suscripcion.findFirst({
+      where: { id, cliente: alcanceClientes(auth) },
+      select: {
+        id: true,
+        clienteId: true,
+        datosCliente: true,
+        plan: { select: { servicio: { select: { datosRequeridos: true } } } },
+      },
+    });
+    if (!s) throw Errores.noEncontrado('La suscripción');
+    const valores = descifrarDatosSecretos(
+      this.cifrador,
+      s.clienteId,
+      valoresDeDatos(s.datosCliente),
+    );
+    await this.auditoria.registrar({
+      actorId: auth.usuario.id,
+      accion: 'suscripcion.datos_vistos',
+      entidad: 'suscripcion',
+      entidadId: s.id,
+      cliente,
+    });
+    const nombres = new Map(
+      [...DATOS_ACTIVACION, ...datosDeServicio(s.plan.servicio.datosRequeridos)].map((d) => [
+        d.clave,
+        d.etiqueta,
+      ]),
+    );
+    return {
+      datos: Object.entries(valores).map(([clave, valor]) => ({
+        etiqueta: nombres.get(clave) ?? clave,
+        valor,
+      })),
+    };
   }
 
   /** Precio final de un plan en una moneda, con cupón, sin guardar nada. */

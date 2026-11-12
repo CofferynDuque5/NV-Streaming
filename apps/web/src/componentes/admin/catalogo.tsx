@@ -6,6 +6,9 @@ import {
   esCompraUnica,
   INFO_CATEGORIA,
   INFO_MONEDA,
+  type EntregaPlan,
+  ENTREGAS_PLAN,
+  ETIQUETA_ENTREGA_PLAN,
   type MonedaConTasa,
   type PlanPublico,
   type ProveedorPublico,
@@ -497,6 +500,9 @@ function CamposPlan({
   servicios?: ServicioPublico[];
   campos: Record<string, string>;
 }) {
+  const [servicioId, setServicioId] = useState(servicios?.find((x) => x.activo)?.id ?? '');
+  const categoria = servicios?.find((x) => x.id === servicioId)?.categoria ?? null;
+  const [tipo, setTipo] = useState<TipoPlan>(plan?.tipo ?? 'suscripcion');
   const errorBeneficios =
     campos.beneficios ??
     Object.entries(campos).find(([k]) => k.startsWith('beneficios.'))?.[1] ??
@@ -508,7 +514,14 @@ function CamposPlan({
           <Selector
             etiqueta="Servicio"
             name="servicioId"
-            defaultValue={servicios.find((s) => s.activo)?.id ?? ''}
+            value={servicioId}
+            onChange={(e) => {
+              const nuevo = e.currentTarget.value;
+              setServicioId(nuevo);
+              // Un juego casi nunca vende suscripciones: propone monedas.
+              const esJuego = servicios.find((x) => x.id === nuevo)?.categoria === 'juegos';
+              if (esJuego && tipo === 'suscripcion') setTipo('recarga');
+            }}
             error={campos.servicioId}
           >
             <option value="" disabled>
@@ -527,7 +540,12 @@ function CamposPlan({
           name="nombre"
           required
           defaultValue={plan?.nombre}
-          placeholder="Ej. Premium mensual"
+          placeholder={esCompraUnica(tipo) ? 'Ej. 100 diamantes' : 'Ej. Premium mensual'}
+          ayuda={
+            esCompraUnica(tipo)
+              ? 'Es lo que el cliente elige: la cantidad o el nombre del paquete.'
+              : undefined
+          }
           error={campos.nombre}
           className={servicios ? undefined : 'sm:col-span-2'}
         />
@@ -540,7 +558,13 @@ function CamposPlan({
         ayuda="Una frase que el cliente verá junto al plan."
         error={campos.descripcion}
       />
-      <PreciosYTipoPlan plan={plan} campos={campos} />
+      <PreciosYTipoPlan
+        plan={plan}
+        campos={campos}
+        tipo={tipo}
+        onTipo={setTipo}
+        juego={categoria === 'juegos'}
+      />
       <Campo
         etiqueta="Referencia en el proveedor (SKU)"
         name="skuProveedor"
@@ -595,12 +619,18 @@ function CamposPlan({
 function PreciosYTipoPlan({
   plan,
   campos,
+  tipo,
+  onTipo: setTipo,
+  juego,
 }: {
   plan?: PlanPublico | undefined;
   campos: Record<string, string>;
+  tipo: TipoPlan;
+  onTipo: (t: TipoPlan) => void;
+  juego: boolean;
 }) {
-  const [tipo, setTipo] = useState<TipoPlan>(plan?.tipo ?? 'suscripcion');
   const unica = esCompraUnica(tipo);
+  const [entrega, setEntrega] = useState<EntregaPlan>(plan?.entrega ?? 'alquiler');
   const revendedor = plan?.precioRevendedorUsd;
   return (
     <>
@@ -611,8 +641,10 @@ function PreciosYTipoPlan({
         onChange={(e) => setTipo(e.currentTarget.value as TipoPlan)}
         ayuda={
           unica
-            ? 'Compra única: no tiene duración ni vence. Ideal para monedas de juegos, paquetes y pases.'
-            : 'Tiene duración, vence y se puede renovar (cuentas y perfiles de streaming).'
+            ? 'Compra única: no tiene duración ni vence. En la tienda se agrupa en su pestaña (Monedas, Suministros, Paquetes, Pases o Tarjetas).'
+            : juego
+              ? 'Ojo: este servicio es un juego. Una suscripción se muestra como «1 mes»; para monedas o paquetes elige otro tipo.'
+              : 'Tiene duración, vence y se puede renovar (cuentas y perfiles de streaming o música).'
         }
         error={campos.tipo}
       >
@@ -622,6 +654,39 @@ function PreciosYTipoPlan({
           </option>
         ))}
       </Selector>
+      {unica ? (
+        <input type="hidden" name="entrega" value="alquiler" />
+      ) : (
+        <fieldset className="grid gap-2">
+          <legend className="mb-1 text-sm font-semibold text-tinta">Cómo se entrega</legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ENTREGAS_PLAN.map((v) => (
+              <label
+                key={v}
+                className={clsx(
+                  'flex min-h-11 cursor-pointer items-start gap-2 rounded-xl border p-3 text-sm',
+                  entrega === v ? 'border-acento bg-acento/10' : 'border-borde',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="entrega"
+                  value={v}
+                  checked={entrega === v}
+                  onChange={() => setEntrega(v)}
+                  className="mt-0.5"
+                />
+                <span>{ETIQUETA_ENTREGA_PLAN[v]}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-tinta-tenue">
+            {entrega === 'activacion'
+              ? 'Al comprar, el cliente escribe el correo y la contraseña de su cuenta. La contraseña se guarda cifrada y se ve con «Ver datos» en la suscripción.'
+              : 'Se entrega una cuenta o perfil que ya está en tu inventario.'}
+          </p>
+        </fieldset>
+      )}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Campo
           etiqueta="Precio normal (USD)"
@@ -713,6 +778,7 @@ function leerPlan(d: FormData, editando: boolean) {
   const revendedor = textoDe(d, 'precioRevendedorUsd');
   return {
     tipo: d.get('tipo') ?? 'suscripcion',
+    entrega: d.get('entrega') ?? 'alquiler',
     // Vacío al crear: no se vende a revendedores. Vacío al editar: se deja como está.
     ...(revendedor ? { precioRevendedorUsd: revendedor } : {}),
     nombre: textoDe(d, 'nombre') ?? '',

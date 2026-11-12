@@ -398,9 +398,16 @@ enum UnidadDuracion {
 enum TipoPlan {
   suscripcion
   recarga
+  suministro
   paquete
   pase
   tarjeta
+}
+
+/// Cómo se entrega una suscripción: cuenta del inventario o activación en el correo del cliente.
+enum EntregaPlan {
+  alquiler
+  activacion
 }
 
 enum CategoriaServicio {
@@ -485,6 +492,7 @@ model Plan {
   /// Precio base. El resto de monedas se calcula con la tasa vigente salvo precio fijo.
   precioUsd        Decimal        @map("precio_usd") @db.Decimal(14, 2)
   tipo             TipoPlan       @default(suscripcion)
+  entrega          EntregaPlan    @default(alquiler)
   duracionCantidad Int            @map("duracion_cantidad")
   duracionUnidad   UnidadDuracion @map("duracion_unidad")
   beneficios       String[]       @default([])
