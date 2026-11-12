@@ -409,6 +409,14 @@ const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
     permiso: 'suscripciones.crear',
   },
   {
+    etiqueta: 'Caídas y reposición',
+    href: '/admin/cuentas/reposicion',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'caida caidas reponer reemplazo dias perdidos',
+    permiso: 'cuentas.ver',
+  },
+  {
     etiqueta: 'Importar o verificar cuentas (TXT/CSV)',
     href: '/admin/cuentas/importar',
     icono: 'cuentas',

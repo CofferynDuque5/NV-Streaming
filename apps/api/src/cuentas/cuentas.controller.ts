@@ -13,6 +13,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import {
   asignarPerfilSchema,
+  reponerPerfilSchema,
   buscarAsignablesSchema,
   crearCuentaSchema,
   editarCuentaSchema,
@@ -66,6 +67,25 @@ export class CuentasController {
   @DocConsulta(listarCuentasSchema)
   listar(@Query(validar(listarCuentasSchema)) q: z.output<typeof listarCuentasSchema>) {
     return this.cuentas.listar(q);
+  }
+
+  @Get('reposicion')
+  @RequierePermiso('cuentas.ver')
+  porReponer() {
+    return this.cuentas.porReponer();
+  }
+
+  @Post('reposicion/:perfilId')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(reponerPerfilSchema)
+  reponer(
+    @Auth() auth: ContextoAuth,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(reponerPerfilSchema)) cuerpo: z.output<typeof reponerPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.reponer(auth, perfilId, cuerpo, cliente);
   }
 
   @Get(':id')

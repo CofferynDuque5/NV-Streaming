@@ -229,6 +229,68 @@ describe('cuentas de servicio', () => {
     expect((await e.operador.n.get('/cuentas?conLibres=true&estado=activa')).cuerpo.total).toBe(0);
   });
 
+  it('una caída entra en la cola de reposición y se repone en otra cuenta con los días perdidos', async () => {
+    const e = await escenario();
+    const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    // Activa, para que tenga vencimiento.
+    const vence = new Date(Date.now() + 20 * 86_400_000);
+    await ctx.prisma.suscripcion.update({
+      where: { id: suscripcionId },
+      data: { estado: 'activa', venceEn: vence },
+    });
+    const p1 = e.cuenta.listaPerfiles[0] as { id: string };
+    await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${p1.id}/asignar`, { suscripcionId });
+    expect((await e.operador.n.get('/cuentas/reposicion')).cuerpo).toEqual([]);
+
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
+    // Se cayó hace 3 días.
+    await ctx.prisma.cuentaServicio.update({
+      where: { id: e.cuenta.id },
+      data: { caidaEn: new Date(Date.now() - 3 * 86_400_000 - 60_000) },
+    });
+    const cola = (await e.operador.n.get('/cuentas/reposicion')).cuerpo;
+    expect(cola).toHaveLength(1);
+    expect(cola[0]).toMatchObject({
+      perfilId: p1.id,
+      diasPerdidos: 3,
+      libres: 0,
+      suscripcion: { id: suscripcionId },
+    });
+    expect((await e.operador.n.post(`/cuentas/reposicion/${p1.id}`, {})).cuerpo.error.codigo).toBe(
+      'SIN_PERFILES_LIBRES',
+    );
+
+    const nueva = await e.operador.n.post('/cuentas', {
+      servicioId: e.servicioId,
+      usuario: 'reemplazo@example.com',
+      clave: 'x',
+      perfiles: 2,
+    });
+    expect((await e.operador.n.get('/cuentas/reposicion')).cuerpo[0].libres).toBe(2);
+    expect((await e.cliente.post(`/cuentas/reposicion/${p1.id}`, {})).estado).toBe(403);
+    const r = await e.operador.n.post(`/cuentas/reposicion/${p1.id}`, { compensar: true });
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toMatchObject({
+      cuentaId: nueva.cuerpo.id,
+      perfil: { numero: 1 },
+      diasCompensados: 3,
+    });
+    expect((await e.operador.n.get('/cuentas/reposicion')).cuerpo).toEqual([]);
+    const s = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: suscripcionId } });
+    expect(Math.round((s.venceEn!.getTime() - vence.getTime()) / 86_400_000)).toBe(3);
+    const perfil = await ctx.prisma.perfilCuenta.findFirstOrThrow({ where: { suscripcionId } });
+    expect(perfil.cuentaId).toBe(nueva.cuerpo.id);
+    expect((await e.operador.n.post(`/cuentas/reposicion/${p1.id}`, {})).cuerpo.error.codigo).toBe(
+      'NADA_QUE_REPONER',
+    );
+    // Al volver a activa se borra la fecha de la caída.
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'activa' });
+    expect(
+      (await ctx.prisma.cuentaServicio.findUniqueOrThrow({ where: { id: e.cuenta.id } })).caidaEn,
+    ).toBeNull();
+  });
+
   it('el cliente ve los datos de su perfil solo con la suscripción vigente y el equipo arma el mensaje', async () => {
     const e = await escenario();
     const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });

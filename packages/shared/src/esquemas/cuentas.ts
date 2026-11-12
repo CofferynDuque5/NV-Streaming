@@ -161,6 +161,15 @@ export type EditarPerfilEntrada = z.infer<typeof editarPerfilSchema>;
 
 export const asignarPerfilSchema = z.object({ suscripcionId: uuidSchema });
 
+/** Reponer un perfil de una cuenta caída en otra cuenta activa del mismo servicio. */
+export const reponerPerfilSchema = z.object({
+  /** Cuenta destino; si no se indica, la activa con menos perfiles libres (para llenarla). */
+  cuentaId: uuidSchema.optional(),
+  /** Sumar al vencimiento los días que pasó sin servicio. */
+  compensar: z.boolean().default(true),
+});
+export type ReponerPerfilEntrada = z.infer<typeof reponerPerfilSchema>;
+
 export const listarCuentasSchema = paginacionSchema.extend({
   servicioId: uuidSchema.optional(),
   estado: z.enum(ESTADOS_CUENTA_SERVICIO).optional(),

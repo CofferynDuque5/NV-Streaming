@@ -261,3 +261,34 @@ export interface Inventario {
   /** Fecha de hoy en Venezuela (AAAA-MM-DD), para calcular días. */
   hoy: string;
 }
+
+/** Perfil ocupado en una cuenta caída: el cliente espera que le den otro. */
+export interface PerfilPorReponer {
+  perfilId: string;
+  cuentaId: string;
+  /** «ma•••@gmail.com» de la cuenta caída. */
+  cuentaPista: string;
+  perfil: { numero: number; nombre: string };
+  servicio: { id: string; nombre: string };
+  suscripcion: {
+    id: string;
+    cliente: { id: string; nombre: string };
+    estado: string;
+    venceEn: string | null;
+  };
+  /** Cuándo se marcó caída la cuenta (null si fue antes de guardarse la fecha). */
+  caidaEn: string | null;
+  /** Días completos sin servicio, para compensarlos al reponer. */
+  diasPerdidos: number;
+  /** Perfiles libres en cuentas activas del mismo servicio. */
+  libres: number;
+}
+
+export interface ResultadoReposicion {
+  /** Cuenta y perfil nuevos del cliente. */
+  cuentaId: string;
+  cuentaPista: string;
+  perfil: { numero: number; nombre: string };
+  /** Días sumados a su vencimiento (0 si no se compensó). */
+  diasCompensados: number;
+}

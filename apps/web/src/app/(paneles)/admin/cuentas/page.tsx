@@ -8,7 +8,7 @@ import {
   type PorPagar,
   type ServicioPublico,
 } from '@nv/shared';
-import { DatabaseBackup, FileCheck2, KeyRound, Search } from 'lucide-react';
+import { ArrowRightLeft, DatabaseBackup, FileCheck2, KeyRound, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NuevaCuenta } from '@/componentes/admin/cuentas';
@@ -104,6 +104,13 @@ export default async function Cuentas({
         acciones={
           puedeGestionar ? (
             <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/admin/cuentas/reposicion"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-borde px-4 text-sm font-medium hover:border-borde-fuerte"
+              >
+                <ArrowRightLeft className="size-4" aria-hidden="true" />
+                Caídas y reposición
+              </Link>
               <Link
                 href="/admin/cuentas/importar"
                 className="inline-flex h-11 items-center gap-2 rounded-xl border border-borde px-4 text-sm font-medium hover:border-borde-fuerte"

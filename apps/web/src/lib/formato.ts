@@ -100,6 +100,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'cuenta_servicio.pago_registrado': 'Pago al proveedor registrado',
   'cuenta_servicio.pago_anulado': 'Pago al proveedor anulado',
   'perfil_cuenta.asignado': 'Perfil asignado',
+  'perfil_cuenta.repuesto': 'Perfil repuesto tras una caída',
   'perfil_cuenta.liberado': 'Perfil liberado',
   'perfil_cuenta.editado': 'Perfil editado',
   'perfil_cuenta.visto_por_cliente': 'Datos del perfil vistos por el cliente',

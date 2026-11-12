@@ -12,6 +12,9 @@ import type {
   ListarCuentasEntrada,
   PaginaCuentas,
   PerfilCuentaPublico,
+  PerfilPorReponer,
+  ReponerPerfilEntrada,
+  ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -29,6 +32,11 @@ export const LIMITE_REVELAR_CUENTA = { maximo: 30, ventanaSegundos: 3600 };
 
 /** Suscripciones que ya no usan su perfil: conviene liberarlo. */
 const TERMINADAS: readonly EstadoSuscripcion[] = ['vencida', 'cancelada'];
+
+/** Días completos desde la caída (0 si no hay fecha). */
+function diasPerdidos(caidaEn: Date | null, ahora: Date): number {
+  return caidaEn ? Math.max(0, Math.floor((ahora.getTime() - caidaEn.getTime()) / 86_400_000)) : 0;
+}
 
 const CONTEXTO_HUELLA_USUARIO = 'cuenta:usuario';
 export const contextoUsuario = (id: string) => `cuenta:${id}:usuario`;
@@ -286,6 +294,7 @@ export class CuentasService {
           select: {
             id: true,
             modo: true,
+            estado: true,
             perfiles: { select: { id: true, numero: true, estado: true } },
           },
         });
@@ -316,6 +325,10 @@ export class CuentasService {
             (data as Record<string, unknown>)[campo] = e[campo];
             cambios.push(campo);
           }
+        }
+        // La fecha de la caída cuenta los días perdidos de sus clientes.
+        if (e.estado && e.estado !== c.estado) {
+          data.caidaEn = e.estado === 'caida' ? new Date() : null;
         }
         if (e.facturaEn !== undefined) {
           data.facturaEn = fechaODb(e.facturaEn);
@@ -523,6 +536,189 @@ export class CuentasService {
       );
       return this.ver(cuentaId, tx);
     });
+  }
+
+  /** Cola de reposición: perfiles con clientes vigentes en cuentas caídas, la caída más vieja primero. */
+  async porReponer(ahora = new Date()): Promise<PerfilPorReponer[]> {
+    const perfiles = await this.prisma.perfilCuenta.findMany({
+      where: {
+        estado: 'asignado',
+        cuenta: { estado: 'caida' },
+        suscripcion: { estado: { notIn: [...TERMINADAS] } },
+      },
+      include: {
+        cuenta: {
+          select: {
+            id: true,
+            pista: true,
+            caidaEn: true,
+            servicio: { select: { id: true, nombre: true } },
+          },
+        },
+        suscripcion: {
+          select: {
+            id: true,
+            estado: true,
+            venceEn: true,
+            cliente: { select: { id: true, nombre: true } },
+          },
+        },
+      },
+      orderBy: [{ cuenta: { caidaEn: 'asc' } }, { cuentaId: 'asc' }, { numero: 'asc' }],
+      take: 500,
+    });
+    const servicios = [...new Set(perfiles.map((p) => p.cuenta.servicio.id))];
+    const libres = servicios.length
+      ? await this.prisma.perfilCuenta.groupBy({
+          by: ['cuentaId'],
+          where: { estado: 'libre', cuenta: { estado: 'activa', servicioId: { in: servicios } } },
+          _count: true,
+        })
+      : [];
+    const cuentasLibres = libres.length
+      ? await this.prisma.cuentaServicio.findMany({
+          where: { id: { in: libres.map((l) => l.cuentaId) } },
+          select: { id: true, servicioId: true },
+        })
+      : [];
+    const libresPorServicio = new Map<string, number>();
+    for (const l of libres) {
+      const sid = cuentasLibres.find((c) => c.id === l.cuentaId)?.servicioId;
+      if (sid) libresPorServicio.set(sid, (libresPorServicio.get(sid) ?? 0) + l._count);
+    }
+    return perfiles.flatMap((p) =>
+      p.suscripcion
+        ? [
+            {
+              perfilId: p.id,
+              cuentaId: p.cuenta.id,
+              cuentaPista: p.cuenta.pista,
+              perfil: { numero: p.numero, nombre: p.nombre },
+              servicio: p.cuenta.servicio,
+              suscripcion: {
+                id: p.suscripcion.id,
+                cliente: p.suscripcion.cliente,
+                estado: p.suscripcion.estado,
+                venceEn: iso(p.suscripcion.venceEn),
+              },
+              caidaEn: iso(p.cuenta.caidaEn),
+              diasPerdidos: diasPerdidos(p.cuenta.caidaEn, ahora),
+              libres: libresPorServicio.get(p.cuenta.servicio.id) ?? 0,
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Pasa el cliente de un perfil de una cuenta caída a un perfil libre de otra
+   * cuenta activa del mismo servicio y, si se pide, le suma los días perdidos.
+   */
+  async reponer(
+    auth: ContextoAuth,
+    perfilId: string,
+    e: ReponerPerfilEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoReposicion> {
+    return this.prisma.$transaction(async (tx) => {
+      const viejo = await tx.perfilCuenta.findUnique({
+        where: { id: perfilId },
+        include: {
+          cuenta: { select: { id: true, servicioId: true, estado: true, caidaEn: true } },
+        },
+      });
+      if (!viejo) throw Errores.noEncontrado('El perfil');
+      if (viejo.cuenta.estado !== 'caida' || viejo.estado !== 'asignado' || !viejo.suscripcionId) {
+        throw new ErrorApp(
+          409,
+          'NADA_QUE_REPONER',
+          'Este perfil no tiene un cliente en una cuenta caída.',
+        );
+      }
+      const destino = await tx.perfilCuenta.findFirst({
+        where: {
+          estado: 'libre',
+          cuenta: {
+            estado: 'activa',
+            servicioId: viejo.cuenta.servicioId,
+            ...(e.cuentaId ? { id: e.cuentaId } : {}),
+          },
+          ...(e.cuentaId
+            ? {}
+            : {
+                cuentaId: (await this.cuentaParaLlenar(tx, viejo.cuenta.servicioId)) ?? undefined,
+              }),
+        },
+        orderBy: { numero: 'asc' },
+        include: { cuenta: { select: { id: true, pista: true } } },
+      });
+      if (!destino) {
+        throw new ErrorApp(
+          409,
+          'SIN_PERFILES_LIBRES',
+          e.cuentaId
+            ? 'Esa cuenta no tiene perfiles libres.'
+            : 'No hay perfiles libres de este servicio. Agrega una cuenta al inventario.',
+        );
+      }
+      const suscripcionId = viejo.suscripcionId;
+      // Primero se suelta el viejo (la suscripción solo puede tener un perfil).
+      await tx.perfilCuenta.update({
+        where: { id: viejo.id },
+        data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+      });
+      const r = await tx.perfilCuenta.updateMany({
+        where: { id: destino.id, estado: 'libre' },
+        data: { estado: 'asignado', suscripcionId, asignadoEn: new Date() },
+      });
+      if (r.count === 0) {
+        throw new ErrorApp(
+          409,
+          'PERFIL_NO_LIBRE',
+          'Ese perfil se acaba de ocupar. Intenta de nuevo.',
+        );
+      }
+      let dias = 0;
+      if (e.compensar) {
+        dias = diasPerdidos(viejo.cuenta.caidaEn, new Date());
+        if (dias > 0) {
+          await tx.$executeRaw`UPDATE suscripciones SET vence_en = vence_en + make_interval(days => ${dias}::int), actualizado_en = now()
+            WHERE id = ${suscripcionId}::uuid AND vence_en IS NOT NULL`;
+        }
+      }
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'perfil_cuenta.repuesto',
+          entidad: 'perfil_cuenta',
+          entidadId: destino.id,
+          antes: { cuentaId: viejo.cuenta.id, numero: viejo.numero },
+          despues: {
+            cuentaId: destino.cuenta.id,
+            numero: destino.numero,
+            suscripcionId,
+            diasCompensados: dias,
+          },
+          cliente,
+        },
+        tx,
+      );
+      return {
+        cuentaId: destino.cuenta.id,
+        cuentaPista: destino.cuenta.pista,
+        perfil: { numero: destino.numero, nombre: destino.nombre },
+        diasCompensados: dias,
+      };
+    });
+  }
+
+  /** La cuenta activa del servicio con menos perfiles libres (pero alguno): así se llenan una a una. */
+  private async cuentaParaLlenar(tx: Tx, servicioId: string): Promise<string | null> {
+    const [fila] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT c.id FROM cuentas_servicio c JOIN perfiles_cuenta p ON p.cuenta_id = c.id AND p.estado = 'libre'
+      WHERE c.servicio_id = ${servicioId}::uuid AND c.estado = 'activa'
+      GROUP BY c.id ORDER BY count(*) ASC, c.creado_en ASC LIMIT 1`;
+    return fila?.id ?? null;
   }
 
   /** Suscripciones vigentes del mismo servicio que todavía no tienen perfil. */

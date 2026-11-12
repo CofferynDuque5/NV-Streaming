@@ -2034,6 +2034,8 @@ model CuentaServicio {
   claveCifrada   String               @map("clave_cifrada") @db.VarChar(1000)
   modo           ModoCuenta           @default(perfiles)
   estado         EstadoCuentaServicio @default(activa)
+  /// Cuándo se marcó caída (para contar los días perdidos de sus clientes).
+  caidaEn        DateTime?            @map("caida_en") @db.Timestamptz(3)
   plan           String?              @db.VarChar(60)
   pais           String?              @db.Char(2)
   /// Lo que cobra el proveedor en cada ciclo, en USD.
