@@ -1,5 +1,6 @@
 import {
   ETIQUETAS_ROL,
+  type InicioGestor,
   limitadoACartera,
   type MetricasPanel,
   type Pagina,
@@ -20,6 +21,7 @@ import {
   Proximos,
 } from '@/componentes/equipo/centro';
 import { EcosistemaNv } from '@/componentes/equipo/ecosistema';
+import { HoyGestor } from '@/componentes/equipo/hoy-gestor';
 import { Modulos } from '@/componentes/equipo/modulos';
 import { PrimerosPasos, pasosPuestaEnMarcha } from '@/componentes/equipo/primeros-pasos';
 import { leerApi } from '@/lib/api-servidor';
@@ -39,10 +41,13 @@ export default async function CentroModulos() {
   const sesion = await requerirSesion();
   const { usuario, permisos } = sesion;
   const puede = (p: Permiso) => permisos.includes(p);
-  const [centro, metricas, actividad] = await Promise.all([
+  const [centro, metricas, hoy, actividad] = await Promise.all([
     leerCentro(),
     puede('metricas.ver')
       ? leerApi<MetricasPanel>('/metricas/panel').then((r) => r.datos)
+      : Promise.resolve(null),
+    puede('metricas.ver')
+      ? leerApi<InicioGestor>('/metricas/inicio').then((r) => r.datos)
       : Promise.resolve(null),
     puede('auditoria.ver')
       ? leerApi<Pagina<RegistroAuditoria>>('/auditoria?porPagina=6').then(
@@ -92,6 +97,13 @@ export default async function CentroModulos() {
       <AvisosCentro centro={centro} puede={puede} />
       <PrimerosPasos centro={centro} />
       <ParaAtender centro={centro} items={items} />
+      {hoy && !enMarcha && (
+        <HoyGestor
+          datos={hoy}
+          puedeFijarMeta={puede('finanzas.configurar')}
+          puedeVerCuentas={puede('cuentas.ver')}
+        />
+      )}
       {metricas && !enMarcha && <EsteMes m={metricas} />}
       <Modulos modulos={modulos} grupos={GRUPOS_EQUIPO} />
       <EcosistemaNv />

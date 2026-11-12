@@ -98,8 +98,10 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
     costoUsd: dec2(c.costoUsd),
     cicloMeses: c.cicloMeses,
     facturaEn: dia(c.facturaEn),
+    liberacionEn: dia(c.liberacionEn),
     metodoPago: c.metodoPago,
     proveedor: c.proveedor,
+    notas: c.notas,
     perfiles: {
       total: c.perfiles.length,
       libres: cuenta('libre'),
@@ -114,7 +116,6 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
 function detalle(c: FilaDetalle): CuentaServicioDetalle {
   return {
     ...resumen(c),
-    notas: c.notas,
     creadoPor: c.creadoPor,
     listaPerfiles: c.perfiles.map((p): PerfilCuentaPublico => ({
       id: p.id,
@@ -182,6 +183,8 @@ export class CuentasService {
       pista: pistaUsuario(e.usuario),
       claveCifrada: this.cifrador.cifrar(e.clave, contextoClave(id)),
       modo: e.modo,
+      ...(e.enEspera ? { estado: 'en_espera' as const } : {}),
+      liberacionEn: fechaODb(e.liberacionEn) ?? null,
       plan: e.plan ?? null,
       pais: e.pais ?? null,
       costoUsd: e.costoUsd ?? '0',
@@ -334,6 +337,14 @@ export class CuentasService {
         if (e.facturaEn !== undefined) {
           data.facturaEn = fechaODb(e.facturaEn);
           cambios.push('facturaEn');
+        }
+        if (e.liberacionEn !== undefined) {
+          data.liberacionEn = fechaODb(e.liberacionEn);
+          cambios.push('liberacionEn');
+        }
+        // Al anotarla en el inventario deja de esperar su liberación.
+        if (c.estado === 'en_espera' && e.estado && e.estado !== 'en_espera') {
+          data.liberacionEn = null;
         }
         if (e.perfiles !== undefined && e.perfiles !== c.perfiles.length) {
           if (c.modo === 'completa') {

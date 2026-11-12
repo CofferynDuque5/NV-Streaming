@@ -116,6 +116,7 @@ model Usuario {
   lotesSubidos               LoteCodigos[]
   codigosAnulados            CodigoInventario[]       @relation("CodigoAnulador")
   cierresCaja                CierreCaja[]
+  metasMes                   MetaMes[]                @relation("MetaMesAutor")
   cuentasServicioCreadas     CuentaServicio[]
   pagosCuentaRegistrados     PagoCuentaServicio[]     @relation("PagoCuentaRegistrador")
   pagosCuentaAnulados        PagoCuentaServicio[]     @relation("PagoCuentaAnulador")
@@ -363,18 +364,38 @@ model ContactoCliente {
   @@map("contactos_cliente")
 }
 
-/// Notas del equipo sobre un cliente. El cliente nunca las ve.
-model NotaInterna {
-  id        String   @id @default(uuid()) @db.Uuid
-  clienteId String   @map("cliente_id") @db.Uuid
-  autorId   String   @map("autor_id") @db.Uuid
-  texto     String   @db.VarChar(2000)
-  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+/// Qué pide la nota (como en el Gestor).
+enum TipoNota {
+  entregar
+  renovar
+  pendiente
+  fiado
+  paga_dia
+  no_cortar
+  otro
+}
 
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  autor   Usuario @relation(fields: [autorId], references: [id], onDelete: Restrict)
+/// Notas y pendientes del equipo, de un cliente o generales. El cliente nunca las ve.
+model NotaInterna {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// Sin cliente: pendiente general del equipo.
+  clienteId     String?   @map("cliente_id") @db.Uuid
+  autorId       String    @map("autor_id") @db.Uuid
+  tipo          TipoNota  @default(otro)
+  texto         String    @db.VarChar(2000)
+  /// Cuándo recordarla (aparece en «Para atender» desde ese momento).
+  avisarEn      DateTime? @map("avisar_en") @db.Timestamptz(3)
+  /// Para «Paga el día»: día del mes (1-31).
+  diaPago       Int?      @map("dia_pago")
+  hechaEn       DateTime? @map("hecha_en") @db.Timestamptz(3)
+  creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime  @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  autor   Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
 
   @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([hechaEn, avisarEn])
   @@map("notas_internas")
 }
 
@@ -1958,6 +1979,19 @@ model MovimientoBilletera {
 /// recargas y reembolsos que ya registra NV Streaming y se guarda como foto:
 /// no se edita ni se borra (lo impide un disparador). Si entra dinero después
 /// del cierre, se cierra otra vez y queda la secuencia 2, 3…
+/// Meta de ingresos de un mes (en USD), para el inicio del panel.
+model MetaMes {
+  /// Primer día del mes.
+  mes           DateTime @id @db.Date
+  montoUsd      Decimal  @map("monto_usd") @db.Decimal(14, 2)
+  definidaPorId String   @map("definida_por_id") @db.Uuid
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  definidaPor Usuario @relation("MetaMesAutor", fields: [definidaPorId], references: [id], onDelete: Restrict)
+
+  @@map("metas_mes")
+}
+
 model CierreCaja {
   id           String   @id @default(uuid()) @db.Uuid
   dia          DateTime @db.Date
@@ -2001,6 +2035,8 @@ enum EstadoCuentaServicio {
   caida
   /// Ya no se usa. Se conserva para el historial.
   retirada
+  /// Comprada pero sin anotar en el inventario (geobloqueo, espera de liberación): no se asigna.
+  en_espera
 }
 
 enum ModoCuenta {
@@ -2038,6 +2074,8 @@ model CuentaServicio {
   estado         EstadoCuentaServicio @default(activa)
   /// Cuándo se marcó caída (para contar los días perdidos de sus clientes).
   caidaEn        DateTime?            @map("caida_en") @db.Timestamptz(3)
+  /// Cuándo queda libre para usarla (solo las que están en espera).
+  liberacionEn   DateTime?            @map("liberacion_en") @db.Date
   plan           String?              @db.VarChar(60)
   pais           String?              @db.Char(2)
   /// Lo que cobra el proveedor en cada ciclo, en USD.

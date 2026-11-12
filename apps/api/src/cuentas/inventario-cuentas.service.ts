@@ -27,7 +27,10 @@ export class InventarioCuentasService {
 
   async ver(incluirRetiradas = false, ahora = new Date()): Promise<Inventario> {
     const filas = await this.prisma.cuentaServicio.findMany({
-      where: incluirRetiradas ? {} : { estado: { not: 'retirada' } },
+      // Las que están sin anotar viven en su propia página hasta que se anotan.
+      where: incluirRetiradas
+        ? { estado: { not: 'en_espera' } }
+        : { estado: { notIn: ['retirada', 'en_espera'] } },
       include: {
         servicio: { select: { id: true, nombre: true, imagenId: true } },
         perfiles: {
