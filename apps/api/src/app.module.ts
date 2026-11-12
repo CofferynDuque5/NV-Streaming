@@ -17,6 +17,10 @@ import {
 import { CuentasService } from './cuentas/cuentas.service.js';
 import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
 import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
+import { CodigosController, MisCodigosController } from './codigos/codigos.controller.js';
+import { CodigosService } from './codigos/codigos.service.js';
+import { LectorImap } from './codigos/lector-imap.js';
+import { InventarioCuentasService } from './cuentas/inventario-cuentas.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
@@ -25,6 +29,7 @@ import {
 import { AutoservicioController } from './autoservicio/autoservicio.controller.js';
 import { CatalogoController } from './catalogo/catalogo.controller.js';
 import { CatalogoService } from './catalogo/catalogo.service.js';
+import { CombosService } from './catalogo/combos.service.js';
 import { ClientesController } from './clientes/clientes.controller.js';
 import { ClientesService } from './clientes/clientes.service.js';
 import {
@@ -98,6 +103,8 @@ export class AppModule {
         ImportarGestorController,
         CuentasController,
         MisPerfilesController,
+        CodigosController,
+        MisCodigosController,
         PagosCuentaController,
         BalanceController,
         TicketsController,
@@ -120,6 +127,7 @@ export class AppModule {
         TasasService,
         MetodosCobroService,
         CatalogoService,
+        CombosService,
         ClientesService,
         FacturacionService,
         SuscripcionesService,
@@ -130,6 +138,9 @@ export class AppModule {
         CuponesService,
         CuentasService,
         PerfilesClienteService,
+        InventarioCuentasService,
+        LectorImap,
+        CodigosService,
         ImportarCuentasService,
         ImportarGestorService,
         CostosService,

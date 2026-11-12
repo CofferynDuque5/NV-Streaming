@@ -1,7 +1,21 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  actualizarComboSchema,
   actualizarPlanSchema,
+  comboSchema,
   actualizarProveedorSchema,
   actualizarServicioSchema,
   planSchema,
@@ -22,6 +36,7 @@ import {
 import { DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CatalogoService } from './catalogo.service.js';
+import { CombosService } from './combos.service.js';
 
 const idValido = validar(uuidSchema);
 const filtroPlanes = z.object({ servicioId: uuidSchema.optional() });
@@ -29,13 +44,17 @@ const filtroPlanes = z.object({ servicioId: uuidSchema.optional() });
 @ApiTags('Catálogo')
 @Controller('catalogo')
 export class CatalogoController {
-  constructor(@Inject(CatalogoService) private readonly catalogo: CatalogoService) {}
+  constructor(
+    @Inject(CatalogoService) private readonly catalogo: CatalogoService,
+    @Inject(CombosService) private readonly combos: CombosService,
+  ) {}
 
   /** Planes visibles con su precio en cada moneda. Lo usa el sitio público. */
   @Get()
   @Publica()
-  publico() {
-    return this.catalogo.publico();
+  async publico() {
+    const [catalogo, combos] = await Promise.all([this.catalogo.publico(), this.combos.publicos()]);
+    return { ...catalogo, combos };
   }
 
   @Get('proveedores')
@@ -141,5 +160,45 @@ export class CatalogoController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.catalogo.fijarPrecio(auth, id, cuerpo, cliente);
+  }
+
+  @Get('combos')
+  @RequierePermiso('catalogo.ver')
+  listarCombos() {
+    return this.combos.listar();
+  }
+
+  @Post('combos')
+  @RequierePermiso('catalogo.gestionar')
+  @DocCuerpo(comboSchema)
+  crearCombo(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(comboSchema)) cuerpo: z.output<typeof comboSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.combos.crear(auth, cuerpo, cliente);
+  }
+
+  @Patch('combos/:id')
+  @RequierePermiso('catalogo.gestionar')
+  @DocCuerpo(actualizarComboSchema)
+  actualizarCombo(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(actualizarComboSchema)) cuerpo: z.output<typeof actualizarComboSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.combos.actualizar(auth, id, cuerpo, cliente);
+  }
+
+  @Delete('combos/:id')
+  @HttpCode(204)
+  @RequierePermiso('catalogo.gestionar')
+  async eliminarCombo(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    await this.combos.eliminar(auth, id, cliente);
   }
 }

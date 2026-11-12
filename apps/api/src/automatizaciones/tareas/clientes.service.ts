@@ -71,6 +71,7 @@ export class TareasClientesService implements OnModuleInit {
           ...CANAL_DIRECTO,
           estado: 'activa',
           cancelarAlVencer: false,
+          plan: { tipo: 'suscripcion' },
           venceEn: { gte: inicioDiaCaracas(ahora, dias), lt: inicioDiaCaracas(ahora, dias + 1) },
         },
         include: {

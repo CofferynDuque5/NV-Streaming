@@ -41,6 +41,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { formatearFecha, formatearMonto, haceCuanto } from '@/lib/formato';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Cobros' };
 
@@ -348,6 +349,7 @@ async function Facturas({ crudo }: { crudo: Crudo }) {
         role="search"
         aria-label="Filtrar facturas"
       >
+        <EnvioAutomatico />
         <input type="hidden" name="vista" value="facturas" />
         {filtro.clienteId && <input type="hidden" name="clienteId" value={filtro.clienteId} />}
         <label htmlFor="filtro-estado" className="sr-only">
@@ -397,7 +399,10 @@ async function Facturas({ crudo }: { crudo: Crudo }) {
           <Alerta tono="peligro">No pudimos cargar las facturas. Recarga la página.</Alerta>
         </div>
       ) : pagina.elementos.length === 0 ? (
-        <EstadoVacio icono={ReceiptText} titulo="No hay facturas con esos filtros">
+        <EstadoVacio
+          icono={ReceiptText}
+          titulo={hayFiltros ? 'No hay facturas con esos filtros' : 'Aún no hay facturas'}
+        >
           {hayFiltros
             ? 'Prueba con otro estado o quita los filtros.'
             : 'Las facturas se crean al dar de alta o renovar una suscripción.'}

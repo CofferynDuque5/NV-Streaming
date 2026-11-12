@@ -55,7 +55,7 @@ export default async function DetallePlan({ params }: { params: Promise<{ id: st
 
   const ficha: [string, string][] = [
     ['Servicio', plan.servicio.nombre],
-    ['Duración', formatearDuracion(plan.duracionCantidad, plan.duracionUnidad)],
+    ['Duración', formatearDuracion(plan.duracionCantidad, plan.duracionUnidad, plan.tipo)],
     ['Precio base', formatearMonto(plan.precioUsd, 'USD')],
     ['Costo', plan.costoUsd ? formatearMonto(plan.costoUsd, 'USD') : 'Sin definir'],
     ['Renovable', plan.renovable ? 'Sí' : 'No'],

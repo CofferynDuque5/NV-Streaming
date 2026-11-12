@@ -31,7 +31,9 @@ export async function leerPaginaPublicada(
 /** Catálogo público (planes visibles con su precio en cada moneda). */
 export async function leerCatalogo(): Promise<CatalogoPublico | null> {
   try {
-    const r = await fetch(`${API}/api/v1/catalogo`, { next: { revalidate: 300 } });
+    const r = await fetch(`${API}/api/v1/catalogo`, {
+      next: { tags: [ETIQUETA_SITIO], revalidate: 300 },
+    });
     return r.ok ? ((await r.json()) as CatalogoPublico) : null;
   } catch {
     return null;
@@ -65,7 +67,7 @@ export async function contextoPublico(
   };
 }
 
-const TIPOS_CON_PRECIOS = new Set<string>(['planes', 'servicios', 'ranking']);
+const TIPOS_CON_PRECIOS = new Set<string>(['planes', 'servicios', 'ranking', 'combos']);
 /** Título y descripción para buscadores y redes a partir de la página publicada. */
 export function metadatosPagina(p: { titulo: string; descripcion: string | null }): Metadata {
   return {

@@ -1,10 +1,11 @@
-import type { CategoriaServicio, ClaveArte } from '@nv/shared';
+import type { CategoriaServicio } from '@nv/shared';
 import clsx from 'clsx';
 import { Orbe } from './iconos';
 
 /**
- * Imagen del servicio: su tarjeta con marca si existe (public/servicios) y, si
- * no, un orbe con el icono de su universo en el color del servicio.
+ * Imagen del servicio: su logo subido, o su tarjeta con marca si existe
+ * (public/servicios) y, si no, un orbe con el icono de su universo en el color
+ * del servicio.
  */
 export function ArteServicio({
   arte,
@@ -16,7 +17,8 @@ export function ArteServicio({
   decorativa = true,
   orbe = 'xl',
 }: {
-  arte: ClaveArte | null;
+  /** Dirección de la imagen (ver `aspectoServicio`). */
+  arte: string | null;
   nombre: string;
   categoria: CategoriaServicio | null;
   color: string;
@@ -35,16 +37,21 @@ export function ArteServicio({
       </span>
     );
   }
+  const subida = !arte.startsWith('/servicios/');
   return (
     <img
-      src={`/servicios/${arte}.webp`}
+      src={arte}
       alt={decorativa ? '' : `Tarjeta de ${nombre}`}
       width={258}
       height={397}
       loading={prioridad ? 'eager' : 'lazy'}
       fetchPriority={prioridad ? 'high' : undefined}
       decoding="async"
-      className={clsx('h-auto object-contain drop-shadow-[0_18px_30px_rgb(0_0_0/0.55)]', className)}
+      className={clsx(
+        'h-auto object-contain drop-shadow-[0_18px_30px_rgb(0_0_0/0.55)]',
+        subida && 'rounded-2xl',
+        className,
+      )}
     />
   );
 }

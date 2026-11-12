@@ -17,10 +17,12 @@ import {
   MetodosPago,
   Panel,
   PortalServicios,
+  Combos,
   Ranking,
   Servicios,
   Universos,
 } from './bloques-tienda';
+import { CarteleraSemana } from './bloques-vitrina';
 import {
   BotonSitio,
   COLOR_ICONO,
@@ -470,6 +472,16 @@ function Bloque({
       return <Servicios b={bloque} contexto={contexto} />;
     case 'ranking':
       return <Ranking b={bloque} contexto={contexto} />;
+    case 'cartelera':
+      return (
+        <Seccion bloque={bloque}>
+          <div className={clsx(contenedor, 'py-12')}>
+            <CarteleraSemana b={bloque} />
+          </div>
+        </Seccion>
+      );
+    case 'combos':
+      return <Combos b={bloque} contexto={contexto} />;
     case 'metodos-pago':
       return <MetodosPago b={bloque} contexto={contexto} />;
     case 'canal':

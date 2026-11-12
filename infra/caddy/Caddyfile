@@ -45,9 +45,10 @@
 		-X-Powered-By
 	}
 
-	# Comprobantes de hasta COMPROBANTE_MAX_MB (máx. 20 MB) más el resto del formulario.
+	# Lo más grande que se sube: un ZIP de imágenes del sitio (30 MB, MEDIOS_ZIP_MAX_MB)
+	# o un comprobante de hasta COMPROBANTE_MAX_MB, más el resto del formulario.
 	request_body {
-		max_size 25MB
+		max_size 32MB
 	}
 
 	handle /api/* {

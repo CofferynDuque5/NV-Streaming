@@ -1,7 +1,7 @@
 import {
   type CatalogoPublico,
   categoriasTienda,
-  etiquetaDuracion,
+  etiquetaPlan,
   formatearMonto,
   INFO_MONEDA,
   type Moneda,
@@ -31,7 +31,7 @@ export function servicioMenu(s: ServicioTienda, moneda: Moneda): ServicioMenu {
     color: s.color,
     arte: s.arte,
     desde: plan ? precioTexto(plan, moneda) : null,
-    duracion: plan ? etiquetaDuracion(plan.duracionCantidad, plan.duracionUnidad) : null,
+    duracion: plan ? etiquetaPlan(plan) : null,
   };
 }
 

@@ -46,9 +46,11 @@ carpeta_de() {
 }
 
 # Vuelca la base de una copia en la base indicada (que debe existir y estar vacía).
+# --no-privileges: en Neon y otras bases gestionadas el volcado trae permisos de roles del
+# proveedor (cloud_admin, neon_superuser) que nuestro rol no puede aplicar.
 volcar_bd() {
   local carpeta="$1" base="$2"
-  descifrar "$carpeta/bd.dump.gz.gpg" | gunzip | pg_restore --no-owner --exit-on-error -d "$base"
+  descifrar "$carpeta/bd.dump.gz.gpg" | gunzip | pg_restore --no-owner --no-privileges --exit-on-error -d "$base"
 }
 
 consulta() { PGOPTIONS="-c client_min_messages=warning" psql -XAtq -d "$1" -c "$2"; }

@@ -10,6 +10,7 @@ import {
   PALETAS_SITIO,
   type PaletaSitio,
   MAX_DIAS_TEMPORADA,
+  PAGINA_INICIO,
   PLANTILLAS_PAGINA,
   type TemaSitio,
   TEMPORADAS_SITIO,
@@ -67,8 +68,29 @@ export function PaginasSitio({
   puedePublicar: boolean;
 }) {
   const notificar = useNotificar();
+  const router = useRouter();
   const [paginas, setPaginas] = useState(iniciales);
   const [filtro, setFiltro] = useState<'activas' | 'archivadas'>('activas');
+  const [creandoPortada, setCreandoPortada] = useState(false);
+  const sinPortada = !paginas.some((p) => p.ruta === '/');
+
+  // Mientras no haya página «/», la tienda muestra la portada de fábrica. Esto crea su
+  // copia editable (mismos bloques) y abre el editor.
+  async function editarPortada() {
+    setCreandoPortada(true);
+    const r = await llamarApi<PaginaSitioDetalle>('POST', '/sitio/paginas', {
+      ruta: PAGINA_INICIO.ruta,
+      titulo: PAGINA_INICIO.titulo,
+      descripcion: PAGINA_INICIO.descripcion,
+    });
+    if (!r.ok) {
+      setCreandoPortada(false);
+      notificar(r.error.mensaje, 'error');
+      return;
+    }
+    void refrescarSitio();
+    router.push(`/admin/sitio/${r.datos.id}`);
+  }
   const [nueva, setNueva] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
   const activas = paginas.filter((p) => !p.archivada);
@@ -113,6 +135,20 @@ export function PaginasSitio({
           Nueva página
         </Boton>
       </header>
+      {sinPortada && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cian/40 bg-marca-suave p-4">
+          <div className="grid max-w-prose gap-1">
+            <p className="font-semibold">Portada de la tienda</p>
+            <p className="text-[0.85rem] text-tinta-suave">
+              Hoy se ve la portada de fábrica. Pulsa «Editar portada» para cambiar sus textos,
+              imágenes y secciones; los cambios no se ven hasta que pulses Publicar.
+            </p>
+          </div>
+          <Boton cargando={creandoPortada} onClick={() => void editarPortada()}>
+            Editar portada
+          </Boton>
+        </div>
+      )}
       <div role="group" aria-label="Filtrar páginas" className="flex flex-wrap gap-2">
         <button
           type="button"

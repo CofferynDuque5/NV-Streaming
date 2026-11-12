@@ -12,6 +12,10 @@ import {
   type ServicioCatalogo,
   type ServicioEntrada,
   type ServicioPublico,
+  datosRequeridosSchema,
+  type DatoRequerido,
+  esCompraUnica,
+  urlMedio,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -22,7 +26,17 @@ import { D, type MapaTasas, preciosPorMoneda } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 
 export type PlanCompleto = Plan & {
-  servicio: Pick<Servicio, 'id' | 'nombre' | 'slug' | 'activo' | 'descripcion' | 'categoria'> & {
+  servicio: Pick<
+    Servicio,
+    | 'id'
+    | 'nombre'
+    | 'slug'
+    | 'activo'
+    | 'descripcion'
+    | 'categoria'
+    | 'imagenId'
+    | 'datosRequeridos'
+  > & {
     proveedor: Pick<Proveedor, 'activo'>;
   };
   preciosFijos: PrecioFijo[];
@@ -37,11 +51,26 @@ export const INCLUIR_PLAN = {
       activo: true,
       descripcion: true,
       categoria: true,
+      imagenId: true,
+      datosRequeridos: true,
       proveedor: { select: { activo: true } },
     },
   },
   preciosFijos: true,
 } as const;
+
+/** Datos que pide un servicio, leídos de la base (si algo no cuadra, ninguno). */
+export function datosDeServicio(v: unknown): DatoRequerido[] {
+  const r = datosRequeridosSchema.safeParse(v);
+  return r.success ? r.data : [];
+}
+
+/** Una compra única no vence ni se renueva: su duración no se usa. */
+function ajustesCompraUnica(tipo: Plan['tipo'] | undefined) {
+  return tipo && esCompraUnica(tipo)
+    ? { renovable: false, duracionCantidad: 1, duracionUnidad: 'mes' as const }
+    : {};
+}
 
 /** Un plan se puede contratar si él, su servicio y su proveedor están activos. */
 export const planVendible: Prisma.PlanWhereInput = {
@@ -50,13 +79,19 @@ export const planVendible: Prisma.PlanWhereInput = {
 };
 
 /** `equipo` añade el costo para NV, que nunca se publica. */
-export function planPublico(p: PlanCompleto, tasas: MapaTasas, equipo = false): PlanPublico {
+export function planPublico(
+  p: PlanCompleto,
+  tasas: MapaTasas,
+  equipo = false,
+  precioRevendedor: PlanPublico['precioRevendedorUsd'] = null,
+): PlanPublico {
   return {
     id: p.id,
     servicio: { id: p.servicio.id, nombre: p.servicio.nombre, slug: p.servicio.slug },
     nombre: p.nombre,
     descripcion: p.descripcion,
     precioUsd: p.precioUsd.toFixed(2),
+    tipo: p.tipo,
     duracionCantidad: p.duracionCantidad,
     duracionUnidad: p.duracionUnidad,
     beneficios: p.beneficios,
@@ -64,7 +99,13 @@ export function planPublico(p: PlanCompleto, tasas: MapaTasas, equipo = false): 
     visible: p.visible,
     renovable: p.renovable,
     revendible: p.revendible,
-    ...(equipo ? { costoUsd: p.costoUsd?.toFixed(2) ?? null, skuProveedor: p.skuProveedor } : {}),
+    ...(equipo
+      ? {
+          costoUsd: p.costoUsd?.toFixed(2) ?? null,
+          skuProveedor: p.skuProveedor,
+          precioRevendedorUsd: precioRevendedor,
+        }
+      : {}),
     orden: p.orden,
     precios: preciosPorMoneda(p, tasas),
   };
@@ -79,6 +120,8 @@ const servicioPublico = (
   slug: s.slug,
   descripcion: s.descripcion,
   categoria: s.categoria,
+  imagen: s.imagenId ? { id: s.imagenId, url: urlMedio(s.imagenId) } : null,
+  datosRequeridos: datosDeServicio(s.datosRequeridos),
   activo: s.activo,
 });
 
@@ -95,6 +138,16 @@ const proveedorPublico = (p: Proveedor & { _count: { servicios: number } }): Pro
   activo: p.activo,
   servicios: p._count.servicios,
 });
+
+/** La imagen elegida tiene que estar en la biblioteca del sitio. */
+async function exigirImagen(tx: Prisma.TransactionClient, imagenId: string | null | undefined) {
+  if (!imagenId) return;
+  if (!(await tx.medio.findUnique({ where: { id: imagenId }, select: { id: true } }))) {
+    throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa imagen ya no está en la biblioteca.', {
+      imagenId: ['Sube la imagen otra vez.'],
+    });
+  }
+}
 
 /** Subir el costo por encima de un precio mayorista dejaría a NV vendiendo a pérdida. */
 async function exigirCostoBajoMayoristas(
@@ -129,6 +182,7 @@ export class CatalogoService {
 
   // ── Público ────────────────────────────────────────────────────────────────
 
+  /** Catálogo sin combos (los añade el controlador con CombosService). */
   async publico(): Promise<CatalogoPublico> {
     const [planes, tasas, vigentes, pedidos] = await Promise.all([
       this.prisma.plan.findMany({
@@ -149,6 +203,8 @@ export class CatalogoService {
           slug: s.slug,
           descripcion: s.descripcion,
           categoria: s.categoria,
+          imagen: s.imagenId ? urlMedio(s.imagenId) : null,
+          datosRequeridos: datosDeServicio(s.datosRequeridos),
         });
       }
     }
@@ -160,6 +216,7 @@ export class CatalogoService {
         (m) => tasas.has(m) || planes.some((p) => p.preciosFijos.some((f) => f.moneda === m)),
       ),
       tasas: vigentes,
+      combos: [],
     };
   }
 
@@ -179,6 +236,93 @@ export class CatalogoService {
        GROUP BY p.servicio_id
        ORDER BY count(*) DESC, min(p.orden) ASC`;
     return filas.map((f) => f.servicio_id);
+  }
+
+  /**
+   * Precio para revendedores de cada plan: el mismo en todos los niveles
+   * activos, «varios» si cambia según el nivel, o sin entrada si no tiene.
+   */
+  private async preciosRevendedor(
+    db: Prisma.TransactionClient | PrismaClient,
+    planIds: string[],
+  ): Promise<Map<string, string>> {
+    const r = new Map<string, string>();
+    if (planIds.length === 0) return r;
+    const filas = await db.precioMayorista.findMany({
+      where: { planId: { in: planIds }, nivel: { activo: true } },
+      select: { planId: true, precioUsd: true },
+    });
+    const porPlan = new Map<string, Set<string>>();
+    for (const f of filas) {
+      const set = porPlan.get(f.planId) ?? new Set<string>();
+      set.add(f.precioUsd.toFixed(2));
+      porPlan.set(f.planId, set);
+    }
+    for (const [id, precios] of porPlan) {
+      r.set(id, precios.size === 1 ? [...precios][0]! : 'varios');
+    }
+    return r;
+  }
+
+  /**
+   * Mismo precio mayorista para todos los niveles activos (null los quita).
+   * Si todavía no hay niveles, crea «General» para poder aprobar revendedores.
+   */
+  private async fijarPrecioRevendedor(
+    tx: Prisma.TransactionClient,
+    auth: ContextoAuth,
+    planId: string,
+    precioUsd: string | null,
+  ): Promise<void> {
+    if (precioUsd === null) {
+      await tx.precioMayorista.deleteMany({ where: { planId } });
+      return;
+    }
+    const plan = await tx.plan.findUnique({
+      where: { id: planId },
+      select: {
+        precioUsd: true,
+        costoUsd: true,
+        servicio: { select: { proveedor: { select: { id: true, permiteReventa: true } } } },
+      },
+    });
+    if (!plan) throw Errores.noEncontrado('El plan');
+    const precio = D(precioUsd);
+    const campo = (m: string) =>
+      new ErrorApp(409, 'PRECIO_REVENDEDOR', m, { precioRevendedorUsd: [m] });
+    if (plan.costoUsd && precio.lt(plan.costoUsd)) {
+      throw campo(`No puede ser menor que el costo del plan (${plan.costoUsd.toFixed(2)} USD).`);
+    }
+    if (precio.gt(plan.precioUsd)) {
+      throw campo('No puede ser mayor que el precio normal.');
+    }
+    // El proveedor de un plan con precio de revendedor tiene que permitir la reventa.
+    if (!plan.servicio.proveedor.permiteReventa) {
+      await tx.proveedor.update({
+        where: { id: plan.servicio.proveedor.id },
+        data: { permiteReventa: true },
+      });
+    }
+    let niveles = await tx.nivelRevendedor.findMany({
+      where: { activo: true },
+      select: { id: true },
+    });
+    if (niveles.length === 0) {
+      const existente = await tx.nivelRevendedor.findFirst({ where: { nombre: 'General' } });
+      const general = existente
+        ? await tx.nivelRevendedor.update({ where: { id: existente.id }, data: { activo: true } })
+        : await tx.nivelRevendedor.create({
+            data: { nombre: 'General', descripcion: 'Precio de revendedor de cada plan.' },
+          });
+      niveles = [{ id: general.id }];
+    }
+    for (const n of niveles) {
+      await tx.precioMayorista.upsert({
+        where: { planId_nivelId: { planId, nivelId: n.id } },
+        update: { precioUsd: precio, actualizadoPorId: auth.usuario.id },
+        create: { planId, nivelId: n.id, precioUsd: precio, actualizadoPorId: auth.usuario.id },
+      });
+    }
   }
 
   // ── Proveedores ────────────────────────────────────────────────────────────
@@ -234,6 +378,7 @@ export class CatalogoService {
       if (!(await tx.proveedor.findUnique({ where: { id: e.proveedorId } }))) {
         throw Errores.noEncontrado('El proveedor');
       }
+      await exigirImagen(tx, e.imagenId);
       const s = await tx.servicio.create({
         data: { ...e, descripcion: e.descripcion ?? null, categoria: e.categoria ?? null },
         include: { proveedor: { select: { id: true, nombre: true, tipo: true } } },
@@ -251,6 +396,7 @@ export class CatalogoService {
     return this.guardar(auth, cliente, 'servicio', id, async (tx) => {
       const antes = await tx.servicio.findUnique({ where: { id } });
       if (!antes) throw Errores.noEncontrado('El servicio');
+      await exigirImagen(tx, e.imagenId);
       const s = await tx.servicio.update({
         where: { id },
         data: e,
@@ -271,7 +417,11 @@ export class CatalogoService {
       }),
       this.tasas.mapa(),
     ]);
-    return filas.map((p) => planPublico(p, tasas, true));
+    const revendedor = await this.preciosRevendedor(
+      this.prisma,
+      filas.map((p) => p.id),
+    );
+    return filas.map((p) => planPublico(p, tasas, true, revendedor.get(p.id) ?? null));
   }
 
   async plan(id: string): Promise<PlanPublico & { historial: unknown[] }> {
@@ -286,8 +436,9 @@ export class CatalogoService {
       }),
     ]);
     if (!p) throw Errores.noEncontrado('El plan');
+    const revendedor = await this.preciosRevendedor(this.prisma, [p.id]);
     return {
-      ...planPublico(p, tasas, true),
+      ...planPublico(p, tasas, true, revendedor.get(p.id) ?? null),
       historial: historial.map((h) => ({
         id: h.id,
         moneda: h.moneda,
@@ -304,15 +455,21 @@ export class CatalogoService {
       if (!(await tx.servicio.findUnique({ where: { id: e.servicioId } }))) {
         throw Errores.noEncontrado('El servicio');
       }
+      const { precioRevendedorUsd, ...datos } = e;
       const p = await tx.plan.create({
         data: {
-          ...e,
+          ...datos,
+          ...ajustesCompraUnica(datos.tipo),
+          ...(precioRevendedorUsd ? { revendible: true } : {}),
           descripcion: e.descripcion ?? null,
           precioUsd: D(e.precioUsd),
           costoUsd: e.costoUsd ? D(e.costoUsd) : null,
         },
         include: INCLUIR_PLAN,
       });
+      if (precioRevendedorUsd !== undefined) {
+        await this.fijarPrecioRevendedor(tx, auth, p.id, precioRevendedorUsd);
+      }
       await tx.historialPrecio.create({
         data: {
           planId: p.id,
@@ -325,7 +482,12 @@ export class CatalogoService {
       return {
         id: p.id,
         antes: undefined,
-        resultado: planPublico(p, await this.tasas.mapa(tx), true),
+        resultado: planPublico(
+          p,
+          await this.tasas.mapa(tx),
+          true,
+          (await this.preciosRevendedor(tx, [p.id])).get(p.id) ?? null,
+        ),
       };
     });
   }
@@ -339,17 +501,22 @@ export class CatalogoService {
     return this.guardar(auth, cliente, 'plan', id, async (tx) => {
       const antes = await tx.plan.findUnique({ where: { id } });
       if (!antes) throw Errores.noEncontrado('El plan');
-      const { precioUsd, costoUsd, ...resto } = e;
+      const { precioUsd, costoUsd, precioRevendedorUsd, ...resto } = e;
       if (costoUsd) await exigirCostoBajoMayoristas(tx, id, D(costoUsd));
       const p = await tx.plan.update({
         where: { id },
         data: {
           ...resto,
+          ...(resto.tipo ? ajustesCompraUnica(resto.tipo) : {}),
+          ...(precioRevendedorUsd ? { revendible: true } : {}),
           ...(precioUsd !== undefined ? { precioUsd: D(precioUsd) } : {}),
           ...(costoUsd !== undefined ? { costoUsd: costoUsd === null ? null : D(costoUsd) } : {}),
         },
         include: INCLUIR_PLAN,
       });
+      if (precioRevendedorUsd !== undefined) {
+        await this.fijarPrecioRevendedor(tx, auth, id, precioRevendedorUsd);
+      }
       if (precioUsd !== undefined && !antes.precioUsd.eq(p.precioUsd)) {
         await tx.historialPrecio.create({
           data: {
@@ -368,7 +535,12 @@ export class CatalogoService {
           precioUsd: antes.precioUsd.toFixed(2),
           costoUsd: antes.costoUsd?.toFixed(2) ?? null,
         },
-        resultado: planPublico(p, await this.tasas.mapa(tx), true),
+        resultado: planPublico(
+          p,
+          await this.tasas.mapa(tx),
+          true,
+          (await this.preciosRevendedor(tx, [id])).get(id) ?? null,
+        ),
       };
     });
   }

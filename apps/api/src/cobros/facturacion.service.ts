@@ -22,6 +22,8 @@ export interface CalculoFactura {
   tasa: Dec;
   totalUsd: Dec;
   cupon: Cupon | null;
+  /** Parte de `descuento` que viene de un combo. */
+  descuentoCombo: Dec;
 }
 
 /** Precios, descuentos y emisión de facturas. Todo el cálculo ocurre aquí, en el servidor. */
@@ -39,6 +41,8 @@ export class FacturacionService {
       clienteId: string | null;
       /** Al recotizar, el cupón ya está canjeado por esta factura. */
       cuponYaCanjeado?: boolean;
+      /** Parte del descuento de un combo que le toca a esta línea, en `moneda`. */
+      descuentoCombo?: Dec | null;
     },
   ): Promise<CalculoFactura> {
     const precio = precioEn(e.plan, e.moneda, await this.tasas.mapa(tx));
@@ -55,6 +59,13 @@ export class FacturacionService {
           : redondear(cupon.valor.mul(precio.tasa), e.moneda);
       if (descuento.gt(subtotal)) descuento = subtotal;
     }
+    let descuentoCombo = CERO;
+    if (e.descuentoCombo && e.descuentoCombo.gt(0)) {
+      descuentoCombo = e.descuentoCombo.gt(subtotal.sub(descuento))
+        ? subtotal.sub(descuento)
+        : e.descuentoCombo;
+      descuento = descuento.add(descuentoCombo);
+    }
     const total = subtotal.sub(descuento);
     return {
       moneda: e.moneda,
@@ -64,7 +75,15 @@ export class FacturacionService {
       tasa: precio.tasa,
       totalUsd: aUsd(total, precio.tasa),
       cupon,
+      descuentoCombo,
     };
+  }
+
+  /** Un importe en USD expresado en `moneda` con la tasa del precio del plan. */
+  async enMoneda(tx: Tx, plan: PlanCompleto, usd: Dec, moneda: Moneda): Promise<Dec> {
+    const precio = precioEn(plan, moneda, await this.tasas.mapa(tx));
+    if (!precio) throw sinTasa(moneda);
+    return redondear(usd.mul(precio.tasa), moneda);
   }
 
   cotizacion(c: CalculoFactura): Cotizacion {
@@ -93,6 +112,8 @@ export class FacturacionService {
       actorId: string | null;
       /** Pedido del carrito al que pertenece. */
       pedidoId?: string | null;
+      /** Descuento de combo de esta línea, en `moneda`. */
+      descuentoCombo?: Dec | null;
     },
   ): Promise<Factura> {
     const c = await this.calcular(tx, { ...e, clienteId: e.clienteId });
@@ -114,6 +135,7 @@ export class FacturacionService {
           tasa: c.tasa,
           totalUsd: c.totalUsd,
           cuponId: c.cupon?.id ?? null,
+          descuentoComboUsd: c.descuentoCombo.gt(0) ? aUsd(c.descuentoCombo, c.tasa) : null,
           venceEn: new Date(ahora.getTime() + REGLAS_COBRO.diasParaPagar * DIA_MS),
           pagadaEn: gratis ? ahora : null,
           creadoPorId: e.actorId,

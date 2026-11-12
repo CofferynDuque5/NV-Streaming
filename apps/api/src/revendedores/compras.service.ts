@@ -136,6 +136,7 @@ export class ComprasService {
           nombre: p.nombre,
           descripcion: p.descripcion,
           servicio: p.servicio,
+          tipo: p.tipo,
           duracionCantidad: p.duracionCantidad,
           duracionUnidad: p.duracionUnidad,
           beneficios: p.beneficios,

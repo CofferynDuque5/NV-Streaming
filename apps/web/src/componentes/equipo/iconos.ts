@@ -1,4 +1,5 @@
 import {
+  Boxes,
   Bot,
   Coins,
   Gem,
@@ -8,6 +9,7 @@ import {
   Landmark,
   LayoutGrid,
   type LucideIcon,
+  MailSearch,
   MessageCircle,
   Package,
   Paintbrush,
@@ -35,7 +37,9 @@ export const ICONOS_MODULO: Record<ModuloEquipo, LucideIcon> = {
   cupones: Tag,
   catalogo: LayoutGrid,
   inventario: Gem,
+  existencias: Boxes,
   cuentas: KeyRound,
+  codigos: MailSearch,
   balance: Scale,
   finanzas: Coins,
   pasarelas: Globe,

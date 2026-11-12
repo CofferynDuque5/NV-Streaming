@@ -228,6 +228,7 @@ describe('adaptador de webhook', () => {
     configuracion: leerConfiguracionProveedor({ webhookUrl: `${base}/nv`, ...config }),
     plan: { id: 'plan', nombre: 'Mensual', skuProveedor: 'SKU-1', servicio: 'NV Cine' },
     cliente: { id: 'cliente', correo: 'ana@correo.test' },
+    datosCliente: {},
     secreto,
   });
   const adaptador = new AdaptadorWebhook({ permitirLocal: true });

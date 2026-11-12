@@ -371,13 +371,22 @@ export class InventarioService implements OnModuleInit {
    * disponibles o entregas esperando un código.
    */
   async conPocosCodigos(umbral: number): Promise<InventarioPlan[]> {
+    return (await this.estadoStock(umbral)).pocos;
+  }
+
+  /** Planes activos que entregan códigos, y cuáles de ellos tienen pocos. */
+  async estadoStock(umbral: number): Promise<{ pocos: InventarioPlan[]; conCodigos: number }> {
     const inventario = await this.resumen();
-    return inventario.filter(
+    const conCodigos = inventario.filter(
+      (p) => p.proveedor.adaptador === 'codigos' && p.plan.activo,
+    ).length;
+    const pocos = inventario.filter(
       (p) =>
         p.proveedor.adaptador === 'codigos' &&
         p.plan.activo &&
         (p.disponibles < umbral || p.pendientes > 0),
     );
+    return { pocos, conCodigos };
   }
 
   /** Automatización «Pocos códigos en inventario»: resumen diario al equipo de inventario. */

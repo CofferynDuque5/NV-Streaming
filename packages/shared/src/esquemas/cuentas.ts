@@ -83,18 +83,56 @@ const camposCuenta = {
   notas: textoOpcional(1000),
 };
 
-export const crearCuentaSchema = z.object({
-  servicioId: uuidSchema,
-  usuario: usuarioCuentaSchema,
-  clave: claveCuentaSchema,
-  modo: z.enum(MODOS_CUENTA).default('perfiles'),
-  perfiles: z.coerce
-    .number({ error: 'Indica cuántos perfiles tiene.' })
-    .int()
-    .min(1, 'Al menos 1 perfil.')
-    .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
-  ...camposCuenta,
+const nombrePerfilSchema = z
+  .string()
+  .trim()
+  .min(1, 'Escribe un nombre.')
+  .max(40, 'Máximo 40 caracteres.');
+
+export const notaPerfilSchema = z
+  .string()
+  .trim()
+  .max(120, 'Máximo 120 caracteres.')
+  .transform((v) => v || null)
+  .nullable();
+
+/** Nombre y PIN de cada perfil al crear la cuenta (en orden: perfil 1, 2…). */
+const datosPerfilSchema = z.object({
+  nombre: z
+    .string()
+    .trim()
+    .max(40, 'Máximo 40 caracteres.')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  pin: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .pipe(pinSchema.nullable())
+    .nullable()
+    .optional(),
 });
+
+export const crearCuentaSchema = z
+  .object({
+    servicioId: uuidSchema,
+    usuario: usuarioCuentaSchema,
+    clave: claveCuentaSchema,
+    modo: z.enum(MODOS_CUENTA).default('perfiles'),
+    perfiles: z.coerce
+      .number({ error: 'Indica cuántos perfiles tiene.' })
+      .int()
+      .min(1, 'Al menos 1 perfil.')
+      .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
+    /** Opcional: nombre y PIN de los perfiles. Los que falten quedan «Perfil N» sin PIN. */
+    datosPerfiles: z.array(datosPerfilSchema).max(MAX_PERFILES_CUENTA).optional(),
+    ...camposCuenta,
+  })
+  .refine((o) => !o.datosPerfiles || o.datosPerfiles.length <= o.perfiles, {
+    message: 'Hay más datos de perfiles que perfiles.',
+    path: ['datosPerfiles'],
+  });
 export type CrearCuentaEntrada = z.infer<typeof crearCuentaSchema>;
 
 export const editarCuentaSchema = z
@@ -111,14 +149,11 @@ export type EditarCuentaEntrada = z.infer<typeof editarCuentaSchema>;
 
 export const editarPerfilSchema = z
   .object({
-    nombre: z
-      .string()
-      .trim()
-      .min(1, 'Escribe un nombre.')
-      .max(40, 'Máximo 40 caracteres.')
-      .optional(),
+    nombre: nombrePerfilSchema.optional(),
     /** null quita el PIN. */
     pin: pinSchema.nullable().optional(),
+    /** Vacío o null quita la nota. */
+    nota: notaPerfilSchema.optional(),
     bloqueado: z.boolean().optional(),
   })
   .refine((o) => Object.values(o).some((v) => v !== undefined), 'No hay cambios.');

@@ -564,7 +564,7 @@ export function NuevaSuscripcion({
         {planes.map((p) => (
           <option key={p.id} value={p.id}>
             {p.servicio.nombre} · {p.nombre} ·{' '}
-            {formatearDuracion(p.duracionCantidad, p.duracionUnidad)} ·{' '}
+            {formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo)} ·{' '}
             {formatearMonto(p.precioUsd, 'USD')}
           </option>
         ))}

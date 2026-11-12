@@ -367,6 +367,195 @@ describe('carrito', () => {
     );
   });
 
+  it('una recarga de juego no tiene duración y pide el ID de jugador antes de cobrar', async () => {
+    const e = await escenario();
+    const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();
+    const servicio = await e.admin.post('/catalogo/servicios', {
+      proveedorId: proveedor.id,
+      nombre: 'Free Fire',
+      slug: 'free-fire',
+      categoria: 'juegos',
+      datosRequeridos: [
+        { clave: 'id-de-jugador', etiqueta: 'ID de jugador', ayuda: null, obligatorio: true },
+      ],
+    });
+    expect(servicio.estado).toBe(201);
+    const plan = await e.admin.post('/catalogo/planes', {
+      servicioId: servicio.cuerpo.id,
+      nombre: '100 diamantes',
+      tipo: 'recarga',
+      precioUsd: '1.00',
+      costoUsd: '0.50',
+      precioRevendedorUsd: '0.80',
+      duracionCantidad: 6,
+      duracionUnidad: 'mes',
+      renovable: true,
+      beneficios: [],
+    });
+    expect(plan.estado).toBe(201);
+    // Compra única: ni duración ni renovación, y el precio de revendedor queda guardado.
+    expect(plan.cuerpo).toMatchObject({
+      tipo: 'recarga',
+      duracionCantidad: 1,
+      renovable: false,
+      revendible: true,
+      precioRevendedorUsd: '0.80',
+    });
+    const caro = await e.admin.patch(`/catalogo/planes/${plan.cuerpo.id}`, {
+      precioRevendedorUsd: '2.00',
+    });
+    expect(caro.estado).toBe(409);
+
+    await conSaldo(e, '5');
+    const sinDatos = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+    });
+    expect(sinDatos.estado).toBe(400);
+    expect(sinDatos.cuerpo.error.codigo).toBe('DATOS_INVALIDOS');
+    expect(sinDatos.cuerpo.error.campos[`datos.${plan.cuerpo.id}.id-de-jugador`]).toBeDefined();
+    expect(await ctx.prisma.pedido.count()).toBe(0);
+
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+      datos: { [plan.cuerpo.id]: { 'id-de-jugador': ' 123456789 ', extra: 'no' } },
+    });
+    expect(pedido.estado).toBe(201);
+    const s = await ctx.prisma.suscripcion.findFirstOrThrow({ where: { planId: plan.cuerpo.id } });
+    expect(s.datosCliente).toEqual({ 'id-de-jugador': '123456789' });
+    const detalle = await e.admin.get(`/suscripciones/${s.id}`);
+    expect(detalle.cuerpo).toMatchObject({
+      plan: { tipo: 'recarga' },
+      datosCliente: [{ etiqueta: 'ID de jugador', valor: '123456789' }],
+    });
+  });
+
+  it('un combo cobra su precio especial solo si el carrito lleva todos sus planes', async () => {
+    const e = await escenario();
+    const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();
+    const musica = await e.admin.post('/catalogo/servicios', {
+      proveedorId: proveedor.id,
+      nombre: 'NV Música',
+      slug: 'nv-musica',
+      categoria: 'musica',
+    });
+    expect(musica.estado).toBe(201);
+    const planMusica = await e.admin.post('/catalogo/planes', {
+      servicioId: musica.cuerpo.id,
+      nombre: 'Individual',
+      precioUsd: '3.00',
+      duracionCantidad: 1,
+      duracionUnidad: 'mes',
+      beneficios: [],
+    });
+    expect(planMusica.estado).toBe(201);
+    const musicaId = planMusica.cuerpo.id as string;
+
+    // Dos planes del mismo servicio no forman combo, y tiene que costar menos que por separado.
+    const mismo = await e.admin.post('/catalogo/combos', {
+      nombre: 'Doble cine',
+      precioUsd: '40',
+      planes: [e.planId, e.anualId],
+    });
+    expect(mismo.estado).toBe(409);
+    const caro = await e.admin.post('/catalogo/combos', {
+      nombre: 'Cine + Música',
+      precioUsd: '8.00',
+      planes: [e.planId, musicaId],
+    });
+    expect(caro.estado).toBe(409);
+    expect(caro.cuerpo.error.campos.precioUsd).toBeDefined();
+    const sinPermiso = await e.operador.post('/catalogo/combos', {
+      nombre: 'Cine + Música',
+      precioUsd: '6.00',
+      planes: [e.planId, musicaId],
+    });
+    expect(sinPermiso.estado).toBe(403);
+
+    const combo = await e.admin.post('/catalogo/combos', {
+      nombre: 'Cine + Música',
+      descripcion: 'Películas y música, 1 mes',
+      precioUsd: '6.00',
+      planes: [e.planId, musicaId],
+    });
+    expect(combo.estado).toBe(201);
+    // 5 + 3 = 8 USD por separado; en VES a 40: 240 combo frente a 320.
+    expect(combo.cuerpo).toMatchObject({
+      precioUsd: '6.00',
+      precios: { USD: '6.00', VES: '240.00' },
+      sinCombo: { USD: '8.00', VES: '320.00' },
+    });
+    const publico = await e.cliente.get('/catalogo');
+    expect(publico.cuerpo.combos).toHaveLength(1);
+
+    // Con un solo plan del combo no hay descuento.
+    const solo = await e.cliente.post('/mi/pedidos/cotizar', { planes: [musicaId], moneda: 'USD' });
+    expect(solo.cuerpo).toMatchObject({ total: '3.00', descuento: '0.00' });
+
+    // Con los dos, el ahorro de 2 USD se reparte según el precio de cada plan.
+    const cot = await e.cliente.post('/mi/pedidos/cotizar', {
+      planes: [e.planId, musicaId],
+      moneda: 'VES',
+    });
+    expect(cot.estado).toBe(200);
+    expect(cot.cuerpo).toMatchObject({ subtotal: '320.00', descuento: '80.00', total: '240.00' });
+    expect(cot.cuerpo.lineas).toEqual([
+      expect.objectContaining({ combo: 'Cine + Música', descuentoCombo: '50.00', total: '150.00' }),
+      expect.objectContaining({ combo: 'Cine + Música', descuentoCombo: '30.00', total: '90.00' }),
+    ]);
+
+    // El cupón no se suma al precio de combo.
+    await e.admin.post('/cupones', {
+      codigo: 'EXTRA10',
+      tipo: 'porcentaje',
+      valor: '10',
+      soloAltas: true,
+    });
+    const conCupon = await e.cliente.post('/mi/pedidos/cotizar', {
+      planes: [e.planId, musicaId],
+      moneda: 'USD',
+      cupon: 'EXTRA10',
+    });
+    expect(conCupon.estado).toBe(409);
+    expect(conCupon.cuerpo.error.campos.cupon).toBeDefined();
+
+    // El pedido se cobra con el precio del combo y la factura lo conserva al recotizar.
+    await conSaldo(e, '20');
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [e.planId, musicaId],
+      moneda: 'USD',
+      pago: 'recarga',
+    });
+    expect(pedido.estado).toBe(201);
+    const facturas = await ctx.prisma.factura.findMany({
+      where: { pedidoId: pedido.cuerpo.id },
+      orderBy: { totalUsd: 'desc' },
+    });
+    expect(facturas.map((f) => [f.total.toFixed(2), f.descuentoComboUsd?.toFixed(2)])).toEqual([
+      ['3.75', '1.25'],
+      ['2.25', '0.75'],
+    ]);
+    const recotizada = await e.cliente.post(`/mi/facturas/${facturas[0]!.id}/recotizar`, {
+      moneda: 'VES',
+    });
+    expect(recotizada.estado).toBe(200);
+    expect(recotizada.cuerpo).toMatchObject({
+      subtotal: '200.00',
+      descuento: '50.00',
+      total: '150.00',
+    });
+
+    // Desactivado, el combo sale de la tienda y deja de aplicar.
+    const off = await e.admin.patch(`/catalogo/combos/${combo.cuerpo.id}`, { activo: false });
+    expect(off.estado).toBe(200);
+    expect((await e.cliente.get('/catalogo')).cuerpo.combos).toHaveLength(0);
+    const borrar = await e.admin.delete(`/catalogo/combos/${combo.cuerpo.id}`);
+    expect(borrar.estado).toBe(204);
+  });
+
   it('repetir el pedido con la misma clave no crea ni cobra otro; otra clave sí es un pedido nuevo', async () => {
     const e = await escenario();
     await conSaldo(e, '20');

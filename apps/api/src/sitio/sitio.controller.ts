@@ -16,6 +16,7 @@ import {
   consultaPaginaPublicaSchema,
   contactoSitioSchema,
   crearPaginaSchema,
+  MEDIOS_ZIP_MAX_MB,
   guardarBorradorSchema,
   publicarPaginaSchema,
   restaurarVersionSchema,
@@ -154,6 +155,19 @@ export class SitioController {
     const { campos, archivo } = await leerFormulario(peticion, 'archivo');
     const { textoAlternativo } = new ZodPipe(subirMedioSchema).transform(campos);
     return this.medios.subir(auth, archivo, textoAlternativo, cliente);
+  }
+
+  /** Sube un ZIP de imágenes (multipart: `archivo`), hasta MEDIOS_ZIP_MAX_MB. */
+  @Post('medios/zip')
+  @RequierePermiso('sitio.editar')
+  @ApiConsumes('multipart/form-data')
+  async subirZipMedios(
+    @Auth() auth: ContextoAuth,
+    @Req() peticion: FastifyRequest,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    const { archivo } = await leerFormulario(peticion, 'archivo', MEDIOS_ZIP_MAX_MB * 1024 * 1024);
+    return this.medios.subirZip(auth, archivo, cliente);
   }
 
   @Get('tema')

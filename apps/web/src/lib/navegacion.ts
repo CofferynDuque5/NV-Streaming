@@ -129,7 +129,9 @@ export type ModuloEquipo =
   | 'cupones'
   | 'catalogo'
   | 'inventario'
+  | 'existencias'
   | 'cuentas'
+  | 'codigos'
   | 'balance'
   | 'finanzas'
   | 'pasarelas'
@@ -261,13 +263,13 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     permiso: 'catalogo.ver',
   },
   {
-    clave: 'inventario',
+    clave: 'existencias',
     grupo: 'tienda',
-    nombre: 'Inventario de códigos',
-    descripcion: 'Códigos de activación disponibles por plan',
-    color: '#22c55e',
+    nombre: 'Inventario',
+    descripcion: 'Todas las cuentas y sus perfiles: libres, ocupados y por vencer',
+    color: '#14b8a6',
     href: '/admin/inventario',
-    permiso: 'inventario.gestionar',
+    permiso: 'cuentas.ver',
   },
   {
     clave: 'cuentas',
@@ -277,6 +279,25 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#a855f7',
     href: '/admin/cuentas',
     permiso: 'cuentas.ver',
+  },
+  {
+    clave: 'codigos',
+    grupo: 'tienda',
+    nombre: 'Correos de códigos',
+    descripcion:
+      'Buzones donde llegan los códigos de Netflix, Disney+… y el último código de cada cuenta',
+    color: '#f43f5e',
+    href: '/admin/codigos',
+    permiso: 'codigos.consultar',
+  },
+  {
+    clave: 'inventario',
+    grupo: 'tienda',
+    nombre: 'Códigos de activación',
+    descripcion: 'Códigos, tarjetas y activaciones disponibles por plan',
+    color: '#22c55e',
+    href: '/admin/inventario/codigos',
+    permiso: 'inventario.gestionar',
   },
   {
     clave: 'finanzas',

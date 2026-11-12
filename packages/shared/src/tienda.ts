@@ -4,9 +4,14 @@
  * que ya vienen del servidor en cada moneda.
  */
 import { CATEGORIAS_SERVICIO, type CategoriaServicio, INFO_CATEGORIA } from './categorias.js';
-import type { UnidadDuracion } from './esquemas/catalogo.js';
+import { esCompraUnica, type TipoPlan, type UnidadDuracion } from './esquemas/catalogo.js';
 import type { Moneda } from './monedas.js';
-import type { CatalogoPublico, PlanPublico, ServicioCatalogo } from './tipos-negocio.js';
+import type {
+  CatalogoPublico,
+  ComboPublico,
+  PlanPublico,
+  ServicioCatalogo,
+} from './tipos-negocio.js';
 
 /** Tarjetas de servicio disponibles como imagen (archivo /servicios/<clave>.webp) y su color. */
 export const ARTE_SERVICIOS = {
@@ -88,6 +93,18 @@ export function etiquetaDuracion(cantidad: number, unidad: UnidadDuracion): stri
   return `${cantidad} ${cantidad === 1 ? 'día' : 'días'}`;
 }
 
+/**
+ * Cómo se nombra la opción de un plan: su duración, o su nombre si es una compra
+ * única (monedas de un juego, paquetes, pases…), que no tiene duración.
+ */
+export function etiquetaPlan(
+  p: Pick<PlanPublico, 'duracionCantidad' | 'duracionUnidad' | 'nombre'> & { tipo?: TipoPlan },
+): string {
+  return p.tipo && esCompraUnica(p.tipo)
+    ? p.nombre
+    : etiquetaDuracion(p.duracionCantidad, p.duracionUnidad);
+}
+
 /** Clave de una duración para los filtros (p. ej. «12-mes»). */
 export function claveDuracion(p: Pick<PlanPublico, 'duracionCantidad' | 'duracionUnidad'>) {
   return `${p.duracionCantidad}-${p.duracionUnidad}`;
@@ -120,16 +137,21 @@ export function planMasBarato(planes: PlanPublico[], moneda: Moneda): PlanPublic
   return mejor;
 }
 
-/** Imagen y color con los que se muestra un servicio, a partir de su slug y su universo. */
+/**
+ * Imagen y color con los que se muestra un servicio: su logo subido si tiene;
+ * si no, la tarjeta de su marca (por el slug); si tampoco, ninguna (orbe).
+ * `arte` es la dirección de la imagen.
+ */
 export function aspectoServicio(
   slug: string,
   categoria: CategoriaServicio | null,
-): { arte: ClaveArte | null; color: string } {
-  const arte = claveArte(slug);
+  imagen: string | null = null,
+): { arte: string | null; color: string } {
+  const clave = claveArte(slug);
   return {
-    arte,
-    color: arte
-      ? ARTE_SERVICIOS[arte]
+    arte: imagen ?? (clave ? `/servicios/${clave}.webp` : null),
+    color: clave
+      ? ARTE_SERVICIOS[clave]
       : categoria
         ? COLOR_CATEGORIA[categoria]
         : COLOR_SIN_CATEGORIA,
@@ -141,7 +163,8 @@ export interface ServicioTienda {
   /** Planes visibles del servicio, ordenados de menor a mayor duración. */
   planes: PlanPublico[];
   color: string;
-  arte: ClaveArte | null;
+  /** Dirección de la imagen del servicio (logo subido o tarjeta de la marca). */
+  arte: string | null;
   /** Posición en «Lo más pedido» (0 = el más pedido); null si no tuvo pedidos. */
   ranking: number | null;
 }
@@ -164,7 +187,7 @@ export function serviciosTienda(catalogo: CatalogoPublico): ServicioTienda[] {
       return {
         servicio: s,
         planes,
-        ...aspectoServicio(s.slug, s.categoria),
+        ...aspectoServicio(s.slug, s.categoria, s.imagen),
         ranking: posicion === -1 ? null : posicion,
       };
     });
@@ -247,7 +270,7 @@ export function filtrarCatalogo(
     if (filtros.categoria && item.servicio.categoria !== filtros.categoria) continue;
     if (filtros.texto && !coincideBusqueda(item, filtros.texto)) continue;
     const candidatos = filtros.duracion
-      ? item.planes.filter((p) => claveDuracion(p) === filtros.duracion)
+      ? item.planes.filter((p) => !esCompraUnica(p.tipo) && claveDuracion(p) === filtros.duracion)
       : item.planes;
     const plan = planMasBarato(candidatos, moneda);
     if (!plan) continue;
@@ -273,7 +296,8 @@ export function duracionesCatalogo(
   servicios: ServicioTienda[],
 ): { clave: string; etiqueta: string }[] {
   const vistas = new Map<string, PlanPublico>();
-  for (const s of servicios) for (const p of s.planes) vistas.set(claveDuracion(p), p);
+  for (const s of servicios)
+    for (const p of s.planes) if (!esCompraUnica(p.tipo)) vistas.set(claveDuracion(p), p);
   return [...vistas.values()]
     .sort((a, b) => dias(a) - dias(b))
     .map((p) => ({
@@ -285,4 +309,20 @@ export function duracionesCatalogo(
 /** Enlace para abrir un chat de WhatsApp con el número (y un texto opcional). */
 export function enlaceWhatsapp(numero: string, texto?: string): string {
   return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`;
+}
+
+/**
+ * Precio de un combo en una moneda, lo que costaría por separado y el
+ * porcentaje que se ahorra (redondeado hacia abajo). null si esa moneda no
+ * tiene precio o el combo no ahorra nada.
+ */
+export function ahorroCombo(
+  combo: Pick<ComboPublico, 'precios' | 'sinCombo'>,
+  moneda: Moneda,
+): { precio: string; sinCombo: string; porcentaje: number } | null {
+  const precio = combo.precios[moneda];
+  const sinCombo = combo.sinCombo[moneda];
+  if (!precio || !sinCombo || !(Number(sinCombo) > Number(precio))) return null;
+  const porcentaje = Math.floor(((Number(sinCombo) - Number(precio)) / Number(sinCombo)) * 100);
+  return { precio, sinCombo, porcentaje };
 }

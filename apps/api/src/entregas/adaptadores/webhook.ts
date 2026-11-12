@@ -97,6 +97,7 @@ export class AdaptadorWebhook implements Adaptador {
             ? { correo: ctx.cliente.correo }
             : {}),
         },
+        ...(Object.keys(ctx.datosCliente).length > 0 ? { datos: ctx.datosCliente } : {}),
         periodo: {
           inicio: e.periodoInicio?.toISOString() ?? null,
           fin: e.periodoFin?.toISOString() ?? null,

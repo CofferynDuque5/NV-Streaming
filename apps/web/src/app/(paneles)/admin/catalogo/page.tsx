@@ -1,4 +1,5 @@
 import {
+  type ComboPublico,
   INFO_MONEDA,
   MONEDAS_CON_TASA,
   type PlanPublico,
@@ -14,6 +15,7 @@ import {
   ListaServicios,
   NuevoPlan,
 } from '@/componentes/admin/catalogo';
+import { ListaCombos } from '@/componentes/admin/catalogo-combos';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -30,11 +32,13 @@ export default async function Catalogo() {
   const sesion = await requerirSesion({ permiso: 'catalogo.ver' });
   const puedeGestionar = sesion.permisos.includes('catalogo.gestionar');
 
-  const [rProveedores, rServicios, rPlanes] = await Promise.all([
+  const [rProveedores, rServicios, rPlanes, rCombos] = await Promise.all([
     leerApi<ProveedorPublico[]>('/catalogo/proveedores'),
     leerApi<ServicioPublico[]>('/catalogo/servicios'),
     leerApi<PlanPublico[]>('/catalogo/planes'),
+    leerApi<ComboPublico[]>('/catalogo/combos'),
   ]);
+  const combos = rCombos.datos ?? [];
   const proveedores = rProveedores.datos ?? [];
   const servicios = rServicios.datos ?? [];
   const planes = rPlanes.datos ?? [];
@@ -145,6 +149,16 @@ export default async function Catalogo() {
         </Tarjeta>
       </div>
 
+      {planes.length > 0 && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Combos"
+            descripcion="Dos o más planes con un precio especial. El descuento se cobra solo si el cliente lleva todos los planes del combo en el mismo pedido."
+          />
+          <ListaCombos combos={combos} planes={planes} puedeGestionar={puedeGestionar} />
+        </Tarjeta>
+      )}
+
       <section aria-labelledby="titulo-planes" className="grid gap-4">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="grid gap-1">
@@ -201,7 +215,7 @@ export default async function Catalogo() {
                         >
                           <span className="font-medium">{p.nombre}</span>
                           <span className="text-xs text-tinta-tenue">
-                            {formatearDuracion(p.duracionCantidad, p.duracionUnidad)}
+                            {formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo)}
                           </span>
                         </Link>
                       </Celda>

@@ -1,4 +1,4 @@
-import { ZONA_HORARIA } from '@nv/shared';
+import { esCompraUnica, NOMBRE_TIPO_PLAN, type TipoPlan, ZONA_HORARIA } from '@nv/shared';
 
 const fechaHora = new Intl.DateTimeFormat('es', {
   dateStyle: 'medium',
@@ -103,6 +103,14 @@ Object.assign(ACCIONES_AUDITORIA, {
   'perfil_cuenta.editado': 'Perfil editado',
   'perfil_cuenta.visto_por_cliente': 'Datos del perfil vistos por el cliente',
   'perfil_cuenta.mensaje_armado': 'Mensaje con datos del perfil armado',
+  'buzon_codigos.creado': 'Buzón de códigos agregado',
+  'buzon_codigos.actualizado': 'Buzón de códigos editado',
+  'buzon_codigos.eliminado': 'Buzón de códigos quitado',
+  'asunto_codigo.creado': 'Asunto de códigos agregado',
+  'asunto_codigo.sugeridos': 'Asuntos sugeridos agregados',
+  'asunto_codigo.eliminado': 'Asunto de códigos quitado',
+  'codigo.consultado': 'Código consultado por el equipo',
+  'codigo.consultado_por_cliente': 'Código consultado por el cliente',
   'cupon.creado': 'Cupón creado',
   'cupon.activado': 'Cupón activado',
   'cupon.desactivado': 'Cupón desactivado',
@@ -154,7 +162,13 @@ Object.assign(ACCIONES_AUDITORIA, {
 });
 
 /** "1 mes", "3 meses", "7 días". */
-export function formatearDuracion(cantidad: number, unidad: 'dia' | 'mes'): string {
+export function formatearDuracion(
+  cantidad: number,
+  unidad: 'dia' | 'mes',
+  tipo?: TipoPlan,
+): string {
+  // Las compras únicas (recargas, paquetes, pases…) no tienen duración.
+  if (tipo && esCompraUnica(tipo)) return `${NOMBRE_TIPO_PLAN[tipo]} · pago único`;
   if (unidad === 'mes') return `${cantidad} ${cantidad === 1 ? 'mes' : 'meses'}`;
   return `${cantidad} ${cantidad === 1 ? 'día' : 'días'}`;
 }
@@ -184,6 +198,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'pagina.archivada': 'Página del sitio archivada',
   'pagina.desarchivada': 'Página del sitio desarchivada',
   'medio.subido': 'Imagen del sitio subida',
+  'medio.zip_subido': 'ZIP de imágenes del sitio subido',
   'tema_sitio.cambiado': 'Paleta del sitio cambiada',
   'temporada_sitio.activada': 'Temporada del sitio activada',
   'temporada_sitio.quitada': 'Sitio devuelto al diseño original',

@@ -418,7 +418,8 @@ export function LectorPedidos({
                       <option value="">Elige</option>
                       {delServicio.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.nombre} · {formatearDuracion(p.duracionCantidad, p.duracionUnidad)} ·{' '}
+                          {p.nombre} ·{' '}
+                          {formatearDuracion(p.duracionCantidad, p.duracionUnidad, p.tipo)} ·{' '}
                           {formatearMonto(p.precioUsd, 'USD')}
                         </option>
                       ))}

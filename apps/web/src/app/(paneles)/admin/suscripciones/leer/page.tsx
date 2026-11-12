@@ -5,7 +5,7 @@ import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Leer pedido' };
+export const metadata: Metadata = { title: 'Crear desde un mensaje' };
 
 export default async function LeerPedido() {
   await requerirSesion({ permiso: 'suscripciones.crear' });
@@ -17,7 +17,7 @@ export default async function LeerPedido() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <CabeceraPagina
-        titulo="Leer pedido"
+        titulo="Crear suscripciones desde un mensaje"
         descripcion="Pega el mensaje del cliente o revendedor y te proponemos las suscripciones. Nada se crea hasta que lo confirmes."
       />
       <LectorPedidos

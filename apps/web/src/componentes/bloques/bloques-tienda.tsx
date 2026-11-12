@@ -5,8 +5,10 @@
  * (en la vista previa del editor aparece un aviso).
  */
 import {
+  ahorroCombo,
   type BloqueDe,
   categoriasTienda,
+  formatearMonto,
   filtrarCatalogo,
   INFO_CATEGORIA,
   type ServicioTienda,
@@ -19,6 +21,7 @@ import type { CSSProperties } from 'react';
 import { ArteServicio } from '@/componentes/tienda/arte';
 import { BotonCarrito } from '@/componentes/tienda/boton-carrito';
 import { Carril, RejillaFiltrable } from '@/componentes/tienda/deslizables';
+import { CarrilCombos, type ComboTienda } from './bloques-vitrina';
 import { Orbe } from '@/componentes/tienda/iconos';
 import { precioDeTarjeta } from '@/componentes/tienda/precio-tarjeta';
 import { TarjetaServicio } from '@/componentes/tienda/tarjeta-servicio';
@@ -207,6 +210,58 @@ export function Servicios({
             ))}
           </ul>
         )}
+      </div>
+    </Seccion>
+  );
+}
+
+/* ------------------------------------------------------------------ combos */
+
+export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: ContextoBloques }) {
+  const { moneda } = contexto;
+  const porServicio = new Map(servicios(contexto).map((s) => [s.servicio.id, s]));
+  const combos: ComboTienda[] = (contexto.catalogo?.combos ?? []).flatMap((c) => {
+    const ahorro = ahorroCombo(c, moneda);
+    if (!ahorro) return [];
+    const usd = moneda === 'USD' ? null : c.precios.USD;
+    return [
+      {
+        id: c.id,
+        nombre: c.nombre,
+        descripcion: c.descripcion,
+        precio: formatearMonto(ahorro.precio, moneda),
+        precioUsd: usd ? formatearMonto(usd, 'USD') : null,
+        porcentaje: ahorro.porcentaje,
+        planes: c.planes.map((p) => p.id),
+        artes: c.planes.flatMap((p) => {
+          const s = porServicio.get(p.servicio.id);
+          return s
+            ? [
+                {
+                  arte: s.arte,
+                  nombre: s.servicio.nombre,
+                  categoria: s.servicio.categoria,
+                  color: s.color,
+                },
+              ]
+            : [];
+        }),
+      },
+    ];
+  });
+  if (combos.length === 0) {
+    return (
+      <SinDatos
+        contexto={contexto}
+        titulo={b.titulo}
+        motivo="Todavía no hay combos activos (Catálogo → Combos)."
+      />
+    );
+  }
+  return (
+    <Seccion bloque={b}>
+      <div className={clsx(contenedor, 'py-12')}>
+        <CarrilCombos b={b} combos={combos} conCarrito={!contexto.mayorista} />
       </div>
     </Seccion>
   );

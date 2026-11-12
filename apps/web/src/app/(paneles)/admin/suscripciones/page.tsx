@@ -21,6 +21,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { ESTADO_SUSCRIPCION } from '@/lib/estados';
 import { formatearDuracion } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Suscripciones' };
 
@@ -52,9 +53,12 @@ export default async function Suscripciones({
         }
         acciones={
           sesion.permisos.includes('suscripciones.crear') && (
-            <BotonEnlace href="/admin/suscripciones/leer">
+            <BotonEnlace
+              href="/admin/suscripciones/leer"
+              title="Pega el mensaje de WhatsApp de un cliente y te proponemos las suscripciones"
+            >
               <Wand2 className="size-4" aria-hidden="true" />
-              Leer pedido
+              Crear desde un mensaje
             </BotonEnlace>
           )
         }
@@ -66,6 +70,7 @@ export default async function Suscripciones({
           role="search"
           aria-label="Filtrar suscripciones"
         >
+          <EnvioAutomatico />
           <FiltroSelector
             id="filtro-estado"
             etiqueta="Estado"
@@ -122,8 +127,17 @@ export default async function Suscripciones({
               Cambia el estado o quita los filtros para ver todas.
             </EstadoVacio>
           ) : (
-            <EstadoVacio icono={Repeat} titulo="Aún no hay suscripciones">
-              Se crean desde la ficha de cada cliente o cuando un cliente contrata desde su panel.
+            <EstadoVacio
+              icono={Repeat}
+              titulo="Aún no hay suscripciones"
+              accion={
+                <BotonEnlace href="/admin/clientes" variante="secundario" tamano="sm">
+                  Ir a Clientes
+                </BotonEnlace>
+              }
+            >
+              Se crean desde la ficha de cada cliente, pegando el mensaje de un pedido con «Crear
+              desde un mensaje», o cuando un cliente contrata desde su panel.
             </EstadoVacio>
           )
         ) : (
@@ -153,7 +167,11 @@ export default async function Suscripciones({
                         {s.plan.servicio} · {s.plan.nombre}
                       </span>
                       <span className="text-xs text-tinta-tenue">
-                        {formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad)}
+                        {formatearDuracion(
+                          s.plan.duracionCantidad,
+                          s.plan.duracionUnidad,
+                          s.plan.tipo,
+                        )}
                         {s.plan.renovable ? '' : ' · no renovable'}
                       </span>
                     </span>

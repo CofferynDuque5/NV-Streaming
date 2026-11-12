@@ -3,6 +3,7 @@ import { History } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { ListaDatos, relativoDias, Volver } from '@/componentes/admin/piezas-crm';
 import { AccionesSuscripcion } from '@/componentes/admin/suscripciones';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -69,7 +70,8 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
           >
             {s.cliente.nombre}
           </Link>{' '}
-          · {formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad)} · en {s.moneda}
+          · {formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad, s.plan.tipo)} · en{' '}
+          {s.moneda}
         </p>
       </header>
 
@@ -108,8 +110,14 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
             ],
             [
               'Plan',
-              `${s.plan.servicio} · ${s.plan.nombre} (${formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad)})`,
+              `${s.plan.servicio} · ${s.plan.nombre} (${formatearDuracion(s.plan.duracionCantidad, s.plan.duracionUnidad, s.plan.tipo)})`,
             ],
+            ...s.datosCliente.map((d): [string, ReactNode] => [
+              d.etiqueta,
+              <span key={d.etiqueta} className="font-mono break-all select-all">
+                {d.valor}
+              </span>,
+            ]),
             ['Estado', <EstadoSuscripcionInsignia key="estado" estado={s.estado} />],
             ['Moneda', `${s.moneda} · ${INFO_MONEDA[s.moneda].nombre}`],
             ['Inicio', s.inicioEn ? formatearFecha(s.inicioEn) : <Tenue>Aún no ha empezado</Tenue>],

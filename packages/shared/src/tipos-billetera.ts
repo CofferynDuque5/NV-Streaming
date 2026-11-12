@@ -9,6 +9,10 @@ export interface LineaCotizacionPedido {
   planId: string;
   plan: string;
   servicio: string;
+  /** Nombre del combo si la línea tiene su precio especial. */
+  combo: string | null;
+  /** Parte de `descuento` que viene del combo (el resto es del cupón). */
+  descuentoCombo: Decimal;
   subtotal: Decimal;
   descuento: Decimal;
   total: Decimal;

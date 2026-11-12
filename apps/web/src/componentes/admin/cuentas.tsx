@@ -31,6 +31,7 @@ import { BotonCopiar } from '@/componentes/accesos';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
+import { clasesEntrada } from '@/componentes/ui/clases';
 import { AreaTexto, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { CICLOS_CUENTA, formatearFecha } from '@/lib/formato';
@@ -136,9 +137,66 @@ function DatosCuenta({
   );
 }
 
+/** Nombre y PIN de cada perfil al crear la cuenta (opcionales). */
+function DatosPerfiles({ cantidad, campos }: { cantidad: number; campos: Record<string, string> }) {
+  const errorPerfiles = Object.entries(campos).find(([k]) => k.startsWith('datosPerfiles'))?.[1];
+  const [abierto, setAbierto] = useState(false);
+  if (!abierto && !errorPerfiles) {
+    return (
+      <div>
+        <Boton variante="fantasma" tamano="sm" onClick={() => setAbierto(true)}>
+          Poner nombre y PIN a cada perfil (opcional)
+        </Boton>
+      </div>
+    );
+  }
+  return (
+    <fieldset className="grid gap-2 rounded-xl border border-borde p-3 sm:p-4">
+      <legend className="px-1 text-sm font-semibold">Perfiles: nombre y PIN</legend>
+      <p className="text-xs text-tinta-tenue">
+        Vacío: queda «Perfil N» sin PIN. El PIN son de 4 a 8 dígitos y se guarda cifrado.
+      </p>
+      {errorPerfiles && <p className="text-sm text-peligro">{errorPerfiles}</p>}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {Array.from({ length: cantidad }, (_, i) => (
+          <div key={i} className="grid grid-cols-[2rem_1fr_6.5rem] items-center gap-2">
+            <span className="text-sm font-semibold text-tinta-tenue tabular-nums">{i + 1}</span>
+            <input
+              name={`perfil-nombre-${i}`}
+              maxLength={40}
+              placeholder={`Perfil ${i + 1}`}
+              aria-label={`Nombre del perfil ${i + 1}`}
+              className={clasesEntrada}
+            />
+            <input
+              name={`perfil-pin-${i}`}
+              inputMode="numeric"
+              maxLength={8}
+              placeholder="PIN"
+              autoComplete="off"
+              aria-label={`PIN del perfil ${i + 1}`}
+              aria-invalid={campos[`datosPerfiles.${i}.pin`] ? true : undefined}
+              className={clasesEntrada}
+            />
+          </div>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function leerDatosPerfiles(d: FormData, cantidad: number) {
+  const lista = Array.from({ length: cantidad }, (_, i) => ({
+    nombre: String(d.get(`perfil-nombre-${i}`) ?? '').trim(),
+    pin: String(d.get(`perfil-pin-${i}`) ?? '').trim(),
+  }));
+  return lista.some((p) => p.nombre || p.pin) ? lista : undefined;
+}
+
 export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: string }[] }) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<ModoCuenta>('perfiles');
+  const [cantidad, setCantidad] = useState(5);
   const [verClave, setVerClave] = useState(false);
   const [creada, setCreada] = useState<string | null>(null);
   const { cargando, error, campos, ejecutar } = useAccion();
@@ -153,12 +211,14 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
       clave: String(d.get('clave') ?? ''),
       modo,
       perfiles: modo === 'completa' ? 1 : (textoDe(d, 'perfiles') ?? ''),
+      datosPerfiles: leerDatosPerfiles(d, modo === 'completa' ? 1 : cantidad),
       ...camposDatos(d),
     });
     if (r) {
       setCreada(r.datos.pista);
       formulario.reset();
       setModo('perfiles');
+      setCantidad(5);
       setVerClave(false);
     }
   }
@@ -206,7 +266,12 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
               type="number"
               min={1}
               max={MAX_PERFILES_CUENTA}
-              defaultValue={5}
+              value={cantidad}
+              onChange={(e) =>
+                setCantidad(
+                  Math.min(MAX_PERFILES_CUENTA, Math.max(1, Number(e.currentTarget.value) || 1)),
+                )
+              }
               required
               error={campos.perfiles}
             />
@@ -250,6 +315,7 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
             </button>
           </div>
         </div>
+        <DatosPerfiles cantidad={modo === 'completa' ? 1 : cantidad} campos={campos} />
         <DatosCuenta campos={campos} />
         <ErrorGeneral error={error} />
         {creada && !error && <Alerta tono="exito">Cuenta {creada} guardada.</Alerta>}
@@ -739,6 +805,7 @@ export function AccionesPerfil({
           const pin = textoDe(d, 'pin');
           const r = await ejecutar('PATCH', ruta, {
             nombre: textoDe(d, 'nombre'),
+            nota: String(d.get('nota') ?? '').trim() || null,
             ...(d.get('quitarPin') === 'on' ? { pin: null } : pin ? { pin } : {}),
           });
           if (r) setEditando(false);
@@ -764,6 +831,14 @@ export function AccionesPerfil({
             <input type="checkbox" name="quitarPin" /> Quitar el PIN
           </label>
         )}
+        <Campo
+          etiqueta="Nota (opcional)"
+          name="nota"
+          defaultValue={perfil.nota ?? ''}
+          maxLength={120}
+          placeholder="TV de la sala"
+          error={campos.nota}
+        />
         <ErrorGeneral error={error} />
         <div className="flex gap-2">
           <Boton tamano="sm" type="submit" cargando={cargando}>

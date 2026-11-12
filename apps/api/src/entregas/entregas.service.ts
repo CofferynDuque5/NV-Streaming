@@ -62,7 +62,19 @@ const INCLUIR_CONTEXTO = {
   },
   cliente: { select: { id: true, nombre: true, correo: true } },
   revendedor: { select: { id: true, usuarioId: true, nombreComercial: true } },
+  suscripcion: { select: { datosCliente: true } },
+  compraRevendedor: { select: { suscripcion: { select: { datosCliente: true } } } },
 } as const satisfies Prisma.EntregaInclude;
+
+/** Valores {clave: valor} guardados en la suscripción (lo demás se ignora). */
+function valoresGuardados(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  return Object.fromEntries(
+    Object.entries(v as Record<string, unknown>).filter(
+      (e): e is [string, string] => typeof e[1] === 'string',
+    ),
+  );
+}
 
 type EntregaConContexto = Prisma.EntregaGetPayload<{ include: typeof INCLUIR_CONTEXTO }>;
 
@@ -780,7 +792,15 @@ export class EntregasService implements OnModuleInit {
         contextoSecretoWebhook(e.proveedor.id),
       );
     }
-    const { proveedor, plan, cliente, revendedor: _r, ...entrega } = e;
+    const {
+      proveedor,
+      plan,
+      cliente,
+      revendedor: _r,
+      suscripcion,
+      compraRevendedor,
+      ...entrega
+    } = e;
     return {
       ...(tx ? { tx } : {}),
       entrega,
@@ -793,6 +813,7 @@ export class EntregasService implements OnModuleInit {
         servicio: plan.servicio.nombre,
       },
       cliente: { id: cliente.id, correo: cliente.correo },
+      datosCliente: valoresGuardados((suscripcion ?? compraRevendedor?.suscripcion)?.datosCliente),
       secreto,
     };
   }

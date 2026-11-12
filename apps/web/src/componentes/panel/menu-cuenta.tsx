@@ -18,12 +18,12 @@ import {
   WalletCards,
   Zap,
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { ICONOS_MODULO } from '@/componentes/equipo/iconos';
 import { llamarApi } from '@/lib/api-cliente';
 import type { ContadorCuenta, ElementoCuenta, IconoCuenta } from '@/lib/navegacion';
+import { EnlaceAlPasar } from '@/componentes/panel/enlace-al-pasar';
 
 const ICONOS: Record<IconoCuenta, LucideIcon> = {
   ...ICONOS_MODULO,
@@ -119,7 +119,7 @@ export function MenuCuenta({
             const n = (e.contador && contadores[e.contador]) || 0;
             const esActivo = activo(e.href);
             return (
-              <Link
+              <EnlaceAlPasar
                 key={e.href}
                 href={e.href}
                 aria-current={esActivo ? 'page' : undefined}
@@ -151,7 +151,7 @@ export function MenuCuenta({
                     </span>
                   </em>
                 )}
-              </Link>
+              </EnlaceAlPasar>
             );
           })}
         </Fragment>

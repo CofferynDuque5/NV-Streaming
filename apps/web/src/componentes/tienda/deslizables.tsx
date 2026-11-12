@@ -10,8 +10,14 @@ export function Carril({
   etiqueta,
   cabecera,
   acciones,
+  ancho = 'normal',
 }: {
   children: ReactNode;
+  /**
+   * «ancho»: tarjetas horizontales (combos), casi a pantalla completa en el
+   * teléfono; «poster»: tarjetas verticales angostas (cartelera).
+   */
+  ancho?: 'normal' | 'ancho' | 'poster';
   etiqueta: string;
   /** Encabezado de la sección, a la izquierda de la fila de controles. */
   cabecera?: ReactNode;
@@ -57,7 +63,14 @@ export function Carril({
         role="region"
         aria-label={etiqueta}
         tabIndex={0}
-        className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] @2xl:-mx-6 @2xl:scroll-px-6 @2xl:px-6 [&>*]:w-[15.5rem] [&>*]:shrink-0 [&>*]:snap-start @2xl:[&>*]:w-[17rem]"
+        className={clsx(
+          '-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] @2xl:-mx-6 @2xl:scroll-px-6 @2xl:px-6 [&>*]:shrink-0 [&>*]:snap-start',
+          ancho === 'ancho'
+            ? '[&>*]:w-[min(86vw,26rem)] @2xl:[&>*]:w-[30rem]'
+            : ancho === 'poster'
+              ? '[&>*]:w-[9.25rem] @xl:[&>*]:w-[12rem] @4xl:[&>*]:w-[13.25rem]'
+              : '[&>*]:w-[15.5rem] @2xl:[&>*]:w-[17rem]',
+        )}
       >
         {children}
       </div>

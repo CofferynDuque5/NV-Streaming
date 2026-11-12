@@ -1,6 +1,7 @@
 /** Esquemas del carrito (pedidos) y de la billetera del cliente. */
 import { z } from 'zod';
 import { REGLAS_COBRO } from '../monedas.js';
+import { valoresDatosSchema } from './catalogo.js';
 import { paginacionSchema, uuidSchema } from './comunes.js';
 import { monedaSchema } from './dinero.js';
 import { ESTADOS_RECARGA, reportarRecargaSchema } from './revendedores.js';
@@ -38,6 +39,8 @@ export type CotizarPedidoEntrada = z.infer<typeof cotizarPedidoSchema>;
 
 export const crearPedidoSchema = cotizarPedidoSchema.extend({
   pago: z.enum(FORMAS_PAGO_PEDIDO, { error: 'Elige cómo vas a pagar.' }),
+  /** Datos que pide cada servicio (ID de jugador…), por id de plan. */
+  datos: z.record(uuidSchema, valoresDatosSchema).optional(),
   /**
    * La genera la web por cada intento de pedido: si la petición se repite
    * (doble clic, reintento tras un corte de red) devuelve el mismo pedido en

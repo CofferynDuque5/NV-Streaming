@@ -38,6 +38,7 @@ export interface PerfilCuentaPublico {
   nombre: string;
   estado: EstadoPerfil;
   tienePin: boolean;
+  nota: string | null;
   asignacion: AsignacionPerfil | null;
 }
 
@@ -137,6 +138,8 @@ export interface PerfilDelCliente {
   modo: ModoCuenta;
   /** La cuenta está activa: se pueden ver los datos. Si está caída, el equipo la está revisando. */
   disponible: boolean;
+  /** El servicio tiene asuntos de códigos y hay un buzón activo: puede pedir su código. */
+  pideCodigos: boolean;
 }
 
 /** Datos para entrar al perfil. Solo los ve su dueño mientras la suscripción está vigente. */
@@ -205,4 +208,56 @@ export interface RevisionImportacion {
 export interface ResultadoImportacion {
   creadas: number;
   actualizadas: number;
+}
+
+// ── Inventario (todas las cuentas y sus perfiles, como en el Gestor) ─────────
+
+export interface PerfilInventario {
+  id: string;
+  numero: number;
+  nombre: string;
+  estado: EstadoPerfil;
+  tienePin: boolean;
+  nota: string | null;
+  /** Suscripción que lo usa, con su cliente y vencimiento. */
+  cliente: Referencia | null;
+  suscripcionId: string | null;
+  estadoSuscripcion: EstadoSuscripcion | null;
+  venceEn: string | null;
+}
+
+export interface CuentaInventario {
+  id: string;
+  pista: string;
+  modo: ModoCuenta;
+  estado: EstadoCuentaServicio;
+  plan: string | null;
+  pais: string | null;
+  facturaEn: string | null;
+  costoUsd: string;
+  proveedor: string | null;
+  perfiles: PerfilInventario[];
+}
+
+export interface ServicioInventario {
+  servicio: Referencia & { logoUrl: string | null };
+  cuentas: CuentaInventario[];
+  conteo: {
+    cuentas: number;
+    caidas: number;
+    perfiles: number;
+    libres: number;
+    ocupados: number;
+    bloqueados: number;
+    /** Perfiles ocupados que vencen en los próximos 3 días. */
+    porVencer: number;
+    /** Perfiles ocupados con la suscripción vencida o cancelada (conviene liberarlos). */
+    vencidos: number;
+  };
+}
+
+export interface Inventario {
+  servicios: ServicioInventario[];
+  /** Fecha de hoy en Venezuela (AAAA-MM-DD), para calcular días. */
+  hoy: string;
 }

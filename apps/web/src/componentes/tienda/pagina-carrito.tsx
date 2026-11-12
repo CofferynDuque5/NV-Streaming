@@ -11,6 +11,7 @@ import {
   type PedidoPublico,
   type PlanPublico,
   planMasBarato,
+  revisarDatos,
   type ServicioTienda,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -36,10 +37,11 @@ import {
   useState,
 } from 'react';
 import { AvisoSaldoInsuficiente } from '@/componentes/cliente/saldo-insuficiente';
+import { DatosCompra, type PideDatos, type ValoresCompra } from '@/componentes/tienda/datos-compra';
 import { Boton, clasesBoton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { useNotificar } from '@/componentes/ui/notificaciones';
-import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
+import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import {
   ID_TITULO_CARRITO,
   MAX_CARRITO,
@@ -489,6 +491,18 @@ function CarritoConPlanes({
           <ResumenCliente
             cliente={cliente}
             ids={ids}
+            pideDatos={elegidos.flatMap(({ plan, item }) =>
+              item.servicio.datosRequeridos.length > 0
+                ? [
+                    {
+                      planId: plan.id,
+                      servicio: item.servicio.nombre,
+                      plan: plan.nombre,
+                      datos: item.servicio.datosRequeridos,
+                    },
+                  ]
+                : [],
+            )}
             moneda={moneda}
             nPlanes={nPlanes}
             metodosPago={metodosPago}
@@ -601,7 +615,9 @@ function LineaCarrito({
   const { item, plan } = e;
   const nombre = item.servicio.nombre;
   const categoria = item.servicio.categoria ? INFO_CATEGORIA[item.servicio.categoria] : null;
-  const descuento = linea && Number(linea.descuento) > 0 ? linea.descuento : null;
+  const combo = linea && Number(linea.descuentoCombo) > 0 ? linea : null;
+  const cuponLinea = linea ? Number(linea.descuento) - Number(linea.descuentoCombo) : 0;
+  const descuento = cuponLinea > 0 ? cuponLinea.toFixed(2) : null;
   return (
     <li
       className="aparecer grid grid-cols-[4.75rem_minmax(0,1fr)] gap-3 rounded-[1.25rem] border border-borde bg-[linear-gradient(180deg,rgb(15_21_48/0.86),rgb(8_11_26/0.94))] p-3 sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:gap-3.5"
@@ -657,6 +673,11 @@ function LineaCarrito({
                   <small className="text-xs text-tinta-suave">
                     {formatearMonto(linea.totalUsd, 'USD')}
                   </small>
+                )}
+                {combo && (
+                  <span className="text-xs whitespace-nowrap text-exito">
+                    Combo {combo.combo} −{formatearMonto(combo.descuentoCombo, moneda)}
+                  </span>
                 )}
                 {descuento && (
                   <span className="text-xs whitespace-nowrap text-exito">
@@ -724,6 +745,8 @@ function Totales({
   nPlanes: string;
   moneda: Moneda;
 }) {
+  const ahorroCombo = (cotizacion?.lineas ?? []).reduce((a, l) => a + Number(l.descuentoCombo), 0);
+  const ahorroCupon = cotizacion ? Number(cotizacion.descuento) - ahorroCombo : 0;
   return (
     <dl
       aria-live="polite"
@@ -736,10 +759,16 @@ function Totales({
           {cotizacion && !cotizando ? formatearMonto(cotizacion.subtotal, moneda) : <Esqueleto />}
         </dd>
       </div>
-      {cotizacion && !cotizando && Number(cotizacion.descuento) > 0 && (
+      {cotizacion && !cotizando && ahorroCombo > 0 && (
+        <div className="flex justify-between gap-3 text-exito">
+          <dt>Precio de combo</dt>
+          <dd>−{formatearMonto(ahorroCombo.toFixed(2), moneda)}</dd>
+        </div>
+      )}
+      {cotizacion && !cotizando && ahorroCupon > 0 && (
         <div className="flex justify-between gap-3 text-exito">
           <dt>Cupón {cotizacion.cupon}</dt>
-          <dd>−{formatearMonto(cotizacion.descuento, moneda)}</dd>
+          <dd>−{formatearMonto(ahorroCupon.toFixed(2), moneda)}</dd>
         </div>
       )}
       <div className="flex items-baseline justify-between gap-3 pt-1.5">
@@ -773,6 +802,7 @@ const TEXTO_BOTON: Record<FormaPagoPedido, string> = {
 function ResumenCliente({
   cliente,
   ids,
+  pideDatos,
   moneda,
   nPlanes,
   metodosPago,
@@ -790,6 +820,7 @@ function ResumenCliente({
 }: {
   cliente: Extract<CuentaCarrito, { tipo: 'cliente' }>;
   ids: string[];
+  pideDatos: PideDatos[];
   moneda: Moneda;
   nPlanes: string;
   metodosPago: string[];
@@ -812,6 +843,8 @@ function ResumenCliente({
   const [clave, setClave] = useState(() => crypto.randomUUID());
   const [errorPedido, setErrorPedido] = useState<ErrorLlamada | null>(null);
   const [avisoSaldo, setAvisoSaldo] = useState(false);
+  const [valores, setValores] = useState<ValoresCompra>({});
+  const [erroresDatos, setErroresDatos] = useState<Record<string, string>>({});
   const opcionSaldo = useRef<HTMLButtonElement>(null);
 
   const saldoUsd = cotizacion?.saldoUsd ?? cliente.saldoUsd;
@@ -822,7 +855,9 @@ function ResumenCliente({
   const formatoMal = cupon !== '' && !PATRON_CUPON.test(cupon);
   const aplicando = cotizando && cuponAplicado !== '' && cupon === cuponAplicado;
   const aplicado = !cotizando && cotizacion?.cupon ? cotizacion.cupon : null;
-  const conDescuento = cotizacion?.lineas.find((l) => Number(l.descuento) > 0);
+  const conDescuento = cotizacion?.lineas.find(
+    (l) => Number(l.descuento) > Number(l.descuentoCombo),
+  );
 
   const formas: { id: FormaPagoPedido; titulo: string; texto: string }[] = [
     {
@@ -848,6 +883,19 @@ function ResumenCliente({
   async function crear(e: FormEvent) {
     e.preventDefault();
     if (!cotizacion || cotizando) return;
+    // Datos para la entrega (ID de jugador…): se revisan antes de cobrar.
+    const datos: ValoresCompra = {};
+    const faltan: Record<string, string> = {};
+    for (const p of pideDatos) {
+      const { limpios, errores } = revisarDatos(p.datos, valores[p.planId]);
+      datos[p.planId] = limpios;
+      for (const [c, m] of Object.entries(errores)) faltan[`datos.${p.planId}.${c}`] = m;
+    }
+    setErroresDatos(faltan);
+    if (Object.keys(faltan).length > 0) {
+      document.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+      return;
+    }
     setCreando(true);
     setErrorPedido(null);
     const r = await llamarApi<PedidoPublico>('POST', '/mi/pedidos', {
@@ -856,12 +904,16 @@ function ResumenCliente({
       cupon: cotizacion.cupon ?? '',
       pago: elegida,
       claveIdempotencia: clave,
+      ...(pideDatos.length > 0 ? { datos } : {}),
     });
     setCreando(false);
     // Tras un corte de red se conserva la clave: el reintento devuelve el mismo pedido.
     if (!r.ok && r.error.estado === 0) return setErrorPedido(r.error);
     setClave(crypto.randomUUID());
-    if (!r.ok) return setErrorPedido(r.error);
+    if (!r.ok) {
+      if (r.error.codigo === 'DATOS_INVALIDOS') setErroresDatos(erroresPorCampo(r.error));
+      return setErrorPedido(r.error);
+    }
     alHacerPedido(r.datos, elegida);
   }
 
@@ -947,6 +999,20 @@ function ResumenCliente({
           )}
         </p>
       </div>
+
+      <DatosCompra
+        pedidos={pideDatos}
+        valores={valores}
+        errores={erroresDatos}
+        alCambiar={(planId, c, v) => {
+          setValores((x) => ({ ...x, [planId]: { ...x[planId], [c]: v } }));
+          setErroresDatos((x) => {
+            const resto = { ...x };
+            delete resto[`datos.${planId}.${c}`];
+            return resto;
+          });
+        }}
+      />
 
       <Totales cotizacion={cotizacion} cotizando={cotizando} nPlanes={nPlanes} moneda={moneda} />
 

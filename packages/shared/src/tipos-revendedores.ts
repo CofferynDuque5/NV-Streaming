@@ -1,6 +1,6 @@
 /** Tipos de respuesta del programa de revendedores (fase 2). */
 import type { CategoriaServicio } from './categorias.js';
-import type { UnidadDuracion } from './esquemas/catalogo.js';
+import type { TipoPlan, UnidadDuracion } from './esquemas/catalogo.js';
 import type {
   EstadoCompra,
   EstadoRecarga,
@@ -139,6 +139,7 @@ export interface PlanMayorista {
   descripcion: string | null;
   /** Slug y universo del servicio: eligen su imagen, su orbe y su filtro. */
   servicio: { id: string; nombre: string; slug: string; categoria: CategoriaServicio | null };
+  tipo: TipoPlan;
   duracionCantidad: number;
   duracionUnidad: UnidadDuracion;
   beneficios: string[];

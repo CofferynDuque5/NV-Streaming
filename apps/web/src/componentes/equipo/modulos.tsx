@@ -1,12 +1,12 @@
 'use client';
 
 import clsx from 'clsx';
-import Link from 'next/link';
 import { type CSSProperties, useState } from 'react';
 import { claseEnlace } from '@/componentes/cliente/piezas-cuenta';
 import { CampoBuscar } from '@/componentes/revendedor/busqueda';
 import type { GrupoEquipo, ModuloEquipo } from '@/lib/navegacion';
 import { ICONOS_MODULO } from './iconos';
+import { EnlaceAlPasar } from '@/componentes/panel/enlace-al-pasar';
 
 export interface TarjetaModulo {
   clave: ModuloEquipo;
@@ -113,7 +113,7 @@ export function Modulos({
             const Icono = ICONOS_MODULO[m.clave];
             return (
               <li key={m.clave} className="grid">
-                <Link
+                <EnlaceAlPasar
                   href={m.href}
                   className="relative grid grid-cols-[auto_minmax(0,1fr)] content-start items-start gap-x-3 gap-y-1 rounded-[1.25rem] border border-borde bg-[linear-gradient(180deg,rgb(15_21_48/0.8),rgb(8_11_26/0.9))] p-3.75 text-tinta transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-[rgb(79_141_255/0.55)]"
                 >
@@ -146,7 +146,7 @@ export function Modulos({
                       <span className="sr-only"> por atender</span>
                     </em>
                   )}
-                </Link>
+                </EnlaceAlPasar>
               </li>
             );
           })}

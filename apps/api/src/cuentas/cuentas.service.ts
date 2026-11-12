@@ -113,6 +113,7 @@ function detalle(c: FilaDetalle): CuentaServicioDetalle {
       nombre: p.nombre,
       estado: p.estado,
       tienePin: Boolean(p.pinCifrado),
+      nota: p.nota,
       asignacion: p.suscripcion
         ? {
             suscripcionId: p.suscripcion.id,
@@ -182,10 +183,16 @@ export class CuentasService {
       notas: e.notas ?? null,
       creadoPorId: actorId,
       perfiles: {
-        create: Array.from({ length: perfiles }, (_, i) => ({
-          numero: i + 1,
-          nombre: nombrePerfil(e.modo, i + 1),
-        })),
+        create: Array.from({ length: perfiles }, (_, i) => {
+          const datos = e.datosPerfiles?.[i];
+          const perfilId = randomUUID();
+          return {
+            id: perfilId,
+            numero: i + 1,
+            nombre: datos?.nombre || nombrePerfil(e.modo, i + 1),
+            pinCifrado: datos?.pin ? this.cifrador.cifrar(datos.pin, contextoPin(perfilId)) : null,
+          };
+        }),
       },
     };
   }
@@ -248,7 +255,12 @@ export class CuentasService {
             accion: 'cuenta_servicio.creada',
             entidad: 'cuenta_servicio',
             entidadId: id,
-            despues: { servicioId: e.servicioId, modo: e.modo, perfiles },
+            despues: {
+              servicioId: e.servicioId,
+              modo: e.modo,
+              perfiles,
+              conPin: e.datosPerfiles?.filter((p) => p?.pin).length ?? 0,
+            },
             cliente,
           },
           tx,
@@ -390,6 +402,10 @@ export class CuentasService {
       if (e.nombre !== undefined) {
         data.nombre = e.nombre;
         cambios.push('nombre');
+      }
+      if (e.nota !== undefined) {
+        data.nota = e.nota;
+        cambios.push(e.nota === null ? 'nota_quitada' : 'nota');
       }
       if (e.pin !== undefined) {
         data.pinCifrado = e.pin === null ? null : this.cifrador.cifrar(e.pin, contextoPin(p.id));

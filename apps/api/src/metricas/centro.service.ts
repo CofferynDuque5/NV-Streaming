@@ -91,7 +91,7 @@ export class CentroService {
       revendedores,
       facturasVencidas,
       accionesAsistente,
-      pocosCodigos,
+      inventario,
       catalogo,
       cuponesActivos,
       equipo,
@@ -100,6 +100,7 @@ export class CentroService {
       canales,
       asistente,
       tasasFaltantes,
+      metodosCobro,
       latido,
     ] = await Promise.all([
       si('pagos.gestionar', () => this.prisma.pago.count({ where: { estado: 'en_revision' } })),
@@ -154,21 +155,25 @@ export class CentroService {
       ),
       si('inventario.gestionar', async () => {
         const config = await this.automatizaciones.leer('stock_bajo_codigos');
-        const planes = await this.inventario.conPocosCodigos(config.parametros.umbral);
-        return planes.map((p) => ({
-          planId: p.plan.id,
-          plan: p.plan.nombre,
-          servicio: p.plan.servicio,
-          disponibles: p.disponibles,
-          pendientes: p.pendientes,
-        }));
+        const { pocos, conCodigos } = await this.inventario.estadoStock(config.parametros.umbral);
+        return {
+          conCodigos,
+          pocos: pocos.map((p) => ({
+            planId: p.plan.id,
+            plan: p.plan.nombre,
+            servicio: p.plan.servicio,
+            disponibles: p.disponibles,
+            pendientes: p.pendientes,
+          })),
+        };
       }),
       si('catalogo.ver', async () => {
-        const [servicios, planes] = await Promise.all([
+        const [proveedores, servicios, planes] = await Promise.all([
+          this.prisma.proveedor.count({ where: { activo: true } }),
           this.prisma.servicio.count({ where: { activo: true } }),
           this.prisma.plan.count({ where: { activo: true, servicio: { activo: true } } }),
         ]);
-        return { servicios, planes };
+        return { proveedores, servicios, planes };
       }),
       si('cupones.ver', () =>
         this.prisma.cupon.count({
@@ -189,6 +194,9 @@ export class CentroService {
       si('automatizaciones.ver', () => this.panel.estadoCanales()),
       si('asistente.usar', () => this.asistente.estado(auth)),
       si('finanzas.configurar', () => this.tasas.faltantes()),
+      si('finanzas.configurar', () =>
+        this.prisma.metodoCobro.count({ where: { activo: true, tipo: 'manual' } }),
+      ),
       // El trabajador lo ve todo el equipo: si se detiene, nadie recibe sus avisos.
       this.prisma.latidoTrabajador.findFirst({ orderBy: { ultimoLatidoEn: 'desc' } }),
     ]);
@@ -198,6 +206,7 @@ export class CentroService {
         latido && ahora.getTime() - latido.ultimoLatidoEn.getTime() < latidoVigenteMs(this.entorno),
       ),
       ultimoLatidoEn: latido?.ultimoLatidoEn.toISOString() ?? null,
+      pausaMinutos: this.entorno.BASE_AHORRO ? this.entorno.TRABAJADOR_PAUSA_MINUTOS : null,
     };
 
     return {
@@ -210,10 +219,11 @@ export class CentroService {
         solicitudesRevendedor: revendedores?.solicitudes ?? null,
         facturasVencidas,
         accionesAsistente,
-        pocosCodigos,
+        pocosCodigos: inventario?.pocos ?? null,
       },
       modulos: {
         catalogo,
+        planesConCodigos: inventario?.conCodigos ?? null,
         cuponesActivos,
         equipo,
         revendedores: revendedores
@@ -221,6 +231,7 @@ export class CentroService {
           : null,
         automatizacionesActivas,
         paginasPublicadas,
+        metodosCobro,
       },
       trabajador,
       sistema: {

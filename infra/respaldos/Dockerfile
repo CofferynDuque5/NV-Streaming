@@ -9,6 +9,9 @@ FROM ${RCLONE_IMAGEN} AS rclone
 
 FROM ${POSTGRES_IMAGEN}
 COPY --from=rclone /usr/local/bin/rclone /usr/local/bin/rclone
+# La imagen de PostgreSQL no trae certificados raíz: sin ellos rclone no puede abrir
+# HTTPS («x509: certificate signed by unknown authority» al subir a Backblaze B2 o S3).
+COPY --from=rclone /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY infra/respaldos/respaldar.sh /usr/local/bin/respaldar
 COPY infra/respaldos/restaurar.sh /usr/local/bin/restaurar
 COPY infra/respaldos/programador.sh /usr/local/bin/programador
@@ -18,7 +21,8 @@ RUN chmod 755 /usr/local/bin/respaldar /usr/local/bin/restaurar /usr/local/bin/p
     && rclone version >/dev/null && gpg --version >/dev/null
 ENV TZ=America/Caracas \
     GNUPGHOME=/tmp/gnupg \
-    RCLONE_CONFIG=/etc/rclone.conf
+    RCLONE_CONFIG=/etc/rclone.conf \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 # Sin privilegios. En docker-compose.prod.yml corre con el uid del dueño del servidor
 # (NV_UID); la restauración real se lanza como root solo para devolver los comprobantes
 # a su carpeta (infra/restaurar.sh).

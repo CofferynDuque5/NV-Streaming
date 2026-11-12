@@ -2,13 +2,17 @@
 
 import {
   CATEGORIAS_SERVICIO,
+  ETIQUETA_TIPO_PLAN,
+  esCompraUnica,
   INFO_CATEGORIA,
   INFO_MONEDA,
   type MonedaConTasa,
   type PlanPublico,
   type ProveedorPublico,
   type ServicioPublico,
+  TIPOS_PLAN,
   TIPOS_PROVEEDOR,
+  type TipoPlan,
   type TipoProveedor,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -21,6 +25,7 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { formatearMonto } from '@/lib/formato';
+import { DatosRequeridosServicio, ImagenServicio, leerDatosRequeridos } from './catalogo-servicio';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
 export const ETIQUETA_TIPO_PROVEEDOR: Record<TipoProveedor, string> = {
@@ -268,6 +273,8 @@ function FormularioServicio({
       slug: textoDe(d, 'slug') ?? '',
       descripcion: servicio ? descripcion : descripcion || undefined,
       categoria: String(d.get('categoria') ?? '') || null,
+      imagenId: String(d.get('imagenId') ?? '') || null,
+      datosRequeridos: leerDatosRequeridos(d),
       activo: marcada(d, 'activo'),
     };
     const r = servicio
@@ -351,6 +358,15 @@ function FormularioServicio({
         defaultValue={servicio?.descripcion ?? ''}
         error={campos.descripcion}
         ayuda="Se muestra en la página del servicio en la tienda."
+      />
+      <ImagenServicio
+        nombre={servicio?.nombre ?? slug}
+        inicial={servicio?.imagen ?? null}
+        error={campos.imagenId}
+      />
+      <DatosRequeridosServicio
+        iniciales={servicio?.datosRequeridos ?? []}
+        error={campos.datosRequeridos}
       />
       <Casilla
         name="activo"
@@ -524,55 +540,7 @@ function CamposPlan({
         ayuda="Una frase que el cliente verá junto al plan."
         error={campos.descripcion}
       />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Campo
-          etiqueta="Precio en USD"
-          name="precioUsd"
-          inputMode="decimal"
-          required
-          defaultValue={plan?.precioUsd}
-          placeholder="0.00"
-          error={campos.precioUsd}
-        />
-        <Campo
-          etiqueta="Costo en USD"
-          name="costoUsd"
-          inputMode="decimal"
-          defaultValue={plan?.costoUsd ?? ''}
-          placeholder="Opcional"
-          ayuda="Mínimo para revendedores."
-          error={campos.costoUsd}
-        />
-        <Campo
-          etiqueta="Duración"
-          name="duracionCantidad"
-          type="number"
-          min={1}
-          max={365}
-          required
-          defaultValue={plan?.duracionCantidad ?? 1}
-          error={campos.duracionCantidad}
-        />
-        <Selector
-          etiqueta="Unidad"
-          name="duracionUnidad"
-          defaultValue={plan?.duracionUnidad ?? 'mes'}
-          error={campos.duracionUnidad}
-        >
-          <option value="mes">Meses</option>
-          <option value="dia">Días</option>
-        </Selector>
-        <Campo
-          etiqueta="Orden"
-          name="orden"
-          type="number"
-          min={0}
-          max={999}
-          defaultValue={plan?.orden ?? 0}
-          ayuda="Menor aparece antes."
-          error={campos.orden}
-        />
-      </div>
+      <PreciosYTipoPlan plan={plan} campos={campos} />
       <Campo
         etiqueta="Referencia en el proveedor (SKU)"
         name="skuProveedor"
@@ -601,12 +569,6 @@ function CamposPlan({
           defaultChecked={plan?.visible ?? true}
         />
         <Casilla
-          name="renovable"
-          etiqueta="Renovable"
-          ayuda="Se puede renovar al vencer."
-          defaultChecked={plan?.renovable ?? true}
-        />
-        <Casilla
           name="revendible"
           etiqueta="Revendible"
           ayuda="Se puede vender a revendedores con precio mayorista."
@@ -625,9 +587,134 @@ function CamposPlan({
   );
 }
 
+/**
+ * Tipo de producto, precios y duración. Las compras únicas (recargas, paquetes,
+ * pases, tarjetas) no tienen duración ni se renuevan, así que esos campos se
+ * esconden.
+ */
+function PreciosYTipoPlan({
+  plan,
+  campos,
+}: {
+  plan?: PlanPublico | undefined;
+  campos: Record<string, string>;
+}) {
+  const [tipo, setTipo] = useState<TipoPlan>(plan?.tipo ?? 'suscripcion');
+  const unica = esCompraUnica(tipo);
+  const revendedor = plan?.precioRevendedorUsd;
+  return (
+    <>
+      <Selector
+        etiqueta="Tipo de producto"
+        name="tipo"
+        value={tipo}
+        onChange={(e) => setTipo(e.currentTarget.value as TipoPlan)}
+        ayuda={
+          unica
+            ? 'Compra única: no tiene duración ni vence. Ideal para monedas de juegos, paquetes y pases.'
+            : 'Tiene duración, vence y se puede renovar (cuentas y perfiles de streaming).'
+        }
+        error={campos.tipo}
+      >
+        {TIPOS_PLAN.map((t) => (
+          <option key={t} value={t}>
+            {ETIQUETA_TIPO_PLAN[t]}
+          </option>
+        ))}
+      </Selector>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <Campo
+          etiqueta="Precio normal (USD)"
+          name="precioUsd"
+          inputMode="decimal"
+          required
+          defaultValue={plan?.precioUsd}
+          placeholder="0.00"
+          ayuda="Lo ven los clientes."
+          error={campos.precioUsd}
+        />
+        <Campo
+          etiqueta="Precio revendedor (USD)"
+          name="precioRevendedorUsd"
+          inputMode="decimal"
+          defaultValue={revendedor && revendedor !== 'varios' ? revendedor : ''}
+          placeholder={revendedor === 'varios' ? 'Distinto por nivel' : 'Opcional'}
+          ayuda={
+            revendedor === 'varios'
+              ? 'Cada nivel tiene su precio (Revendedores → Niveles). Escribe uno para igualarlos.'
+              : 'Lo ven los revendedores al iniciar sesión. Vacío: no se vende a revendedores.'
+          }
+          error={campos.precioRevendedorUsd}
+        />
+        <Campo
+          etiqueta="Costo en USD"
+          name="costoUsd"
+          inputMode="decimal"
+          defaultValue={plan?.costoUsd ?? ''}
+          placeholder="Opcional"
+          ayuda="Lo que te cuesta. Mínimo para revendedores."
+          error={campos.costoUsd}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+        {unica ? (
+          <>
+            <input type="hidden" name="duracionCantidad" value="1" />
+            <input type="hidden" name="duracionUnidad" value="mes" />
+          </>
+        ) : (
+          <>
+            <Campo
+              etiqueta="Duración"
+              name="duracionCantidad"
+              type="number"
+              min={1}
+              max={365}
+              required
+              defaultValue={plan?.duracionCantidad ?? 1}
+              error={campos.duracionCantidad}
+            />
+            <Selector
+              etiqueta="Unidad"
+              name="duracionUnidad"
+              defaultValue={plan?.duracionUnidad ?? 'mes'}
+              error={campos.duracionUnidad}
+            >
+              <option value="mes">Meses</option>
+              <option value="dia">Días</option>
+            </Selector>
+          </>
+        )}
+        <Campo
+          etiqueta="Orden"
+          name="orden"
+          type="number"
+          min={0}
+          max={999}
+          defaultValue={plan?.orden ?? 0}
+          ayuda="Menor aparece antes."
+          error={campos.orden}
+        />
+      </div>
+      {!unica && (
+        <Casilla
+          name="renovable"
+          etiqueta="Renovable"
+          ayuda="Se puede renovar al vencer."
+          defaultChecked={plan?.renovable ?? true}
+        />
+      )}
+    </>
+  );
+}
+
 function leerPlan(d: FormData, editando: boolean) {
   const descripcion = String(d.get('descripcion') ?? '').trim();
+  const revendedor = textoDe(d, 'precioRevendedorUsd');
   return {
+    tipo: d.get('tipo') ?? 'suscripcion',
+    // Vacío al crear: no se vende a revendedores. Vacío al editar: se deja como está.
+    ...(revendedor ? { precioRevendedorUsd: revendedor } : {}),
     nombre: textoDe(d, 'nombre') ?? '',
     descripcion: editando ? descripcion : descripcion || undefined,
     precioUsd: textoDe(d, 'precioUsd') ?? '',

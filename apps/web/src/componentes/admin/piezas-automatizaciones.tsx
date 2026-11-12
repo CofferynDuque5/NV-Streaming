@@ -201,6 +201,9 @@ export function FranjaEstado({ canales }: { canales: EstadoCanales }) {
           {trabajador.ultimoLatidoEn ? (
             <>
               Último latido <HoraVenezuela iso={trabajador.ultimoLatidoEn} relativa />.
+              {trabajador.activo && trabajador.pausaMinutos
+                ? ` En modo ahorro late cada ${trabajador.pausaMinutos} min, o antes si hay trabajo.`
+                : ''}
             </>
           ) : (
             'Nunca ha dado señales de vida.'

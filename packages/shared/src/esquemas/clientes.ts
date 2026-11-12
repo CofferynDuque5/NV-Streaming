@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import {
-  correoSchema,
-  nombreSchema,
-  paginacionSchema,
-  parcialSinDefectos,
-  uuidSchema,
-} from './comunes.js';
+import { correoSchema, paginacionSchema, parcialSinDefectos, uuidSchema } from './comunes.js';
 import { MONEDA_PRINCIPAL } from '../monedas.js';
 import { monedaSchema } from './dinero.js';
 
@@ -34,8 +28,16 @@ export const telefonoSchema = z
 export const ESTADOS_CLIENTE = ['activo', 'archivado'] as const;
 export type EstadoCliente = (typeof ESTADOS_CLIENTE)[number];
 
+/** Lo llena el equipo, no el cliente: el mensaje habla del cliente. */
+const nombreClienteSchema = z
+  .string({ error: 'Escribe el nombre del cliente.' })
+  .trim()
+  .min(1, 'Escribe el nombre del cliente.')
+  .min(2, 'El nombre debe tener al menos 2 caracteres.')
+  .max(120, 'El nombre es demasiado largo.');
+
 export const clienteSchema = z.object({
-  nombre: nombreSchema,
+  nombre: nombreClienteSchema,
   correo: opcional(correoSchema),
   documento: opcional(z.string().trim().max(40, 'El documento es demasiado largo.')),
   pais: opcional(paisSchema),

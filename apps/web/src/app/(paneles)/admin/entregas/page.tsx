@@ -26,6 +26,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { ADAPTADOR_ENTREGA, ESTADO_ENTREGA, MOTIVO_ENTREGA } from '@/lib/entregas';
 import { ACCIONES_AUDITORIA, formatearFechaHora, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Entregas' };
 
@@ -126,6 +127,7 @@ export default async function Entregas({
           role="search"
           aria-label="Filtrar entregas"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-0 flex-1 basis-52">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por cliente o referencia del proveedor
@@ -399,6 +401,19 @@ function DetalleEntrega({
         <Alerta tono={e.estado === 'fallida' ? 'peligro' : 'aviso'}>{e.error}</Alerta>
       )}
       {e.error && e.estado === 'entregada' && <Alerta tono="aviso">{e.error}</Alerta>}
+      {e.datosCliente.length > 0 && (
+        <section className="grid gap-1.5 rounded-xl border border-cian/40 bg-marca-suave p-3">
+          <h3 className="text-sm font-medium">Datos que dio el cliente para la entrega</h3>
+          <dl className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[11rem_1fr]">
+            {e.datosCliente.map((d) => (
+              <div key={d.etiqueta} className="contents">
+                <dt className="text-tinta-tenue">{d.etiqueta}</dt>
+                <dd className="min-w-0 font-mono break-all select-all">{d.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
       {puedeGestionar && <AccionesEntrega entrega={e} adaptadorProveedor={adaptadorProveedor} />}
       <dl className="grid gap-x-4 gap-y-2.5 text-sm sm:grid-cols-[11rem_1fr]">
         {filas.map(([t, v]) => (

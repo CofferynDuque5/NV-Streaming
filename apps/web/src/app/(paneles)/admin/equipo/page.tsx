@@ -21,6 +21,7 @@ import { leerApi } from '@/lib/api-servidor';
 import { haceCuanto } from '@/lib/formato';
 import { leerLicencia } from '@/lib/licencia';
 import { requerirSesion } from '@/lib/sesion';
+import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Equipo y usuarios' };
 
@@ -74,6 +75,7 @@ export default async function Equipo({
           className="flex flex-wrap items-end gap-3 border-b border-borde px-5 py-4 sm:px-6"
           role="search"
         >
+          <EnvioAutomatico />
           <div className="relative min-w-52 flex-1">
             <label htmlFor="busqueda" className="sr-only">
               Buscar por nombre o correo
@@ -150,7 +152,7 @@ export default async function Equipo({
                     Último acceso
                   </th>
                   <th scope="col" className="w-10 px-3 py-3">
-                    <span className="sr-only">Detalle</span>
+                    <span className="sr-only">Abrir ficha</span>
                   </th>
                 </tr>
               </thead>
@@ -176,9 +178,15 @@ export default async function Equipo({
                     </td>
                     <td className="px-3 py-3">
                       {u.dosPasosActivo ? (
-                        <ShieldCheck className="size-4 text-exito" aria-label="Activada" />
+                        <span className="inline-flex items-center gap-1.5 text-exito">
+                          <ShieldCheck className="size-4" aria-hidden="true" />
+                          Activada
+                        </span>
                       ) : (
-                        <ShieldAlert className="size-4 text-tinta-tenue" aria-label="Sin activar" />
+                        <span className="inline-flex items-center gap-1.5 text-tinta-tenue">
+                          <ShieldAlert className="size-4" aria-hidden="true" />
+                          Sin activar
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-3 text-tinta-suave">

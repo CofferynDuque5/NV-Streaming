@@ -199,18 +199,21 @@ export function MiniaturaServicio({
   slug,
   categoria,
   nombre,
+  imagen = null,
   className = 'size-[3.375rem]',
 }: {
   slug: string;
   categoria: CategoriaServicio | null;
   nombre: string;
+  /** Logo subido del servicio (si tiene). */
+  imagen?: string | null;
   className?: string;
 }) {
-  const { arte, color } = aspectoServicio(slug, categoria);
+  const { arte, color } = aspectoServicio(slug, categoria, imagen);
   if (arte) {
     return (
       <img
-        src={`/servicios/${arte}.webp`}
+        src={arte}
         alt=""
         width={54}
         height={54}

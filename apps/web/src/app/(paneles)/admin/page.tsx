@@ -21,6 +21,7 @@ import {
 } from '@/componentes/equipo/centro';
 import { EcosistemaNv } from '@/componentes/equipo/ecosistema';
 import { Modulos } from '@/componentes/equipo/modulos';
+import { PrimerosPasos, pasosPuestaEnMarcha } from '@/componentes/equipo/primeros-pasos';
 import { leerApi } from '@/lib/api-servidor';
 import { colaEquipo, estadoModulo, pendientesPorModulo } from '@/lib/equipo';
 import { GRUPOS_EQUIPO, modulosDe } from '@/lib/navegacion';
@@ -68,6 +69,11 @@ export default async function CentroModulos() {
   }
 
   const items = colaEquipo(centro, limitadoACartera(usuario.rol));
+  // Mientras se pone en marcha la tienda, las cifras en cero no dicen nada: se ocultan
+  // hasta que haya planes a la venta.
+  const pasos = pasosPuestaEnMarcha(centro);
+  const enMarcha =
+    pasos.length >= 3 && pasos.some((p) => !p.hecho) && centro.modulos.catalogo?.planes === 0;
   const pendientes = pendientesPorModulo(items);
   const modulos = modulosDe(permisos).map((m) => ({
     clave: m.clave,
@@ -84,11 +90,12 @@ export default async function CentroModulos() {
     <>
       <CabeceraCentro nombre={nombre} rol={rol} />
       <AvisosCentro centro={centro} puede={puede} />
+      <PrimerosPasos centro={centro} />
       <ParaAtender centro={centro} items={items} />
-      {metricas && <EsteMes m={metricas} />}
+      {metricas && !enMarcha && <EsteMes m={metricas} />}
       <Modulos modulos={modulos} grupos={GRUPOS_EQUIPO} />
       <EcosistemaNv />
-      {metricas && (
+      {metricas && !enMarcha && (
         <div className="grid gap-5.5 min-[68.75rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
           <Proximos
             suscripciones={metricas.proximosVencimientos}
@@ -98,7 +105,7 @@ export default async function CentroModulos() {
         </div>
       )}
       {actividad && <Actividad registros={actividad} />}
-      <EstadoSistema centro={centro} />
+      <EstadoSistema centro={centro} puede={puede} />
     </>
   );
 }

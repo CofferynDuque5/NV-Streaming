@@ -1,7 +1,7 @@
 'use client';
 
-import type { PerfilDelCliente, PerfilRevelado } from '@nv/shared';
-import { Eye, EyeOff } from 'lucide-react';
+import type { CodigoDelCliente, PerfilDelCliente, PerfilRevelado } from '@nv/shared';
+import { ExternalLink, Eye, EyeOff, MailSearch } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
@@ -19,6 +19,81 @@ function Dato({ etiqueta, valor, copiar }: { etiqueta: string; valor: string; co
         <b className="font-mono text-[1.0625rem] break-all select-all">{valor}</b>
       </div>
       <BotonCopiar texto={valor} etiqueta={copiar} />
+    </div>
+  );
+}
+
+const TEXTO_ENLACE = {
+  hogar: 'Sí, fui yo: actualizar el Hogar',
+  verificar: 'Abrir el enlace de verificación',
+  acceso: 'Abrir el enlace de acceso',
+} as const;
+
+/** El último código o enlace que llegó al correo de la cuenta (Netflix, Disney+…). */
+function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [resultado, setResultado] = useState<{ codigo: CodigoDelCliente | null } | null>(null);
+
+  async function pedir() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<{ codigo: CodigoDelCliente | null }>(
+      'POST',
+      `/mi/perfiles/${suscripcionId}/codigo`,
+      {},
+    );
+    setCargando(false);
+    if (!r.ok) return setError(r.error);
+    setResultado(r.datos);
+  }
+
+  const c = resultado?.codigo;
+  return (
+    <div className="grid gap-2.5 border-t border-borde pt-3">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Boton
+          variante="secundario"
+          tamano="sm"
+          cargando={cargando}
+          icono={<MailSearch className="size-3.5" aria-hidden="true" />}
+          onClick={() => void pedir()}
+        >
+          {resultado ? 'Buscar otra vez' : 'Ver mi código de acceso'}
+        </Boton>
+        <span className="text-[0.8rem] text-tinta-tenue">
+          Pídelo primero en la app (por ejemplo «Enviar código» o «Actualizar Hogar»).
+        </span>
+      </div>
+      {error && <MensajeError error={error} />}
+      <div aria-live="polite">
+        {resultado &&
+          (c ? (
+            <div className="grid gap-2">
+              {c.codigo && <Dato etiqueta="Código" valor={c.codigo} copiar="el código" />}
+              {c.enlace && (
+                <a
+                  href={c.enlace.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex items-center gap-2 justify-self-start rounded-[0.875rem] border border-cian bg-cian/[0.08] px-3.5 py-2 text-sm font-semibold hover:bg-cian/[0.14]"
+                >
+                  <ExternalLink className="size-4" aria-hidden="true" />
+                  {TEXTO_ENLACE[c.enlace.tipo]}
+                </a>
+              )}
+              <p className="text-xs text-tinta-tenue">
+                Llegó {new Date(c.recibidoEn).toLocaleTimeString('es-VE', { timeStyle: 'short' })}.
+                Úsalo enseguida: los códigos vencen en pocos minutos.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-tinta-suave">
+              No llegó ningún código en los últimos 30 minutos. Pídelo en la app, espera un minuto y
+              vuelve a buscar.
+            </p>
+          ))}
+      </div>
     </div>
   );
 }
@@ -178,6 +253,9 @@ export function TarjetaPerfilCliente({
         />
       </div>
       {cuerpo}
+      {perfil.disponible && perfil.pideCodigos && (
+        <PedirCodigo suscripcionId={perfil.suscripcionId} />
+      )}
     </article>
   );
 }

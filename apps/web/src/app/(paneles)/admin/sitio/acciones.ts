@@ -15,3 +15,14 @@ export async function refrescarSitio(): Promise<boolean> {
   updateTag(ETIQUETA_SITIO);
   return true;
 }
+
+/**
+ * Tras cambiar el catálogo (servicios, planes, precios), la tienda lo muestra en
+ * la siguiente visita en vez de esperar a que caduque su copia en caché.
+ */
+export async function refrescarTienda(): Promise<boolean> {
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.pendiente || !sesion.permisos.includes('catalogo.gestionar')) return false;
+  updateTag(ETIQUETA_SITIO);
+  return true;
+}

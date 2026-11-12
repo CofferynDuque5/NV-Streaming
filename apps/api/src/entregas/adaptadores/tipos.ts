@@ -44,6 +44,8 @@ export interface ContextoEntrega {
   plan: { id: string; nombre: string; skuProveedor: string | null; servicio: string };
   /** Solo el id de NV y, si el proveedor lo pide en su configuración, el correo. */
   cliente: { id: string; correo: string | null };
+  /** Datos que escribió el cliente al comprar (ID de jugador, servidor…): {clave: valor}. */
+  datosCliente: Record<string, string>;
   /** Clave de firma descifrada (solo webhook). */
   secreto: string | null;
   motivoRevocacion?: string;

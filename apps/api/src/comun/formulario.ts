@@ -14,13 +14,18 @@ export interface Formulario {
 export async function leerFormulario(
   peticion: FastifyRequest,
   campoArchivo: string,
+  /** Tope propio de esta ruta, si es distinto del general (p. ej. un ZIP de imágenes). */
+  maxBytesArchivo?: number,
 ): Promise<Formulario> {
   if (!peticion.isMultipart()) {
     throw new ErrorApp(415, 'TIPO_NO_ADMITIDO', 'Envía el formulario como multipart/form-data.');
   }
   const campos: Record<string, string> = {};
   let archivo: ArchivoRecibido | null = null;
-  for await (const parte of peticion.parts()) {
+  const partes = maxBytesArchivo
+    ? peticion.parts({ limits: { fileSize: maxBytesArchivo } })
+    : peticion.parts();
+  for await (const parte of partes) {
     if (parte.type === 'file') {
       const buffer = await parte.toBuffer();
       if (parte.fieldname !== campoArchivo || archivo) continue;

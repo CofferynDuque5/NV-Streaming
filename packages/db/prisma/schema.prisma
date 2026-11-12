@@ -393,6 +393,16 @@ enum UnidadDuracion {
 }
 
 /// Universo del servicio en la tienda (nombres y colores en `CATEGORIAS_SERVICIO` de @nv/shared).
+/// Qué se vende en un plan. Solo «suscripcion» tiene duración, vence y se renueva;
+/// el resto son compras únicas (monedas de un juego, paquetes, pases, tarjetas).
+enum TipoPlan {
+  suscripcion
+  recarga
+  paquete
+  pase
+  tarjeta
+}
+
 enum CategoriaServicio {
   streaming
   musica
@@ -427,21 +437,27 @@ model Proveedor {
 }
 
 model Servicio {
-  id            String             @id @default(uuid()) @db.Uuid
-  proveedorId   String             @map("proveedor_id") @db.Uuid
-  nombre        String             @db.VarChar(80)
-  slug          String             @unique @db.VarChar(80)
-  descripcion   String?            @db.VarChar(1000)
+  id              String             @id @default(uuid()) @db.Uuid
+  proveedorId     String             @map("proveedor_id") @db.Uuid
+  nombre          String             @db.VarChar(80)
+  slug            String             @unique @db.VarChar(80)
+  descripcion     String?            @db.VarChar(1000)
   /// Universo en el que aparece en la tienda. Sin categoría solo sale en «Todo».
-  categoria     CategoriaServicio?
-  activo        Boolean            @default(true)
-  creadoEn      DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  categoria       CategoriaServicio?
+  /// Logo o imagen subida a la biblioteca del sitio; sin ella se usa la tarjeta de la marca o un ícono.
+  imagenId        String?            @map("imagen_id") @db.Uuid
+  /// Datos que el cliente escribe al comprar (ID de jugador, servidor…): [{clave, etiqueta, ayuda, obligatorio}].
+  datosRequeridos Json               @default("[]") @map("datos_requeridos")
+  activo          Boolean            @default(true)
+  creadoEn        DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn   DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  proveedor Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  planes    Plan[]
-  alias     AliasServicio[]
-  cuentas   CuentaServicio[]
+  proveedor     Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  imagen        Medio?           @relation(fields: [imagenId], references: [id], onDelete: SetNull)
+  planes        Plan[]
+  alias         AliasServicio[]
+  cuentas       CuentaServicio[]
+  asuntosCodigo AsuntoCodigo[]
 
   @@map("servicios")
 }
@@ -468,6 +484,7 @@ model Plan {
   descripcion      String?        @db.VarChar(1000)
   /// Precio base. El resto de monedas se calcula con la tasa vigente salvo precio fijo.
   precioUsd        Decimal        @map("precio_usd") @db.Decimal(14, 2)
+  tipo             TipoPlan       @default(suscripcion)
   duracionCantidad Int            @map("duracion_cantidad")
   duracionUnidad   UnidadDuracion @map("duracion_unidad")
   beneficios       String[]       @default([])
@@ -496,9 +513,41 @@ model Plan {
   entregas          Entrega[]
   lotesCodigos      LoteCodigos[]
   codigos           CodigoInventario[]
+  combos            ComboPlan[]
 
   @@index([activo, visible, orden])
   @@map("planes")
+}
+
+/// Varios planes que se venden juntos a un precio especial (p. ej. Netflix + Spotify).
+/// El descuento se aplica en el carrito cuando están todos sus planes.
+model Combo {
+  id            String   @id @default(uuid()) @db.Uuid
+  nombre        String   @unique @db.VarChar(80)
+  descripcion   String?  @db.VarChar(200)
+  /// Precio del combo completo; el resto de monedas se calcula con la tasa vigente.
+  precioUsd     Decimal  @map("precio_usd") @db.Decimal(14, 2)
+  activo        Boolean  @default(true)
+  orden         Int      @default(0)
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  planes ComboPlan[]
+
+  @@index([activo, orden])
+  @@map("combos")
+}
+
+model ComboPlan {
+  comboId String @map("combo_id") @db.Uuid
+  planId  String @map("plan_id") @db.Uuid
+
+  combo Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@id([comboId, planId])
+  @@index([planId])
+  @@map("combo_planes")
 }
 
 /// Precio fijado a mano en una moneda: ignora la tasa de cambio.
@@ -574,6 +623,8 @@ model Suscripcion {
   segundosRestantes  Int?              @map("segundos_restantes")
   /// El cliente pidió cancelar: seguirá activa hasta `venceEn` y no se renovará.
   cancelarAlVencer   Boolean           @default(false) @map("cancelar_al_vencer")
+  /// Datos que pidió el servicio al comprar (ID de jugador, servidor…): {clave: valor}.
+  datosCliente       Json?             @map("datos_cliente")
   /// Método autorizado con el que se cobra sola al vencer. Nulo = pago manual.
   metodoAutorizadoId String?           @map("metodo_autorizado_id") @db.Uuid
   canceladaEn        DateTime?         @map("cancelada_en") @db.Timestamptz(3)
@@ -634,31 +685,33 @@ enum ConceptoFactura {
 }
 
 model Factura {
-  id              String          @id @default(uuid()) @db.Uuid
+  id                String          @id @default(uuid()) @db.Uuid
   /// Correlativo que genera la base de datos. Se muestra como NV-000123.
-  numero          Int             @unique @default(autoincrement())
-  clienteId       String          @map("cliente_id") @db.Uuid
-  suscripcionId   String?         @map("suscripcion_id") @db.Uuid
+  numero            Int             @unique @default(autoincrement())
+  clienteId         String          @map("cliente_id") @db.Uuid
+  suscripcionId     String?         @map("suscripcion_id") @db.Uuid
   /// Pedido del carrito al que pertenece (una factura por plan).
-  pedidoId        String?         @map("pedido_id") @db.Uuid
-  concepto        ConceptoFactura
-  estado          EstadoFactura   @default(emitida)
-  moneda          Moneda
-  subtotal        Decimal         @db.Decimal(14, 2)
-  descuento       Decimal         @default(0) @db.Decimal(14, 2)
-  total           Decimal         @db.Decimal(14, 2)
+  pedidoId          String?         @map("pedido_id") @db.Uuid
+  concepto          ConceptoFactura
+  estado            EstadoFactura   @default(emitida)
+  moneda            Moneda
+  subtotal          Decimal         @db.Decimal(14, 2)
+  descuento         Decimal         @default(0) @db.Decimal(14, 2)
+  total             Decimal         @db.Decimal(14, 2)
   /// Unidades de `moneda` por 1 USD al emitir o recotizar.
-  tasa            Decimal         @db.Decimal(18, 6)
-  totalUsd        Decimal         @map("total_usd") @db.Decimal(14, 2)
-  cuponId         String?         @map("cupon_id") @db.Uuid
-  venceEn         DateTime        @map("vence_en") @db.Timestamptz(3)
-  pagadaEn        DateTime?       @map("pagada_en") @db.Timestamptz(3)
-  anuladaEn       DateTime?       @map("anulada_en") @db.Timestamptz(3)
-  motivoAnulacion String?         @map("motivo_anulacion") @db.VarChar(500)
-  anuladaPorId    String?         @map("anulada_por_id") @db.Uuid
-  creadoPorId     String?         @map("creado_por_id") @db.Uuid
-  creadoEn        DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  tasa              Decimal         @db.Decimal(18, 6)
+  totalUsd          Decimal         @map("total_usd") @db.Decimal(14, 2)
+  cuponId           String?         @map("cupon_id") @db.Uuid
+  /// Parte del descuento que viene de un combo, en USD (se mantiene al recotizar).
+  descuentoComboUsd Decimal?        @map("descuento_combo_usd") @db.Decimal(14, 2)
+  venceEn           DateTime        @map("vence_en") @db.Timestamptz(3)
+  pagadaEn          DateTime?       @map("pagada_en") @db.Timestamptz(3)
+  anuladaEn         DateTime?       @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion   String?         @map("motivo_anulacion") @db.VarChar(500)
+  anuladaPorId      String?         @map("anulada_por_id") @db.Uuid
+  creadoPorId       String?         @map("creado_por_id") @db.Uuid
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn     DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   suscripcion          Suscripcion?          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
@@ -1154,8 +1207,9 @@ model Medio {
   subidoPorId      String?  @map("subido_por_id") @db.Uuid
   creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  archivo   Archivo  @relation(fields: [archivoId], references: [id], onDelete: Restrict)
-  subidoPor Usuario? @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  archivo   Archivo    @relation(fields: [archivoId], references: [id], onDelete: Restrict)
+  subidoPor Usuario?   @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  servicios Servicio[]
 
   @@map("medios")
 }
@@ -2032,6 +2086,8 @@ model PerfilCuenta {
   /// Cifrado (contexto "perfil:<id>:pin").
   pinCifrado    String?      @map("pin_cifrado") @db.VarChar(500)
   estado        EstadoPerfil @default(libre)
+  /// Nota corta del perfil («TV de la sala»). Sin claves.
+  nota          String?      @db.VarChar(120)
   suscripcionId String?      @unique @map("suscripcion_id") @db.Uuid
   asignadoEn    DateTime?    @map("asignado_en") @db.Timestamptz(3)
   creadoEn      DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
@@ -2082,4 +2138,59 @@ model RegistroGestor {
   @@unique([tipo, origenId, entidad])
   @@index([loteId])
   @@map("registros_gestor")
+}
+
+// ── Correos de códigos (lector IMAP) ─────────────────────────────────────────
+
+/// Buzón de correo donde llegan los códigos de las cuentas (IMAP, solo lectura).
+model BuzonCodigos {
+  id             String    @id @db.Uuid
+  nombre         String    @unique @db.VarChar(60)
+  host           String    @db.VarChar(120)
+  puerto         Int       @default(993)
+  /// TLS directo (puerto 993). Sin TLS solo para servidores internos.
+  seguro         Boolean   @default(true)
+  /// Cifrado (contexto "buzon:<id>:usuario").
+  usuarioCifrado String    @map("usuario_cifrado") @db.VarChar(1000)
+  /// Para reconocerlo en listas: «co•••@gmail.com».
+  pista          String    @db.VarChar(120)
+  /// Cifrada (contexto "buzon:<id>:clave").
+  claveCifrada   String    @map("clave_cifrada") @db.VarChar(1000)
+  carpeta        String    @default("INBOX") @db.VarChar(120)
+  activo         Boolean   @default(true)
+  probadoEn      DateTime? @map("probado_en") @db.Timestamptz(3)
+  /// Último error al conectar (sin datos sensibles); null si la última prueba salió bien.
+  ultimoError    String?   @map("ultimo_error") @db.VarChar(300)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@map("buzones_codigos")
+}
+
+/// Asunto (o parte) de los correos que traen códigos de un servicio.
+model AsuntoCodigo {
+  id         String   @id @default(uuid()) @db.Uuid
+  servicioId String   @map("servicio_id") @db.Uuid
+  asunto     String   @db.VarChar(160)
+  activo     Boolean  @default(true)
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  servicio Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+
+  @@unique([servicioId, asunto])
+  @@map("asuntos_codigo")
+}
+
+/// Registro de cada consulta de código (nunca guarda el código ni el correo).
+model ConsultaCodigo {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String?  @map("usuario_id") @db.Uuid
+  cuentaId  String?  @map("cuenta_id") @db.Uuid
+  /// encontrado | sin_resultados | error
+  resultado String   @db.VarChar(20)
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  @@index([usuarioId, creadoEn])
+  @@index([creadoEn])
+  @@map("consultas_codigo")
 }

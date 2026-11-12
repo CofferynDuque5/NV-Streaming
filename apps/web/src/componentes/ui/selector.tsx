@@ -36,7 +36,7 @@ export function Selector({ etiqueta, error, ayuda, className, children, ...resto
         </p>
       )}
       {error && (
-        <p id={`${id}-error`} className="text-xs font-medium text-peligro">
+        <p id={`${id}-error`} role="alert" className="text-xs font-medium text-peligro">
           {error}
         </p>
       )}
@@ -75,7 +75,7 @@ export function AreaTexto({ etiqueta, error, ayuda, className, rows = 4, ...rest
         </p>
       )}
       {error && (
-        <p id={`${id}-error`} className="text-xs font-medium text-peligro">
+        <p id={`${id}-error`} role="alert" className="text-xs font-medium text-peligro">
           {error}
         </p>
       )}

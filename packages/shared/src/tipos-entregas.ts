@@ -49,6 +49,8 @@ export interface EventoEntrega {
 
 export interface EntregaDetalle extends EntregaResumen {
   instrucciones: string | null;
+  /** Lo que escribió el cliente al comprar (ID de jugador, servidor…). */
+  datosCliente: { etiqueta: string; valor: string }[];
   motivoAnulacion: string | null;
   completadaPor: Referencia | null;
   periodoInicio: string | null;

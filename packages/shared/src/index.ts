@@ -38,6 +38,8 @@ export * from './esquemas/caja.js';
 export * from './tipos-caja.js';
 export * from './esquemas/cuentas.js';
 export * from './tipos-cuentas.js';
+export * from './esquemas/codigos.js';
+export * from './tipos-codigos.js';
 export * from './importar-cuentas.js';
 export * from './importar-gestor.js';
 export * from './cookies.js';

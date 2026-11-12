@@ -2,8 +2,8 @@
 
 import clsx from 'clsx';
 import type { LucideIcon } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { EnlaceAlPasar } from '@/componentes/panel/enlace-al-pasar';
 
 export interface Pestana {
   href: string;
@@ -28,7 +28,7 @@ export function BarraInferior({ pestanas, raiz }: { pestanas: Pestana[]; raiz: s
         const activa =
           !href.includes('#') && (href === raiz ? ruta === href : ruta.startsWith(href));
         return (
-          <Link
+          <EnlaceAlPasar
             key={href}
             href={href}
             aria-current={activa ? 'page' : undefined}
@@ -45,7 +45,7 @@ export function BarraInferior({ pestanas, raiz }: { pestanas: Pestana[]; raiz: s
                 <span className="sr-only"> {insignia.que[insignia.n === 1 ? 0 : 1]}</span>
               </em>
             )}
-          </Link>
+          </EnlaceAlPasar>
         );
       })}
     </nav>
