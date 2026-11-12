@@ -1,5 +1,6 @@
 import {
   BLOQUES_INICIO,
+  type CatalogoPublico,
   INFO_CATEGORIA,
   planMasBarato,
   REGLAS_COBRO,
@@ -10,14 +11,14 @@ import { Globe, Headset, type LucideIcon, Plus, Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { CSSProperties } from 'react';
+import { type CSSProperties, cache } from 'react';
 import { ArteServicio } from '@/componentes/tienda/arte';
 import { AvisoMayorista } from '@/componentes/tienda/aviso-mayorista';
 import { Carril } from '@/componentes/tienda/deslizables';
 import { CompartirEnlace, DetalleServicio, type SaldoDetalle } from '@/componentes/tienda/detalle';
 import { Migas } from '@/componentes/tienda/migas';
 import { TarjetaServicio } from '@/componentes/tienda/tarjeta-servicio';
-import { leerPaginaPublicada } from '@/lib/sitio';
+import { leerCatalogo, leerPaginaPublicada } from '@/lib/sitio';
 import {
   catalogoTienda,
   leerTemaPublico,
@@ -32,12 +33,18 @@ async function servicioDe(slug: string): Promise<{
   item: ServicioTienda;
   todos: ServicioTienda[];
 } | null> {
-  const catalogo = await catalogoTienda();
-  if (!catalogo) return null;
-  const todos = serviciosTienda(catalogo);
-  const item = todos.find((s) => s.servicio.slug === slug);
-  return item ? { item, todos } : null;
+  const buscar = (catalogo: CatalogoPublico | null) => {
+    if (!catalogo) return null;
+    const todos = serviciosTienda(catalogo);
+    const item = todos.find((s) => s.servicio.slug === slug);
+    return item ? { item, todos } : null;
+  };
+  // Un servicio recién creado aún no está en la copia en caché: se lee de nuevo sin ella.
+  return buscar(await catalogoTienda()) ?? (await catalogoFresco().then(buscar));
 }
+
+/** Catálogo sin caché, una sola vez por petición (lo usan la página y sus metadatos). */
+const catalogoFresco = cache(() => leerCatalogo(true));
 
 export async function generateMetadata({
   params,

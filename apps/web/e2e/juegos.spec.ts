@@ -12,7 +12,8 @@ test.beforeAll(() => {
       '[{"clave":"id-de-jugador","etiqueta":"ID de jugador","ayuda":"Lo ves en tu perfil","obligatorio":true,"tipo":"numero","opciones":[],"largo":12},
         {"clave":"zona","etiqueta":"Zona","ayuda":null,"obligatorio":true,"tipo":"numero","opciones":[],"largo":6}]'::jsonb,
       now()
-    FROM proveedores ORDER BY creado_en LIMIT 1;
+    FROM proveedores ORDER BY creado_en LIMIT 1
+    ON CONFLICT (slug) DO NOTHING;
     INSERT INTO planes (id, servicio_id, nombre, precio_usd, tipo, duracion_cantidad, duracion_unidad, renovable, orden, actualizado_en)
     SELECT gen_random_uuid(), s.id, p.nombre, p.precio::numeric, p.tipo::"TipoPlan", 1, 'mes', false, p.orden, now()
     FROM servicios s, (VALUES
@@ -21,7 +22,8 @@ test.beforeAll(() => {
       ('Pase semanal', '1.90', 'pase', 3),
       ('Caja de skins', '3.50', 'suministro', 4)
     ) AS p(nombre, precio, tipo, orden)
-    WHERE s.slug = 'arena-prueba';
+    WHERE s.slug = 'arena-prueba'
+      AND NOT EXISTS (SELECT 1 FROM planes x WHERE x.servicio_id = s.id);
   `);
 });
 
