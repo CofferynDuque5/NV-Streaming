@@ -512,6 +512,25 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
     expect((final.getTime() - Date.now()) / DIA).toBeGreaterThan(148);
   });
 
+  it('vencimientos agrupa lo vencido, lo de hoy, mañana y la semana', async () => {
+    const e = await escenario();
+    const [a, b, c, d] = [await activa(e), await activa(e), await activa(e), await activa(e)];
+    const ahora = Date.now();
+    const poner = (id: string, data: { estado?: 'en_gracia'; venceEn: Date }) =>
+      ctx.prisma.suscripcion.update({ where: { id }, data });
+    await poner(a, { estado: 'en_gracia', venceEn: new Date(ahora - 3 * DIA) });
+    await poner(b, { venceEn: new Date(ahora + 60_000) });
+    await poner(c, { venceEn: new Date(ahora + 4 * DIA) });
+    await poner(d, { venceEn: new Date(ahora + 40 * DIA) });
+    const v = (await e.operador.get('/suscripciones/vencimientos')).cuerpo;
+    const ids = (l: { id: string }[]) => l.map((s) => s.id);
+    expect(ids(v.vencidas)).toEqual([a]);
+    expect([...ids(v.hoy), ...ids(v.manana)]).toContain(b);
+    expect(ids(v.semana)).toEqual([c]);
+    expect(JSON.stringify(v)).not.toContain(d);
+    expect((await e.cliente.get('/suscripciones/vencimientos')).estado).toBe(403);
+  });
+
   it('pausar guarda el tiempo restante y reanudar lo devuelve; el cliente no puede pausar', async () => {
     const e = await escenario();
     const id = await activa(e);

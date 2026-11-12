@@ -393,6 +393,14 @@ export function menuEquipo(permisos: readonly Permiso[]): {
 /** Páginas de dentro de los módulos que también se encuentran en el buscador. */
 const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
   {
+    etiqueta: 'Vencimientos y cortes',
+    href: '/admin/suscripciones/vencimientos',
+    icono: 'suscripciones',
+    detalle: 'Suscripciones',
+    claves: 'vencen hoy manana cortes gracia renovar',
+    permiso: 'suscripciones.ver',
+  },
+  {
     etiqueta: 'Leer pedidos pegados',
     href: '/admin/suscripciones/leer',
     icono: 'suscripciones',

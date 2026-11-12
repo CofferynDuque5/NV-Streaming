@@ -52,15 +52,21 @@ export default async function Suscripciones({
             : 'Los servicios contratados por cada cliente, con su estado, vencimiento y factura pendiente.'
         }
         acciones={
-          sesion.permisos.includes('suscripciones.crear') && (
-            <BotonEnlace
-              href="/admin/suscripciones/leer"
-              title="Pega el mensaje de WhatsApp de un cliente y te proponemos las suscripciones"
-            >
-              <Wand2 className="size-4" aria-hidden="true" />
-              Crear desde un mensaje
+          <>
+            <BotonEnlace href="/admin/suscripciones/vencimientos" variante="secundario">
+              <CalendarClock className="size-4" aria-hidden="true" />
+              Vencimientos y cortes
             </BotonEnlace>
-          )
+            {sesion.permisos.includes('suscripciones.crear') && (
+              <BotonEnlace
+                href="/admin/suscripciones/leer"
+                title="Pega el mensaje de WhatsApp de un cliente y te proponemos las suscripciones"
+              >
+                <Wand2 className="size-4" aria-hidden="true" />
+                Crear desde un mensaje
+              </BotonEnlace>
+            )}
+          </>
         }
       />
 

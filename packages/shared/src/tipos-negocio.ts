@@ -133,6 +133,16 @@ export interface PlanPublico {
   precios: PreciosPorMoneda;
 }
 
+/** Vencimientos y cortes del equipo, por día de Caracas. */
+export interface VencimientosEquipo {
+  /** En gracia, suspendidas o vencidas hace menos de 30 días: hay que renovar o cortar. */
+  vencidas: SuscripcionPublica[];
+  hoy: SuscripcionPublica[];
+  manana: SuscripcionPublica[];
+  /** Del pasado mañana a 7 días. */
+  semana: SuscripcionPublica[];
+}
+
 export interface SuscripcionPublica {
   id: string;
   cliente: Referencia;

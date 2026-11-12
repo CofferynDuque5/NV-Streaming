@@ -17,6 +17,7 @@ import {
   REGLAS_COBRO,
   type SuscripcionDetalle,
   type SuscripcionPublica,
+  type VencimientosEquipo,
   tienePermiso,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -37,6 +38,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { type Dec, sumarDuracion } from '../dinero/dinero.js';
+import { inicioDiaCaracas } from '../automatizaciones/horario.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
@@ -44,6 +46,8 @@ import { exigirGestionDelCliente } from './canal-revendedor.js';
 
 type Tx = Prisma.TransactionClient;
 const DIA_MS = 24 * 3600_000;
+/** Tope por grupo en Vencimientos (la lista completa está en Suscripciones). */
+const MAX_VENCIMIENTOS = 300;
 /** Llave del bloqueo que evita dos pasadas de vencimientos a la vez. */
 const BLOQUEO_VENCIMIENTOS = 7_411_002;
 
@@ -107,6 +111,35 @@ export class SuscripcionesService {
       pagina: filtro.pagina,
       porPagina: filtro.porPagina,
     };
+  }
+
+  /** Lo que vence hoy, mañana y esta semana, y lo vencido sin resolver (día de Caracas). */
+  async vencimientos(auth: ContextoAuth, ahora = new Date()): Promise<VencimientosEquipo> {
+    const cliente = alcanceClientes(auth);
+    const dia = (n: number) => inicioDiaCaracas(ahora, n);
+    const lista = (where: Prisma.SuscripcionWhereInput) =>
+      this.prisma.suscripcion
+        .findMany({
+          where: { cliente, ...where },
+          include: INCLUIR_SUSCRIPCION,
+          orderBy: [{ venceEn: 'asc' }, { id: 'asc' }],
+          take: MAX_VENCIMIENTOS,
+        })
+        .then((filas) => filas.map(suscripcionPublica));
+    const activas = (desde: Date, hasta: Date) =>
+      lista({ estado: { in: ['activa', 'en_gracia'] }, venceEn: { gte: desde, lt: hasta } });
+    const [vencidas, hoy, manana, semana] = await Promise.all([
+      lista({
+        OR: [
+          { estado: { in: ['en_gracia', 'suspendida'] }, venceEn: { lt: dia(0) } },
+          { estado: 'vencida', venceEn: { gte: new Date(ahora.getTime() - 30 * DIA_MS) } },
+        ],
+      }),
+      activas(dia(0), dia(1)),
+      activas(dia(1), dia(2)),
+      activas(dia(2), dia(8)),
+    ]);
+    return { vencidas, hoy, manana, semana };
   }
 
   async obtener(auth: ContextoAuth, id: string): Promise<SuscripcionDetalle> {

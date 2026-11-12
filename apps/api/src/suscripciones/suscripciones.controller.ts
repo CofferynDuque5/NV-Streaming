@@ -70,6 +70,12 @@ export class SuscripcionesController {
     return this.suscripciones.cotizar(auth, cuerpo);
   }
 
+  @Get('vencimientos')
+  @RequierePermiso('suscripciones.ver')
+  vencimientos(@Auth() auth: ContextoAuth) {
+    return this.suscripciones.vencimientos(auth);
+  }
+
   @Get(':id')
   @RequierePermiso('suscripciones.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
