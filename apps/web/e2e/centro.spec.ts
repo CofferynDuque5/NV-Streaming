@@ -88,6 +88,25 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
     'aria-current',
     'page',
   );
+  // Los grupos del menú se pliegan y se recuerdan.
+  await menu.getByRole('button', { name: 'Tienda' }).click();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeHidden();
+  await page.reload();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeHidden();
+  await menu.getByRole('button', { name: 'Tienda' }).click();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeVisible();
+
+  // Buscador del panel (Ctrl K): módulos sin tildes y clientes por correo.
+  await page.keyboard.press('Control+k');
+  const buscador = page.getByRole('combobox', { name: 'Buscar en todo el panel' });
+  await expect(buscador).toBeFocused();
+  await buscador.fill('codigos');
+  await expect(page.getByRole('option', { name: /Correos de códigos/ })).toBeVisible();
+  await buscador.fill('cliente@nv.test');
+  await expect(page.getByRole('option', { name: /cliente@nv\.test/ })).toBeVisible();
+  await buscador.fill('cobros');
+  await buscador.press('Enter');
+  await expect(page).toHaveURL(/\/admin\/cobros$/);
 });
 
 test('operación: sus 15 módulos, sin auditoría ni actividad', async ({ page }) => {

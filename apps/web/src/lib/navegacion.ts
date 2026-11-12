@@ -389,3 +389,70 @@ export function menuEquipo(permisos: readonly Permiso[]): {
     titulos: [null, ...grupos.map((g) => g.titulo), null],
   };
 }
+
+/** Páginas de dentro de los módulos que también se encuentran en el buscador. */
+const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
+  {
+    etiqueta: 'Leer pedidos pegados',
+    href: '/admin/suscripciones/leer',
+    icono: 'suscripciones',
+    detalle: 'Suscripciones',
+    claves: 'whatsapp texto pedido rapido',
+    permiso: 'suscripciones.crear',
+  },
+  {
+    etiqueta: 'Importar o verificar cuentas (TXT/CSV)',
+    href: '/admin/cuentas/importar',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'csv txt verificar comparar',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Importar desde el Gestor',
+    href: '/admin/cuentas/gestor',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'gestor json migrar',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Licencia del panel',
+    href: '/admin/licencia',
+    icono: 'equipo',
+    detalle: 'Sistema',
+    claves: 'plan prueba',
+    permiso: 'usuarios.ver',
+  },
+];
+
+interface DestinoBuscadorBase {
+  etiqueta: string;
+  href: string;
+  icono: IconoCuenta;
+  detalle: string;
+  claves?: string;
+}
+
+/** Todo lo que la persona puede abrir desde el buscador del panel (Ctrl K). */
+export function destinosBuscador(permisos: readonly Permiso[]): DestinoBuscadorBase[] {
+  const nombres = Object.fromEntries(GRUPOS_EQUIPO);
+  return [
+    { etiqueta: 'Centro de módulos', href: '/admin', icono: 'centro', detalle: 'Inicio' },
+    ...modulosDe(permisos).map((m) => ({
+      etiqueta: m.nombre,
+      href: m.href,
+      icono: m.clave,
+      detalle: nombres[m.grupo] ?? '',
+      claves: m.descripcion,
+    })),
+    ...PAGINAS_BUSCADOR.filter((p) => permisos.includes(p.permiso)).map((p) => ({
+      etiqueta: p.etiqueta,
+      href: p.href,
+      icono: p.icono,
+      detalle: p.detalle,
+      ...(p.claves ? { claves: p.claves } : {}),
+    })),
+    { etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil', detalle: 'Tu cuenta' },
+  ];
+}
