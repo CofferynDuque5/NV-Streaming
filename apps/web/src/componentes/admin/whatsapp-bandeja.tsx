@@ -1,10 +1,12 @@
 'use client';
 
-import { Archive, ArchiveRestore, Send } from 'lucide-react';
+import type { VinculoWhatsApp } from '@nv/shared';
+import { Archive, ArchiveRestore, QrCode, Send, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
+import { llamarApi } from '@/lib/api-cliente';
 import { useAccion } from './piezas';
 
 /** Vuelve a pedir la bandeja cada cierto tiempo mientras la pestaña está a la vista. */
@@ -115,6 +117,165 @@ export function CerrarConversacion({
       {error && (
         <p className="text-xs text-peligro" role="alert">
           {error.mensaje}
+        </p>
+      )}
+    </div>
+  );
+}
+
+const PASOS_QR = [
+  'Abre WhatsApp en el teléfono del número de la empresa.',
+  'Toca Ajustes (en Android, los tres puntos) → Dispositivos vinculados → Vincular un dispositivo.',
+  'Apunta la cámara a este código.',
+];
+
+/**
+ * Vincula el número de la empresa escaneando un QR, como WhatsApp Web. Es
+ * gratis y el teléfono sigue funcionando; solo se usa para responder en Soporte.
+ */
+export function VinculoWhatsAppQr({
+  inicial,
+}: {
+  inicial: Pick<VinculoWhatsApp, 'estado' | 'numero'>;
+}) {
+  const router = useRouter();
+  const [vinculo, setVinculo] = useState<VinculoWhatsApp>({ ...inicial, qr: null, error: null });
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmar, setConfirmar] = useState(false);
+  const esperando = vinculo.estado === 'esperando_qr' || vinculo.estado === 'conectando';
+
+  // Mientras se espera el escaneo, se consulta el estado cada pocos segundos.
+  useEffect(() => {
+    if (!esperando) return;
+    let activo = true;
+    const t = window.setInterval(() => {
+      void llamarApi<VinculoWhatsApp>('GET', '/whatsapp/vinculo').then((r) => {
+        if (!activo || !r.ok) return;
+        setVinculo(r.datos);
+        if (r.datos.estado === 'conectado') router.refresh();
+      });
+    }, 3_000);
+    return () => {
+      activo = false;
+      window.clearInterval(t);
+    };
+  }, [esperando, router]);
+
+  async function pedir(metodo: 'POST' | 'DELETE') {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<VinculoWhatsApp>(
+      metodo,
+      '/whatsapp/vinculo',
+      metodo === 'POST' ? {} : undefined,
+    );
+    setCargando(false);
+    setConfirmar(false);
+    if (!r.ok) {
+      setError(r.error.mensaje);
+      return;
+    }
+    setVinculo(r.datos);
+    router.refresh();
+  }
+
+  if (vinculo.estado === 'conectado') {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm">
+          <span className="size-2 rounded-full bg-exito" aria-hidden="true" />
+          Conectado{vinculo.numero ? ` con ${vinculo.numero}` : ''}. Los mensajes llegan aquí y
+          puedes responder sin límite de tiempo.
+        </p>
+        {confirmar ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-tinta-suave">¿Desvincular el número?</span>
+            <Boton
+              tamano="sm"
+              variante="peligro"
+              cargando={cargando}
+              onClick={() => void pedir('DELETE')}
+            >
+              Sí, desvincular
+            </Boton>
+            <Boton tamano="sm" variante="secundario" onClick={() => setConfirmar(false)}>
+              No
+            </Boton>
+          </div>
+        ) : (
+          <Boton
+            tamano="sm"
+            variante="secundario"
+            icono={<Unlink className="size-4" />}
+            onClick={() => setConfirmar(true)}
+          >
+            Desvincular
+          </Boton>
+        )}
+        {error && (
+          <p className="w-full text-sm text-peligro" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {vinculo.qr ? (
+        <div className="flex flex-wrap items-start gap-5">
+          <img
+            src={vinculo.qr}
+            alt="Código QR para vincular WhatsApp"
+            width={220}
+            height={220}
+            className="rounded-xl bg-white p-2"
+          />
+          <ol className="grid max-w-sm list-decimal gap-1.5 pl-5 text-sm text-tinta-suave">
+            {PASOS_QR.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+            <li>Espera unos segundos: esta pantalla cambia sola al conectar.</li>
+          </ol>
+        </div>
+      ) : (
+        <p className="text-sm text-tinta-suave">
+          {vinculo.estado === 'conectando'
+            ? 'Conectando con WhatsApp…'
+            : 'Vincula el número de la empresa escaneando un código QR, como en WhatsApp Web. Es gratis, el teléfono sigue funcionando y puedes responder sin el límite de 24 h.'}
+        </p>
+      )}
+      {vinculo.error && !vinculo.qr && <p className="text-sm text-aviso">{vinculo.error}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {!esperando && (
+          <Boton
+            cargando={cargando}
+            icono={<QrCode className="size-4" />}
+            onClick={() => void pedir('POST')}
+          >
+            Vincular con código QR
+          </Boton>
+        )}
+        {vinculo.qr && (
+          <Boton
+            variante="secundario"
+            tamano="sm"
+            cargando={cargando}
+            onClick={() => void pedir('DELETE')}
+          >
+            Cancelar
+          </Boton>
+        )}
+      </div>
+      <p className="text-xs text-tinta-tenue">
+        WhatsApp no permite oficialmente esta conexión. Úsala para atender clientes, no para enviar
+        mensajes masivos: eso puede hacer que bloqueen el número.
+      </p>
+      {error && (
+        <p className="text-sm text-peligro" role="alert">
+          {error}
         </p>
       )}
     </div>

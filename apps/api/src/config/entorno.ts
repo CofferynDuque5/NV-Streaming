@@ -239,6 +239,11 @@ const EntornoSchema = z
      * entregas (y sus reintentos) cada pocos segundos.
      */
     ENTREGAS_EN_API: booleano.default(false),
+    /**
+     * Esta instancia mantiene la conexión del número de WhatsApp vinculado por QR.
+     * Solo una puede hacerlo (WhatsApp cierra la otra): la API sí, el trabajador no.
+     */
+    WHATSAPP_QR_EN_ESTE_PROCESO: booleano.default(true),
     // ── Licencia de la instalación (G8) ────────────────────────────────────────
     /**
      * Clave pública Ed25519 (SPKI DER en base64) de quien vende el sistema. Vacía = esta

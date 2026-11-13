@@ -13,6 +13,11 @@ import type { ContextoAuth } from '../comun/contexto.js';
 import { ErrorApp } from '../comun/errores.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
+import {
+  type MensajeQr,
+  type ReceptorWhatsAppQr,
+  WhatsAppQrService,
+} from './whatsapp-qr.service.js';
 
 const MAX_CONVERSACIONES = 100;
 const MAX_MENSAJES = 200;
@@ -75,19 +80,28 @@ export function textoMensajeMeta(m: MensajeMeta): { tipo: string; texto: string 
 }
 
 /**
- * Bandeja de WhatsApp: el webhook de Meta guarda lo que escriben los clientes
- * al número de la empresa y el equipo responde desde Soporte. Meta solo admite
- * texto libre dentro de las 24 h siguientes al último mensaje del cliente.
+ * Bandeja de WhatsApp: guarda lo que escriben los clientes al número de la
+ * empresa y el equipo responde desde Soporte. Llega por el número vinculado con
+ * código QR (gratis, sin límite de 24 h) o por el webhook de la Cloud API de
+ * Meta, que solo admite texto libre en las 24 h siguientes al último mensaje.
  */
 @Injectable()
-export class WhatsAppBandejaService {
+export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
   private readonly logger = new Logger('WhatsAppBandeja');
 
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(WHATSAPP) private readonly canal: CanalWhatsApp,
     @Inject(ENTORNO) private readonly entorno: Entorno,
-  ) {}
+    @Inject(WhatsAppQrService) private readonly qr: WhatsAppQrService,
+  ) {
+    this.qr.escuchar(this);
+  }
+
+  /** La Cloud API de Meta (o el modo de pruebas) puede enviar. */
+  private get canalMeta(): boolean {
+    return this.canal.listo && this.canal.proveedor !== 'desactivado';
+  }
 
   private get webhookListo(): boolean {
     return Boolean(this.entorno.WHATSAPP_VERIFICAR_TOKEN && this.entorno.WHATSAPP_SECRETO_APP);
@@ -163,18 +177,27 @@ export class WhatsAppBandejaService {
     if (typeof m.from !== 'string' || typeof m.id !== 'string') return;
     const telefono = m.from.replace(/\D/g, '').slice(0, 20);
     if (!telefono) return;
-    const waId = m.id.slice(0, 160);
-    if (await this.prisma.mensajeWhatsApp.findUnique({ where: { waId }, select: { id: true } })) {
-      return; // Meta reintenta: ya está guardado.
-    }
     const segundos = Number(m.timestamp);
     const ahora = new Date();
     const fecha =
       Number.isFinite(segundos) && segundos > 0 && segundos * 1000 <= ahora.getTime() + 60_000
         ? new Date(segundos * 1000)
         : ahora;
-    const { tipo, texto: contenido } = textoMensajeMeta(m);
-    const nombre = nombres.get(m.from) ?? null;
+    await this.entrante({
+      telefono,
+      waId: m.id.slice(0, 160),
+      ...textoMensajeMeta(m),
+      fecha,
+      nombre: nombres.get(m.from) ?? null,
+    });
+  }
+
+  /** Mensaje de un cliente (por el webhook de Meta o por el número vinculado con QR). */
+  async entrante(m: MensajeQr & { nombre: string | null }): Promise<void> {
+    const { telefono, waId, tipo, texto: contenido, fecha, nombre } = m;
+    if (await this.prisma.mensajeWhatsApp.findUnique({ where: { waId }, select: { id: true } })) {
+      return; // Reintento: ya está guardado.
+    }
     const existente = await this.prisma.conversacionWhatsApp.findUnique({
       where: { telefono },
       select: { id: true, clienteId: true },
@@ -212,12 +235,54 @@ export class WhatsAppBandejaService {
     }
   }
 
+  /**
+   * Lo que el equipo escribió desde el teléfono vinculado o WhatsApp Web: se
+   * guarda para que la conversación se vea completa. Lo enviado desde el panel
+   * ya está guardado (mismo id) y se ignora.
+   */
+  async salienteDesdeTelefono(m: MensajeQr): Promise<void> {
+    const { telefono, waId, tipo, texto: contenido, fecha } = m;
+    if (await this.prisma.mensajeWhatsApp.findUnique({ where: { waId }, select: { id: true } })) {
+      return;
+    }
+    const existente = await this.prisma.conversacionWhatsApp.findUnique({
+      where: { telefono },
+      select: { clienteId: true },
+    });
+    const clienteId = existente?.clienteId ?? (await this.clientePorTelefono(telefono));
+    const mensaje = {
+      direccion: 'saliente' as const,
+      texto: contenido,
+      tipo,
+      waId,
+      estado: 'enviado',
+      creadoEn: fecha,
+    };
+    try {
+      await this.prisma.conversacionWhatsApp.upsert({
+        where: { telefono },
+        create: { telefono, clienteId, ultimoMensajeEn: fecha, mensajes: { create: mensaje } },
+        update: { clienteId, ultimoMensajeEn: fecha, noLeidos: 0, mensajes: { create: mensaje } },
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'P2002') throw e;
+    }
+  }
+
+  /** Estado de entrega que avisa el número vinculado con QR. */
+  async estado(waId: string, estado: string): Promise<void> {
+    await this.aplicarEstado(waId, estado);
+  }
+
   private async actualizarEstado(s: { id?: unknown; status?: unknown }): Promise<void> {
     if (typeof s.id !== 'string' || typeof s.status !== 'string') return;
     if (!ESTADOS_SALIENTE.has(s.status)) return;
-    const nuevo = ESTADO_ES[s.status]!;
+    await this.aplicarEstado(s.id, ESTADO_ES[s.status]!);
+  }
+
+  private async aplicarEstado(waId: string, nuevo: string): Promise<void> {
     const mensaje = await this.prisma.mensajeWhatsApp.findUnique({
-      where: { waId: s.id.slice(0, 160) },
+      where: { waId: waId.slice(0, 160) },
       select: { id: true, estado: true, direccion: true },
     });
     if (!mensaje || mensaje.direccion !== 'saliente') return;
@@ -279,7 +344,9 @@ export class WhatsAppBandejaService {
       this.prisma.conversacionWhatsApp.count({ where: { cerrada: false, noLeidos: { gt: 0 } } }),
     ]);
     return {
-      canalListo: this.canal.listo && this.canal.proveedor !== 'desactivado',
+      canalListo: this.qr.conectado || this.canalMeta,
+      sinVentana: this.qr.conectado,
+      vinculo: this.qr.resumen(),
       proveedor: this.canal.proveedor,
       webhookListo: this.webhookListo,
       conversaciones: filas.map((c) => this.resumen(c)),
@@ -330,14 +397,16 @@ export class WhatsAppBandejaService {
       select: { id: true, telefono: true, ultimoEntranteEn: true },
     });
     if (!c) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa conversación no existe.');
-    if (!this.canal.listo || this.canal.proveedor === 'desactivado') {
+    const porQr = this.qr.conectado;
+    if (!porQr && !this.canalMeta) {
       throw new ErrorApp(
         409,
         'WHATSAPP_SIN_CONFIGURAR',
-        'WhatsApp no está configurado en el servidor: no se puede responder desde aquí.',
+        'El número de WhatsApp no está vinculado: no se puede responder desde aquí.',
       );
     }
-    if (!ventanaWhatsAppHasta(c.ultimoEntranteEn)) {
+    // Por el número vinculado con QR no hay ventana de 24 h (eso es una regla de la API de Meta).
+    if (!porQr && !ventanaWhatsAppHasta(c.ultimoEntranteEn)) {
       throw new ErrorApp(
         409,
         'VENTANA_CERRADA',
@@ -346,23 +415,27 @@ export class WhatsAppBandejaService {
     }
     let referencia: string;
     try {
-      ({ referencia } = await this.canal.enviarTexto(c.telefono, contenido));
+      ({ referencia } = await (porQr ? this.qr : this.canal).enviarTexto(c.telefono, contenido));
     } catch (e) {
       this.logger.warn(`No se pudo enviar una respuesta de WhatsApp: ${(e as Error).message}`);
       throw new ErrorApp(502, 'WHATSAPP_RECHAZO', (e as Error).message.slice(0, 300));
     }
     const ahora = new Date();
+    const waId = referencia.slice(0, 160);
     const [m] = await this.prisma.$transaction([
-      this.prisma.mensajeWhatsApp.create({
-        data: {
+      // upsert: si el aviso del propio envío llegó antes, se completa con el autor.
+      this.prisma.mensajeWhatsApp.upsert({
+        where: { waId },
+        create: {
           conversacionId: id,
           direccion: 'saliente',
           texto: contenido,
-          waId: referencia.slice(0, 160),
+          waId,
           estado: 'enviado',
           autorId: auth.usuario.id,
           creadoEn: ahora,
         },
+        update: { autorId: auth.usuario.id },
         include: { autor: { select: { id: true, nombre: true } } },
       }),
       this.prisma.conversacionWhatsApp.update({

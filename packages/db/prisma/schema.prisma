@@ -1053,6 +1053,16 @@ model MensajeWhatsApp {
   @@map("mensajes_whatsapp")
 }
 
+/// Sesión de WhatsApp vinculada por código QR (Baileys). Cada fila es una
+/// clave del estado de cifrado de WhatsApp; el valor va cifrado con CLAVE_CIFRADO.
+model SesionWhatsApp {
+  clave         String   @id @db.VarChar(200)
+  valor         String
+  actualizadoEn DateTime @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  @@map("sesion_whatsapp")
+}
+
 // ─── Fase 2: revendedores (precio mayorista con saldo prepagado) ────────────
 
 enum EstadoRevendedor {

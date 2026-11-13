@@ -46,9 +46,23 @@ export interface ConversacionWhatsAppDetalle extends ConversacionWhatsAppResumen
   mensajes: MensajeWhatsAppPublico[];
 }
 
+/** Número de la empresa vinculado por código QR, como WhatsApp Web (Baileys). */
+export interface VinculoWhatsApp {
+  estado: 'desvinculado' | 'conectando' | 'esperando_qr' | 'conectado';
+  /** Con «+», cuando está conectado. */
+  numero: string | null;
+  /** Imagen del código QR (data URL), mientras espera que lo escaneen. */
+  qr: string | null;
+  /** Por qué se cortó, si se cortó. */
+  error: string | null;
+}
+
 export interface BandejaWhatsApp {
-  /** El canal está configurado para enviar (Cloud API con token y número). */
+  /** Se puede responder desde el panel: número vinculado por QR, o Cloud API configurada. */
   canalListo: boolean;
+  /** Las respuestas salen por el número vinculado por QR: sin límite de 24 h. */
+  sinVentana: boolean;
+  vinculo: Pick<VinculoWhatsApp, 'estado' | 'numero'>;
   proveedor: 'desactivado' | 'sandbox' | 'cloud_api';
   /** El webhook tiene su token de verificación y el secreto de la app para validar la firma. */
   webhookListo: boolean;

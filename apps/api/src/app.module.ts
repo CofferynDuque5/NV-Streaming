@@ -57,6 +57,7 @@ import { TicketsController } from './soporte/tickets.controller.js';
 import { TicketsService } from './soporte/tickets.service.js';
 import { WhatsAppBandejaController } from './soporte/whatsapp-bandeja.controller.js';
 import { WhatsAppBandejaService } from './soporte/whatsapp-bandeja.service.js';
+import { WhatsAppQrService } from './soporte/whatsapp-qr.service.js';
 import { LectorController } from './lector/lector.controller.js';
 import { LectorService } from './lector/lector.service.js';
 import { SuscripcionesController } from './suscripciones/suscripciones.controller.js';
@@ -158,6 +159,7 @@ export class AppModule {
         CostosService,
         TicketsService,
         WhatsAppBandejaService,
+        WhatsAppQrService,
         MetricasService,
         CentroService,
         CajaService,
