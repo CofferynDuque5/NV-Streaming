@@ -66,9 +66,81 @@ export const listarClientesSchema = paginacionSchema.extend({
 });
 export type ListarClientesEntrada = z.infer<typeof listarClientesSchema>;
 
-export const notaSchema = z.object({
-  texto: z.string().trim().min(2, 'Escribe la nota.').max(2000, 'La nota es demasiado larga.'),
+const textoNotaSchema = z
+  .string()
+  .trim()
+  .min(2, 'Escribe la nota.')
+  .max(2000, 'La nota es demasiado larga.');
+
+export const notaSchema = z.object({ texto: textoNotaSchema });
+
+/** Qué pide la nota (como en el Gestor). */
+export const TIPOS_NOTA = [
+  'entregar',
+  'renovar',
+  'pendiente',
+  'fiado',
+  'paga_dia',
+  'no_cortar',
+  'otro',
+] as const;
+export type TipoNota = (typeof TIPOS_NOTA)[number];
+
+export const ETIQUETA_TIPO_NOTA: Record<TipoNota, string> = {
+  entregar: 'Entregar',
+  renovar: 'Renovar',
+  pendiente: 'Pendiente',
+  fiado: 'Fiado',
+  paga_dia: 'Paga el día',
+  no_cortar: 'No cortar',
+  otro: 'Otro',
+};
+
+const avisarEnSchema = z.iso
+  .datetime({ offset: true, error: 'Indica la fecha y la hora del aviso.' })
+  .nullable()
+  .optional();
+const diaPagoSchema = z.coerce
+  .number({ error: 'Indica el día de pago (1 a 31).' })
+  .int('Indica el día de pago (1 a 31).')
+  .min(1, 'Indica el día de pago (1 a 31).')
+  .max(31, 'Indica el día de pago (1 a 31).')
+  .nullable()
+  .optional();
+
+const pideDiaPago = (o: { tipo?: TipoNota; diaPago?: number | null }) =>
+  o.tipo !== 'paga_dia' || !!o.diaPago;
+const MENSAJE_DIA_PAGO = { message: 'Indica el día de pago (1 a 31).', path: ['diaPago'] };
+
+/** Nota o pendiente del equipo, de un cliente o general. */
+export const crearNotaSchema = z
+  .object({
+    texto: textoNotaSchema,
+    tipo: z.enum(TIPOS_NOTA).default('otro'),
+    clienteId: uuidSchema.nullable().optional(),
+    avisarEn: avisarEnSchema,
+    diaPago: diaPagoSchema,
+  })
+  .refine(pideDiaPago, MENSAJE_DIA_PAGO);
+export type CrearNotaEntrada = z.infer<typeof crearNotaSchema>;
+
+export const editarNotaSchema = z
+  .object({
+    texto: textoNotaSchema.optional(),
+    tipo: z.enum(TIPOS_NOTA).optional(),
+    avisarEn: avisarEnSchema,
+    diaPago: diaPagoSchema,
+    /** true la marca hecha; false la vuelve a pendiente. */
+    hecha: z.boolean().optional(),
+  })
+  .refine((o) => Object.values(o).some((v) => v !== undefined), 'No hay cambios.');
+export type EditarNotaEntrada = z.infer<typeof editarNotaSchema>;
+
+export const listarNotasSchema = z.object({
+  estado: z.enum(['pendientes', 'hechas']).default('pendientes'),
+  clienteId: uuidSchema.optional(),
 });
+export type ListarNotasEntrada = z.infer<typeof listarNotasSchema>;
 
 export const motivoSchema = z.object({
   motivo: z.string().trim().min(3, 'Indica el motivo.').max(500, 'El motivo es demasiado largo.'),

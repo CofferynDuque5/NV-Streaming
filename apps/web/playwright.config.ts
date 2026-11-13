@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec|juegos\.spec/,
+        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec|juegos\.spec|vencimientos\.spec|reposicion\.spec|gestor-dos\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)
@@ -51,6 +51,12 @@ export default defineConfig({
       name: 'centro',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /centro\.spec/,
+    },
+    // Vencimientos y reposición (Gestor): administración ya configurada por roles.spec.ts.
+    {
+      name: 'gestor',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /vencimientos\.spec|reposicion\.spec|gestor-dos\.spec/,
     },
     // Automatizaciones entra con administración y operación ya configuradas por roles.spec.ts.
     {

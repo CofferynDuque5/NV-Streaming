@@ -94,7 +94,7 @@ export function MarcoCuenta({
         pantallaCompleta={pantallaCompleta}
         barraInferior={barraInferior}
         lado={
-          <aside className="grid min-w-0 gap-3.5 cuenta:sticky cuenta:top-[5.25rem]">
+          <aside className="grid min-w-0 gap-3.5 cuenta:sticky cuenta:top-[5.25rem] cuenta:max-h-[calc(100dvh-6.25rem)] cuenta:overflow-y-auto cuenta:overscroll-contain cuenta:[scrollbar-width:thin]">
             <div className="hidden items-center gap-3 rounded-[1.25rem] border border-borde-fuerte bg-[linear-gradient(180deg,rgb(15_21_48/0.92),rgb(8_11_26/0.96))] p-3.5 cuenta:flex">
               <Avatar letras={tarjeta.letras} className="size-11 text-[1.05rem]" />
               <div className="grid min-w-0 gap-0.5">

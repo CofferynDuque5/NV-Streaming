@@ -16,6 +16,8 @@ import {
   Repeat,
   Scale,
   Settings,
+  StickyNote,
+  Trash2,
   Store,
   Tag,
   Users,
@@ -47,4 +49,6 @@ export const ICONOS_MODULO: Record<ModuloEquipo, LucideIcon> = {
   equipo: Users,
   automatizaciones: Settings,
   auditoria: History,
+  notas: StickyNote,
+  papelera: Trash2,
 };

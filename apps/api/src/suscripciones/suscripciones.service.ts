@@ -17,6 +17,7 @@ import {
   REGLAS_COBRO,
   type SuscripcionDetalle,
   type SuscripcionPublica,
+  type VencimientosEquipo,
   tienePermiso,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -37,6 +38,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
 import { type Dec, sumarDuracion } from '../dinero/dinero.js';
+import { inicioDiaCaracas } from '../automatizaciones/horario.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
@@ -44,6 +46,8 @@ import { exigirGestionDelCliente } from './canal-revendedor.js';
 
 type Tx = Prisma.TransactionClient;
 const DIA_MS = 24 * 3600_000;
+/** Tope por grupo en Vencimientos (la lista completa está en Suscripciones). */
+const MAX_VENCIMIENTOS = 300;
 /** Llave del bloqueo que evita dos pasadas de vencimientos a la vez. */
 const BLOQUEO_VENCIMIENTOS = 7_411_002;
 
@@ -107,6 +111,35 @@ export class SuscripcionesService {
       pagina: filtro.pagina,
       porPagina: filtro.porPagina,
     };
+  }
+
+  /** Lo que vence hoy, mañana y esta semana, y lo vencido sin resolver (día de Caracas). */
+  async vencimientos(auth: ContextoAuth, ahora = new Date()): Promise<VencimientosEquipo> {
+    const cliente = alcanceClientes(auth);
+    const dia = (n: number) => inicioDiaCaracas(ahora, n);
+    const lista = (where: Prisma.SuscripcionWhereInput) =>
+      this.prisma.suscripcion
+        .findMany({
+          where: { cliente, ...where },
+          include: INCLUIR_SUSCRIPCION,
+          orderBy: [{ venceEn: 'asc' }, { id: 'asc' }],
+          take: MAX_VENCIMIENTOS,
+        })
+        .then((filas) => filas.map(suscripcionPublica));
+    const activas = (desde: Date, hasta: Date) =>
+      lista({ estado: { in: ['activa', 'en_gracia'] }, venceEn: { gte: desde, lt: hasta } });
+    const [vencidas, hoy, manana, semana] = await Promise.all([
+      lista({
+        OR: [
+          { estado: { in: ['en_gracia', 'suspendida'] }, venceEn: { lt: dia(0) } },
+          { estado: 'vencida', venceEn: { gte: new Date(ahora.getTime() - 30 * DIA_MS) } },
+        ],
+      }),
+      activas(dia(0), dia(1)),
+      activas(dia(1), dia(2)),
+      activas(dia(2), dia(8)),
+    ]);
+    return { vencidas, hoy, manana, semana };
   }
 
   async obtener(auth: ContextoAuth, id: string): Promise<SuscripcionDetalle> {
@@ -337,7 +370,7 @@ export class SuscripcionesService {
   async renovar(
     auth: ContextoAuth,
     id: string,
-    moneda: Moneda | undefined,
+    e: { moneda?: Moneda | undefined; periodos?: number; desde?: 'vencimiento' | 'hoy' },
     cliente: InfoCliente,
   ): Promise<ResultadoAlta> {
     return this.prisma.$transaction(async (tx) => {
@@ -346,9 +379,10 @@ export class SuscripcionesService {
       const factura = await this.facturarRenovacion(
         tx,
         s,
-        moneda ?? s.moneda,
+        e.moneda ?? s.moneda,
         auth.usuario.id,
         cliente,
+        { periodos: e.periodos ?? 1, desdeHoy: e.desde === 'hoy' },
       );
       return {
         suscripcion: suscripcionPublica(await this.cargar(tx, id)),
@@ -372,6 +406,7 @@ export class SuscripcionesService {
     monedaFactura: Moneda,
     actorId: string | null,
     cliente?: InfoCliente,
+    opciones: { periodos: number; desdeHoy: boolean } = { periodos: 1, desdeHoy: false },
   ): Promise<Factura> {
     if (!['activa', 'en_gracia', 'suspendida', 'vencida'].includes(s.estado)) {
       throw transicionInvalida(
@@ -398,6 +433,8 @@ export class SuscripcionesService {
       moneda: monedaFactura,
       concepto: 'renovacion',
       actorId,
+      periodos: opciones.periodos,
+      desdeHoy: opciones.desdeHoy,
     });
     if (monedaFactura !== s.moneda) {
       await tx.suscripcion.update({ where: { id: s.id }, data: { moneda: monedaFactura } });
@@ -412,6 +449,8 @@ export class SuscripcionesService {
           facturaId: factura.id,
           total: factura.total.toFixed(2),
           moneda: monedaFactura,
+          ...(opciones.periodos > 1 ? { periodos: opciones.periodos } : {}),
+          ...(opciones.desdeHoy ? { desde: 'hoy' } : {}),
           ...(actorId ? {} : { automatica: true }),
         },
         ...(cliente ? { cliente } : {}),
@@ -529,9 +568,14 @@ export class SuscripcionesService {
    */
   async aplicarPago(tx: Tx, factura: Factura, actorId: string | null): Promise<void> {
     if (!factura.suscripcionId) return;
-    await this.aplicarPeriodo(tx, factura.suscripcionId, factura.concepto, actorId, {
-      facturaId: factura.id,
-    });
+    await this.aplicarPeriodo(
+      tx,
+      factura.suscripcionId,
+      factura.concepto,
+      actorId,
+      { facturaId: factura.id },
+      { periodos: factura.periodos, desdeHoy: factura.desdeHoy },
+    );
   }
 
   /**
@@ -546,6 +590,7 @@ export class SuscripcionesService {
     concepto: 'alta' | 'renovacion',
     actorId: string | null,
     datos: Prisma.InputJsonObject,
+    opciones: { periodos: number; desdeHoy: boolean } = { periodos: 1, desdeHoy: false },
   ): Promise<TipoEventoSuscripcion | null> {
     const [s] = await tx.$queryRaw<
       Suscripcion[]
@@ -556,7 +601,8 @@ export class SuscripcionesService {
       include: { plan: true },
     });
     const ahora = new Date();
-    const { duracionCantidad: n, duracionUnidad: u } = actual.plan;
+    const { duracionUnidad: u } = actual.plan;
+    const n = actual.plan.duracionCantidad * opciones.periodos;
     let tipo: TipoEventoSuscripcion;
     let data: Prisma.SuscripcionUpdateInput;
     let inicioPeriodo: Date;
@@ -569,7 +615,9 @@ export class SuscripcionesService {
       data = { estado: 'activa', inicioEn: ahora, venceEn: sumarDuracion(ahora, n, u) };
     } else if (actual.estado === 'activa' || actual.estado === 'en_gracia') {
       tipo = 'renovacion';
-      const base = actual.venceEn && actual.venceEn > ahora ? actual.venceEn : ahora;
+      // «Desde hoy»: el equipo lo elige cuando el cliente perdió días (caída, corte).
+      const base =
+        !opciones.desdeHoy && actual.venceEn && actual.venceEn > ahora ? actual.venceEn : ahora;
       inicioPeriodo = base;
       data = { estado: 'activa', venceEn: sumarDuracion(base, n, u) };
     } else if (actual.estado === 'suspendida' || actual.estado === 'vencida') {

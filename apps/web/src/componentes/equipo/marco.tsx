@@ -1,37 +1,64 @@
 import { ETIQUETAS_ROL, limitadoACartera, type SesionActual } from '@nv/shared';
 import { Globe, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { iniciales } from '@/componentes/panel/avatar';
 import { MarcoCuenta } from '@/componentes/panel/marco-cliente';
-import { MenuCuenta } from '@/componentes/panel/menu-cuenta';
 import { claseEnlaceCabecera, Sello } from '@/componentes/panel/piezas-marco';
 import { colaEquipo, pendientesPorModulo } from '@/lib/equipo';
-import { menuEquipo } from '@/lib/navegacion';
+import { destinosBuscador, menuEquipo } from '@/lib/navegacion';
 import { leerLicencia } from '@/lib/licencia';
 import { leerCentro } from '@/lib/panel-equipo';
 import { AvisoLicencia } from './aviso-licencia';
 import { BarraEquipo } from './barra';
+import { BotonBuscador, Buscador } from './buscador';
+import { MenuEquipo } from './menu-equipo';
 import { urlGestor } from './ecosistema';
+
+type Permisos = SesionActual['permisos'];
+
+/** Pendientes de cada módulo (la consulta más pesada del marco). */
+async function pendientesDe(sesion: SesionActual) {
+  const centro = await leerCentro();
+  return centro
+    ? pendientesPorModulo(colaEquipo(centro, limitadoACartera(sesion.usuario.rol)))
+    : {};
+}
+
+async function MenuConPendientes({ sesion }: { sesion: SesionActual }) {
+  const { grupos, titulos } = menuEquipo(sesion.permisos);
+  return <MenuEquipo grupos={grupos} titulos={titulos} contadores={await pendientesDe(sesion)} />;
+}
+
+function barra(permisos: Permisos, cobros: number) {
+  return (
+    <BarraEquipo
+      cobros={permisos.includes('facturas.ver') ? cobros : null}
+      soporte={permisos.includes('tickets.ver')}
+      asistente={permisos.includes('asistente.usar')}
+    />
+  );
+}
+
+async function BarraConPendientes({ sesion }: { sesion: SesionActual }) {
+  return barra(sesion.permisos, (await pendientesDe(sesion)).cobros ?? 0);
+}
+
+async function Licencia() {
+  return <AvisoLicencia licencia={await leerLicencia()} />;
+}
 
 /**
  * Marco del equipo (administración, operación y ventas): sello «Equipo» junto
- * al logo, «Ver tienda» y la persona en la cabecera; en escritorio, su tarjeta
- * con el rol y el menú por grupos con lo que espera en cada módulo; en el
- * teléfono, las pestañas de abajo (Centro, Cobros, Soporte, Asistente, Módulos).
+ * al logo, el buscador (Ctrl K), «Ver tienda» y la persona en la cabecera; en
+ * escritorio, su tarjeta con el rol y el menú por grupos plegables con lo que
+ * espera en cada módulo; en el teléfono, las pestañas de abajo.
+ *
+ * Los pendientes y la licencia se cargan aparte (Suspense): la página se ve
+ * enseguida y las cifras del menú llegan cuando están listas.
  */
-export async function MarcoEquipo({
-  sesion,
-  children,
-}: {
-  sesion: SesionActual;
-  children: ReactNode;
-}) {
+export function MarcoEquipo({ sesion, children }: { sesion: SesionActual; children: ReactNode }) {
   const { usuario, permisos } = sesion;
-  const [centro, licencia] = await Promise.all([leerCentro(), leerLicencia()]);
-  const pendientes = centro
-    ? pendientesPorModulo(colaEquipo(centro, limitadoACartera(usuario.rol)))
-    : {};
   const { grupos, titulos } = menuEquipo(permisos);
   const nombre = usuario.nombre.split(' ')[0]!;
   const gestor = urlGestor();
@@ -42,6 +69,7 @@ export async function MarcoEquipo({
       pantallaCompleta="/admin/sitio/"
       acciones={
         <>
+          <BotonBuscador />
           <Link href="/" className={claseEnlaceCabecera}>
             <Globe className="size-4 text-cian" aria-hidden="true" />
             Ver tienda
@@ -67,24 +95,24 @@ export async function MarcoEquipo({
         lineas: [ETIQUETAS_ROL[usuario.rol]],
       }}
       menu={
-        <MenuCuenta
-          etiqueta="Módulos del equipo"
-          grupos={grupos}
-          titulos={titulos}
-          contadores={pendientes}
-          insigniasAviso
-          soloEscritorio
-        />
+        <Suspense fallback={<MenuEquipo grupos={grupos} titulos={titulos} contadores={{}} />}>
+          <MenuConPendientes sesion={sesion} />
+        </Suspense>
       }
       barraInferior={
-        <BarraEquipo
-          cobros={permisos.includes('facturas.ver') ? (pendientes.cobros ?? 0) : null}
-          soporte={permisos.includes('tickets.ver')}
-          asistente={permisos.includes('asistente.usar')}
-        />
+        <Suspense fallback={barra(permisos, 0)}>
+          <BarraConPendientes sesion={sesion} />
+        </Suspense>
       }
     >
-      <AvisoLicencia licencia={licencia} />
+      <Buscador
+        destinos={destinosBuscador(permisos)}
+        clientes={permisos.includes('clientes.ver')}
+        cuentas={permisos.includes('cuentas.ver')}
+      />
+      <Suspense fallback={null}>
+        <Licencia />
+      </Suspense>
       {children}
     </MarcoCuenta>
   );
