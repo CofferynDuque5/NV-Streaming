@@ -22,6 +22,8 @@ export interface CanalWhatsApp {
   /** Tiene lo necesario para enviar. */
   readonly listo: boolean;
   enviar(m: MensajeWhatsApp): Promise<{ referencia: string }>;
+  /** Texto libre: Meta solo lo acepta dentro de las 24 h siguientes al último mensaje del cliente. */
+  enviarTexto(telefono: string, texto: string): Promise<{ referencia: string }>;
 }
 
 /**
@@ -65,6 +67,9 @@ class WhatsAppDesactivado implements CanalWhatsApp {
   enviar(): Promise<{ referencia: string }> {
     return Promise.reject(new Error('WhatsApp está desactivado.'));
   }
+  enviarTexto(): Promise<{ referencia: string }> {
+    return Promise.reject(new Error('WhatsApp está desactivado.'));
+  }
 }
 
 /** No envía nada: registra el mensaje (sin datos personales) para desarrollo. */
@@ -80,6 +85,13 @@ class WhatsAppSandbox implements CanalWhatsApp {
       this.logger.log(
         `[sandbox] Para: ${enmascararDestino(m.telefono)} · plantilla ${m.plantilla} (${m.idioma})`,
       );
+    }
+    return Promise.resolve({ referencia: `sandbox-${randomUUID()}` });
+  }
+
+  enviarTexto(telefono: string): Promise<{ referencia: string }> {
+    if (!this.silencioso) {
+      this.logger.log(`[sandbox] Para: ${enmascararDestino(telefono)} · texto libre`);
     }
     return Promise.resolve({ referencia: `sandbox-${randomUUID()}` });
   }
@@ -105,9 +117,17 @@ export class WhatsAppCloudApi implements CanalWhatsApp {
     this.listo = Boolean(token && telefonoId);
   }
 
+  enviarTexto(telefono: string, texto: string): Promise<{ referencia: string }> {
+    return this.publicar({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: telefono.replace(/\D/g, ''),
+      type: 'text',
+      text: { preview_url: false, body: texto.slice(0, 4096) },
+    });
+  }
+
   async enviar(m: MensajeWhatsApp): Promise<{ referencia: string }> {
-    if (!this.listo) throw new Error('Faltan WHATSAPP_TOKEN o WHATSAPP_TELEFONO_ID.');
-    const url = `https://graph.facebook.com/${this.version}/${this.telefonoId}/messages`;
     const cuerpo = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -132,6 +152,12 @@ export class WhatsAppCloudApi implements CanalWhatsApp {
           : {}),
       },
     };
+    return this.publicar(cuerpo);
+  }
+
+  private async publicar(cuerpo: object): Promise<{ referencia: string }> {
+    if (!this.listo) throw new Error('Faltan WHATSAPP_TOKEN o WHATSAPP_TELEFONO_ID.');
+    const url = `https://graph.facebook.com/${this.version}/${this.telefonoId}/messages`;
     let respuesta: Response;
     try {
       respuesta = await this.pedir(url, {

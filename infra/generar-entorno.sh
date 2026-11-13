@@ -124,6 +124,10 @@ WHATSAPP_PROVEEDOR=desactivado
 WHATSAPP_TOKEN=
 WHATSAPP_TELEFONO_ID=
 WHATSAPP_IDIOMA=es
+# Bandeja de Soporte: la palabra se copia en Meta al registrar el webhook
+# (https://TU-DOMINIO/api/v1/whatsapp/webhook); el secreto es la «Clave secreta» de la app.
+WHATSAPP_VERIFICAR_TOKEN=$(openssl rand -hex 16)
+WHATSAPP_SECRETO_APP=
 
 # ── Pagos en línea (opcional; ver README, «Pagos en línea») ─────────────────
 PASARELA_SANDBOX_HABILITADA=false

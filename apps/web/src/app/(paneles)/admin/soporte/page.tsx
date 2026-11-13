@@ -7,7 +7,14 @@ import {
   type TicketResumen,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { ChevronRight, Clock, Inbox, MessageSquarePlus, SearchX } from 'lucide-react';
+import {
+  ChevronRight,
+  Clock,
+  Inbox,
+  MessageCircle,
+  MessageSquarePlus,
+  SearchX,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FiltroSelector, PanelAlta } from '@/componentes/admin/piezas-crm';
@@ -93,9 +100,14 @@ export default async function Soporte({
         descripcion="La bandeja de tickets de los clientes, con su prioridad y el plazo para dar la primera respuesta."
         acciones={
           puedeGestionar && !nuevo ? (
-            <BotonEnlace href="/admin/soporte?nuevo=1" scroll={false}>
-              <MessageSquarePlus className="size-4" aria-hidden="true" /> Nuevo ticket
-            </BotonEnlace>
+            <>
+              <BotonEnlace href="/admin/soporte/whatsapp" variante="secundario">
+                <MessageCircle className="size-4" aria-hidden="true" /> WhatsApp
+              </BotonEnlace>
+              <BotonEnlace href="/admin/soporte?nuevo=1" scroll={false}>
+                <MessageSquarePlus className="size-4" aria-hidden="true" /> Nuevo ticket
+              </BotonEnlace>
+            </>
           ) : undefined
         }
       />

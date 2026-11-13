@@ -55,6 +55,8 @@ import { MetricasController } from './metricas/metricas.controller.js';
 import { MetricasService } from './metricas/metricas.service.js';
 import { TicketsController } from './soporte/tickets.controller.js';
 import { TicketsService } from './soporte/tickets.service.js';
+import { WhatsAppBandejaController } from './soporte/whatsapp-bandeja.controller.js';
+import { WhatsAppBandejaService } from './soporte/whatsapp-bandeja.service.js';
 import { LectorController } from './lector/lector.controller.js';
 import { LectorService } from './lector/lector.service.js';
 import { SuscripcionesController } from './suscripciones/suscripciones.controller.js';
@@ -114,6 +116,7 @@ export class AppModule {
         PagosCuentaController,
         BalanceController,
         TicketsController,
+        WhatsAppBandejaController,
         MetricasController,
         CajaController,
         NotasController,
@@ -154,6 +157,7 @@ export class AppModule {
         ImportarGestorService,
         CostosService,
         TicketsService,
+        WhatsAppBandejaService,
         MetricasService,
         CentroService,
         CajaService,

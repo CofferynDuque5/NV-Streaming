@@ -74,7 +74,8 @@ model Usuario {
   clientesAsignados    Cliente[]           @relation("ClienteAsignado")
   clientesCreados      Cliente[]           @relation("ClienteCreador")
   notasInternas        NotaInterna[]
-  notasAsignadas       NotaInterna[]         @relation("NotaAsignada")
+  notasAsignadas       NotaInterna[]       @relation("NotaAsignada")
+  mensajesWhatsApp     MensajeWhatsApp[]
   tasasCambio          TasaCambio[]
   historialPrecios     HistorialPrecio[]
   eventosSuscripcion   EventoSuscripcion[]
@@ -323,25 +324,26 @@ model Cliente {
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  usuario              Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
-  asignadoA            Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
-  creadoPor            Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  revendedor           Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
-  comprasRevendedor    CompraRevendedor[]
-  contactos            ContactoCliente[]
-  notas                NotaInterna[]
-  suscripciones        Suscripcion[]
-  facturas             Factura[]
-  pagos                Pago[]
-  tickets              Ticket[]
-  canjesCupon          CanjeCupon[]
-  notificaciones       Notificacion[]
-  metodosAutorizados   MetodoPagoAutorizado[]
-  intentosPago         IntentoPago[]
-  entregas             Entrega[]
-  pedidos              Pedido[]
-  recargasBilletera    RecargaBilletera[]
-  movimientosBilletera MovimientoBilletera[]
+  usuario                Usuario?               @relation("ClienteUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  asignadoA              Usuario?               @relation("ClienteAsignado", fields: [asignadoAId], references: [id], onDelete: Restrict)
+  creadoPor              Usuario?               @relation("ClienteCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  revendedor             Revendedor?            @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  comprasRevendedor      CompraRevendedor[]
+  contactos              ContactoCliente[]
+  notas                  NotaInterna[]
+  suscripciones          Suscripcion[]
+  facturas               Factura[]
+  pagos                  Pago[]
+  tickets                Ticket[]
+  conversacionesWhatsApp ConversacionWhatsApp[]
+  canjesCupon            CanjeCupon[]
+  notificaciones         Notificacion[]
+  metodosAutorizados     MetodoPagoAutorizado[]
+  intentosPago           IntentoPago[]
+  entregas               Entrega[]
+  pedidos                Pedido[]
+  recargasBilletera      RecargaBilletera[]
+  movimientosBilletera   MovimientoBilletera[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@index([asignadoAId])
@@ -394,8 +396,8 @@ model NotaInterna {
   creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn DateTime  @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  autor   Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  autor     Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
   asignadaA Usuario? @relation("NotaAsignada", fields: [asignadaAId], references: [id], onDelete: Restrict)
 
   @@index([clienteId, creadoEn(sort: Desc)])
@@ -998,6 +1000,57 @@ model MensajeTicket {
 
   @@index([ticketId, creadoEn])
   @@map("mensajes_ticket")
+}
+
+// ─── Bandeja de WhatsApp (Cloud API de Meta) ─────────────────────────────────
+
+enum DireccionWhatsApp {
+  entrante
+  saliente
+}
+
+/// Una conversación por número. Los mensajes llegan por el webhook de Meta y el
+/// equipo responde desde Soporte mientras la ventana de 24 h siga abierta.
+model ConversacionWhatsApp {
+  id               String    @id @default(uuid()) @db.Uuid
+  /// Solo dígitos, con código de país (como lo envía Meta).
+  telefono         String    @unique @db.VarChar(20)
+  /// Nombre del perfil de WhatsApp de quien escribe.
+  nombre           String?   @db.VarChar(120)
+  clienteId        String?   @map("cliente_id") @db.Uuid
+  ultimoEntranteEn DateTime? @map("ultimo_entrante_en") @db.Timestamptz(3)
+  ultimoMensajeEn  DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(3)
+  noLeidos         Int       @default(0) @map("no_leidos")
+  cerrada          Boolean   @default(false)
+  creadaEn         DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
+  actualizadaEn    DateTime  @updatedAt @map("actualizada_en") @db.Timestamptz(3)
+
+  cliente  Cliente?          @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+  mensajes MensajeWhatsApp[]
+
+  @@index([cerrada, ultimoMensajeEn(sort: Desc)])
+  @@map("conversaciones_whatsapp")
+}
+
+model MensajeWhatsApp {
+  id             String            @id @default(uuid()) @db.Uuid
+  conversacionId String            @map("conversacion_id") @db.Uuid
+  direccion      DireccionWhatsApp
+  texto          String            @db.VarChar(4096)
+  /// Tipo de Meta: text, image, audio, document…
+  tipo           String            @default("text") @db.VarChar(20)
+  /// Id del mensaje en WhatsApp (wamid…): evita guardar dos veces un reintento.
+  waId           String?           @unique @map("wa_id") @db.VarChar(160)
+  /// enviado, entregado, leido o fallido (solo los salientes).
+  estado         String?           @db.VarChar(20)
+  autorId        String?           @map("autor_id") @db.Uuid
+  creadoEn       DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  conversacion ConversacionWhatsApp @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  autor        Usuario?             @relation(fields: [autorId], references: [id], onDelete: SetNull)
+
+  @@index([conversacionId, creadoEn])
+  @@map("mensajes_whatsapp")
 }
 
 // ─── Fase 2: revendedores (precio mayorista con saldo prepagado) ────────────
