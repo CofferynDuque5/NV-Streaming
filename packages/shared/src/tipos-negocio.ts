@@ -1,11 +1,7 @@
 import type { CategoriaServicio } from './categorias.js';
-import type {
-  DatoRequerido,
-  TipoPlan,
-  TipoProveedor,
-  UnidadDuracion,
-} from './esquemas/catalogo.js';
-import type { EstadoCliente } from './esquemas/clientes.js';
+import type { DatoRequerido } from './esquemas/catalogo.js';
+import type { EntregaPlan, TipoPlan, TipoProveedor, UnidadDuracion } from './tipos-plan.js';
+import type { EstadoCliente, TipoNota } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
 import type { CategoriaTicket, EstadoTicket, PrioridadTicket } from './esquemas/soporte.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
@@ -75,8 +71,76 @@ export interface ClienteDetalle extends ClienteResumen {
 export interface NotaPublica {
   id: string;
   texto: string;
+  tipo: TipoNota;
+  /** null: pendiente general, sin cliente. */
+  cliente: Referencia | null;
   autor: Referencia;
+  avisarEn: string | null;
+  diaPago: number | null;
+  hechaEn: string | null;
   creadoEn: string;
+}
+
+/** Algo que se quitó de la vista (archivado, retirado o apagado) y se puede restaurar. */
+export interface ElementoPapelera {
+  tipo: 'cliente' | 'cuenta' | 'plataforma';
+  id: string;
+  nombre: string;
+  /** Plataforma de la cuenta, correo del cliente… */
+  detalle: string | null;
+  quitadoEn: string;
+  /** Quién lo quitó, según el registro de eventos; null si no consta. */
+  quitadoPor: Referencia | null;
+}
+
+/** Cliente final de un revendedor con sus suscripciones, para la lista por responsable. */
+export interface ClienteDeRevendedor {
+  id: string;
+  nombre: string;
+  correo: string | null;
+  whatsapp: string | null;
+  estado: EstadoCliente;
+  suscripciones: {
+    id: string;
+    servicio: string;
+    plan: string;
+    estado: EstadoSuscripcion;
+    venceEn: string | null;
+  }[];
+}
+
+/** Cifras de una plataforma en el inicio (como las tarjetas del Gestor). */
+export interface PlataformaInicio {
+  servicio: Referencia;
+  /** Suscripciones activas o en gracia. */
+  activas: number;
+  vencenHoy: number;
+  vencenManana: number;
+  /** Clientes con perfil en cuentas caídas, esperando reposición. */
+  porReponer: number;
+  /** Perfiles libres en cuentas activas. */
+  libres: number;
+}
+
+export interface InicioGestor {
+  plataformas: PlataformaInicio[];
+  /** Renovaciones hechas hoy, de las que vencían hoy (hechas + pendientes). */
+  renovadosHoy: { hechos: number; total: number };
+  /** Notas con aviso que ya llegó y siguen pendientes. */
+  notasPorAvisar: number;
+  /** Cuentas sin anotar cuya liberación ya llegó. */
+  cuentasLiberadas: number;
+  meta: {
+    /** AAAA-MM. */
+    mes: string;
+    /** null: no hay meta para este mes. */
+    montoUsd: Decimal | null;
+    logradoUsd: Decimal;
+    /** Al ritmo actual, cuánto se llega a fin de mes. */
+    proyeccionUsd: Decimal;
+    diasTranscurridos: number;
+    diasDelMes: number;
+  } | null;
 }
 
 export interface ProveedorPublico {
@@ -115,6 +179,8 @@ export interface PlanPublico {
   precioUsd: Decimal;
   /** Qué se vende: suscripción con duración o compra única (recarga, paquete, pase, tarjeta). */
   tipo: TipoPlan;
+  /** Suscripciones: alquiler de una cuenta del inventario o activación en el correo del cliente. */
+  entrega: EntregaPlan;
   duracionCantidad: number;
   duracionUnidad: UnidadDuracion;
   beneficios: string[];
@@ -133,6 +199,16 @@ export interface PlanPublico {
   precioRevendedorUsd?: Decimal | 'varios' | null;
   orden: number;
   precios: PreciosPorMoneda;
+}
+
+/** Vencimientos y cortes del equipo, por día de Caracas. */
+export interface VencimientosEquipo {
+  /** En gracia, suspendidas o vencidas hace menos de 30 días: hay que renovar o cortar. */
+  vencidas: SuscripcionPublica[];
+  hoy: SuscripcionPublica[];
+  manana: SuscripcionPublica[];
+  /** Del pasado mañana a 7 días. */
+  semana: SuscripcionPublica[];
 }
 
 export interface SuscripcionPublica {

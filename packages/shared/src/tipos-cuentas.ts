@@ -16,9 +16,20 @@ export interface CuentaServicioResumen {
   costoUsd: string;
   cicloMeses: number;
   facturaEn: string | null;
+  /** Cuándo queda libre (cuentas sin anotar). */
+  liberacionEn: string | null;
   metodoPago: string | null;
   proveedor: string | null;
-  perfiles: { total: number; libres: number; asignados: number; bloqueados: number };
+  /** Notas de la cuenta (sin secretos). */
+  notas: string | null;
+  perfiles: {
+    total: number;
+    libres: number;
+    asignados: number;
+    bloqueados: number;
+    /** Libres guardados para reponer caídas. */
+    respaldos: number;
+  };
   creadoEn: string;
 }
 
@@ -249,6 +260,7 @@ export interface ServicioInventario {
     libres: number;
     ocupados: number;
     bloqueados: number;
+    respaldos: number;
     /** Perfiles ocupados que vencen en los próximos 3 días. */
     porVencer: number;
     /** Perfiles ocupados con la suscripción vencida o cancelada (conviene liberarlos). */
@@ -260,4 +272,35 @@ export interface Inventario {
   servicios: ServicioInventario[];
   /** Fecha de hoy en Venezuela (AAAA-MM-DD), para calcular días. */
   hoy: string;
+}
+
+/** Perfil ocupado en una cuenta caída: el cliente espera que le den otro. */
+export interface PerfilPorReponer {
+  perfilId: string;
+  cuentaId: string;
+  /** «ma•••@gmail.com» de la cuenta caída. */
+  cuentaPista: string;
+  perfil: { numero: number; nombre: string };
+  servicio: { id: string; nombre: string };
+  suscripcion: {
+    id: string;
+    cliente: { id: string; nombre: string };
+    estado: string;
+    venceEn: string | null;
+  };
+  /** Cuándo se marcó caída la cuenta (null si fue antes de guardarse la fecha). */
+  caidaEn: string | null;
+  /** Días completos sin servicio, para compensarlos al reponer. */
+  diasPerdidos: number;
+  /** Perfiles libres en cuentas activas del mismo servicio. */
+  libres: number;
+}
+
+export interface ResultadoReposicion {
+  /** Cuenta y perfil nuevos del cliente. */
+  cuentaId: string;
+  cuentaPista: string;
+  perfil: { numero: number; nombre: string };
+  /** Días sumados a su vencimiento (0 si no se compensó). */
+  diasCompensados: number;
 }

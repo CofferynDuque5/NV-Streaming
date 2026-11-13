@@ -11,6 +11,7 @@ import {
   type PedidoPublico,
   type PlanPublico,
   planMasBarato,
+  datosDelPlan,
   revisarDatos,
   type ServicioTienda,
 } from '@nv/shared';
@@ -37,7 +38,13 @@ import {
   useState,
 } from 'react';
 import { AvisoSaldoInsuficiente } from '@/componentes/cliente/saldo-insuficiente';
-import { DatosCompra, type PideDatos, type ValoresCompra } from '@/componentes/tienda/datos-compra';
+import {
+  DatosCompra,
+  datosRecordados,
+  type PideDatos,
+  recordarDatos,
+  type ValoresCompra,
+} from '@/componentes/tienda/datos-compra';
 import { Boton, clasesBoton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { useNotificar } from '@/componentes/ui/notificaciones';
@@ -491,18 +498,20 @@ function CarritoConPlanes({
           <ResumenCliente
             cliente={cliente}
             ids={ids}
-            pideDatos={elegidos.flatMap(({ plan, item }) =>
-              item.servicio.datosRequeridos.length > 0
+            pideDatos={elegidos.flatMap(({ plan, item }) => {
+              const datos = datosDelPlan(item.servicio.datosRequeridos, plan);
+              return datos.length > 0
                 ? [
                     {
                       planId: plan.id,
+                      servicioId: item.servicio.id,
                       servicio: item.servicio.nombre,
                       plan: plan.nombre,
-                      datos: item.servicio.datosRequeridos,
+                      datos,
                     },
                   ]
-                : [],
-            )}
+                : [];
+            })}
             moneda={moneda}
             nPlanes={nPlanes}
             metodosPago={metodosPago}
@@ -843,7 +852,11 @@ function ResumenCliente({
   const [clave, setClave] = useState(() => crypto.randomUUID());
   const [errorPedido, setErrorPedido] = useState<ErrorLlamada | null>(null);
   const [avisoSaldo, setAvisoSaldo] = useState(false);
-  const [valores, setValores] = useState<ValoresCompra>({});
+  // Empieza con lo que escribió en la ficha del producto (o en otra compra del mismo juego).
+  // El resumen solo se dibuja en el navegador (el carrito vive ahí), así que se puede leer.
+  const [valores, setValores] = useState<ValoresCompra>(() =>
+    Object.fromEntries(pideDatos.map((p) => [p.planId, datosRecordados(p.servicioId)])),
+  );
   const [erroresDatos, setErroresDatos] = useState<Record<string, string>>({});
   const opcionSaldo = useRef<HTMLButtonElement>(null);
 
@@ -889,6 +902,7 @@ function ResumenCliente({
     for (const p of pideDatos) {
       const { limpios, errores } = revisarDatos(p.datos, valores[p.planId]);
       datos[p.planId] = limpios;
+      recordarDatos(p.servicioId, p.datos, limpios);
       for (const [c, m] of Object.entries(errores)) faltan[`datos.${p.planId}.${c}`] = m;
     }
     setErroresDatos(faltan);

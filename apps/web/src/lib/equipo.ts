@@ -334,5 +334,9 @@ export function estadoModulo(
         : aviso('Trabajador detenido');
     case 'auditoria':
       return ok('Todo queda registrado');
+    case 'notas':
+      return ok('Con aviso a una fecha y hora');
+    case 'papelera':
+      return ok('Nada se borra: se restaura');
   }
 }

@@ -11,6 +11,7 @@ import {
   filtrarCatalogo,
   type PlanPublico,
   planMasBarato,
+  datosDelPlan,
   revisarDatos,
   serviciosTienda,
 } from '../src/index.js';
@@ -32,6 +33,7 @@ function plan(
     duracionCantidad: meses,
     duracionUnidad: 'mes',
     tipo: 'suscripcion',
+    entrega: 'alquiler',
     beneficios: [],
     activo: true,
     visible: true,
@@ -167,8 +169,33 @@ describe('tienda: compras únicas (juegos)', () => {
 
   it('revisa los datos que pide el servicio', () => {
     const pedidos = [
-      { clave: 'id-de-jugador', etiqueta: 'ID de jugador', ayuda: null, obligatorio: true },
-      { clave: 'servidor', etiqueta: 'Servidor', ayuda: null, obligatorio: false },
+      {
+        clave: 'id-de-jugador',
+        etiqueta: 'ID de jugador',
+        ayuda: null,
+        obligatorio: true,
+        tipo: 'numero' as const,
+        opciones: [],
+        largo: 12,
+      },
+      {
+        clave: 'servidor',
+        etiqueta: 'Servidor',
+        ayuda: null,
+        obligatorio: false,
+        tipo: 'texto' as const,
+        opciones: [],
+        largo: null,
+      },
+      {
+        clave: 'acceso',
+        etiqueta: 'Forma de acceso',
+        ayuda: null,
+        obligatorio: false,
+        tipo: 'lista' as const,
+        opciones: ['Activision', 'Facebook'],
+        largo: null,
+      },
     ];
     expect(revisarDatos(pedidos, {}).errores).toEqual({
       'id-de-jugador': 'Escribe ID de jugador.',
@@ -178,6 +205,27 @@ describe('tienda: compras únicas (juegos)', () => {
       errores: {},
     });
     expect(claveDato('ID de jugador')).toBe('id-de-jugador');
+    expect(revisarDatos(pedidos, { 'id-de-jugador': '12a' }).errores['id-de-jugador']).toBe(
+      'Escribe solo números.',
+    );
+    expect(
+      revisarDatos(pedidos, { 'id-de-jugador': '1234567890123' }).errores['id-de-jugador'],
+    ).toBe('Máximo 12 caracteres.');
+    expect(revisarDatos(pedidos, { 'id-de-jugador': '1', acceso: 'Google' }).errores).toEqual({
+      acceso: 'Elige Forma de acceso de la lista.',
+    });
+    expect(revisarDatos(pedidos, { 'id-de-jugador': '1', acceso: 'Facebook' }).errores).toEqual({});
+  });
+
+  it('la activación en su correo pide correo y contraseña de su cuenta', () => {
+    expect(datosDelPlan([], { tipo: 'suscripcion', entrega: 'alquiler' })).toEqual([]);
+    const pide = datosDelPlan([], { tipo: 'suscripcion', entrega: 'activacion' });
+    expect(pide.map((d) => d.tipo)).toEqual(['correo', 'clave']);
+    expect(revisarDatos(pide, { 'correo-cuenta': 'yo@', 'clave-cuenta': 'x' }).errores).toEqual({
+      'correo-cuenta': 'Escribe un correo válido.',
+    });
+    // Una recarga nunca pide la cuenta del cliente.
+    expect(datosDelPlan([], { tipo: 'recarga', entrega: 'activacion' })).toEqual([]);
   });
 });
 

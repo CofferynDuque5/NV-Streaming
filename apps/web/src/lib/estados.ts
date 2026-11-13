@@ -91,10 +91,12 @@ export const ESTADO_CUENTA_SERVICIO: Etiquetas<EstadoCuentaServicio> = {
   activa: { texto: 'Activa', tono: 'exito' },
   caida: { texto: 'Caída', tono: 'peligro' },
   retirada: { texto: 'Retirada', tono: 'neutro' },
+  en_espera: { texto: 'Sin anotar', tono: 'aviso' },
 };
 
 export const ESTADO_PERFIL: Etiquetas<EstadoPerfil> = {
   libre: { texto: 'Libre', tono: 'exito' },
   asignado: { texto: 'Asignado', tono: 'marca' },
   bloqueado: { texto: 'Bloqueado', tono: 'neutro' },
+  respaldo: { texto: 'Respaldo', tono: 'aviso' },
 };

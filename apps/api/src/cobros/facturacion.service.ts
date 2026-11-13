@@ -21,6 +21,8 @@ export interface CalculoFactura {
   total: Dec;
   tasa: Dec;
   totalUsd: Dec;
+  /** Precio de un periodo (el subtotal es este por la cantidad de periodos). */
+  unitario: Dec;
   cupon: Cupon | null;
   /** Parte de `descuento` que viene de un combo. */
   descuentoCombo: Dec;
@@ -43,11 +45,13 @@ export class FacturacionService {
       cuponYaCanjeado?: boolean;
       /** Parte del descuento de un combo que le toca a esta línea, en `moneda`. */
       descuentoCombo?: Dec | null;
+      /** Periodos del plan que cubre (1 por defecto). */
+      periodos?: number;
     },
   ): Promise<CalculoFactura> {
     const precio = precioEn(e.plan, e.moneda, await this.tasas.mapa(tx));
     if (!precio) throw sinTasa(e.moneda);
-    const subtotal = precio.precio;
+    const subtotal = precio.precio.mul(e.periodos ?? 1);
     const cupon = e.cupon
       ? await this.validarCupon(tx, e.cupon, e.plan.id, e.concepto, e.clienteId, e.cuponYaCanjeado)
       : null;
@@ -69,6 +73,7 @@ export class FacturacionService {
     const total = subtotal.sub(descuento);
     return {
       moneda: e.moneda,
+      unitario: precio.precio,
       subtotal,
       descuento,
       total,
@@ -114,6 +119,10 @@ export class FacturacionService {
       pedidoId?: string | null;
       /** Descuento de combo de esta línea, en `moneda`. */
       descuentoCombo?: Dec | null;
+      /** Renovación de varios periodos de una vez. */
+      periodos?: number;
+      /** La renovación cuenta desde el pago y no desde el vencimiento. */
+      desdeHoy?: boolean;
     },
   ): Promise<Factura> {
     const c = await this.calcular(tx, { ...e, clienteId: e.clienteId });
@@ -136,6 +145,8 @@ export class FacturacionService {
           totalUsd: c.totalUsd,
           cuponId: c.cupon?.id ?? null,
           descuentoComboUsd: c.descuentoCombo.gt(0) ? aUsd(c.descuentoCombo, c.tasa) : null,
+          periodos: e.periodos ?? 1,
+          desdeHoy: e.desdeHoy ?? false,
           venceEn: new Date(ahora.getTime() + REGLAS_COBRO.diasParaPagar * DIA_MS),
           pagadaEn: gratis ? ahora : null,
           creadoPorId: e.actorId,
@@ -143,8 +154,8 @@ export class FacturacionService {
             create: {
               planId: e.plan.id,
               descripcion: descripcionLinea(e.plan, e.concepto),
-              cantidad: 1,
-              precioUnitario: c.subtotal,
+              cantidad: e.periodos ?? 1,
+              precioUnitario: c.unitario,
               total: c.subtotal,
             },
           },

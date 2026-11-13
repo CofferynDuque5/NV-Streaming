@@ -12,6 +12,9 @@ import type {
   ListarCuentasEntrada,
   PaginaCuentas,
   PerfilCuentaPublico,
+  PerfilPorReponer,
+  ReponerPerfilEntrada,
+  ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -29,6 +32,11 @@ export const LIMITE_REVELAR_CUENTA = { maximo: 30, ventanaSegundos: 3600 };
 
 /** Suscripciones que ya no usan su perfil: conviene liberarlo. */
 const TERMINADAS: readonly EstadoSuscripcion[] = ['vencida', 'cancelada'];
+
+/** Días completos desde la caída (0 si no hay fecha). */
+function diasPerdidos(caidaEn: Date | null, ahora: Date): number {
+  return caidaEn ? Math.max(0, Math.floor((ahora.getTime() - caidaEn.getTime()) / 86_400_000)) : 0;
+}
 
 const CONTEXTO_HUELLA_USUARIO = 'cuenta:usuario';
 export const contextoUsuario = (id: string) => `cuenta:${id}:usuario`;
@@ -90,13 +98,16 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
     costoUsd: dec2(c.costoUsd),
     cicloMeses: c.cicloMeses,
     facturaEn: dia(c.facturaEn),
+    liberacionEn: dia(c.liberacionEn),
     metodoPago: c.metodoPago,
     proveedor: c.proveedor,
+    notas: c.notas,
     perfiles: {
       total: c.perfiles.length,
       libres: cuenta('libre'),
       asignados: cuenta('asignado'),
       bloqueados: cuenta('bloqueado'),
+      respaldos: cuenta('respaldo'),
     },
     creadoEn: c.creadoEn.toISOString(),
   };
@@ -105,7 +116,6 @@ function resumen(c: FilaResumen | FilaDetalle): CuentaServicioResumen {
 function detalle(c: FilaDetalle): CuentaServicioDetalle {
   return {
     ...resumen(c),
-    notas: c.notas,
     creadoPor: c.creadoPor,
     listaPerfiles: c.perfiles.map((p): PerfilCuentaPublico => ({
       id: p.id,
@@ -173,6 +183,8 @@ export class CuentasService {
       pista: pistaUsuario(e.usuario),
       claveCifrada: this.cifrador.cifrar(e.clave, contextoClave(id)),
       modo: e.modo,
+      ...(e.enEspera ? { estado: 'en_espera' as const } : {}),
+      liberacionEn: fechaODb(e.liberacionEn) ?? null,
       plan: e.plan ?? null,
       pais: e.pais ?? null,
       costoUsd: e.costoUsd ?? '0',
@@ -286,6 +298,7 @@ export class CuentasService {
           select: {
             id: true,
             modo: true,
+            estado: true,
             perfiles: { select: { id: true, numero: true, estado: true } },
           },
         });
@@ -317,9 +330,21 @@ export class CuentasService {
             cambios.push(campo);
           }
         }
+        // La fecha de la caída cuenta los días perdidos de sus clientes.
+        if (e.estado && e.estado !== c.estado) {
+          data.caidaEn = e.estado === 'caida' ? new Date() : null;
+        }
         if (e.facturaEn !== undefined) {
           data.facturaEn = fechaODb(e.facturaEn);
           cambios.push('facturaEn');
+        }
+        if (e.liberacionEn !== undefined) {
+          data.liberacionEn = fechaODb(e.liberacionEn);
+          cambios.push('liberacionEn');
+        }
+        // Al anotarla en el inventario deja de esperar su liberación.
+        if (c.estado === 'en_espera' && e.estado && e.estado !== 'en_espera') {
+          data.liberacionEn = null;
         }
         if (e.perfiles !== undefined && e.perfiles !== c.perfiles.length) {
           if (c.modo === 'completa') {
@@ -411,6 +436,17 @@ export class CuentasService {
         data.pinCifrado = e.pin === null ? null : this.cifrador.cifrar(e.pin, contextoPin(p.id));
         cambios.push(e.pin === null ? 'pin_quitado' : 'pin');
       }
+      if (e.respaldo !== undefined && e.respaldo !== (p.estado === 'respaldo')) {
+        if (p.estado === 'asignado' || p.estado === 'bloqueado') {
+          throw new ErrorApp(
+            409,
+            'PERFIL_NO_LIBRE',
+            'Solo un perfil libre se guarda como respaldo.',
+          );
+        }
+        data.estado = e.respaldo ? 'respaldo' : 'libre';
+        cambios.push(e.respaldo ? 'respaldo' : 'respaldo_quitado');
+      }
       if (e.bloqueado !== undefined && e.bloqueado !== (p.estado === 'bloqueado')) {
         if (p.estado === 'asignado') {
           throw new ErrorApp(409, 'PERFIL_ASIGNADO', 'Libera el perfil antes de bloquearlo.');
@@ -446,7 +482,7 @@ export class CuentasService {
       if (p.cuenta.estado !== 'activa') {
         throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
       }
-      if (p.estado !== 'libre') {
+      if (p.estado !== 'libre' && p.estado !== 'respaldo') {
         throw new ErrorApp(
           409,
           'PERFIL_NO_LIBRE',
@@ -474,7 +510,7 @@ export class CuentasService {
       }
       // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
       const r = await tx.perfilCuenta.updateMany({
-        where: { id: p.id, estado: 'libre' },
+        where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
         data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
       });
       if (r.count === 0) {
@@ -523,6 +559,241 @@ export class CuentasService {
       );
       return this.ver(cuentaId, tx);
     });
+  }
+
+  /** Una cuenta completa pasa a venderse por perfiles; lo asignado queda en el perfil 1. */
+  async pasarAIndividuales(
+    auth: ContextoAuth,
+    id: string,
+    perfiles: number,
+    cliente: InfoCliente,
+  ): Promise<CuentaServicioDetalle> {
+    return this.prisma.$transaction(async (tx) => {
+      const [fila] = await tx.$queryRaw<{ modo: string }[]>`
+        SELECT modo FROM cuentas_servicio WHERE id = ${id}::uuid FOR UPDATE`;
+      if (!fila) throw Errores.noEncontrado('La cuenta');
+      if (fila.modo !== 'completa') {
+        throw new ErrorApp(409, 'YA_INDIVIDUAL', 'Esta cuenta ya se vende por perfiles.');
+      }
+      const actuales = await tx.perfilCuenta.findMany({
+        where: { cuentaId: id },
+        select: { id: true, numero: true, estado: true },
+      });
+      await tx.cuentaServicio.update({ where: { id }, data: { modo: 'perfiles' } });
+      await tx.perfilCuenta.updateMany({
+        where: { cuentaId: id, numero: 1 },
+        data: { nombre: nombrePerfil('perfiles', 1) },
+      });
+      await this.ajustarPerfiles(tx, id, actuales, perfiles);
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'cuenta_servicio.individuales',
+          entidad: 'cuenta_servicio',
+          entidadId: id,
+          antes: { modo: 'completa' },
+          despues: { modo: 'perfiles', perfiles },
+          cliente,
+        },
+        tx,
+      );
+      return this.ver(id, tx);
+    });
+  }
+
+  /** Cola de reposición: perfiles con clientes vigentes en cuentas caídas, la caída más vieja primero. */
+  async porReponer(ahora = new Date()): Promise<PerfilPorReponer[]> {
+    const perfiles = await this.prisma.perfilCuenta.findMany({
+      where: {
+        estado: 'asignado',
+        cuenta: { estado: 'caida' },
+        suscripcion: { estado: { notIn: [...TERMINADAS] } },
+      },
+      include: {
+        cuenta: {
+          select: {
+            id: true,
+            pista: true,
+            caidaEn: true,
+            servicio: { select: { id: true, nombre: true } },
+          },
+        },
+        suscripcion: {
+          select: {
+            id: true,
+            estado: true,
+            venceEn: true,
+            cliente: { select: { id: true, nombre: true } },
+          },
+        },
+      },
+      orderBy: [{ cuenta: { caidaEn: 'asc' } }, { cuentaId: 'asc' }, { numero: 'asc' }],
+      take: 500,
+    });
+    const servicios = [...new Set(perfiles.map((p) => p.cuenta.servicio.id))];
+    const libres = servicios.length
+      ? await this.prisma.perfilCuenta.groupBy({
+          by: ['cuentaId'],
+          where: {
+            estado: { in: ['libre', 'respaldo'] },
+            cuenta: { estado: 'activa', servicioId: { in: servicios } },
+          },
+          _count: true,
+        })
+      : [];
+    const cuentasLibres = libres.length
+      ? await this.prisma.cuentaServicio.findMany({
+          where: { id: { in: libres.map((l) => l.cuentaId) } },
+          select: { id: true, servicioId: true },
+        })
+      : [];
+    const libresPorServicio = new Map<string, number>();
+    for (const l of libres) {
+      const sid = cuentasLibres.find((c) => c.id === l.cuentaId)?.servicioId;
+      if (sid) libresPorServicio.set(sid, (libresPorServicio.get(sid) ?? 0) + l._count);
+    }
+    return perfiles.flatMap((p) =>
+      p.suscripcion
+        ? [
+            {
+              perfilId: p.id,
+              cuentaId: p.cuenta.id,
+              cuentaPista: p.cuenta.pista,
+              perfil: { numero: p.numero, nombre: p.nombre },
+              servicio: p.cuenta.servicio,
+              suscripcion: {
+                id: p.suscripcion.id,
+                cliente: p.suscripcion.cliente,
+                estado: p.suscripcion.estado,
+                venceEn: iso(p.suscripcion.venceEn),
+              },
+              caidaEn: iso(p.cuenta.caidaEn),
+              diasPerdidos: diasPerdidos(p.cuenta.caidaEn, ahora),
+              libres: libresPorServicio.get(p.cuenta.servicio.id) ?? 0,
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Pasa el cliente de un perfil de una cuenta caída a un perfil libre de otra
+   * cuenta activa del mismo servicio y, si se pide, le suma los días perdidos.
+   */
+  async reponer(
+    auth: ContextoAuth,
+    perfilId: string,
+    e: ReponerPerfilEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoReposicion> {
+    return this.prisma.$transaction(async (tx) => {
+      const viejo = await tx.perfilCuenta.findUnique({
+        where: { id: perfilId },
+        include: {
+          cuenta: { select: { id: true, servicioId: true, estado: true, caidaEn: true } },
+        },
+      });
+      if (!viejo) throw Errores.noEncontrado('El perfil');
+      if (viejo.cuenta.estado !== 'caida' || viejo.estado !== 'asignado' || !viejo.suscripcionId) {
+        throw new ErrorApp(
+          409,
+          'NADA_QUE_REPONER',
+          'Este perfil no tiene un cliente en una cuenta caída.',
+        );
+      }
+      // Primero un perfil de respaldo; si no hay, uno libre de la cuenta que conviene llenar.
+      const incluir = { cuenta: { select: { id: true, pista: true } } } as const;
+      const enCuenta = {
+        estado: 'activa',
+        servicioId: viejo.cuenta.servicioId,
+        ...(e.cuentaId ? { id: e.cuentaId } : {}),
+      } as const;
+      const destino =
+        (await tx.perfilCuenta.findFirst({
+          where: { estado: 'respaldo', cuenta: enCuenta },
+          orderBy: [{ cuenta: { creadoEn: 'asc' } }, { numero: 'asc' }],
+          include: incluir,
+        })) ??
+        (await tx.perfilCuenta.findFirst({
+          where: {
+            estado: 'libre',
+            cuenta: enCuenta,
+            ...(e.cuentaId
+              ? {}
+              : {
+                  cuentaId: (await this.cuentaParaLlenar(tx, viejo.cuenta.servicioId)) ?? undefined,
+                }),
+          },
+          orderBy: { numero: 'asc' },
+          include: incluir,
+        }));
+      if (!destino) {
+        throw new ErrorApp(
+          409,
+          'SIN_PERFILES_LIBRES',
+          e.cuentaId
+            ? 'Esa cuenta no tiene perfiles libres.'
+            : 'No hay perfiles libres de este servicio. Agrega una cuenta al inventario.',
+        );
+      }
+      const suscripcionId = viejo.suscripcionId;
+      // Primero se suelta el viejo (la suscripción solo puede tener un perfil).
+      await tx.perfilCuenta.update({
+        where: { id: viejo.id },
+        data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+      });
+      const r = await tx.perfilCuenta.updateMany({
+        where: { id: destino.id, estado: destino.estado },
+        data: { estado: 'asignado', suscripcionId, asignadoEn: new Date() },
+      });
+      if (r.count === 0) {
+        throw new ErrorApp(
+          409,
+          'PERFIL_NO_LIBRE',
+          'Ese perfil se acaba de ocupar. Intenta de nuevo.',
+        );
+      }
+      let dias = 0;
+      if (e.compensar) {
+        dias = diasPerdidos(viejo.cuenta.caidaEn, new Date());
+        if (dias > 0) {
+          await tx.$executeRaw`UPDATE suscripciones SET vence_en = vence_en + make_interval(days => ${dias}::int), actualizado_en = now()
+            WHERE id = ${suscripcionId}::uuid AND vence_en IS NOT NULL`;
+        }
+      }
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'perfil_cuenta.repuesto',
+          entidad: 'perfil_cuenta',
+          entidadId: destino.id,
+          antes: { cuentaId: viejo.cuenta.id, numero: viejo.numero },
+          despues: {
+            cuentaId: destino.cuenta.id,
+            numero: destino.numero,
+            suscripcionId,
+            diasCompensados: dias,
+          },
+          cliente,
+        },
+        tx,
+      );
+      return {
+        cuentaId: destino.cuenta.id,
+        cuentaPista: destino.cuenta.pista,
+        perfil: { numero: destino.numero, nombre: destino.nombre },
+        diasCompensados: dias,
+      };
+    });
+  }
+
+  /** La cuenta activa del servicio con menos perfiles libres (pero alguno): así se llenan una a una. */
+  private async cuentaParaLlenar(tx: Tx, servicioId: string): Promise<string | null> {
+    const [fila] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT c.id FROM cuentas_servicio c JOIN perfiles_cuenta p ON p.cuenta_id = c.id AND p.estado = 'libre'
+      WHERE c.servicio_id = ${servicioId}::uuid AND c.estado = 'activa'
+      GROUP BY c.id ORDER BY count(*) ASC, c.creado_en ASC LIMIT 1`;
+    return fila?.id ?? null;
   }
 
   /** Suscripciones vigentes del mismo servicio que todavía no tienen perfil. */

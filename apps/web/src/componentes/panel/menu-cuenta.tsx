@@ -25,7 +25,7 @@ import { llamarApi } from '@/lib/api-cliente';
 import type { ContadorCuenta, ElementoCuenta, IconoCuenta } from '@/lib/navegacion';
 import { EnlaceAlPasar } from '@/componentes/panel/enlace-al-pasar';
 
-const ICONOS: Record<IconoCuenta, LucideIcon> = {
+export const ICONOS_CUENTA: Record<IconoCuenta, LucideIcon> = {
   ...ICONOS_MODULO,
   centro: House,
   servicios: House,
@@ -115,7 +115,7 @@ export function MenuCuenta({
               <hr className="hidden border-0 border-t border-borde cuenta:mx-1 cuenta:my-1.5 cuenta:block" />
             ))}
           {grupo.map((e) => {
-            const Icono = ICONOS[e.icono];
+            const Icono = ICONOS_CUENTA[e.icono];
             const n = (e.contador && contadores[e.contador]) || 0;
             const esActivo = activo(e.href);
             return (

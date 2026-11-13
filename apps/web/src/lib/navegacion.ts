@@ -138,7 +138,9 @@ export type ModuloEquipo =
   | 'sitio'
   | 'equipo'
   | 'automatizaciones'
-  | 'auditoria';
+  | 'auditoria'
+  | 'notas'
+  | 'papelera';
 
 export type GrupoEquipo = 'atender' | 'ventas' | 'tienda' | 'sistema';
 
@@ -225,6 +227,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#4f8dff',
     href: '/admin/clientes',
     permiso: 'clientes.ver',
+  },
+  {
+    clave: 'notas',
+    grupo: 'ventas',
+    nombre: 'Notas y pendientes',
+    descripcion: 'Entregar, renovar, fiados y días de pago, con aviso a una hora',
+    color: '#f59e0b',
+    href: '/admin/notas',
+    permiso: 'clientes.notas',
   },
   {
     clave: 'suscripciones',
@@ -353,6 +364,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     href: '/admin/auditoria',
     permiso: 'auditoria.ver',
   },
+  {
+    clave: 'papelera',
+    grupo: 'sistema',
+    nombre: 'Papelera',
+    descripcion: 'Clientes archivados, cuentas retiradas y plataformas apagadas, para restaurar',
+    color: '#64748b',
+    href: '/admin/papelera',
+    permiso: 'auditoria.ver',
+  },
 ];
 
 /** Los módulos que el rol puede abrir. */
@@ -388,4 +408,95 @@ export function menuEquipo(permisos: readonly Permiso[]): {
     ],
     titulos: [null, ...grupos.map((g) => g.titulo), null],
   };
+}
+
+/** Páginas de dentro de los módulos que también se encuentran en el buscador. */
+const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
+  {
+    etiqueta: 'Vencimientos y cortes',
+    href: '/admin/suscripciones/vencimientos',
+    icono: 'suscripciones',
+    detalle: 'Suscripciones',
+    claves: 'vencen hoy manana cortes gracia renovar',
+    permiso: 'suscripciones.ver',
+  },
+  {
+    etiqueta: 'Leer pedidos pegados',
+    href: '/admin/suscripciones/leer',
+    icono: 'suscripciones',
+    detalle: 'Suscripciones',
+    claves: 'whatsapp texto pedido rapido',
+    permiso: 'suscripciones.crear',
+  },
+  {
+    etiqueta: 'Caídas y reposición',
+    href: '/admin/cuentas/reposicion',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'caida caidas reponer reemplazo dias perdidos',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Cuentas sin anotar',
+    href: '/admin/cuentas/sin-anotar',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'espera liberacion geobloqueo anotar',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Importar o verificar cuentas (TXT/CSV)',
+    href: '/admin/cuentas/importar',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'csv txt verificar comparar',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Importar desde el Gestor',
+    href: '/admin/cuentas/gestor',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'gestor json migrar',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Licencia del panel',
+    href: '/admin/licencia',
+    icono: 'equipo',
+    detalle: 'Sistema',
+    claves: 'plan prueba',
+    permiso: 'usuarios.ver',
+  },
+];
+
+interface DestinoBuscadorBase {
+  etiqueta: string;
+  href: string;
+  icono: IconoCuenta;
+  detalle: string;
+  claves?: string;
+}
+
+/** Todo lo que la persona puede abrir desde el buscador del panel (Ctrl K). */
+export function destinosBuscador(permisos: readonly Permiso[]): DestinoBuscadorBase[] {
+  const nombres = Object.fromEntries(GRUPOS_EQUIPO);
+  return [
+    { etiqueta: 'Centro de módulos', href: '/admin', icono: 'centro', detalle: 'Inicio' },
+    ...modulosDe(permisos).map((m) => ({
+      etiqueta: m.nombre,
+      href: m.href,
+      icono: m.clave,
+      detalle: nombres[m.grupo] ?? '',
+      claves: m.descripcion,
+    })),
+    ...PAGINAS_BUSCADOR.filter((p) => permisos.includes(p.permiso)).map((p) => ({
+      etiqueta: p.etiqueta,
+      href: p.href,
+      icono: p.icono,
+      detalle: p.detalle,
+      ...(p.claves ? { claves: p.claves } : {}),
+    })),
+    { etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil', detalle: 'Tu cuenta' },
+  ];
 }

@@ -7,9 +7,12 @@ import {
   type LineaCotizacionPedido,
   type Pagina,
   type PedidoPublico,
+  datosDelPlan,
   revisarDatos,
 } from '@nv/shared';
 import { datosDeServicio, type PlanCompleto } from '../catalogo/catalogo.service.js';
+import { Cifrador } from '../comun/cripto.js';
+import { cifrarDatosSecretos } from '../comun/datos-cliente.js';
 import { CombosService, combosDelCarrito, repartirDescuento } from '../catalogo/combos.service.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
@@ -58,6 +61,7 @@ export class PedidosService {
     @Inject(LimitesService) private readonly limites: LimitesService,
     @Inject(CombosService) private readonly combos: CombosService,
     @Inject(TasasService) private readonly tasas: TasasService,
+    @Inject(Cifrador) private readonly cifrador: Cifrador,
   ) {}
 
   /** Precio del carrito completo, sin guardar nada. */
@@ -135,11 +139,10 @@ export class PedidosService {
       const datosPorPlan = new Map<string, Record<string, string>>();
       const erroresDatos: Record<string, string[]> = {};
       for (const { plan } of calculo.lineas) {
-        const { limpios, errores } = revisarDatos(
-          datosDeServicio(plan.servicio.datosRequeridos),
-          e.datos?.[plan.id],
-        );
-        datosPorPlan.set(plan.id, limpios);
+        const pedidos = datosDelPlan(datosDeServicio(plan.servicio.datosRequeridos), plan);
+        const { limpios, errores } = revisarDatos(pedidos, e.datos?.[plan.id]);
+        // La contraseña de su cuenta (activación en su correo) nunca se guarda en claro.
+        datosPorPlan.set(plan.id, cifrarDatosSecretos(this.cifrador, c.id, pedidos, limpios));
         for (const [clave, m] of Object.entries(errores)) {
           erroresDatos[`datos.${plan.id}.${clave}`] = [m];
         }

@@ -2,58 +2,52 @@ import { z } from 'zod';
 import { CATEGORIAS_SERVICIO } from '../categorias.js';
 import { parcialSinDefectos, textoOpcional, uuidSchema } from './comunes.js';
 import { monedaConTasaSchema, montoOCeroSchema, montoSchema } from './dinero.js';
-
-export const TIPOS_PROVEEDOR = ['propio', 'distribuidor'] as const;
-export type TipoProveedor = (typeof TIPOS_PROVEEDOR)[number];
-export const UNIDADES_DURACION = ['dia', 'mes'] as const;
-export type UnidadDuracion = (typeof UNIDADES_DURACION)[number];
-
-/**
- * Qué se vende en un plan. Solo «suscripcion» tiene duración, vence y se
- * renueva; el resto son compras únicas (monedas de un juego, paquetes, pases,
- * tarjetas o códigos).
- */
-export const TIPOS_PLAN = ['suscripcion', 'recarga', 'paquete', 'pase', 'tarjeta'] as const;
-export type TipoPlan = (typeof TIPOS_PLAN)[number];
-export const ETIQUETA_TIPO_PLAN: Record<TipoPlan, string> = {
-  suscripcion: 'Suscripción (con duración)',
-  recarga: 'Moneda del juego o recarga',
-  paquete: 'Paquete',
-  pase: 'Pase',
-  tarjeta: 'Tarjeta o código',
-};
-/** Nombre corto del tipo para la tienda (la etiqueta sobre el precio). */
-export const NOMBRE_TIPO_PLAN: Record<TipoPlan, string> = {
-  suscripcion: 'Suscripción',
-  recarga: 'Recarga',
-  paquete: 'Paquete',
-  pase: 'Pase',
-  tarjeta: 'Tarjeta',
-};
-export const esCompraUnica = (tipo: TipoPlan) => tipo !== 'suscripcion';
-
-/** Máximo de datos que un servicio puede pedir al comprar. */
-export const MAX_DATOS_REQUERIDOS = 5;
+import {
+  ENTREGAS_PLAN,
+  MAX_DATOS_REQUERIDOS,
+  MAX_OPCIONES_DATO,
+  TIPOS_DATO,
+  TIPOS_PLAN,
+  TIPOS_PROVEEDOR,
+  UNIDADES_DURACION,
+} from '../tipos-plan.js';
 
 /** Dato que el cliente escribe al comprar (p. ej. «ID de jugador»). */
-export const datoRequeridoSchema = z.object({
-  /** Identificador estable del dato (se deriva de la etiqueta). */
-  clave: z
-    .string()
-    .trim()
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Clave no válida.')
-    .max(40),
-  etiqueta: z
-    .string()
-    .trim()
-    .min(2, 'Escribe el nombre del dato.')
-    .max(40, 'Máximo 40 caracteres.'),
-  ayuda: z.preprocess(
-    (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
-    z.string().trim().max(120, 'Máximo 120 caracteres.').nullable().optional(),
-  ),
-  obligatorio: z.boolean().default(true),
-});
+export const datoRequeridoSchema = z
+  .object({
+    /** Identificador estable del dato (se deriva de la etiqueta). */
+    clave: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Clave no válida.')
+      .max(40),
+    etiqueta: z
+      .string()
+      .trim()
+      .min(2, 'Escribe el nombre del dato.')
+      .max(40, 'Máximo 40 caracteres.'),
+    ayuda: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+      z.string().trim().max(120, 'Máximo 120 caracteres.').nullable().optional(),
+    ),
+    obligatorio: z.boolean().default(true),
+    /** Cómo se escribe: texto libre, solo números, correo, contraseña o una lista. */
+    tipo: z.enum(TIPOS_DATO).default('texto'),
+    /** Opciones de la lista (p. ej. «Activision», «Facebook»). */
+    opciones: z
+      .array(z.string().trim().min(1).max(40, 'Máximo 40 caracteres por opción.'))
+      .max(MAX_OPCIONES_DATO, `Máximo ${MAX_OPCIONES_DATO} opciones.`)
+      .default([]),
+    /** Largo máximo (p. ej. 13 cifras en un ID); vacío sin límite propio. */
+    largo: z.preprocess(
+      (v) => (v === '' || v === undefined ? null : v),
+      z.coerce.number().int().min(1).max(120).nullable(),
+    ),
+  })
+  .refine((d) => d.tipo !== 'lista' || d.opciones.length >= 2, {
+    message: 'Una lista necesita al menos dos opciones.',
+    path: ['opciones'],
+  });
 export type DatoRequerido = z.infer<typeof datoRequeridoSchema>;
 
 export const datosRequeridosSchema = z
@@ -65,41 +59,12 @@ export const datosRequeridosSchema = z
   )
   .default([]);
 
-/** Clave de un dato a partir de su etiqueta: «ID de jugador» → «id-de-jugador». */
-export function claveDato(etiqueta: string): string {
-  return etiqueta
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
-}
-
 /** Valores que escribió el cliente: {clave: valor}. */
 export const valoresDatosSchema = z.record(
   z.string().max(40),
   z.string().trim().max(120, 'Máximo 120 caracteres.'),
 );
 export type ValoresDatos = z.infer<typeof valoresDatosSchema>;
-
-/**
- * Comprueba los valores contra lo que pide el servicio. Devuelve los errores
- * por clave (vacío si todo está bien) y los valores limpios.
- */
-export function revisarDatos(
-  pedidos: DatoRequerido[],
-  valores: ValoresDatos | null | undefined,
-): { limpios: ValoresDatos; errores: Record<string, string> } {
-  const limpios: ValoresDatos = {};
-  const errores: Record<string, string> = {};
-  for (const d of pedidos) {
-    const v = (valores?.[d.clave] ?? '').trim();
-    if (v) limpios[d.clave] = v.slice(0, 120);
-    else if (d.obligatorio) errores[d.clave] = `Escribe ${d.etiqueta}.`;
-  }
-  return { limpios, errores };
-}
 
 export const proveedorSchema = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
@@ -144,6 +109,8 @@ export const planSchema = z.object({
   descripcion: textoOpcional(1000),
   precioUsd: montoOCeroSchema,
   tipo: z.enum(TIPOS_PLAN, { error: 'Elige qué se vende.' }).default('suscripcion'),
+  /** Solo suscripciones: alquiler de cuenta del inventario o activación en el correo del cliente. */
+  entrega: z.enum(ENTREGAS_PLAN, { error: 'Elige cómo se entrega.' }).default('alquiler'),
   duracionCantidad: z.coerce.number().int().min(1, 'Mínimo 1.').max(365, 'Máximo 365.'),
   duracionUnidad: z.enum(UNIDADES_DURACION, { error: 'Elige días o meses.' }),
   beneficios: z

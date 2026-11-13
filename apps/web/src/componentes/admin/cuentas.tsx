@@ -15,6 +15,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  LifeBuoy,
   Link2,
   Mail,
   MessageCircle,
@@ -26,6 +27,7 @@ import {
   Unlink,
   Unlock,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { BotonCopiar } from '@/componentes/accesos';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -45,6 +47,8 @@ function camposDatos(d: FormData) {
     costoUsd: textoDe(d, 'costoUsd') ?? '0',
     cicloMeses: textoDe(d, 'cicloMeses') ?? '1',
     facturaEn: textoDe(d, 'facturaEn') ?? null,
+    // Solo las cuentas sin anotar llevan fecha de liberación.
+    ...(d.has('liberacionEn') ? { liberacionEn: textoDe(d, 'liberacionEn') ?? null } : {}),
     metodoPago: textoDe(d, 'metodoPago') ?? null,
     proveedor: textoDe(d, 'proveedor') ?? null,
     notas: textoDe(d, 'notas') ?? null,
@@ -54,12 +58,25 @@ function camposDatos(d: FormData) {
 function DatosCuenta({
   campos,
   cuenta,
+  conLiberacion = false,
 }: {
   campos: Record<string, string>;
   cuenta?: CuentaServicioDetalle;
+  /** Cuentas sin anotar: cuándo quedan libres para usarlas. */
+  conLiberacion?: boolean;
 }) {
   return (
     <>
+      {conLiberacion && (
+        <Campo
+          etiqueta="Fecha de liberación"
+          name="liberacionEn"
+          type="date"
+          defaultValue={cuenta?.liberacionEn ?? ''}
+          ayuda="Cuándo puedes empezar a usarla (fin del geobloqueo, espera del proveedor…)."
+          error={campos.liberacionEn}
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo
           etiqueta="Plan de la cuenta (opcional)"
@@ -193,7 +210,14 @@ function leerDatosPerfiles(d: FormData, cantidad: number) {
   return lista.some((p) => p.nombre || p.pin) ? lista : undefined;
 }
 
-export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: string }[] }) {
+export function NuevaCuenta({
+  servicios,
+  enEspera = false,
+}: {
+  servicios: { id: string; nombre: string }[];
+  /** Guardarla como «sin anotar»: en espera, sin asignar todavía. */
+  enEspera?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<ModoCuenta>('perfiles');
   const [cantidad, setCantidad] = useState(5);
@@ -212,6 +236,7 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
       modo,
       perfiles: modo === 'completa' ? 1 : (textoDe(d, 'perfiles') ?? ''),
       datosPerfiles: leerDatosPerfiles(d, modo === 'completa' ? 1 : cantidad),
+      ...(enEspera ? { enEspera: true } : {}),
       ...camposDatos(d),
     });
     if (r) {
@@ -226,15 +251,19 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
   if (!abierto) {
     return (
       <Boton onClick={() => setAbierto(true)} icono={<Plus className="size-4" />}>
-        Nueva cuenta
+        {enEspera ? 'Agregar cuenta sin anotar' : 'Nueva cuenta'}
       </Boton>
     );
   }
 
   return (
     <PanelFormulario
-      titulo="Nueva cuenta de servicio"
-      descripcion="El correo, la clave y los PIN se guardan cifrados. En las listas solo se ve una pista del correo."
+      titulo={enEspera ? 'Cuenta sin anotar' : 'Nueva cuenta de servicio'}
+      descripcion={
+        enEspera
+          ? 'Queda en espera, fuera del inventario, hasta que la anotes. El correo, la clave y los PIN se guardan cifrados.'
+          : 'El correo, la clave y los PIN se guardan cifrados. En las listas solo se ve una pista del correo.'
+      }
       onCerrar={() => {
         setAbierto(false);
         setCreada(null);
@@ -316,7 +345,7 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
           </div>
         </div>
         <DatosPerfiles cantidad={modo === 'completa' ? 1 : cantidad} campos={campos} />
-        <DatosCuenta campos={campos} />
+        <DatosCuenta campos={campos} conLiberacion={enEspera} />
         <ErrorGeneral error={error} />
         {creada && !error && <Alerta tono="exito">Cuenta {creada} guardada.</Alerta>}
         <div className="flex flex-wrap gap-2">
@@ -409,7 +438,11 @@ export function EditarCuenta({ cuenta }: { cuenta: CuentaServicioDetalle }) {
             error={campos.clave}
           />
         </div>
-        <DatosCuenta campos={campos} cuenta={cuenta} />
+        <DatosCuenta
+          campos={campos}
+          cuenta={cuenta}
+          conLiberacion={cuenta.estado === 'en_espera'}
+        />
         <ErrorGeneral error={error} />
         <div className="flex flex-wrap gap-2">
           <Boton type="submit" cargando={cargando}>
@@ -877,6 +910,19 @@ export function AccionesPerfil({
             Liberar
           </Boton>
         )}
+        {(perfil.estado === 'libre' || perfil.estado === 'respaldo') && (
+          <Boton
+            tamano="sm"
+            variante="fantasma"
+            cargando={cargando}
+            icono={<LifeBuoy className="size-3.5" />}
+            onClick={() => void ejecutar('PATCH', ruta, { respaldo: perfil.estado !== 'respaldo' })}
+            aria-label={`${perfil.estado === 'respaldo' ? 'Quitar de respaldo' : 'Guardar de respaldo'} ${perfil.nombre}`}
+            title="Un perfil de respaldo se usa primero para reponer a los clientes de una cuenta caída."
+          >
+            {perfil.estado === 'respaldo' ? 'Quitar respaldo' : 'Respaldo'}
+          </Boton>
+        )}
         {perfil.estado !== 'asignado' && (
           <Boton
             tamano="sm"
@@ -909,5 +955,48 @@ export function AccionesPerfil({
       </div>
       {error && <p className="max-w-56 text-right text-xs text-peligro">{error.mensaje}</p>}
     </div>
+  );
+}
+
+/** Una cuenta completa pasa a venderse por perfiles; quien la tenga queda en el perfil 1. */
+export function PasarAIndividuales({ cuentaId }: { cuentaId: string }) {
+  const router = useRouter();
+  const [perfiles, setPerfiles] = useState('4');
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function enviar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setOcupado(true);
+    setError(null);
+    const r = await llamarApi('POST', `/cuentas/${cuentaId}/individuales`, { perfiles });
+    setOcupado(false);
+    if (!r.ok) {
+      setError(r.error.mensaje);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <form
+      onSubmit={(e) => void enviar(e)}
+      className="flex flex-wrap items-end gap-3 border-t border-borde px-5 py-4 sm:px-6"
+    >
+      <Campo
+        etiqueta="Pasar a perfiles individuales"
+        ayuda="Quien tenga la cuenta queda en el perfil 1; los demás quedan libres para vender."
+        type="number"
+        min={2}
+        max={20}
+        value={perfiles}
+        onChange={(e) => setPerfiles(e.currentTarget.value)}
+        className="w-44"
+      />
+      <Boton type="submit" variante="secundario" cargando={ocupado}>
+        Pasar a individuales
+      </Boton>
+      {error && <p className="w-full text-sm text-peligro">{error}</p>}
+    </form>
   );
 }

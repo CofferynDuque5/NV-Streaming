@@ -116,12 +116,15 @@ test('en el detalle se elige un plan real y se agrega al carrito', async ({ page
   await page.reload();
   await expect(trimestral).toBeChecked();
 
-  // «Comprar ahora» lleva a contratar ese plan desde el panel.
-  const plan = new URL(page.url()).searchParams.get('plan');
-  await expect(page.getByRole('link', { name: 'Comprar ahora' })).toHaveAttribute(
-    'href',
-    `/cuenta/planes?plan=${plan}&moneda=USD`,
-  );
+  // «Compartir» copia el enlace con el plan elegido.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Compartir' }).click();
+  await expect(page.getByRole('button', { name: 'Copiado' })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('plan=');
+
+  // «Comprar ahora» lo deja en el carrito y lleva a pagarlo.
+  await page.getByRole('button', { name: 'Comprar ahora' }).click();
+  await expect(page).toHaveURL(/\/carrito/);
 
   // Un servicio que no existe no inventa nada.
   const r = await page.goto('/catalogo/no-existe');

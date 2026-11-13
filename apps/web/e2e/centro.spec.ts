@@ -62,18 +62,18 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await expect(page.getByText('Suscripciones por estado')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toBeVisible();
 
-  // Módulos: los 19 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
-  await expect(page.getByText('19 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(19);
+  // Módulos: los 23 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
+  await expect(page.getByText('23 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(23);
   await page.getByLabel('Buscar módulo').fill('tasa');
   await expect(modulos(page)).toHaveCount(1);
   await expect(modulos(page).first()).toContainText('Monedas y cobro');
   await page.getByLabel('Buscar módulo').fill('xyz');
   await expect(page.getByText('Ningún módulo coincide.')).toBeVisible();
   await page.getByRole('button', { name: 'Limpiar búsqueda' }).click();
-  await page.getByRole('button', { name: 'Sistema · 3' }).click();
-  await expect(modulos(page)).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Sistema · 3' })).toHaveAttribute(
+  await page.getByRole('button', { name: 'Sistema · 4' }).click();
+  await expect(modulos(page)).toHaveCount(4);
+  await expect(page.getByRole('button', { name: 'Sistema · 4' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
@@ -88,24 +88,43 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
     'aria-current',
     'page',
   );
+  // Los grupos del menú se pliegan y se recuerdan.
+  await menu.getByRole('button', { name: 'Tienda' }).click();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeHidden();
+  await page.reload();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeHidden();
+  await menu.getByRole('button', { name: 'Tienda' }).click();
+  await expect(menu.getByRole('link', { name: /^Catálogo/ })).toBeVisible();
+
+  // Buscador del panel (Ctrl K): módulos sin tildes y clientes por correo.
+  await page.keyboard.press('Control+k');
+  const buscador = page.getByRole('combobox', { name: 'Buscar en todo el panel' });
+  await expect(buscador).toBeFocused();
+  await buscador.fill('codigos');
+  await expect(page.getByRole('option', { name: /Correos de códigos/ })).toBeVisible();
+  await buscador.fill('cliente@nv.test');
+  await expect(page.getByRole('option', { name: /cliente@nv\.test/ })).toBeVisible();
+  await buscador.fill('cobros');
+  await buscador.press('Enter');
+  await expect(page).toHaveURL(/\/admin\/cobros$/);
 });
 
-test('operación: sus 13 módulos, sin auditoría ni actividad', async ({ page }) => {
+test('operación: sus 16 módulos, sin auditoría ni actividad', async ({ page }) => {
   await entrar(page, 'operador@nv.test');
-  await expect(page.getByText('13 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(13);
+  await expect(page.getByText('16 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(16);
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Auditoría/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /^Inventario de códigos/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Códigos de activación/ })).toHaveCount(0);
   const sistema = page.getByRole('region', { name: 'Estado del sistema' });
   await expect(sistema.getByText('Correo')).toBeVisible();
   await expect(sistema.getByText('PayPal')).toHaveCount(0);
 });
 
-test('ventas: sus 7 módulos y las cifras de su cartera', async ({ page }) => {
+test('ventas: sus 8 módulos y las cifras de su cartera', async ({ page }) => {
   await entrar(page, 'ventas@nv.test');
-  await expect(page.getByText('7 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(7);
+  await expect(page.getByText('8 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(8);
   await expect(page.getByText('Estas cifras son solo de tu cartera de clientes.')).toBeVisible();
   await expect(page.getByRole('link', { name: /^Equipo y usuarios/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Sistema/ })).toHaveCount(0);

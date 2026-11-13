@@ -1,6 +1,12 @@
 import type { CategoriaServicio, EventoSuscripcion, Plan, Suscripcion } from '@nv/db';
-import { type SuscripcionDetalle, type SuscripcionPublica, urlMedio } from '@nv/shared';
+import {
+  DATOS_ACTIVACION,
+  type SuscripcionDetalle,
+  type SuscripcionPublica,
+  urlMedio,
+} from '@nv/shared';
 import { datosDeServicio } from '../catalogo/catalogo.service.js';
+import { esDatoCifrado, valoresDeDatos } from '../comun/datos-cliente.js';
 import { iso, numeroFactura } from '../comun/formato.js';
 
 export const INCLUIR_SUSCRIPCION = {
@@ -103,9 +109,19 @@ export function datosConEtiqueta(
   pedidos: unknown,
   valores: unknown,
 ): { etiqueta: string; valor: string }[] {
-  if (!valores || typeof valores !== 'object' || Array.isArray(valores)) return [];
-  const nombres = new Map(datosDeServicio(pedidos).map((d) => [d.clave, d.etiqueta]));
-  return Object.entries(valores as Record<string, unknown>)
-    .filter((e): e is [string, string] => typeof e[1] === 'string' && e[1] !== '')
-    .map(([clave, valor]) => ({ etiqueta: nombres.get(clave) ?? clave, valor }));
+  const lista = [...datosDeServicio(pedidos), ...DATOS_ACTIVACION];
+  const nombres = new Map(lista.map((d) => [d.clave, d.etiqueta]));
+  // En el orden en que se piden (la base no guarda el orden de las claves).
+  const orden = (clave: string) => {
+    const i = lista.findIndex((d) => d.clave === clave);
+    return i < 0 ? lista.length : i;
+  };
+  return Object.entries(valoresDeDatos(valores))
+    .filter(([, valor]) => valor !== '')
+    .sort(([a], [b]) => orden(a) - orden(b))
+    .map(([clave, valor]) => ({
+      etiqueta: nombres.get(clave) ?? clave,
+      // La contraseña de la cuenta del cliente solo se ve con «Ver datos» (permiso y auditoría).
+      valor: esDatoCifrado(valor) ? '•••••• (guardada cifrada)' : valor,
+    }));
 }

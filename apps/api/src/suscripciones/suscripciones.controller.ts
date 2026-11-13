@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   cancelarSuscripcionSchema,
@@ -21,6 +31,7 @@ import { validar } from '../comun/zod.pipe.js';
 import { SuscripcionesService } from './suscripciones.service.js';
 
 const idValido = validar(uuidSchema);
+const SIN_CACHE = 'private, no-store, max-age=0';
 
 @ApiTags('Suscripciones')
 @Controller('suscripciones')
@@ -59,10 +70,29 @@ export class SuscripcionesController {
     return this.suscripciones.cotizar(auth, cuerpo);
   }
 
+  @Get('vencimientos')
+  @RequierePermiso('suscripciones.ver')
+  vencimientos(@Auth() auth: ContextoAuth) {
+    return this.suscripciones.vencimientos(auth);
+  }
+
   @Get(':id')
   @RequierePermiso('suscripciones.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
     return this.suscripciones.obtener(auth, id);
+  }
+
+  /** Datos de la compra con la contraseña de la cuenta del cliente. Auditado y con límite. */
+  @Post(':id/revelar-datos')
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.revelar')
+  @HttpCode(200)
+  revelarDatos(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.revelarDatos(auth, id, cliente);
   }
 
   @Post(':id/renovar')
@@ -75,7 +105,7 @@ export class SuscripcionesController {
     @Body(validar(renovarSchema)) cuerpo: z.output<typeof renovarSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.suscripciones.renovar(auth, id, cuerpo.moneda, cliente);
+    return this.suscripciones.renovar(auth, id, cuerpo, cliente);
   }
 
   @Post(':id/pausar')

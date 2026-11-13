@@ -18,6 +18,7 @@ import { type TrabajoReclamado, TrabajosService } from '../automatizaciones/trab
 import { NotificacionesService } from '../avisos/notificaciones.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { Cifrador } from '../comun/cripto.js';
+import { esDatoCifrado, valoresDeDatos } from '../comun/datos-cliente.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
@@ -66,14 +67,12 @@ const INCLUIR_CONTEXTO = {
   compraRevendedor: { select: { suscripcion: { select: { datosCliente: true } } } },
 } as const satisfies Prisma.EntregaInclude;
 
-/** Valores {clave: valor} guardados en la suscripción (lo demás se ignora). */
+/**
+ * Valores {clave: valor} guardados en la suscripción. La contraseña cifrada de
+ * la cuenta del cliente no sale hacia proveedores: esa activación es manual.
+ */
 function valoresGuardados(v: unknown): Record<string, string> {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
-  return Object.fromEntries(
-    Object.entries(v as Record<string, unknown>).filter(
-      (e): e is [string, string] => typeof e[1] === 'string',
-    ),
-  );
+  return Object.fromEntries(Object.entries(valoresDeDatos(v)).filter(([, x]) => !esDatoCifrado(x)));
 }
 
 type EntregaConContexto = Prisma.EntregaGetPayload<{ include: typeof INCLUIR_CONTEXTO }>;

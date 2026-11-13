@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ListaDatos, relativoDias, Volver } from '@/componentes/admin/piezas-crm';
-import { AccionesSuscripcion } from '@/componentes/admin/suscripciones';
+import { AccionesSuscripcion, VerDatosCompra } from '@/componentes/admin/suscripciones';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -13,7 +13,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { EVENTO_SUSCRIPCION } from '@/lib/estados';
-import { formatearDuracion, formatearFecha, formatearFechaHora } from '@/lib/formato';
+import { diasHasta, formatearDuracion, formatearFecha, formatearFechaHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Detalle de la suscripción' };
@@ -47,6 +47,8 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
 
   const puedeRenovar = sesion.permisos.includes('suscripciones.crear');
   const puedeGestionar = sesion.permisos.includes('suscripciones.gestionar');
+  const puedeRevelar = sesion.permisos.includes('cuentas.revelar');
+  const conClave = s.datosCliente.some((d) => d.valor.endsWith('(guardada cifrada)'));
   const vence = s.venceEn ? relativoDias(s.venceEn) : null;
   const eventos = [...s.eventos].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 
@@ -118,6 +120,9 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
                 {d.valor}
               </span>,
             ]),
+            ...(conClave && puedeRevelar
+              ? [['Activación', <VerDatosCompra key="ver" id={s.id} />] as [string, ReactNode]]
+              : []),
             ['Estado', <EstadoSuscripcionInsignia key="estado" estado={s.estado} />],
             ['Moneda', `${s.moneda} · ${INFO_MONEDA[s.moneda].nombre}`],
             ['Inicio', s.inicioEn ? formatearFecha(s.inicioEn) : <Tenue>Aún no ha empezado</Tenue>],
@@ -226,6 +231,8 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
             cancelarAlVencer={s.cancelarAlVencer}
             renovable={s.plan.renovable}
             facturaAbierta={s.facturaAbierta}
+            duracion={{ cantidad: s.plan.duracionCantidad, unidad: s.plan.duracionUnidad }}
+            vencida={!s.venceEn || diasHasta(s.venceEn) <= 0}
             puedeRenovar={puedeRenovar}
             puedeGestionar={puedeGestionar}
           />

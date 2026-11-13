@@ -1,4 +1,5 @@
 import {
+  type ClienteDeRevendedor,
   type CompraPublica,
   formatearMonto,
   type MovimientoSaldoPublico,
@@ -14,6 +15,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { ClientesDeRevendedor } from '@/componentes/admin/clientes-revendedor';
 import { nombrePais, VacioCompacto, Volver } from '@/componentes/admin/piezas-crm';
 import {
   AccionConMotivo,
@@ -53,12 +55,13 @@ export default async function FichaRevendedor({
   const ruta = encodeURIComponent(id);
   const { consulta } = leerFiltro(paginacionSchema, await searchParams, { porPagina: 20 });
 
-  const [revendedorR, movimientosR, comprasR, recargasR, niveles] = await Promise.all([
+  const [revendedorR, movimientosR, comprasR, recargasR, niveles, clientesR] = await Promise.all([
     leerApi<RevendedorDetalle>(`/revendedores/${ruta}`),
     leerApi<Pagina<MovimientoSaldoPublico>>(`/revendedores/${ruta}/movimientos?${consulta}`),
     leerApi<Pagina<CompraPublica>>(`/revendedores/${ruta}/compras?porPagina=20`),
     leerApi<Pagina<RecargaPublica>>(`/revendedores/${ruta}/recargas?porPagina=10`),
     leerApi<NivelPublico[]>('/revendedores/niveles').then((r) => r.datos ?? []),
+    leerApi<ClienteDeRevendedor[]>(`/revendedores/${ruta}/clientes`),
   ]);
   const r = revendedorR.datos;
   if (revendedorR.estado === 404 || revendedorR.estado === 400 || !r) notFound();
@@ -117,6 +120,9 @@ export default async function FichaRevendedor({
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 grid-cols-1 gap-6">
+          {clientesR.datos && (
+            <ClientesDeRevendedor responsable={r.nombreComercial} clientes={clientesR.datos} />
+          )}
           <Tarjeta>
             <CabeceraTarjeta
               titulo="Movimientos del saldo"

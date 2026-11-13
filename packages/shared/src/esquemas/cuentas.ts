@@ -4,20 +4,23 @@ import { paginacionSchema, uuidSchema } from './comunes.js';
 import { MAX_FILAS_IMPORTAR } from '../importar-cuentas.js';
 import { montoOCeroSchema } from './dinero.js';
 
-export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada'] as const;
+/** `en_espera`: comprada pero sin anotar (geobloqueo, liberación): todavía no se asigna. */
+export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada', 'en_espera'] as const;
 export type EstadoCuentaServicio = (typeof ESTADOS_CUENTA_SERVICIO)[number];
 
 export const ETIQUETA_ESTADO_CUENTA: Record<EstadoCuentaServicio, string> = {
   activa: 'Activa',
   caida: 'Caída',
   retirada: 'Retirada',
+  en_espera: 'Sin anotar',
 };
 
 /** «perfiles»: se vende por perfil; «completa»: la cuenta entera es de un cliente. */
 export const MODOS_CUENTA = ['perfiles', 'completa'] as const;
 export type ModoCuenta = (typeof MODOS_CUENTA)[number];
 
-export const ESTADOS_PERFIL = ['libre', 'asignado', 'bloqueado'] as const;
+/** `respaldo`: libre pero guardado para reponer caídas (no se ofrece primero). */
+export const ESTADOS_PERFIL = ['libre', 'asignado', 'bloqueado', 'respaldo'] as const;
 export type EstadoPerfil = (typeof ESTADOS_PERFIL)[number];
 
 export const MAX_PERFILES_CUENTA = 20;
@@ -77,6 +80,8 @@ const camposCuenta = {
     .optional(),
   /** Próximo cobro del proveedor de la cuenta. */
   facturaEn: fechaSchema.nullable().optional(),
+  /** Cuándo queda libre para usarla (cuentas sin anotar). */
+  liberacionEn: fechaSchema.nullable().optional(),
   /** Cómo la pagas («Tarjeta ···· 1234», «Binance»…). Nunca el número completo. */
   metodoPago: textoOpcional(60).refine(sinNumeroTarjeta, MENSAJE_TARJETA),
   proveedor: textoOpcional(120),
@@ -127,6 +132,8 @@ export const crearCuentaSchema = z
       .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
     /** Opcional: nombre y PIN de los perfiles. Los que falten quedan «Perfil N» sin PIN. */
     datosPerfiles: z.array(datosPerfilSchema).max(MAX_PERFILES_CUENTA).optional(),
+    /** Guardarla como «sin anotar»: en espera, sin asignar todavía. */
+    enEspera: z.boolean().optional(),
     ...camposCuenta,
   })
   .refine((o) => !o.datosPerfiles || o.datosPerfiles.length <= o.perfiles, {
@@ -155,11 +162,31 @@ export const editarPerfilSchema = z
     /** Vacío o null quita la nota. */
     nota: notaPerfilSchema.optional(),
     bloqueado: z.boolean().optional(),
+    /** Guardarlo para reponer caídas. */
+    respaldo: z.boolean().optional(),
   })
   .refine((o) => Object.values(o).some((v) => v !== undefined), 'No hay cambios.');
 export type EditarPerfilEntrada = z.infer<typeof editarPerfilSchema>;
 
 export const asignarPerfilSchema = z.object({ suscripcionId: uuidSchema });
+
+/** Pasar una cuenta completa a perfiles individuales (el cliente que tenga queda en el perfil 1). */
+export const pasarAIndividualesSchema = z.object({
+  perfiles: z.coerce
+    .number()
+    .int()
+    .min(2, 'Al menos 2 perfiles.')
+    .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
+});
+
+/** Reponer un perfil de una cuenta caída en otra cuenta activa del mismo servicio. */
+export const reponerPerfilSchema = z.object({
+  /** Cuenta destino; si no se indica, la activa con menos perfiles libres (para llenarla). */
+  cuentaId: uuidSchema.optional(),
+  /** Sumar al vencimiento los días que pasó sin servicio. */
+  compensar: z.boolean().default(true),
+});
+export type ReponerPerfilEntrada = z.infer<typeof reponerPerfilSchema>;
 
 export const listarCuentasSchema = paginacionSchema.extend({
   servicioId: uuidSchema.optional(),

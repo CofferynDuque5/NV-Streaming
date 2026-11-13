@@ -433,6 +433,72 @@ describe('carrito', () => {
     });
   });
 
+  it('la activación en su correo guarda la contraseña cifrada y solo el equipo la ve', async () => {
+    const e = await escenario();
+    const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();
+    const servicio = await e.admin.post('/catalogo/servicios', {
+      proveedorId: proveedor.id,
+      nombre: 'NV Música Activa',
+      slug: 'nv-musica-activa',
+      categoria: 'musica',
+    });
+    expect(servicio.estado).toBe(201);
+    const plan = await e.admin.post('/catalogo/planes', {
+      servicioId: servicio.cuerpo.id,
+      nombre: 'Premium en tu correo',
+      precioUsd: '2.00',
+      entrega: 'activacion',
+      duracionCantidad: 1,
+      duracionUnidad: 'mes',
+      beneficios: [],
+    });
+    expect(plan.estado).toBe(201);
+    expect(plan.cuerpo.entrega).toBe('activacion');
+    await conSaldo(e, '5');
+
+    const sinCuenta = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+      datos: { [plan.cuerpo.id]: { 'correo-cuenta': 'no-es-correo' } },
+    });
+    expect(sinCuenta.estado).toBe(400);
+    expect(Object.keys(sinCuenta.cuerpo.error.campos).sort()).toEqual([
+      `datos.${plan.cuerpo.id}.clave-cuenta`,
+      `datos.${plan.cuerpo.id}.correo-cuenta`,
+    ]);
+
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [plan.cuerpo.id],
+      moneda: 'USD',
+      pago: 'billetera',
+      datos: {
+        [plan.cuerpo.id]: { 'correo-cuenta': 'yo@correo.com', 'clave-cuenta': 'Secreta123' },
+      },
+    });
+    expect(pedido.estado).toBe(201);
+    const s = await ctx.prisma.suscripcion.findFirstOrThrow({ where: { planId: plan.cuerpo.id } });
+    const guardado = s.datosCliente as Record<string, string>;
+    expect(guardado['correo-cuenta']).toBe('yo@correo.com');
+    expect(guardado['clave-cuenta']).toMatch(/^nv-cifrado:/);
+    expect(JSON.stringify(guardado)).not.toContain('Secreta123');
+
+    const detalle = await e.admin.get(`/suscripciones/${s.id}`);
+    expect(detalle.cuerpo.datosCliente).toEqual([
+      { etiqueta: 'Correo de tu cuenta', valor: 'yo@correo.com' },
+      { etiqueta: 'Contraseña de tu cuenta', valor: '•••••• (guardada cifrada)' },
+    ]);
+    const visto = await e.admin.post(`/suscripciones/${s.id}/revelar-datos`, {});
+    expect(visto.estado).toBe(200);
+    expect(visto.cuerpo.datos).toContainEqual({
+      etiqueta: 'Contraseña de tu cuenta',
+      valor: 'Secreta123',
+    });
+    expect(
+      await ctx.prisma.auditoria.count({ where: { accion: 'suscripcion.datos_vistos' } }),
+    ).toBe(1);
+  });
+
   it('un combo cobra su precio especial solo si el carrito lleva todos sus planes', async () => {
     const e = await escenario();
     const proveedor = await ctx.prisma.proveedor.findFirstOrThrow();

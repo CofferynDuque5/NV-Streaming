@@ -369,6 +369,12 @@ export class RevendedoresController {
 
   // Un revendedor
 
+  @Get(':id/clientes')
+  @RequierePermiso('revendedores.ver')
+  clientes(@Param('id', idValido) id: string) {
+    return this.revendedores.clientes(id);
+  }
+
   @Get(':id')
   @RequierePermiso('revendedores.ver')
   obtener(@Param('id', idValido) id: string) {
