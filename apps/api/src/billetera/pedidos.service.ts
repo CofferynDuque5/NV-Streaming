@@ -81,6 +81,7 @@ export class PedidosService {
         servicio: plan.servicio.nombre,
         combo,
         descuentoCombo: l.descuentoCombo.toFixed(2),
+        descuentoOferta: l.descuentoOferta.toFixed(2),
         subtotal: l.subtotal.toFixed(2),
         descuento: l.descuento.toFixed(2),
         total: l.total.toFixed(2),

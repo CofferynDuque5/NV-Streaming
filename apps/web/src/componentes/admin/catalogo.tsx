@@ -27,7 +27,7 @@ import { Campo } from '@/componentes/ui/campo';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
-import { formatearMonto } from '@/lib/formato';
+import { formatearFechaHora, formatearMonto } from '@/lib/formato';
 import { DatosRequeridosServicio, ImagenServicio, leerDatosRequeridos } from './catalogo-servicio';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -1011,5 +1011,132 @@ export function CeldaPrecio({
         </Insignia>
       )}
     </span>
+  );
+}
+
+// ── Oferta HOT ───────────────────────────────────────────────────────────────
+
+const HORA_MS = 3600_000;
+const DURACIONES_OFERTA = [
+  { texto: '24 horas', horas: 24 },
+  { texto: '3 días', horas: 72 },
+  { texto: '7 días', horas: 168 },
+  { texto: '30 días', horas: 720 },
+] as const;
+
+/** Fecha para un <input type="datetime-local"> en la hora del navegador. */
+function aLocal(fecha: Date): string {
+  const d = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60_000);
+  return d.toISOString().slice(0, 16);
+}
+
+/**
+ * Pone, cambia o quita la oferta HOT de un plan: porcentaje y fin. La oferta
+ * rebaja la compra (no las renovaciones ni el precio a revendedores).
+ */
+export function OfertaPlan({ plan }: { plan: PlanPublico }) {
+  const actual = plan.ofertaConfigurada ?? null;
+  const [ahora] = useState(() => Date.now());
+  const vigente = actual && new Date(actual.hasta).getTime() > ahora ? actual : null;
+  const { cargando, error, campos, ejecutar, limpiar } = useAccion();
+  const [porcentaje, setPorcentaje] = useState(vigente ? String(vigente.porcentaje) : '');
+  const [hasta, setHasta] = useState(() =>
+    aLocal(vigente ? new Date(vigente.hasta) : new Date(ahora + 72 * HORA_MS)),
+  );
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  const pct = Number(porcentaje);
+  const pctValido = Number.isInteger(pct) && pct >= 1 && pct <= 90;
+  const finValido = hasta !== '' && new Date(hasta).getTime() > ahora;
+  const rebajado = pctValido ? (Number(plan.precioUsd) * (1 - pct / 100)).toFixed(2) : null;
+
+  async function guardar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAviso(null);
+    const r = await ejecutar('PUT', `/catalogo/planes/${plan.id}/oferta`, {
+      porcentaje,
+      hasta: hasta ? new Date(hasta).toISOString() : null,
+    });
+    if (r) setAviso('Oferta guardada: ya se ve en la tienda.');
+  }
+
+  async function quitar() {
+    if (!window.confirm('¿Quitar la oferta? El plan vuelve a su precio normal.')) return;
+    setAviso(null);
+    const r = await ejecutar('PUT', `/catalogo/planes/${plan.id}/oferta`, { porcentaje: null });
+    if (r) {
+      setPorcentaje('');
+      setAviso('Oferta quitada.');
+    }
+  }
+
+  return (
+    <form onSubmit={guardar} className="grid gap-4 px-5 py-5 sm:px-6" noValidate>
+      {actual && !vigente && (
+        <p className="text-sm text-tinta-suave">
+          La última oferta ({actual.porcentaje} %) terminó el {formatearFechaHora(actual.hasta)}.
+        </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
+        <Campo
+          etiqueta="Descuento (%)"
+          name="porcentaje"
+          inputMode="numeric"
+          placeholder="Ej. 20"
+          value={porcentaje}
+          onChange={(e) => {
+            limpiar();
+            setPorcentaje(e.target.value.replace(/\D/g, '').slice(0, 2));
+          }}
+          error={
+            campos.porcentaje ?? (porcentaje !== '' && !pctValido ? 'Entre 1 y 90 %.' : undefined)
+          }
+          valido={pctValido}
+          ayuda={rebajado ? `Queda en ${formatearMonto(rebajado, 'USD')}` : undefined}
+        />
+        <div className="grid content-start gap-2">
+          <Campo
+            etiqueta="Termina"
+            name="hasta"
+            type="datetime-local"
+            value={hasta}
+            onChange={(e) => {
+              limpiar();
+              setHasta(e.target.value);
+            }}
+            error={campos.hasta ?? (hasta !== '' && !finValido ? 'La fecha ya pasó.' : undefined)}
+            valido={finValido}
+          />
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Duración rápida">
+            {DURACIONES_OFERTA.map((d) => (
+              <button
+                key={d.horas}
+                type="button"
+                onClick={() => setHasta(aLocal(new Date(Date.now() + d.horas * HORA_MS)))}
+                className="h-8 rounded-full border border-borde-fuerte px-3 text-xs font-medium whitespace-nowrap text-tinta-suave hover:border-marca hover:text-tinta"
+              >
+                {d.texto}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <ErrorGeneral error={error} />
+      <div className="flex flex-wrap items-center gap-3">
+        <Boton type="submit" cargando={cargando} disabled={!pctValido || !finValido}>
+          {vigente ? 'Guardar oferta' : 'Poner en oferta'}
+        </Boton>
+        {vigente && (
+          <Boton variante="fantasma" onClick={() => void quitar()} disabled={cargando}>
+            Quitar oferta
+          </Boton>
+        )}
+        {aviso && !cargando && (
+          <p role="status" className="text-sm text-exito">
+            {aviso}
+          </p>
+        )}
+      </div>
+    </form>
   );
 }

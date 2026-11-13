@@ -697,7 +697,11 @@ describe('carrito', () => {
       moneda: 'VES',
     });
     expect(recotizada.estado).toBe(200);
-    expect(recotizada.cuerpo).toMatchObject({ subtotal: '200.00', descuento: '40.00', total: '160.00' });
+    expect(recotizada.cuerpo).toMatchObject({
+      subtotal: '200.00',
+      descuento: '40.00',
+      total: '160.00',
+    });
 
     // Vencida, la tienda deja de mostrarla y las compras nuevas pagan el precio normal.
     const despues = await e.cliente.get('/catalogo');

@@ -11,6 +11,7 @@ import {
   formatearMonto,
   filtrarCatalogo,
   INFO_CATEGORIA,
+  ofertaActiva,
   type ServicioTienda,
   serviciosTienda,
 } from '@nv/shared';
@@ -21,6 +22,7 @@ import type { CSSProperties } from 'react';
 import { ArteServicio } from '@/componentes/tienda/arte';
 import { BotonCarrito } from '@/componentes/tienda/boton-carrito';
 import { Carril, RejillaFiltrable } from '@/componentes/tienda/deslizables';
+import { CuentaRegresiva } from '@/componentes/tienda/cuenta-regresiva';
 import { CarrilCombos, type ComboTienda } from './bloques-vitrina';
 import { Orbe } from '@/componentes/tienda/iconos';
 import { precioDeTarjeta } from '@/componentes/tienda/precio-tarjeta';
@@ -262,6 +264,62 @@ export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: Conte
     <Seccion bloque={b}>
       <div className={clsx(contenedor, 'py-12')}>
         <CarrilCombos b={b} combos={combos} conCarrito={!contexto.mayorista} />
+      </div>
+    </Seccion>
+  );
+}
+
+/* ----------------------------------------------------------------- ofertas */
+
+export function Ofertas({ b, contexto }: { b: BloqueDe<'ofertas'>; contexto: ContextoBloques }) {
+  const { moneda, mayorista } = contexto;
+  // Las ofertas son del precio público: un revendedor compra a su precio mayorista.
+  const filas = mayorista
+    ? []
+    : filtrarCatalogo(servicios(contexto), moneda, { soloOfertas: true })
+        .sort(
+          (x, y) =>
+            (ofertaActiva(y.plan)?.porcentaje ?? 0) - (ofertaActiva(x.plan)?.porcentaje ?? 0),
+        )
+        .slice(0, b.limite);
+  if (filas.length === 0) {
+    return (
+      <SinDatos
+        contexto={contexto}
+        titulo={b.titulo}
+        motivo="Ningún plan tiene una oferta HOT vigente (Catálogo → plan → Oferta HOT)."
+      />
+    );
+  }
+  const primeraEnTerminar = filas
+    .map((f) => ofertaActiva(f.plan)?.hasta ?? '')
+    .filter(Boolean)
+    .sort()[0];
+  return (
+    <Seccion bloque={b}>
+      <div className={clsx(contenedor, 'py-12')}>
+        <Carril
+          etiqueta={b.titulo}
+          cabecera={
+            <div className="grid gap-2">
+              <Encabezado etiqueta={b.etiqueta} titulo={b.titulo} subtitulo={b.subtitulo} />
+              {primeraEnTerminar && (
+                <CuentaRegresiva
+                  hasta={primeraEnTerminar}
+                  prefijo={filas.length > 1 ? 'La primera termina en' : 'Termina en'}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#f97316]/40 bg-[#f97316]/10 px-3 py-1 text-xs font-semibold text-[#fdba74]"
+                />
+              )}
+            </div>
+          }
+          acciones={<EnlaceVerTodo href="/catalogo?ofertas=1">Ver todas</EnlaceVerTodo>}
+        >
+          {filas.map(({ item, plan }) => (
+            <div key={item.servicio.id} className="grid">
+              <TarjetaServicio item={item} plan={plan} moneda={moneda} />
+            </div>
+          ))}
+        </Carril>
       </div>
     </Seccion>
   );

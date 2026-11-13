@@ -3,11 +3,13 @@ import {
   formatearMonto,
   INFO_CATEGORIA,
   type Moneda,
+  ofertaActiva,
   type PlanPublico,
+  preciosVigentes,
 } from '@nv/shared';
 import type { MonedaMayorista } from '@/componentes/planes-mayoristas';
 import type { VistaMayorista } from '@/lib/revendedor-publico';
-import { precioTexto } from '@/lib/precios';
+import { precioAntesTexto, precioTexto } from '@/lib/precios';
 
 export interface MayoristaTienda {
   vista: VistaMayorista;
@@ -23,6 +25,12 @@ export interface PrecioTarjeta {
   etiqueta: string | null;
   /** Plan disponible para comprar con saldo (revendedor) o sumar al carrito. */
   compraMayorista: boolean;
+  /** Precio normal tachado si el plan está en oferta HOT (solo precio público). */
+  antes: string | null;
+  /** Porcentaje de la oferta HOT vigente. */
+  oferta: number | null;
+  /** Fin de la oferta HOT (ISO). */
+  ofertaHasta: string | null;
 }
 
 /**
@@ -45,16 +53,23 @@ export function precioDeTarjeta(
         referencia: ves ? formatearMonto(suyo.precioUsd, 'USD') : null,
         etiqueta: 'Tu precio',
         compraMayorista: true,
+        antes: null,
+        oferta: null,
+        ofertaHasta: null,
       };
     }
   }
-  const usd = plan.precios.USD;
+  const usd = preciosVigentes(plan).USD;
+  const oferta = ofertaActiva(plan);
   return {
     principal: precioTexto(plan, moneda),
     referencia:
       moneda !== 'USD' && usd && Number(usd.precio) > 0 ? formatearMonto(usd.precio, 'USD') : null,
     etiqueta: null,
     compraMayorista: false,
+    antes: precioAntesTexto(plan, moneda),
+    oferta: oferta?.porcentaje ?? null,
+    ofertaHasta: oferta?.hasta ?? null,
   };
 }
 

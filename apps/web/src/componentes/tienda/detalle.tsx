@@ -10,6 +10,7 @@ import {
   NOMBRE_TIPO_PLAN,
   type Moneda,
   type PlanPublico,
+  preciosVigentes,
   revisarDatos,
   TIPOS_PLAN,
 } from '@nv/shared';
@@ -17,6 +18,7 @@ import clsx from 'clsx';
 import {
   Check,
   CircleCheck,
+  Flame,
   Lock,
   Share2,
   ShieldCheck,
@@ -41,6 +43,7 @@ import { useNotificar } from '@/componentes/ui/notificaciones';
 import { RUTA_CARRITO, useCarrito } from '@/lib/carrito';
 import { useAgregarAlCarrito } from './boton-carrito';
 import { CampoDato, recordarDatos } from './datos-compra';
+import { CuentaRegresiva } from './cuenta-regresiva';
 import { type MayoristaTienda, precioDeTarjeta } from './precio-tarjeta';
 
 export interface SaldoDetalle {
@@ -168,7 +171,7 @@ function precioUsd(plan: PlanPublico, mayorista: MayoristaTienda | null): number
     const suyo = mayorista.vista.catalogo.planes.find((p) => p.id === plan.id);
     if (suyo) return Number(suyo.precioUsd);
   }
-  return Number(plan.precioUsd);
+  return Number(preciosVigentes(plan).USD?.precio ?? plan.precioUsd);
 }
 
 function Pestanas({
@@ -551,7 +554,16 @@ export function DetalleServicio({
                       <span className="mt-1 font-semibold tabular-nums">
                         {pr.principal ?? 'Sin precio'}
                       </span>
-                      {pr.referencia && (
+                      {pr.antes && (
+                        <span className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
+                          <s className="text-tinta-tenue">
+                            <span className="sr-only">Antes </span>
+                            {pr.antes}
+                          </s>
+                          <span className="font-bold text-[#fb923c]">−{pr.oferta} %</span>
+                        </span>
+                      )}
+                      {!pr.antes && pr.referencia && (
                         <span className="text-xs text-tinta-tenue tabular-nums">
                           {pr.referencia}
                         </span>
@@ -643,11 +655,30 @@ export function DetalleServicio({
                 <strong className="font-titulo text-[clamp(2rem,5vw,2.6rem)] leading-none font-extrabold">
                   {precio.principal}
                 </strong>
+                {precio.antes && (
+                  <s className="text-base text-tinta-tenue">
+                    <span className="sr-only">Antes </span>
+                    {precio.antes}
+                  </s>
+                )}
                 {precio.referencia && (
                   <span className="text-sm text-tinta-tenue">{precio.referencia}</span>
                 )}
               </p>
-            ) : (
+            ) : null}
+            {precio.principal && precio.oferta && precio.ofertaHasta ? (
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#f97316] to-[#e11d48] px-2.5 py-0.5 text-xs font-extrabold whitespace-nowrap text-white">
+                  <Flame className="size-3.5" aria-hidden="true" />
+                  HOT −{precio.oferta} %
+                </span>
+                <CuentaRegresiva
+                  hasta={precio.ofertaHasta}
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#fdba74]"
+                />
+              </p>
+            ) : null}
+            {precio.principal ? null : (
               <p className="text-sm text-tinta-suave">
                 Este plan no tiene precio en {moneda}. Elige otra moneda arriba.
               </p>

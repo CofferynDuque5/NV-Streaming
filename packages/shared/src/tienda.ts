@@ -10,6 +10,7 @@ import type {
   CatalogoPublico,
   ComboPublico,
   PlanPublico,
+  PreciosPorMoneda,
   ServicioCatalogo,
 } from './tipos-negocio.js';
 
@@ -114,9 +115,23 @@ function dias(p: Pick<PlanPublico, 'duracionCantidad' | 'duracionUnidad'>): numb
   return p.duracionUnidad === 'mes' ? p.duracionCantidad * 30 : p.duracionCantidad;
 }
 
+/** Oferta HOT del plan si sigue vigente (la API la publica; aquí se descarta al vencer). */
+export function ofertaActiva(
+  plan: Pick<PlanPublico, 'oferta'>,
+  ahora: number = Date.now(),
+): PlanPublico['oferta'] {
+  const o = plan.oferta;
+  return o && new Date(o.hasta).getTime() > ahora ? o : null;
+}
+
+/** Precios que paga hoy un cliente: los de la oferta HOT si está vigente. */
+export function preciosVigentes(plan: Pick<PlanPublico, 'oferta' | 'precios'>): PreciosPorMoneda {
+  return ofertaActiva(plan)?.precios ?? plan.precios;
+}
+
 /** Precio de un plan en una moneda como número, solo para comparar u ordenar. */
 export function valorEn(plan: PlanPublico, moneda: Moneda): number | null {
-  const p = plan.precios[moneda];
+  const p = preciosVigentes(plan)[moneda];
   if (!p) return null;
   const n = Number(p.precio);
   return Number.isFinite(n) ? n : null;
@@ -234,6 +249,8 @@ export interface FiltrosCatalogo {
   precioMax?: number | null;
   texto?: string | null;
   orden?: OrdenCatalogo;
+  /** Solo servicios con algún plan en oferta HOT (y se muestra ese plan). */
+  soloOfertas?: boolean;
 }
 
 export interface ResultadoCatalogo {
@@ -269,9 +286,10 @@ export function filtrarCatalogo(
   for (const item of servicios) {
     if (filtros.categoria && item.servicio.categoria !== filtros.categoria) continue;
     if (filtros.texto && !coincideBusqueda(item, filtros.texto)) continue;
-    const candidatos = filtros.duracion
+    let candidatos = filtros.duracion
       ? item.planes.filter((p) => !esCompraUnica(p.tipo) && claveDuracion(p) === filtros.duracion)
       : item.planes;
+    if (filtros.soloOfertas) candidatos = candidatos.filter((p) => ofertaActiva(p) !== null);
     const plan = planMasBarato(candidatos, moneda);
     if (!plan) continue;
     const valor = valorEn(plan, moneda) ?? 0;
