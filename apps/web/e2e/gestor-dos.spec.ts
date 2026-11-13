@@ -7,7 +7,9 @@ import { entrarEquipo, reiniciarLimiteIngreso } from './ayudas';
  */
 test.beforeAll(() => reiniciarLimiteIngreso());
 
-const ayer = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+// «Ayer» en hora de Caracas (UTC−4), como cuenta los días el panel: con la
+// fecha UTC, entre las 00:00 y las 04:00 UTC «ayer» caía en «hoy» de Venezuela.
+const ayer = () => new Date(Date.now() - 4 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
 
 test('una nota con aviso vencido sale arriba y al marcarla hecha pasa a «Hechas»', async ({
   page,
