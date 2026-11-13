@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'escritorio',
       use: { ...devices['Desktop Chrome'] },
       testIgnore:
-        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec|juegos\.spec|vencimientos\.spec|reposicion\.spec|gestor-dos\.spec/,
+        /editor\.spec|centro\.spec|revendedores\.spec|automatizaciones\.spec|pagos-en-linea\.spec|asistente\.spec|entregas\.spec|billetera\.spec|carrito\.spec|\/pago\.spec|acceso\.spec|juegos\.spec|vencimientos\.spec|reposicion\.spec|gestor-dos\.spec|whatsapp\.spec/,
     },
     { name: 'movil', use: { ...devices['Pixel 7'] }, testMatch: /portada|cliente/ },
     // El editor publica la portada: se declara al final para que corra (con un solo worker)

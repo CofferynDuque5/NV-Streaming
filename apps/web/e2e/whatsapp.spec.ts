@@ -24,7 +24,7 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conecta
 
   await entrarEquipo(page, 'admin@nv.test');
   await page.goto('/admin/soporte');
-  await page.locator('#contenido').getByRole('link', { name: 'WhatsApp' }).click();
+  await page.locator('#contenido').getByRole('link', { name: 'WhatsApp', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/soporte\/whatsapp$/);
   await expect(page.getByText('Falta conectar el número de la empresa')).toBeVisible();
 
