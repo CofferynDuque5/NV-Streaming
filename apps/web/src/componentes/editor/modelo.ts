@@ -11,6 +11,7 @@ import {
   CreditCard,
   Clapperboard,
   Flag,
+  Flame,
   Gift,
   ImageIcon,
   Landmark,
@@ -146,6 +147,13 @@ export const INFO_BLOQUES: Record<
     icono: Gift,
     color: '#22c55e',
   },
+  ofertas: {
+    nombre: 'Ofertas HOT',
+    descripcion: 'Planes en oferta con su descuento y cuenta regresiva',
+    grupo: 'tienda',
+    icono: Flame,
+    color: '#f97316',
+  },
   'metodos-pago': {
     nombre: 'Métodos de pago',
     descripcion: 'Los métodos activos en Monedas y cobro',
@@ -179,6 +187,8 @@ export const EN_VIVO: Partial<Record<TipoBloque, string>> = {
     'El orden sale de las activaciones y renovaciones de los últimos 30 días. Sin ninguna, no se muestra.',
   combos:
     'Se llena solo con los combos activos de Catálogo → Combos, con su precio y lo que se ahorra. Sin combos, no se muestra.',
+  ofertas:
+    'Se llena solo con los planes que tienen oferta HOT vigente (Catálogo → plan → Oferta HOT), del mayor descuento al menor. Sin ofertas, no se muestra.',
   cartelera:
     'Los títulos se escriben aquí. «TOP 1», «TOP 2»… pintan el número grande; «ESTRENO» o una fecha, solo la insignia.',
   'metodos-pago': 'Muestra los métodos activos en Monedas y cobro, más el saldo de la billetera.',
@@ -322,6 +332,15 @@ export function bloqueNuevo(tipo: TipoBloque): BloqueSitio {
         etiqueta: null,
         titulo: 'Combos',
         subtitulo: 'Dos universos en un solo pago',
+      };
+    case 'ofertas':
+      return {
+        ...comun,
+        tipo,
+        etiqueta: null,
+        titulo: 'Ofertas HOT',
+        subtitulo: 'Precios rebajados por tiempo limitado',
+        limite: 12,
       };
     case 'metodos-pago':
       return { ...comun, tipo, etiqueta: null, titulo: 'Métodos de pago', subtitulo: null };

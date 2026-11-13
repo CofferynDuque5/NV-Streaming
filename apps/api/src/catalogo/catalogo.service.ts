@@ -6,6 +6,7 @@ import {
   MONEDAS,
   type PlanEntrada,
   type PlanPublico,
+  type OfertaPlanEntrada,
   type PrecioFijoEntrada,
   type ProveedorEntrada,
   type ProveedorPublico,
@@ -22,7 +23,7 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
-import { D, type MapaTasas, preciosPorMoneda } from '../dinero/dinero.js';
+import { D, type MapaTasas, preciosOfertaPorMoneda, preciosPorMoneda } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 
 export type PlanCompleto = Plan & {
@@ -86,6 +87,12 @@ export const planVendible: Prisma.PlanWhereInput = {
   servicio: { activo: true, proveedor: { activo: true } },
 };
 
+function ofertaPublica(p: PlanCompleto, tasas: MapaTasas): PlanPublico['oferta'] {
+  const precios = preciosOfertaPorMoneda(p, tasas);
+  if (!precios || !p.ofertaPorcentaje || !p.ofertaHasta) return null;
+  return { porcentaje: p.ofertaPorcentaje, hasta: p.ofertaHasta.toISOString(), precios };
+}
+
 /** `equipo` añade el costo para NV, que nunca se publica. */
 export function planPublico(
   p: PlanCompleto,
@@ -113,10 +120,15 @@ export function planPublico(
           costoUsd: p.costoUsd?.toFixed(2) ?? null,
           skuProveedor: p.skuProveedor,
           precioRevendedorUsd: precioRevendedor,
+          ofertaConfigurada:
+            p.ofertaPorcentaje && p.ofertaHasta
+              ? { porcentaje: p.ofertaPorcentaje, hasta: p.ofertaHasta.toISOString() }
+              : null,
         }
       : {}),
     orden: p.orden,
     precios: preciosPorMoneda(p, tasas),
+    oferta: ofertaPublica(p, tasas),
   };
 }
 
@@ -550,6 +562,46 @@ export class CatalogoService {
           true,
           (await this.preciosRevendedor(tx, [id])).get(id) ?? null,
         ),
+      };
+    });
+  }
+
+  /** Pone, cambia o quita la oferta HOT de un plan. */
+  async fijarOferta(
+    auth: ContextoAuth,
+    id: string,
+    e: OfertaPlanEntrada,
+    cliente: InfoCliente,
+  ): Promise<PlanPublico> {
+    return this.guardar(auth, cliente, 'plan', id, async (tx) => {
+      const antes = await tx.plan.findUnique({ where: { id } });
+      if (!antes) throw Errores.noEncontrado('El plan');
+      const quitar = e.porcentaje === null;
+      const p = await tx.plan.update({
+        where: { id },
+        data: {
+          ofertaPorcentaje: quitar ? null : e.porcentaje,
+          ofertaHasta: quitar ? null : (e.hasta ?? null),
+        },
+        include: INCLUIR_PLAN,
+      });
+      return {
+        id,
+        antes: {
+          porcentaje: antes.ofertaPorcentaje,
+          hasta: antes.ofertaHasta?.toISOString() ?? null,
+        },
+        resultado: planPublico(
+          p,
+          await this.tasas.mapa(tx),
+          true,
+          (await this.preciosRevendedor(tx, [id])).get(id) ?? null,
+        ),
+        accion: quitar ? 'plan.oferta_quitada' : 'plan.oferta_fijada',
+        despues: {
+          porcentaje: p.ofertaPorcentaje,
+          hasta: p.ofertaHasta?.toISOString() ?? null,
+        },
       };
     });
   }

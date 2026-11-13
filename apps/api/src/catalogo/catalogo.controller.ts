@@ -19,6 +19,7 @@ import {
   actualizarProveedorSchema,
   actualizarServicioSchema,
   planSchema,
+  ofertaPlanSchema,
   precioFijoSchema,
   proveedorSchema,
   servicioSchema,
@@ -160,6 +161,18 @@ export class CatalogoController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.catalogo.fijarPrecio(auth, id, cuerpo, cliente);
+  }
+
+  @Put('planes/:id/oferta')
+  @RequierePermiso('catalogo.gestionar')
+  @DocCuerpo(ofertaPlanSchema)
+  fijarOferta(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(ofertaPlanSchema)) cuerpo: z.output<typeof ofertaPlanSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.catalogo.fijarOferta(auth, id, cuerpo, cliente);
   }
 
   @Get('combos')

@@ -10,7 +10,7 @@ import { ArrowLeft, ArrowRight, History } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CeldaPrecio, EditarPlan, PrecioMoneda } from '@/componentes/admin/catalogo';
+import { CeldaPrecio, EditarPlan, OfertaPlan, PrecioMoneda } from '@/componentes/admin/catalogo';
 import { formatearTasa } from '@/componentes/admin/formato-admin';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -81,6 +81,7 @@ export default async function DetallePlan({ params }: { params: Promise<{ id: st
             <Insignia tono="aviso">Oculto</Insignia>
           )}
           {plan.revendible && <Insignia tono="acento">Revendible</Insignia>}
+          {plan.oferta && <Insignia tono="peligro">HOT −{plan.oferta.porcentaje} %</Insignia>}
         </div>
         {plan.descripcion && <p className="max-w-2xl text-tinta-suave">{plan.descripcion}</p>}
       </div>
@@ -172,6 +173,16 @@ export default async function DetallePlan({ params }: { params: Promise<{ id: st
           </Cuerpo>
         </Tabla>
       </Tarjeta>
+
+      {puedeGestionar && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Oferta HOT"
+            descripcion="Rebaja la compra hasta la fecha que elijas y aparece en «Ofertas HOT» de la tienda. Las renovaciones y los revendedores pagan su precio normal."
+          />
+          <OfertaPlan plan={plan} />
+        </Tarjeta>
+      )}
 
       {puedeGestionar ? (
         <Tarjeta>

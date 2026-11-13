@@ -15,6 +15,8 @@ export interface EstadoCatalogo {
   categoria: CategoriaServicio | null;
   duracion: string | null;
   precioMax: number | null;
+  /** Solo planes en oferta HOT. */
+  ofertas: boolean;
   orden: OrdenCatalogo;
   vista: VistaCatalogo;
 }
@@ -35,6 +37,7 @@ export function estadoDesdeUrl(p: Record<string, string | string[] | undefined>)
       : null,
     duracion: /^\d{1,3}-(dia|mes)$/.test(uno('duracion') ?? '') ? (uno('duracion') ?? null) : null,
     precioMax: Number.isFinite(max) && max > 0 ? max : null,
+    ofertas: uno('ofertas') === '1',
     orden: ORDENES_CATALOGO.includes(orden as OrdenCatalogo)
       ? (orden as OrdenCatalogo)
       : 'recomendados',

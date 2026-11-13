@@ -7,13 +7,14 @@ import {
   filtrarCatalogo,
   formatearMonto,
   type Moneda,
+  ofertaActiva,
   ORDENES_CATALOGO,
   type OrdenCatalogo,
   type ServicioTienda,
   valorEn,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { LayoutGrid, LayoutList, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Flame, LayoutGrid, LayoutList, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   type CSSProperties,
   type ReactNode,
@@ -45,6 +46,7 @@ function urlDe(e: EstadoCatalogo): string {
   poner('categoria', e.categoria);
   poner('duracion', e.duracion);
   poner('max', e.precioMax === null ? null : String(e.precioMax));
+  poner('ofertas', e.ofertas ? '1' : null);
   poner('orden', e.orden === 'recomendados' ? null : e.orden);
   poner('vista', e.vista === 'lista' ? 'lista' : null);
   return `${u.pathname}${u.search}`;
@@ -89,12 +91,14 @@ function PanelFiltros({
   rango,
   duraciones,
   moneda,
+  hayOfertas,
 }: {
   estado: EstadoCatalogo;
   cambiar: (c: Partial<EstadoCatalogo>) => void;
   rango: ReturnType<typeof rangoPrecios>;
   duraciones: { clave: string; etiqueta: string }[];
   moneda: Moneda;
+  hayOfertas: boolean;
 }) {
   const id = useId();
   const monto = (v: number) => formatearMonto(String(v), moneda);
@@ -169,6 +173,21 @@ function PanelFiltros({
           </div>
         </Grupo>
       )}
+      {(hayOfertas || estado.ofertas) && (
+        <Grupo titulo="Ofertas">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={estado.ofertas}
+              onClick={() => cambiar({ ofertas: !estado.ofertas })}
+            >
+              <Flame className="size-3.5 text-[#f97316]" aria-hidden="true" />
+              Solo ofertas HOT
+            </button>
+          </div>
+        </Grupo>
+      )}
       {duraciones.length > 1 && (
         <Grupo titulo="Duración del plan">
           <div className="flex flex-wrap gap-2">
@@ -237,7 +256,9 @@ export function CatalogoTienda({
     duracion: estado.duracion,
     precioMax: estado.precioMax,
     orden: estado.orden,
+    soloOfertas: estado.ofertas && !mayorista,
   };
+  const hayOfertas = !mayorista && servicios.some((s) => s.planes.some((p) => ofertaActiva(p)));
   const sinUniverso = filtrarCatalogo(servicios, moneda, filtros);
   const resultados = estado.categoria
     ? sinUniverso.filter((r) => r.item.servicio.categoria === estado.categoria)
@@ -277,7 +298,10 @@ export function CatalogoTienda({
       texto: `Hasta ${formatearMonto(String(estado.precioMax), moneda)}`,
       quitar: { precioMax: null },
     });
-  const limpiar = () => cambiar({ texto: '', categoria: null, duracion: null, precioMax: null });
+  if (estado.ofertas && !mayorista)
+    activos.push({ clave: 'hot', texto: 'Ofertas HOT', quitar: { ofertas: false } });
+  const limpiar = () =>
+    cambiar({ texto: '', categoria: null, duracion: null, precioMax: null, ofertas: false });
 
   const visibles = resultados.slice(0, mostrar);
   const quedan = resultados.length - visibles.length;
@@ -289,6 +313,7 @@ export function CatalogoTienda({
       rango={rango}
       duraciones={duraciones}
       moneda={moneda}
+      hayOfertas={hayOfertas}
     />
   );
   const texto = (n: number) => `${n} ${n === 1 ? 'resultado' : 'resultados'}`;

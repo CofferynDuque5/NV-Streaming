@@ -199,6 +199,13 @@ export interface PlanPublico {
   precioRevendedorUsd?: Decimal | 'varios' | null;
   orden: number;
   precios: PreciosPorMoneda;
+  /**
+   * Oferta HOT vigente: porcentaje, fin (ISO) y precios ya rebajados. Vale en
+   * la compra; las renovaciones y los revendedores pagan su precio normal.
+   */
+  oferta: { porcentaje: number; hasta: string; precios: PreciosPorMoneda } | null;
+  /** Oferta programada aunque ya haya vencido. Solo la recibe el equipo. */
+  ofertaConfigurada?: { porcentaje: number; hasta: string } | null;
 }
 
 /** Vencimientos y cortes del equipo, por día de Caracas. */

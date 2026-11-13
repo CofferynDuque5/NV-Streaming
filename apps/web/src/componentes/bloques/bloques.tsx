@@ -18,6 +18,7 @@ import {
   Panel,
   PortalServicios,
   Combos,
+  Ofertas,
   Ranking,
   Servicios,
   Universos,
@@ -482,6 +483,8 @@ function Bloque({
       );
     case 'combos':
       return <Combos b={bloque} contexto={contexto} />;
+    case 'ofertas':
+      return <Ofertas b={bloque} contexto={contexto} />;
     case 'metodos-pago':
       return <MetodosPago b={bloque} contexto={contexto} />;
     case 'canal':

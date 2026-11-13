@@ -9,6 +9,8 @@ import {
   etiquetaDuracion,
   etiquetaPlan,
   filtrarCatalogo,
+  ofertaActiva,
+  preciosVigentes,
   type PlanPublico,
   planMasBarato,
   datosDelPlan,
@@ -48,6 +50,7 @@ function plan(
       PEN: null,
       EUR: null,
     },
+    oferta: null,
   };
 }
 
@@ -246,5 +249,40 @@ describe('ahorroCombo', () => {
   it('sin precio en la moneda o sin ahorro, no hay combo que mostrar', () => {
     expect(ahorroCombo(combo, 'COP')).toBeNull();
     expect(ahorroCombo({ ...combo, precios: { ...combo.precios, USD: '8.00' } }, 'USD')).toBeNull();
+  });
+});
+
+describe('ofertas HOT', () => {
+  const base = plan('o1', cine, '10.00', '400.00', 1);
+  const enOferta = (hasta: string): PlanPublico => ({
+    ...base,
+    oferta: {
+      porcentaje: 20,
+      hasta,
+      precios: { ...base.precios, USD: { precio: '8.00', fijo: false } },
+    },
+  });
+
+  it('usa el precio rebajado mientras la oferta está vigente', () => {
+    const futura = enOferta(new Date(Date.now() + 3600_000).toISOString());
+    expect(ofertaActiva(futura)?.porcentaje).toBe(20);
+    expect(preciosVigentes(futura).USD?.precio).toBe('8.00');
+  });
+
+  it('al vencer vuelve al precio normal aunque la página siga abierta', () => {
+    const vencida = enOferta(new Date(Date.now() - 1000).toISOString());
+    expect(ofertaActiva(vencida)).toBeNull();
+    expect(preciosVigentes(vencida).USD?.precio).toBe('10.00');
+  });
+
+  it('el filtro «solo ofertas» deja los servicios con algún plan en oferta', () => {
+    const futura = enOferta(new Date(Date.now() + 3600_000).toISOString());
+    const cat: CatalogoPublico = {
+      ...catalogo,
+      planes: [...catalogo.planes.filter((p) => p.servicio.id !== cine.id), futura],
+    };
+    const r = filtrarCatalogo(serviciosTienda(cat), 'USD', { soloOfertas: true });
+    expect(r.map((x) => x.plan.id)).toEqual(['o1']);
+    expect(r[0]?.valor).toBe(8);
   });
 });

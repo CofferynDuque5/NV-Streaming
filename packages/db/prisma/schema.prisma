@@ -528,6 +528,10 @@ model Plan {
   /// Referencia del plan en el sistema del proveedor (se envía en el webhook de entrega).
   skuProveedor     String?        @map("sku_proveedor") @db.VarChar(80)
   orden            Int            @default(0)
+  /// Oferta HOT: porcentaje de descuento en la compra (no en renovaciones ni a revendedores).
+  ofertaPorcentaje Int?           @map("oferta_porcentaje")
+  /// Fin de la oferta HOT; después el plan vuelve a su precio.
+  ofertaHasta      DateTime?      @map("oferta_hasta") @db.Timestamptz(3)
   creadoEn         DateTime       @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn    DateTime       @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
@@ -714,37 +718,39 @@ enum ConceptoFactura {
 }
 
 model Factura {
-  id                String          @id @default(uuid()) @db.Uuid
+  id                 String          @id @default(uuid()) @db.Uuid
   /// Correlativo que genera la base de datos. Se muestra como NV-000123.
-  numero            Int             @unique @default(autoincrement())
-  clienteId         String          @map("cliente_id") @db.Uuid
-  suscripcionId     String?         @map("suscripcion_id") @db.Uuid
+  numero             Int             @unique @default(autoincrement())
+  clienteId          String          @map("cliente_id") @db.Uuid
+  suscripcionId      String?         @map("suscripcion_id") @db.Uuid
   /// Pedido del carrito al que pertenece (una factura por plan).
-  pedidoId          String?         @map("pedido_id") @db.Uuid
-  concepto          ConceptoFactura
-  estado            EstadoFactura   @default(emitida)
-  moneda            Moneda
-  subtotal          Decimal         @db.Decimal(14, 2)
-  descuento         Decimal         @default(0) @db.Decimal(14, 2)
-  total             Decimal         @db.Decimal(14, 2)
+  pedidoId           String?         @map("pedido_id") @db.Uuid
+  concepto           ConceptoFactura
+  estado             EstadoFactura   @default(emitida)
+  moneda             Moneda
+  subtotal           Decimal         @db.Decimal(14, 2)
+  descuento          Decimal         @default(0) @db.Decimal(14, 2)
+  total              Decimal         @db.Decimal(14, 2)
   /// Unidades de `moneda` por 1 USD al emitir o recotizar.
-  tasa              Decimal         @db.Decimal(18, 6)
-  totalUsd          Decimal         @map("total_usd") @db.Decimal(14, 2)
-  cuponId           String?         @map("cupon_id") @db.Uuid
+  tasa               Decimal         @db.Decimal(18, 6)
+  totalUsd           Decimal         @map("total_usd") @db.Decimal(14, 2)
+  cuponId            String?         @map("cupon_id") @db.Uuid
   /// Parte del descuento que viene de un combo, en USD (se mantiene al recotizar).
-  descuentoComboUsd Decimal?        @map("descuento_combo_usd") @db.Decimal(14, 2)
+  descuentoComboUsd  Decimal?        @map("descuento_combo_usd") @db.Decimal(14, 2)
+  /// Parte del descuento que viene de una oferta HOT, en USD (se mantiene al recotizar).
+  descuentoOfertaUsd Decimal?        @map("descuento_oferta_usd") @db.Decimal(14, 2)
   /// Periodos del plan que cubre (renovar 1, 2, 3, 6 o 12 de una vez).
-  periodos          Int             @default(1)
+  periodos           Int             @default(1)
   /// La renovación cuenta desde el pago y no desde el vencimiento.
-  desdeHoy          Boolean         @default(false) @map("desde_hoy")
-  venceEn           DateTime        @map("vence_en") @db.Timestamptz(3)
-  pagadaEn          DateTime?       @map("pagada_en") @db.Timestamptz(3)
-  anuladaEn         DateTime?       @map("anulada_en") @db.Timestamptz(3)
-  motivoAnulacion   String?         @map("motivo_anulacion") @db.VarChar(500)
-  anuladaPorId      String?         @map("anulada_por_id") @db.Uuid
-  creadoPorId       String?         @map("creado_por_id") @db.Uuid
-  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn     DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  desdeHoy           Boolean         @default(false) @map("desde_hoy")
+  venceEn            DateTime        @map("vence_en") @db.Timestamptz(3)
+  pagadaEn           DateTime?       @map("pagada_en") @db.Timestamptz(3)
+  anuladaEn          DateTime?       @map("anulada_en") @db.Timestamptz(3)
+  motivoAnulacion    String?         @map("motivo_anulacion") @db.VarChar(500)
+  anuladaPorId       String?         @map("anulada_por_id") @db.Uuid
+  creadoPorId        String?         @map("creado_por_id") @db.Uuid
+  creadoEn           DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn      DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   suscripcion          Suscripcion?          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)

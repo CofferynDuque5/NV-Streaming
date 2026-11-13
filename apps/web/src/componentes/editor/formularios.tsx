@@ -258,6 +258,7 @@ function Encabezado<
     | 'ranking'
     | 'cartelera'
     | 'combos'
+    | 'ofertas'
     | 'metodos-pago'
   >,
 >({ p }: { p: PropsFormulario<B> }) {
@@ -1194,6 +1195,24 @@ function FormRanking({ p }: P<'ranking'>) {
   );
 }
 
+function FormOfertas({ p }: P<'ofertas'>) {
+  const { b } = p;
+  return (
+    <>
+      <Encabezado p={p} />
+      <Numero
+        p={comun(p)}
+        ruta="limite"
+        etiqueta="Cuántas mostrar"
+        valor={b.limite}
+        min={3}
+        max={24}
+        onCambio={(limite) => escribir(p, { limite }, 'limite')}
+      />
+    </>
+  );
+}
+
 function FormCartelera({ p }: P<'cartelera'>) {
   const { b } = p;
   const q = comun(p);
@@ -1511,6 +1530,8 @@ export function FormularioBloque(props: PropsFormulario) {
       return <FormPlanes p={con(b)} />;
     case 'ranking':
       return <FormRanking p={con(b)} />;
+    case 'ofertas':
+      return <FormOfertas p={con(b)} />;
     case 'canal':
       return <FormCanal p={con(b)} />;
     case 'panel':

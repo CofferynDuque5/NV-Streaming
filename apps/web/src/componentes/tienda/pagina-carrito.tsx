@@ -625,7 +625,10 @@ function LineaCarrito({
   const nombre = item.servicio.nombre;
   const categoria = item.servicio.categoria ? INFO_CATEGORIA[item.servicio.categoria] : null;
   const combo = linea && Number(linea.descuentoCombo) > 0 ? linea : null;
-  const cuponLinea = linea ? Number(linea.descuento) - Number(linea.descuentoCombo) : 0;
+  const oferta = linea && Number(linea.descuentoOferta) > 0 ? linea : null;
+  const cuponLinea = linea
+    ? Number(linea.descuento) - Number(linea.descuentoCombo) - Number(linea.descuentoOferta)
+    : 0;
   const descuento = cuponLinea > 0 ? cuponLinea.toFixed(2) : null;
   return (
     <li
@@ -686,6 +689,11 @@ function LineaCarrito({
                 {combo && (
                   <span className="text-xs whitespace-nowrap text-exito">
                     Combo {combo.combo} −{formatearMonto(combo.descuentoCombo, moneda)}
+                  </span>
+                )}
+                {oferta && (
+                  <span className="text-xs whitespace-nowrap text-exito">
+                    Oferta HOT −{formatearMonto(oferta.descuentoOferta, moneda)}
                   </span>
                 )}
                 {descuento && (
@@ -754,8 +762,10 @@ function Totales({
   nPlanes: string;
   moneda: Moneda;
 }) {
-  const ahorroCombo = (cotizacion?.lineas ?? []).reduce((a, l) => a + Number(l.descuentoCombo), 0);
-  const ahorroCupon = cotizacion ? Number(cotizacion.descuento) - ahorroCombo : 0;
+  const lineas = cotizacion?.lineas ?? [];
+  const ahorroCombo = lineas.reduce((a, l) => a + Number(l.descuentoCombo), 0);
+  const ahorroOferta = lineas.reduce((a, l) => a + Number(l.descuentoOferta), 0);
+  const ahorroCupon = cotizacion ? Number(cotizacion.descuento) - ahorroCombo - ahorroOferta : 0;
   return (
     <dl
       aria-live="polite"
@@ -774,7 +784,13 @@ function Totales({
           <dd>−{formatearMonto(ahorroCombo.toFixed(2), moneda)}</dd>
         </div>
       )}
-      {cotizacion && !cotizando && ahorroCupon > 0 && (
+      {cotizacion && !cotizando && ahorroOferta > 0 && (
+        <div className="flex justify-between gap-3 text-exito">
+          <dt>Ofertas HOT</dt>
+          <dd>−{formatearMonto(ahorroOferta.toFixed(2), moneda)}</dd>
+        </div>
+      )}
+      {cotizacion && !cotizando && ahorroCupon > 0.004 && (
         <div className="flex justify-between gap-3 text-exito">
           <dt>Cupón {cotizacion.cupon}</dt>
           <dd>−{formatearMonto(ahorroCupon.toFixed(2), moneda)}</dd>
@@ -869,7 +885,7 @@ function ResumenCliente({
   const aplicando = cotizando && cuponAplicado !== '' && cupon === cuponAplicado;
   const aplicado = !cotizando && cotizacion?.cupon ? cotizacion.cupon : null;
   const conDescuento = cotizacion?.lineas.find(
-    (l) => Number(l.descuento) > Number(l.descuentoCombo),
+    (l) => Number(l.descuento) > Number(l.descuentoCombo) + Number(l.descuentoOferta),
   );
 
   const formas: { id: FormaPagoPedido; titulo: string; texto: string }[] = [

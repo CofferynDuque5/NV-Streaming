@@ -622,6 +622,97 @@ describe('carrito', () => {
     expect(borrar.estado).toBe(204);
   });
 
+  it('una oferta HOT rebaja la compra hasta su fecha, no se suma al cupón y se respeta al recotizar', async () => {
+    const e = await escenario();
+    const ruta = `/catalogo/planes/${e.planId}/oferta`;
+    const enDosDias = new Date(Date.now() + 2 * 24 * 3600_000).toISOString();
+
+    // Solo quien gestiona el catálogo, con porcentaje válido y fecha futura.
+    expect((await e.operador.put(ruta, { porcentaje: 20, hasta: enDosDias })).estado).toBe(403);
+    const sinFecha = await e.admin.put(ruta, { porcentaje: 20 });
+    expect(sinFecha.estado).toBe(400);
+    const pasada = await e.admin.put(ruta, {
+      porcentaje: 20,
+      hasta: new Date(Date.now() - 60_000).toISOString(),
+    });
+    expect(pasada.estado).toBe(400);
+    expect((await e.admin.put(ruta, { porcentaje: 95, hasta: enDosDias })).estado).toBe(400);
+
+    const puesta = await e.admin.put(ruta, { porcentaje: 20, hasta: enDosDias });
+    expect(puesta.estado).toBe(200);
+    expect(puesta.cuerpo.ofertaConfigurada).toMatchObject({ porcentaje: 20 });
+    expect(await ctx.prisma.auditoria.count({ where: { accion: 'plan.oferta_fijada' } })).toBe(1);
+
+    // La tienda publica el precio rebajado en cada moneda (5 USD, VES a 40).
+    const publico = await e.cliente.get('/catalogo');
+    const plan = publico.cuerpo.planes.find((p: { id: string }) => p.id === e.planId);
+    expect(plan.oferta).toMatchObject({
+      porcentaje: 20,
+      precios: { USD: { precio: '4.00' }, VES: { precio: '160.00' } },
+    });
+    expect(plan.ofertaConfigurada).toBeUndefined();
+
+    const cot = await e.cliente.post('/mi/pedidos/cotizar', { planes: [e.planId], moneda: 'USD' });
+    expect(cot.cuerpo).toMatchObject({ subtotal: '5.00', descuento: '1.00', total: '4.00' });
+
+    // El cupón no se suma a la oferta: con otro plan en el carrito va a ese.
+    await e.admin.post('/cupones', {
+      codigo: 'EXTRA10',
+      tipo: 'porcentaje',
+      valor: '10',
+      soloAltas: true,
+    });
+    const soloOferta = await e.cliente.post('/mi/pedidos/cotizar', {
+      planes: [e.planId],
+      moneda: 'USD',
+      cupon: 'EXTRA10',
+    });
+    expect(soloOferta.estado).toBe(409);
+    expect(soloOferta.cuerpo.error.campos.cupon).toBeDefined();
+    const conOtro = await e.cliente.post('/mi/pedidos/cotizar', {
+      planes: [e.planId, e.anualId],
+      moneda: 'USD',
+      cupon: 'EXTRA10',
+    });
+    expect(conOtro.estado).toBe(200);
+    expect(conOtro.cuerpo).toMatchObject({ subtotal: '55.00', descuento: '6.00', total: '49.00' });
+
+    // La factura guarda la oferta y la conserva al recotizar aunque ya venció.
+    const pedido = await e.cliente.post('/mi/pedidos', {
+      planes: [e.planId],
+      moneda: 'USD',
+      pago: 'facturas',
+    });
+    expect(pedido.estado).toBe(201);
+    const factura = await ctx.prisma.factura.findFirstOrThrow({
+      where: { pedidoId: pedido.cuerpo.id },
+    });
+    expect(factura.total.toFixed(2)).toBe('4.00');
+    expect(factura.descuentoOfertaUsd?.toFixed(2)).toBe('1.00');
+    await ctx.prisma.plan.update({
+      where: { id: e.planId },
+      data: { ofertaHasta: new Date(Date.now() - 1000) },
+    });
+    const recotizada = await e.cliente.post(`/mi/facturas/${factura.id}/recotizar`, {
+      moneda: 'VES',
+    });
+    expect(recotizada.estado).toBe(200);
+    expect(recotizada.cuerpo).toMatchObject({
+      subtotal: '200.00',
+      descuento: '40.00',
+      total: '160.00',
+    });
+
+    // Vencida, la tienda deja de mostrarla y las compras nuevas pagan el precio normal.
+    const despues = await e.cliente.get('/catalogo');
+    expect(despues.cuerpo.planes.find((p: { id: string }) => p.id === e.planId).oferta).toBeNull();
+
+    const quitada = await e.admin.put(ruta, { porcentaje: null });
+    expect(quitada.estado).toBe(200);
+    expect(quitada.cuerpo.ofertaConfigurada).toBeNull();
+    expect(await ctx.prisma.auditoria.count({ where: { accion: 'plan.oferta_quitada' } })).toBe(1);
+  });
+
   it('repetir el pedido con la misma clave no crea ni cobra otro; otra clave sí es un pedido nuevo', async () => {
     const e = await escenario();
     await conSaldo(e, '20');

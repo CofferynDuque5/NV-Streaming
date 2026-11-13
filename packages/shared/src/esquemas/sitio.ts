@@ -413,6 +413,14 @@ export const bloqueCombosSchema = z.object({
   ...encabezado,
 });
 
+/** Planes en oferta HOT, del mayor descuento al menor, con su cuenta regresiva. */
+export const bloqueOfertasSchema = z.object({
+  ...base,
+  tipo: z.literal('ofertas'),
+  ...encabezado,
+  limite: z.coerce.number().int().min(3, 'Muestra al menos 3.').max(24, 'Máximo 24.').default(12),
+});
+
 /** Métodos de pago activos en el panel de cobros (más el saldo de la billetera). */
 export const bloqueMetodosPagoSchema = z.object({
   ...base,
@@ -467,6 +475,7 @@ export const bloqueSitioSchema = z.discriminatedUnion(
     bloqueRankingSchema,
     bloqueCarteleraSchema,
     bloqueCombosSchema,
+    bloqueOfertasSchema,
     bloqueMetodosPagoSchema,
     bloqueCanalSchema,
     bloquePanelSchema,
@@ -493,6 +502,7 @@ export const TIPOS_BLOQUE = [
   'ranking',
   'cartelera',
   'combos',
+  'ofertas',
   'metodos-pago',
   'canal',
   'panel',

@@ -445,8 +445,14 @@ export function CarritoLateral({
                         ) : linea ? (
                           <span className="grid justify-items-end">
                             <strong className="font-titulo text-[0.95rem] whitespace-nowrap tabular-nums">
-                              {formatearMonto(linea.subtotal, moneda)}
+                              {formatearMonto(linea.total, moneda)}
                             </strong>
+                            {Number(linea.descuento) > 0 && (
+                              <s className="text-[0.7rem] text-tinta-tenue tabular-nums">
+                                <span className="sr-only">Antes </span>
+                                {formatearMonto(linea.subtotal, moneda)}
+                              </s>
+                            )}
                             {moneda !== 'USD' && (
                               <small className="text-[0.7rem] text-tinta-tenue tabular-nums">
                                 {formatearMonto(linea.totalUsd, 'USD')}
@@ -532,7 +538,7 @@ export function CarritoLateral({
                     {cotizacion ? (
                       <>
                         <b className="font-titulo text-2xl font-extrabold whitespace-nowrap tabular-nums">
-                          {formatearMonto(cotizacion.subtotal, moneda)}
+                          {formatearMonto(cotizacion.total, moneda)}
                         </b>
                         {moneda !== 'USD' && (
                           <small className="text-xs text-tinta-tenue tabular-nums">

@@ -1,6 +1,6 @@
 import type { Moneda, PlanPublico, ServicioTienda } from '@nv/shared';
 import clsx from 'clsx';
-import { Store } from 'lucide-react';
+import { Flame, Store } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { clasesBoton } from '@/componentes/ui/boton';
@@ -32,8 +32,31 @@ function Precio({ plan, moneda, mayorista }: Omit<PropsTarjeta, 'item'>) {
         {!p.etiqueta && <span className="sr-only">Desde </span>}
         {p.principal}
       </strong>
-      {p.referencia && <span className="text-xs text-tinta-tenue">{p.referencia}</span>}
+      {p.antes && (
+        <s className="text-xs text-tinta-tenue">
+          <span className="sr-only">Antes </span>
+          {p.antes}
+        </s>
+      )}
+      {p.oferta && <span className="sr-only">, oferta HOT de {p.oferta} % menos</span>}
+      {p.referencia && !p.antes && <span className="text-xs text-tinta-tenue">{p.referencia}</span>}
     </p>
+  );
+}
+
+/** Insignia «HOT −20 %» sobre la imagen de un plan en oferta. */
+export function InsigniaHot({ porcentaje, className }: { porcentaje: number; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={clsx(
+        'pointer-events-none absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#f97316] to-[#e11d48] px-2.5 py-1 text-[0.7rem] font-extrabold tracking-wide whitespace-nowrap text-white shadow-[0_0_14px_rgb(225_29_72/0.55)]',
+        className,
+      )}
+    >
+      <Flame className="size-3" />
+      HOT −{porcentaje} %
+    </span>
   );
 }
 
@@ -60,6 +83,7 @@ export function TarjetaServicio(props: PropsTarjeta) {
   const { item, plan, prioridad } = props;
   const { servicio } = item;
   const href = `/catalogo/${servicio.slug}`;
+  const { oferta } = precioDeTarjeta(plan, props.moneda, props.mayorista);
   return (
     <article
       className="tarjeta-brillo @container/t grid min-w-0 content-start overflow-hidden"
@@ -72,6 +96,7 @@ export function TarjetaServicio(props: PropsTarjeta) {
         aria-hidden="true"
         className="escenario h-48 rounded-t-[1.3rem] @max-[13rem]/t:h-40"
       >
+        {oferta && <InsigniaHot porcentaje={oferta} />}
         <ArteServicio
           arte={item.arte}
           nombre={servicio.nombre}
