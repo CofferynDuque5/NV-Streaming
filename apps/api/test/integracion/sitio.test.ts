@@ -506,7 +506,7 @@ describe('editor visual: imágenes y tema', () => {
       (await e.admin.pedir('PUT', '/sitio/temporada', { temporada: 'halloween' })).estado,
     ).toBe(400);
     expect(
-      (await e.admin.pedir('PUT', '/sitio/temporada', { temporada: 'navidad', hasta })).estado,
+      (await e.admin.pedir('PUT', '/sitio/temporada', { temporada: 'carnaval', hasta })).estado,
     ).toBe(400);
     const r = await e.admin.pedir('PUT', '/sitio/temporada', activar);
     expect(r.estado).toBe(200);

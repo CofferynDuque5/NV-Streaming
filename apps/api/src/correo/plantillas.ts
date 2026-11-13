@@ -1,3 +1,5 @@
+import { TEMPORADAS_SITIO, type TemporadaSitio } from '@nv/shared';
+
 export interface CorreoRenderizado {
   asunto: string;
   texto: string;
@@ -28,6 +30,25 @@ const envolver = (
     : '';
   return `<!doctype html><html lang="es"><body style="margin:0;background:#f4f5f8;font-family:Inter,Segoe UI,Arial,sans-serif;color:#101828"><div style="max-width:560px;margin:0 auto;padding:32px 20px"><div style="font-weight:800;font-size:18px;letter-spacing:.02em;margin-bottom:24px">NV Streaming</div><div style="background:#fff;border-radius:16px;padding:28px"><h1 style="font-size:20px;margin:0 0 16px">${esc(titulo)}</h1>${cuerpo}${cta}</div><p style="font-size:12px;color:#98a2b3;margin-top:20px">${esc(pie)}</p></div></body></html>`;
 };
+
+/**
+ * Adorno de la temporada vigente: el saludo junto al nombre y el color del
+ * botón. Solo toca el HTML que arma `envolver` (valores fijos, nunca del usuario).
+ */
+export function adornarTemporada(
+  correo: CorreoRenderizado,
+  temporada: TemporadaSitio | null,
+): CorreoRenderizado {
+  if (!temporada) return correo;
+  const { boton, saludo } = TEMPORADAS_SITIO[temporada].correo;
+  const html = correo.html
+    .replace(
+      'margin-bottom:24px">NV Streaming</div>',
+      `margin-bottom:24px">NV Streaming <span style="font-weight:600;font-size:14px;color:${boton}">· ${saludo}</span></div>`,
+    )
+    .replaceAll('background:#6d4aff;', `background:${boton};`);
+  return { ...correo, html };
+}
 
 const texto = (parrafos: string[], enlace?: string) =>
   [...parrafos, ...(enlace ? ['', enlace] : []), '', '— NV Streaming'].join('\n');
@@ -550,6 +571,25 @@ export const Plantillas = {
       asunto: `Entrega pendiente: ${servicio}`,
       texto: texto(p, url),
       html: envolver('Entrega pendiente', p, { texto: 'Completar la entrega', url }, PIE_EQUIPO),
+    };
+  },
+  tareaAsignada(
+    nombre: string,
+    autor: string,
+    tarea: string,
+    cuando: string | null,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `${autor} te asignó una tarea: "${tarea}".`,
+      ...(cuando ? [`Para el ${cuando} (hora de Venezuela).`] : []),
+      'Márcala como hecha en el panel cuando la termines.',
+    ];
+    return {
+      asunto: `Nueva tarea de ${autor}`,
+      texto: texto(p, url),
+      html: envolver('Te asignaron una tarea', p, { texto: 'Ver mis tareas', url }, PIE_EQUIPO),
     };
   },
   entregaSinStock(nombre: string, plan: string, cliente: string, url: string): CorreoRenderizado {

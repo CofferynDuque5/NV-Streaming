@@ -121,8 +121,16 @@ export function HoyGestor({
         <Kpi
           titulo="Notas por avisar"
           valor={datos.notasPorAvisar}
-          detalle={<Link href="/admin/notas">Ver notas</Link>}
-          tono={datos.notasPorAvisar > 0 ? 'aviso' : undefined}
+          detalle={
+            datos.misTareas > 0 ? (
+              <Link href="/admin/notas?vista=mias">
+                {datos.misTareas === 1 ? '1 tarea tuya' : `${datos.misTareas} tareas tuyas`}
+              </Link>
+            ) : (
+              <Link href="/admin/notas">Ver notas</Link>
+            )
+          }
+          tono={datos.notasPorAvisar > 0 || datos.misTareas > 0 ? 'aviso' : undefined}
         />
         {puedeVerCuentas && (
           <Kpi

@@ -16,6 +16,12 @@ export const CABECERAS_PAIS = [
 
 const MONEDA_POR_PAIS: Record<string, Moneda> = {
   VE: 'VES',
+  // Países que usan el dólar como moneda: ven los precios en USD.
+  EC: 'USD',
+  SV: 'USD',
+  PA: 'USD',
+  PR: 'USD',
+  US: 'USD',
   AR: 'ARS',
   CO: 'COP',
   PE: 'PEN',

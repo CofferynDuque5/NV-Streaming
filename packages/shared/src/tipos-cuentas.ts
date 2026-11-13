@@ -304,3 +304,32 @@ export interface ResultadoReposicion {
   /** Días sumados a su vencimiento (0 si no se compensó). */
   diasCompensados: number;
 }
+
+/** Una caída de una cuenta: cuándo se marcó y, si ya volvió, cuándo. */
+export interface CaidaCuenta {
+  cuenta: { id: string; pista: string; servicio: Referencia; proveedor: string | null };
+  caidaEn: string;
+  /** null: sigue caída. */
+  resueltaEn: string | null;
+  /** Horas sin servicio (hasta ahora si sigue caída). */
+  horas: number;
+  /** Perfiles con cliente que tiene hoy la cuenta. */
+  clientes: number;
+}
+
+export interface GrupoCaidas {
+  nombre: string;
+  caidas: number;
+  horas: number;
+}
+
+/** Reporte de caídas de un período: cada caída y los totales por plataforma y por proveedor. */
+export interface ReporteCaidas {
+  desde: string;
+  hasta: string;
+  caidas: CaidaCuenta[];
+  porServicio: GrupoCaidas[];
+  porProveedor: GrupoCaidas[];
+  /** Cuentas caídas en este momento. */
+  sinResolver: number;
+}

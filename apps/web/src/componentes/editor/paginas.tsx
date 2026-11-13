@@ -14,6 +14,7 @@ import {
   PLANTILLAS_PAGINA,
   type TemaSitio,
   TEMPORADAS_SITIO,
+  type TemporadaSitio,
 } from '@nv/shared';
 import {
   Check,
@@ -178,7 +179,11 @@ export function PaginasSitio({
         </div>
         {lista.length === 0 ? (
           <p className="px-4 py-5.5 text-center text-sm text-tinta-suave">
-            {filtro === 'activas' ? 'No hay páginas activas.' : 'No hay páginas archivadas.'}
+            {filtro === 'archivadas'
+              ? 'No hay páginas archivadas.'
+              : sinPortada
+                ? 'Todavía no hay páginas propias: la tienda muestra la portada de fábrica. Pulsa «Editar portada» para crear la tuya.'
+                : 'No hay páginas activas.'}
           </p>
         ) : (
           lista.map((p) => (
@@ -633,10 +638,18 @@ const diaCaracas = (t: number) => new Date(t - 4 * 3_600_000).toISOString().slic
 const finDelDia = (dia: string) =>
   new Date(Date.parse(`${dia}T00:00:00-04:00`) + DIA).toISOString();
 
-/** Último día propuesto: el 31 de octubre de este año, o dentro de una semana si ya pasó. */
-function diaPropuesto(ahora: number): string {
-  const halloween = `${diaCaracas(ahora).slice(0, 4)}-10-31`;
-  return halloween >= diaCaracas(ahora) ? halloween : diaCaracas(ahora + 7 * DIA);
+/**
+ * Último día propuesto para la temporada: su fecha de cierre (p. ej. 31 de
+ * octubre o 6 de enero) la próxima vez que llegue, sin pasar del máximo
+ * permitido (si no cabe, el último día permitido).
+ */
+function diaPropuesto(temporada: TemporadaSitio, ahora: number): string {
+  const hoy = diaCaracas(ahora);
+  const mmdd = TEMPORADAS_SITIO[temporada].proponerHasta;
+  let fecha = `${hoy.slice(0, 4)}-${mmdd}`;
+  if (fecha < hoy) fecha = `${Number(hoy.slice(0, 4)) + 1}-${mmdd}`;
+  const tope = diaCaracas(ahora + MAX_DIAS_TEMPORADA * DIA);
+  return fecha > tope ? tope : fecha;
 }
 
 const fechaLarga = new Intl.DateTimeFormat('es', {
@@ -644,9 +657,12 @@ const fechaLarga = new Intl.DateTimeFormat('es', {
   timeZone: 'America/Caracas',
 });
 
+const IDS_TEMPORADA = Object.keys(TEMPORADAS_SITIO) as TemporadaSitio[];
+
 /**
- * Temporada de Halloween encima de la paleta. Termina sola el día elegido y el
- * sitio vuelve al diseño original; también se puede quitar antes con un botón.
+ * Temporada (Halloween, Navidad…) encima de la paleta, en la tienda, los
+ * paneles y los correos. Termina sola el día elegido y todo vuelve al diseño
+ * original; también se puede quitar antes con un botón.
  */
 export function TemporadaSitioSeccion({
   tema,
@@ -658,14 +674,29 @@ export function TemporadaSitioSeccion({
   const notificar = useNotificar();
   const [actual, setActual] = useState(tema.temporada);
   const [ahora] = useState(() => Date.now());
+  const activa = actual?.vigente === true;
+  const [elegida, setElegida] = useState<TemporadaSitio>(() =>
+    activa && actual ? actual.temporada : proximaTemporada(ahora),
+  );
   const [dia, setDia] = useState(() =>
-    actual?.vigente ? diaCaracas(Date.parse(actual.hasta) - 1) : diaPropuesto(ahora),
+    activa && actual ? diaCaracas(Date.parse(actual.hasta) - 1) : diaPropuesto(elegida, ahora),
   );
   const [guardando, setGuardando] = useState(false);
-  const h = TEMPORADAS_SITIO.halloween;
-  const activa = actual?.vigente === true;
+  const t = TEMPORADAS_SITIO[elegida];
+  const enUso = activa && actual?.temporada === elegida;
 
-  async function enviar(cuerpo: { temporada: 'halloween'; hasta: string } | { temporada: null }) {
+  function elegir(id: TemporadaSitio) {
+    setElegida(id);
+    setDia(
+      activa && actual?.temporada === id
+        ? diaCaracas(Date.parse(actual.hasta) - 1)
+        : diaPropuesto(id, ahora),
+    );
+  }
+
+  async function enviar(
+    cuerpo: { temporada: TemporadaSitio; hasta: string } | { temporada: null },
+  ) {
     setGuardando(true);
     const r = await llamarApi<TemaSitio>('PUT', '/sitio/temporada', cuerpo);
     setGuardando(false);
@@ -675,9 +706,10 @@ export function TemporadaSitioSeccion({
     }
     setActual(r.datos.temporada);
     await refrescarSitio();
+    const nueva = r.datos.temporada;
     notificar(
-      r.datos.temporada
-        ? `Halloween activo hasta el ${fechaLarga.format(new Date(Date.parse(r.datos.temporada.hasta) - 1))}`
+      nueva
+        ? `${TEMPORADAS_SITIO[nueva.temporada].nombre} activa hasta el ${fechaLarga.format(new Date(Date.parse(nueva.hasta) - 1))}`
         : 'La tienda volvió al diseño original',
     );
   }
@@ -689,30 +721,45 @@ export function TemporadaSitioSeccion({
           Temporada
         </h2>
         <p className="text-[0.8rem] text-tinta-tenue">
-          Un diseño de temporada encima de tu paleta. Al terminar, la tienda vuelve sola al diseño
-          original. Los logos no cambian.
+          Un diseño de temporada encima de tu paleta, en la tienda, los paneles y los correos. Al
+          terminar, todo vuelve solo al diseño original. Los logos no cambian.
         </p>
       </header>
+      <div role="group" aria-label="Elegir temporada" className="flex flex-wrap gap-2">
+        {IDS_TEMPORADA.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="chip"
+            aria-pressed={elegida === id}
+            onClick={() => elegir(id)}
+          >
+            {TEMPORADAS_SITIO[id].emoji} {TEMPORADAS_SITIO[id].nombre}
+            {activa && actual?.temporada === id ? ' · activa' : ''}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-end justify-between gap-x-4.5 gap-y-3">
-        <div className="ed-pal-prev" style={variablesTemporada}>
+        <div className="ed-pal-prev" style={variablesTemporada(elegida)}>
           <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
-            🎃 {h.nombre}
+            {t.emoji} {t.nombre}
           </span>
           <span className="ed-pal-grad">Todos tus universos</span>
           <span className="ed-mues">Color de botones</span>
         </div>
         <p className="text-[0.82rem] text-tinta-suave" aria-live="polite">
           {activa && actual
-            ? `Activa hasta el ${fechaLarga.format(new Date(Date.parse(actual.hasta) - 1))} (incluido).`
+            ? `${TEMPORADAS_SITIO[actual.temporada].nombre} activa hasta el ${fechaLarga.format(new Date(Date.parse(actual.hasta) - 1))} (incluido).`
             : actual
               ? 'La última temporada ya terminó: la tienda tiene su diseño original.'
               : 'Sin temporada: la tienda tiene su diseño original.'}
         </p>
       </div>
+      <p className="max-w-prose text-[0.8rem] text-tinta-tenue">{t.descripcion}</p>
       {puedeCambiar ? (
         <div className="flex flex-wrap items-end gap-3">
           <CampoTexto
-            etiqueta="Último día de Halloween"
+            etiqueta={`Último día de ${t.nombre}`}
             type="date"
             value={dia}
             min={diaCaracas(ahora)}
@@ -721,11 +768,11 @@ export function TemporadaSitioSeccion({
             className="w-full max-w-60"
           />
           <Boton
-            onClick={() => enviar({ temporada: 'halloween', hasta: finDelDia(dia) })}
+            onClick={() => enviar({ temporada: elegida, hasta: finDelDia(dia) })}
             cargando={guardando}
             disabled={!dia}
           >
-            {activa ? 'Cambiar fecha' : 'Activar Halloween'}
+            {enUso ? 'Cambiar fecha' : `Activar ${t.nombre}`}
           </Boton>
           {activa && (
             <Boton
@@ -744,13 +791,20 @@ export function TemporadaSitioSeccion({
   );
 }
 
-const variablesTemporada = {
-  '--m-marca': TEMPORADAS_SITIO.halloween.marca,
-  '--m-acento': TEMPORADAS_SITIO.halloween.acento,
-  '--m-desde': TEMPORADAS_SITIO.halloween.boton[0],
-  '--m-hasta': TEMPORADAS_SITIO.halloween.boton[1],
-  '--m-tinta': TEMPORADAS_SITIO.halloween.botonTinta,
-} as CSSProperties;
+/** La temporada que toca por fecha: Navidad desde noviembre, si no Halloween. */
+function proximaTemporada(ahora: number): TemporadaSitio {
+  const mes = Number(diaCaracas(ahora).slice(5, 7));
+  return mes >= 11 || mes === 1 ? 'navidad' : 'halloween';
+}
+
+const variablesTemporada = (id: TemporadaSitio) =>
+  ({
+    '--m-marca': TEMPORADAS_SITIO[id].marca,
+    '--m-acento': TEMPORADAS_SITIO[id].acento,
+    '--m-desde': TEMPORADAS_SITIO[id].boton[0],
+    '--m-hasta': TEMPORADAS_SITIO[id].boton[1],
+    '--m-tinta': TEMPORADAS_SITIO[id].botonTinta,
+  }) as CSSProperties;
 
 function EnUso() {
   return (

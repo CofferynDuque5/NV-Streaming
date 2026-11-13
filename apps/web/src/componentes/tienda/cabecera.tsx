@@ -1,6 +1,5 @@
 import { formatearMonto } from '@nv/shared';
-import { Wallet, Zap } from 'lucide-react';
-import { cookies } from 'next/headers';
+import { Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { LogoTienda } from '@/componentes/logo';
@@ -10,14 +9,13 @@ import {
   BarraInferior,
   BuscadorTienda,
   CajonMovil,
-  CerrarAviso,
   FranjaCategorias,
   IconoCarrito,
   MenuMonedas,
 } from './cabecera-cliente';
 import { datosMenu } from './datos-menu';
 import { Bandera } from './iconos';
-import { COOKIE_AVISO_TASA, type OpcionMoneda, type SesionMenu } from './tipos';
+import type { OpcionMoneda, SesionMenu } from './tipos';
 
 /** Botón de moneda sin menú mientras carga el selector (misma medida, sin saltos). */
 function MonedaEstatica({ opcion, compacto }: { opcion: OpcionMoneda; compacto?: boolean }) {
@@ -35,18 +33,13 @@ function MonedaEstatica({ opcion, compacto }: { opcion: OpcionMoneda; compacto?:
  * chips bajo la fila superior, menú lateral y barra de pestañas abajo.
  */
 export async function CabeceraTienda() {
-  const [catalogo, moneda, sesion, almacen] = await Promise.all([
+  const [catalogo, moneda, sesion] = await Promise.all([
     catalogoTienda(),
     monedaTienda(),
     sesionTienda(),
-    cookies(),
   ]);
   const { lista, categorias, monedas } = datosMenu(catalogo, moneda);
   const actual = monedas.find((m) => m.codigo === moneda) ?? monedas[0];
-  const tasaVes = catalogo?.monedas.includes('VES')
-    ? catalogo.tasas.find((t) => t.moneda === 'VES')
-    : undefined;
-  const mostrarAviso = Boolean(tasaVes) && !almacen.get(COOKIE_AVISO_TASA);
   const sesionMenu: SesionMenu | null = sesion
     ? {
         nombre: sesion.nombre,
@@ -58,15 +51,6 @@ export async function CabeceraTienda() {
 
   return (
     <>
-      {mostrarAviso && tasaVes && (
-        <CerrarAviso>
-          <Zap className="size-3.5 shrink-0 text-aviso" aria-hidden="true" />
-          <span>
-            Tasa de hoy:{' '}
-            <b className="text-tinta">1 USD = {formatearMonto(tasaVes.valor, 'VES')}</b>
-          </span>
-        </CerrarAviso>
-      )}
       <header data-cabecera-tienda className="vidrio sticky top-0 z-40 border-x-0 border-t-0">
         <div className="contenedor">
           <div className="flex min-h-[4.25rem] items-center gap-2.5 py-2 nav:gap-3">

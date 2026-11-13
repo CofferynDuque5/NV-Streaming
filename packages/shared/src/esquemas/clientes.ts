@@ -118,6 +118,8 @@ export const crearNotaSchema = z
     texto: textoNotaSchema,
     tipo: z.enum(TIPOS_NOTA).default('otro'),
     clienteId: uuidSchema.nullable().optional(),
+    /** Tarea delegada: quién del equipo la hace (vacío = de todos). */
+    asignadaAId: uuidSchema.nullable().optional(),
     avisarEn: avisarEnSchema,
     diaPago: diaPagoSchema,
   })
@@ -128,6 +130,7 @@ export const editarNotaSchema = z
   .object({
     texto: textoNotaSchema.optional(),
     tipo: z.enum(TIPOS_NOTA).optional(),
+    asignadaAId: uuidSchema.nullable().optional(),
     avisarEn: avisarEnSchema,
     diaPago: diaPagoSchema,
     /** true la marca hecha; false la vuelve a pendiente. */
@@ -139,6 +142,8 @@ export type EditarNotaEntrada = z.infer<typeof editarNotaSchema>;
 export const listarNotasSchema = z.object({
   estado: z.enum(['pendientes', 'hechas']).default('pendientes'),
   clienteId: uuidSchema.optional(),
+  /** mias: asignadas a quien consulta; delegadas: las que asignó a otros. */
+  vista: z.enum(['todas', 'mias', 'delegadas']).default('todas'),
 });
 export type ListarNotasEntrada = z.infer<typeof listarNotasSchema>;
 

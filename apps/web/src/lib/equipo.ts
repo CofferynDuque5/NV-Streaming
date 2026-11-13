@@ -322,7 +322,7 @@ export function estadoModulo(
       if (mo.paginasPublicadas === null) return ok('');
       return mo.paginasPublicadas
         ? ok(plural(mo.paginasPublicadas, 'página publicada', 'páginas publicadas'))
-        : aviso('Sin páginas publicadas');
+        : ok('Portada de fábrica: pulsa para editarla');
     case 'equipo':
       return ok(
         mo.equipo === null ? '' : plural(mo.equipo, 'persona del equipo', 'personas del equipo'),
@@ -338,5 +338,13 @@ export function estadoModulo(
       return ok('Con aviso a una fecha y hora');
     case 'papelera':
       return ok('Nada se borra: se restaura');
+    case 'vencimientos':
+      return ok('Hoy, mañana y cortes');
+    case 'devoluciones':
+      return ok('Proporcional a los días sin usar');
+    case 'por-pagar':
+      return ok('Cobros de proveedores');
+    case 'caidas':
+      return ok('Por plataforma y proveedor');
   }
 }

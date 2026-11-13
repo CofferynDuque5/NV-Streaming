@@ -41,6 +41,13 @@ export class NotasController {
     return this.notas.listar(auth, filtro);
   }
 
+  /** Quiénes del equipo pueden recibir una tarea. */
+  @Get('equipo')
+  @RequierePermiso('clientes.notas')
+  equipo() {
+    return this.notas.equipo();
+  }
+
   @Post()
   @RequierePermiso('clientes.notas')
   @DocCuerpo(crearNotaSchema)

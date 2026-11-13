@@ -26,6 +26,7 @@ import { CodigosController, MisCodigosController } from './codigos/codigos.contr
 import { CodigosService } from './codigos/codigos.service.js';
 import { LectorImap } from './codigos/lector-imap.js';
 import { InventarioCuentasService } from './cuentas/inventario-cuentas.service.js';
+import { ReporteCaidasService } from './cuentas/reporte-caidas.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
 import {
   CONTROLADORES_AUTOMATIZACIONES,
@@ -146,6 +147,7 @@ export class AppModule {
         CuentasService,
         PerfilesClienteService,
         InventarioCuentasService,
+        ReporteCaidasService,
         LectorImap,
         CodigosService,
         ImportarCuentasService,

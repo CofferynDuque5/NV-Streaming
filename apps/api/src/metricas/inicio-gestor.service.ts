@@ -58,52 +58,62 @@ export class InicioGestorService {
     const cartera = limitadoACartera(auth.usuario.rol);
     const mes = mesCaracas(ahora);
 
-    const [vigentes, renovadas, porReponer, libres, notasPorAvisar, liberadas, meta, pagosMes] =
-      await Promise.all([
-        this.prisma.suscripcion.findMany({
-          where: { cliente, estado: { in: [...VIGENTES] } },
-          select: {
-            venceEn: true,
-            plan: { select: { servicio: { select: { id: true, nombre: true } } } },
-          },
-        }),
-        this.prisma.eventoSuscripcion.findMany({
-          where: { tipo: 'renovacion', creadoEn: { gte: hoy }, suscripcion: { cliente } },
-          select: { suscripcionId: true },
-          distinct: ['suscripcionId'],
-        }),
-        verCuentas
-          ? this.prisma.perfilCuenta.findMany({
-              where: {
-                estado: 'asignado',
-                cuenta: { estado: 'caida' },
-                suscripcion: { estado: { notIn: ['cancelada', 'vencida'] } },
-              },
-              select: { cuenta: { select: { servicio: { select: { id: true, nombre: true } } } } },
-            })
-          : Promise.resolve([]),
-        verCuentas
-          ? this.prisma.perfilCuenta.findMany({
-              where: { estado: 'libre', cuenta: { estado: 'activa' } },
-              select: { cuenta: { select: { servicio: { select: { id: true, nombre: true } } } } },
-            })
-          : Promise.resolve([]),
-        puede('clientes.notas') ? this.notas.porAvisar(auth, ahora) : Promise.resolve(0),
-        verCuentas
-          ? this.prisma.cuentaServicio.count({
-              where: { estado: 'en_espera', liberacionEn: { lt: manana } },
-            })
-          : Promise.resolve(0),
-        cartera
-          ? Promise.resolve(null)
-          : this.prisma.metaMes.findUnique({ where: { mes: mes.primerDia } }),
-        cartera
-          ? Promise.resolve([])
-          : this.prisma.pago.findMany({
-              where: { estado: 'confirmado', revisadoEn: { gte: mes.inicio } },
-              select: { factura: { select: { totalUsd: true } } },
-            }),
-      ]);
+    const [
+      vigentes,
+      renovadas,
+      porReponer,
+      libres,
+      notasPorAvisar,
+      liberadas,
+      meta,
+      pagosMes,
+      misTareas,
+    ] = await Promise.all([
+      this.prisma.suscripcion.findMany({
+        where: { cliente, estado: { in: [...VIGENTES] } },
+        select: {
+          venceEn: true,
+          plan: { select: { servicio: { select: { id: true, nombre: true } } } },
+        },
+      }),
+      this.prisma.eventoSuscripcion.findMany({
+        where: { tipo: 'renovacion', creadoEn: { gte: hoy }, suscripcion: { cliente } },
+        select: { suscripcionId: true },
+        distinct: ['suscripcionId'],
+      }),
+      verCuentas
+        ? this.prisma.perfilCuenta.findMany({
+            where: {
+              estado: 'asignado',
+              cuenta: { estado: 'caida' },
+              suscripcion: { estado: { notIn: ['cancelada', 'vencida'] } },
+            },
+            select: { cuenta: { select: { servicio: { select: { id: true, nombre: true } } } } },
+          })
+        : Promise.resolve([]),
+      verCuentas
+        ? this.prisma.perfilCuenta.findMany({
+            where: { estado: 'libre', cuenta: { estado: 'activa' } },
+            select: { cuenta: { select: { servicio: { select: { id: true, nombre: true } } } } },
+          })
+        : Promise.resolve([]),
+      puede('clientes.notas') ? this.notas.porAvisar(auth, ahora) : Promise.resolve(0),
+      verCuentas
+        ? this.prisma.cuentaServicio.count({
+            where: { estado: 'en_espera', liberacionEn: { lt: manana } },
+          })
+        : Promise.resolve(0),
+      cartera
+        ? Promise.resolve(null)
+        : this.prisma.metaMes.findUnique({ where: { mes: mes.primerDia } }),
+      cartera
+        ? Promise.resolve([])
+        : this.prisma.pago.findMany({
+            where: { estado: 'confirmado', revisadoEn: { gte: mes.inicio } },
+            select: { factura: { select: { totalUsd: true } } },
+          }),
+      puede('clientes.notas') ? this.notas.misTareas(auth) : Promise.resolve(0),
+    ]);
 
     const mapa = new Map<string, PlataformaInicio>();
     const de = (s: { id: string; nombre: string }) => {
@@ -137,6 +147,7 @@ export class InicioGestorService {
       ),
       renovadosHoy: { hechos: renovadas.length, total: renovadas.length + pendientesHoy },
       notasPorAvisar,
+      misTareas,
       cuentasLiberadas: liberadas,
       meta: cartera
         ? null

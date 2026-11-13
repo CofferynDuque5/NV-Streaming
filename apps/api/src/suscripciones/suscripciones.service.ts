@@ -19,6 +19,7 @@ import {
   type SuscripcionPublica,
   type VencimientosEquipo,
   tienePermiso,
+  type DevolucionSugerida,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import {
@@ -36,6 +37,7 @@ import { FacturacionService } from '../cobros/facturacion.service.js';
 import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
+import { numeroFactura } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { type Dec, sumarDuracion } from '../dinero/dinero.js';
 import { inicioDiaCaracas } from '../automatizaciones/horario.js';
@@ -155,6 +157,68 @@ export class SuscripcionesService {
     });
     if (!s) throw Errores.noEncontrado('La suscripción');
     return suscripcionDetalle(s);
+  }
+
+  /**
+   * Calculadora de devolución: lo pagado en la última factura, repartido entre
+   * los días que cubre (duración del plan × períodos pagados), por los días que
+   * le quedan hasta el vencimiento. Solo sugiere: no devuelve nada.
+   */
+  async devolucion(
+    auth: ContextoAuth,
+    id: string,
+    ahora = new Date(),
+  ): Promise<DevolucionSugerida> {
+    const s = await this.prisma.suscripcion.findFirst({
+      where: { id, cliente: alcanceClientes(auth) },
+      select: {
+        venceEn: true,
+        plan: { select: { duracionCantidad: true, duracionUnidad: true } },
+        facturas: {
+          where: { estado: 'pagada' },
+          orderBy: [{ pagadaEn: 'desc' }, { creadoEn: 'desc' }],
+          take: 1,
+          select: {
+            id: true,
+            numero: true,
+            total: true,
+            moneda: true,
+            totalUsd: true,
+            periodos: true,
+          },
+        },
+      },
+    });
+    if (!s) throw Errores.noEncontrado('La suscripción');
+    const f = s.facturas[0] ?? null;
+    let diasPeriodo = 1;
+    if (s.venceEn) {
+      const cantidad = s.plan.duracionCantidad * (f?.periodos ?? 1);
+      const inicio = sumarDuracion(s.venceEn, -cantidad, s.plan.duracionUnidad);
+      diasPeriodo = Math.max(1, Math.round((s.venceEn.getTime() - inicio.getTime()) / 86_400_000));
+    }
+    const diasRestantes = s.venceEn
+      ? Math.min(
+          diasPeriodo,
+          Math.max(0, Math.ceil((s.venceEn.getTime() - ahora.getTime()) / 86_400_000)),
+        )
+      : 0;
+    const parte = (total: Dec) => total.mul(diasRestantes).div(diasPeriodo).toFixed(2);
+    return {
+      factura: f
+        ? {
+            id: f.id,
+            numero: numeroFactura(f.numero),
+            total: f.total.toFixed(2),
+            moneda: f.moneda,
+            totalUsd: f.totalUsd.toFixed(2),
+          }
+        : null,
+      diasPeriodo,
+      diasRestantes,
+      monto: f ? parte(f.total) : '0.00',
+      montoUsd: f ? parte(f.totalUsd) : '0.00',
+    };
   }
 
   /**

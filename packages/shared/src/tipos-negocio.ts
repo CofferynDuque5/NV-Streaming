@@ -75,6 +75,8 @@ export interface NotaPublica {
   /** null: pendiente general, sin cliente. */
   cliente: Referencia | null;
   autor: Referencia;
+  /** Tarea delegada a alguien del equipo (null = de todos). */
+  asignadaA: Referencia | null;
   avisarEn: string | null;
   diaPago: number | null;
   hechaEn: string | null;
@@ -128,6 +130,8 @@ export interface InicioGestor {
   renovadosHoy: { hechos: number; total: number };
   /** Notas con aviso que ya llegó y siguen pendientes. */
   notasPorAvisar: number;
+  /** Tareas pendientes asignadas a quien consulta. */
+  misTareas: number;
   /** Cuentas sin anotar cuya liberación ya llegó. */
   cuentasLiberadas: number;
   meta: {
@@ -494,4 +498,20 @@ export interface CatalogoPublico {
   masPedidos: string[];
   monedas: Moneda[];
   tasas: TasaVigente[];
+}
+
+/**
+ * Calculadora de devolución de una suscripción: lo pagado en la última
+ * factura, repartido entre los días de su período, por los días que quedan.
+ */
+export interface DevolucionSugerida {
+  /** Última factura pagada de la suscripción (null si nunca se pagó). */
+  factura: { id: string; numero: string; total: string; moneda: Moneda; totalUsd: string } | null;
+  /** Días que cubre lo pagado (1 si no se sabe). */
+  diasPeriodo: number;
+  /** Días que le quedan hasta el vencimiento (0 si ya venció). */
+  diasRestantes: number;
+  /** Sugerencia: total × días restantes ÷ días del período, en la moneda de la factura. */
+  monto: string;
+  montoUsd: string;
 }
