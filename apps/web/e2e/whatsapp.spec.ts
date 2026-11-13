@@ -15,7 +15,7 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conecta
   ejecutarSql(`
     WITH c AS (
       INSERT INTO conversaciones_whatsapp (id, telefono, nombre, ultimo_entrante_en, ultimo_mensaje_en, no_leidos, actualizada_en)
-      VALUES (gen_random_uuid(), '${telefono}', 'Ana WhatsApp', now(), now(), 1, now())
+      VALUES (gen_random_uuid(), '${telefono}', 'Ana WhatsApp ${telefono}', now(), now(), 1, now())
       RETURNING id
     )
     INSERT INTO mensajes_whatsapp (id, conversacion_id, direccion, texto)
@@ -29,7 +29,7 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conecta
   await expect(page.getByText('Falta conectar el número de la empresa')).toBeVisible();
 
   const lista = page.getByRole('navigation', { name: 'Conversaciones de WhatsApp' });
-  await lista.getByRole('link', { name: /Ana WhatsApp/ }).click();
+  await lista.getByRole('link', { name: new RegExp(`Ana WhatsApp ${telefono}`) }).click();
   const conversacion = page.getByRole('region', { name: 'Conversación' });
   await expect(conversacion.getByText(`Hola, no me entra Netflix ${telefono}`)).toBeVisible();
   await expect(conversacion.getByLabel('Respuesta por WhatsApp')).toBeDisabled();
@@ -37,5 +37,7 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conecta
   await conversacion.getByRole('button', { name: 'Cerrar' }).click();
   await expect(conversacion.getByRole('button', { name: 'Reabrir' })).toBeVisible();
   await lista.getByRole('link', { name: 'Cerradas' }).click();
-  await expect(lista.getByRole('link', { name: /Ana WhatsApp/ })).toBeVisible();
+  await expect(
+    lista.getByRole('link', { name: new RegExp(`Ana WhatsApp ${telefono}`) }),
+  ).toBeVisible();
 });
