@@ -74,6 +74,7 @@ model Usuario {
   clientesAsignados    Cliente[]           @relation("ClienteAsignado")
   clientesCreados      Cliente[]           @relation("ClienteCreador")
   notasInternas        NotaInterna[]
+  notasAsignadas       NotaInterna[]         @relation("NotaAsignada")
   tasasCambio          TasaCambio[]
   historialPrecios     HistorialPrecio[]
   eventosSuscripcion   EventoSuscripcion[]
@@ -381,6 +382,8 @@ model NotaInterna {
   /// Sin cliente: pendiente general del equipo.
   clienteId     String?   @map("cliente_id") @db.Uuid
   autorId       String    @map("autor_id") @db.Uuid
+  /// Tarea delegada: quién del equipo debe hacerla (null = de todos).
+  asignadaAId   String?   @map("asignada_a_id") @db.Uuid
   tipo          TipoNota  @default(otro)
   texto         String    @db.VarChar(2000)
   /// Cuándo recordarla (aparece en «Para atender» desde ese momento).
@@ -393,8 +396,10 @@ model NotaInterna {
 
   cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Restrict)
   autor   Usuario  @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  asignadaA Usuario? @relation("NotaAsignada", fields: [asignadaAId], references: [id], onDelete: Restrict)
 
   @@index([clienteId, creadoEn(sort: Desc)])
+  @@index([asignadaAId, hechaEn])
   @@index([hechaEn, avisarEn])
   @@map("notas_internas")
 }

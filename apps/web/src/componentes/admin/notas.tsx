@@ -5,6 +5,7 @@ import {
   ETIQUETA_TIPO_NOTA,
   type NotaPublica,
   type Pagina,
+  type Referencia,
   type TipoNota,
   TIPOS_NOTA,
 } from '@nv/shared';
@@ -164,7 +165,14 @@ function ElegirCliente({
   );
 }
 
-export function NuevaNota({ clienteInicial = null }: { clienteInicial?: OpcionCliente | null }) {
+export function NuevaNota({
+  clienteInicial = null,
+  equipo = [],
+}: {
+  clienteInicial?: OpcionCliente | null;
+  /** Personas del equipo a quienes se puede delegar la nota como tarea. */
+  equipo?: Referencia[];
+}) {
   const [abierto, setAbierto] = useState(false);
   const [tipo, setTipo] = useState<TipoNota>('pendiente');
   const [cliente, setCliente] = useState<OpcionCliente | null>(clienteInicial);
@@ -179,6 +187,7 @@ export function NuevaNota({ clienteInicial = null }: { clienteInicial?: OpcionCl
       tipo,
       texto: textoDe(d, 'texto') ?? '',
       clienteId: cliente?.id ?? null,
+      asignadaAId: textoDe(d, 'asignadaAId') ?? null,
       avisarEn: avisoIso(textoDe(d, 'fecha'), textoDe(d, 'hora')),
       ...(tipo === 'paga_dia' ? { diaPago: textoDe(d, 'diaPago') ?? '' } : {}),
     });
@@ -231,6 +240,22 @@ export function NuevaNota({ clienteInicial = null }: { clienteInicial?: OpcionCl
           placeholder="Entregarle Netflix cuando pague, cobrarle el fiado…"
           error={campos.texto}
         />
+        {equipo.length > 0 && (
+          <Selector
+            etiqueta="Asignar a (opcional)"
+            name="asignadaAId"
+            defaultValue=""
+            error={campos.asignadaAId}
+            ayuda="Le llega un correo y la ve en «Mis tareas»."
+          >
+            <option value="">Nadie: es de todos</option>
+            {equipo.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre}
+              </option>
+            ))}
+          </Selector>
+        )}
         <div className="grid gap-4 sm:grid-cols-3">
           <Campo
             etiqueta="Avisar el día (opcional)"
@@ -317,6 +342,9 @@ function FilaNota({ n }: { n: NotaPublica }) {
         </div>
         <p className="text-sm whitespace-pre-line">{n.texto}</p>
         <p className="text-xs text-tinta-tenue">
+          {n.asignadaA ? (
+            <span className="font-semibold text-tinta-suave">Para {n.asignadaA.nombre} · </span>
+          ) : null}
           {n.autor.nombre} · {formatearFechaHora(n.creadoEn)}
           {n.hechaEn ? ` · Hecha ${formatearFechaHora(n.hechaEn)}` : ''}
         </p>

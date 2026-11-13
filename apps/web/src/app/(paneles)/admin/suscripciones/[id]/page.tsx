@@ -1,4 +1,4 @@
-import { INFO_MONEDA, type SuscripcionDetalle } from '@nv/shared';
+import { type DevolucionSugerida, INFO_MONEDA, type SuscripcionDetalle } from '@nv/shared';
 import { History } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
+import { CalculadoraDevolucion } from '@/componentes/admin/devolucion';
 import { leerApi } from '@/lib/api-servidor';
 import { EVENTO_SUSCRIPCION } from '@/lib/estados';
 import { diasHasta, formatearDuracion, formatearFecha, formatearFechaHora } from '@/lib/formato';
@@ -40,9 +41,10 @@ function Tenue({ children }: { children: string }) {
 export default async function DetalleSuscripcion({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await requerirSesion({ permiso: 'suscripciones.ver' });
   const { id } = await params;
-  const { estado, datos: s } = await leerApi<SuscripcionDetalle>(
-    `/suscripciones/${encodeURIComponent(id)}`,
-  );
+  const [{ estado, datos: s }, { datos: devolucion }] = await Promise.all([
+    leerApi<SuscripcionDetalle>(`/suscripciones/${encodeURIComponent(id)}`),
+    leerApi<DevolucionSugerida>(`/suscripciones/${encodeURIComponent(id)}/devolucion`),
+  ]);
   if (estado === 404 || estado === 400 || !s) notFound();
 
   const puedeRenovar = sesion.permisos.includes('suscripciones.crear');
@@ -172,6 +174,24 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
           ]}
         />
       </Tarjeta>
+
+      {devolucion && s.venceEn && devolucion.diasRestantes > 0 && (
+        <details className="group rounded-[1.25rem] border border-borde bg-superficie/60">
+          <summary className="cursor-pointer px-5 py-4 font-semibold sm:px-6">
+            Calcular devolución
+            <span className="ml-2 text-sm font-normal text-tinta-suave">
+              {devolucion.diasRestantes} {devolucion.diasRestantes === 1 ? 'día' : 'días'} sin usar
+            </span>
+          </summary>
+          <div className="px-5 pb-5 sm:px-6">
+            <CalculadoraDevolucion
+              sugerida={devolucion}
+              cliente={s.cliente.nombre}
+              servicio={`${s.plan.servicio} · ${s.plan.nombre}`}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <Tarjeta className="min-w-0">

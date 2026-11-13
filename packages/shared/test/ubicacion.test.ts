@@ -11,6 +11,8 @@ describe('moneda según la ubicación', () => {
     expect(monedaDePais('DE')).toBe('EUR');
     expect(monedaDePais('CL')).toBe('USD');
     expect(monedaDePais('EC')).toBe('USD');
+    expect(monedaDePais('SV')).toBe('USD');
+    expect(monedaDePais('sv')).toBe('USD');
     expect(monedaDePais(null)).toBe('VES');
   });
 

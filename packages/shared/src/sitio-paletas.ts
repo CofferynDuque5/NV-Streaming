@@ -167,10 +167,47 @@ export const TEMPORADAS_SITIO = {
       'radial-gradient(45% 35% at 70% 85%, rgb(234 88 12 / 0.12), transparent 70%)',
       'radial-gradient(40% 30% at 5% 75%, rgb(74 222 128 / 0.07), transparent 70%)',
     ],
+    emoji: '🎃',
+    proponerHasta: '10-31',
+    correo: { boton: '#ea580c', saludo: '🎃 Feliz Halloween' },
+  },
+  navidad: {
+    nombre: 'Navidad',
+    descripcion: 'Rojo y verde con destellos dorados, nieve que cae y luces. Logos sin cambios.',
+    marca: '#f87171',
+    marcaFuerte: '#fca5a5',
+    marcaTinta: '#1a0505',
+    acento: '#4ade80',
+    boton: ['#f87171', '#e53e3e'],
+    botonTinta: '#1a0505',
+    /** Degradados de marca: rojo, dorado y verde pino. */
+    degradado: 'linear-gradient(95deg, #ef4444 0%, #f59e0b 40%, #22c55e 75%, #4ade80 100%)',
+    degradadoTexto: 'linear-gradient(95deg, #fca5a5 0%, #fcd34d 40%, #86efac 75%, #bbf7d0 100%)',
+    /** Nebulosa del fondo: brillos rojos, verdes y dorados, como luces de un árbol. */
+    nebulosa: [
+      'radial-gradient(40% 35% at 12% 8%, rgb(220 38 38 / 0.2), transparent 70%)',
+      'radial-gradient(35% 30% at 88% 20%, rgb(34 197 94 / 0.18), transparent 70%)',
+      'radial-gradient(30% 25% at 55% 0%, rgb(245 158 11 / 0.12), transparent 70%)',
+      'radial-gradient(45% 35% at 75% 88%, rgb(220 38 38 / 0.1), transparent 70%)',
+      'radial-gradient(40% 30% at 8% 78%, rgb(34 197 94 / 0.1), transparent 70%)',
+    ],
+    emoji: '🎄',
+    proponerHasta: '01-06',
+    correo: { boton: '#c81e1e', saludo: '🎄 Felices fiestas' },
   },
 } as const satisfies Record<
   string,
-  DefinicionPaleta & { degradado: string; degradadoTexto: string; nebulosa: readonly string[] }
+  DefinicionPaleta & {
+    degradado: string;
+    degradadoTexto: string;
+    nebulosa: readonly string[];
+    /** Emoji que la representa en el editor. */
+    emoji: string;
+    /** Último día que se propone al activarla (MM-DD, el próximo que llegue). */
+    proponerHasta: string;
+    /** Adorno de los correos mientras está vigente: color del botón y saludo junto al nombre. */
+    correo: { boton: string; saludo: string };
+  }
 >;
 
 export type TemporadaSitio = keyof typeof TEMPORADAS_SITIO;

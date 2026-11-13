@@ -1,9 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { PrismaClient } from '@nv/db';
+import { type TemporadaSitio, temporadaVigente } from '@nv/shared';
 import nodemailer, { type Transporter } from 'nodemailer';
 import type { Entorno } from '../config/entorno.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
-import type { CorreoRenderizado, NombrePlantilla } from './plantillas.js';
+import { adornarTemporada, type CorreoRenderizado, type NombrePlantilla } from './plantillas.js';
 
 /** El correo está en SMTP pero sin servidor: ningún correo saldría. */
 export function correoSinConfigurar(
@@ -54,6 +55,15 @@ export class CorreoService {
     }
   }
 
+  /** Temporada vigente del sitio (Navidad, Halloween…), o null. Un fallo al leerla no frena el envío. */
+  private async temporada(): Promise<TemporadaSitio | null> {
+    try {
+      return temporadaVigente(await this.prisma.temaSitio.findUnique({ where: { id: 1 } }));
+    } catch {
+      return null;
+    }
+  }
+
   /** Construye una URL absoluta de la web. */
   urlWeb(ruta: string, parametros: Record<string, string> = {}): string {
     const url = new URL(ruta, this.entorno.WEB_ORIGEN);
@@ -68,6 +78,7 @@ export class CorreoService {
     correo: CorreoRenderizado,
   ): Promise<{ enviado: boolean; error: string | null }> {
     const proveedor = this.entorno.CORREO_PROVEEDOR;
+    correo = adornarTemporada(correo, await this.temporada());
     let estado = 'enviado';
     let error: string | null = null;
     try {

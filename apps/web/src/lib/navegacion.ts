@@ -140,7 +140,11 @@ export type ModuloEquipo =
   | 'automatizaciones'
   | 'auditoria'
   | 'notas'
-  | 'papelera';
+  | 'papelera'
+  | 'vencimientos'
+  | 'devoluciones'
+  | 'por-pagar'
+  | 'caidas';
 
 export type GrupoEquipo = 'atender' | 'ventas' | 'tienda' | 'sistema';
 
@@ -231,8 +235,8 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   {
     clave: 'notas',
     grupo: 'ventas',
-    nombre: 'Notas y pendientes',
-    descripcion: 'Entregar, renovar, fiados y días de pago, con aviso a una hora',
+    nombre: 'Notas y tareas',
+    descripcion: 'Entregar, renovar, fiados y tareas delegadas al equipo, con aviso a una hora',
     color: '#f59e0b',
     href: '/admin/notas',
     permiso: 'clientes.notas',
@@ -244,6 +248,24 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     descripcion: 'Renovar, pausar, reanudar o cancelar',
     color: '#22d3ee',
     href: '/admin/suscripciones',
+    permiso: 'suscripciones.ver',
+  },
+  {
+    clave: 'vencimientos',
+    grupo: 'ventas',
+    nombre: 'Vencimientos y cortes',
+    descripcion: 'Lo que vence hoy, mañana y esta semana, y los cortes pendientes',
+    color: '#f43f5e',
+    href: '/admin/suscripciones/vencimientos',
+    permiso: 'suscripciones.ver',
+  },
+  {
+    clave: 'devoluciones',
+    grupo: 'ventas',
+    nombre: 'Devoluciones',
+    descripcion: 'Calcula cuánto devolver por los días que el cliente no usará',
+    color: '#14b8a6',
+    href: '/admin/suscripciones/devoluciones',
     permiso: 'suscripciones.ver',
   },
   {
@@ -263,6 +285,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#10b981',
     href: '/admin/balance',
     permiso: 'balance.ver',
+  },
+  {
+    clave: 'por-pagar',
+    grupo: 'ventas',
+    nombre: 'Por pagar',
+    descripcion: 'Lo que cobran los proveedores de tus cuentas, con botón «Pagado»',
+    color: '#eab308',
+    href: '/admin/cuentas/por-pagar',
+    permiso: 'cuentas.ver',
   },
   {
     clave: 'catalogo',
@@ -289,6 +320,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     descripcion: 'Correos, claves y perfiles de las cuentas que revendes',
     color: '#a855f7',
     href: '/admin/cuentas',
+    permiso: 'cuentas.ver',
+  },
+  {
+    clave: 'caidas',
+    grupo: 'tienda',
+    nombre: 'Caídas',
+    descripcion: 'Reporte de caídas por plataforma y proveedor, y reposición de clientes',
+    color: '#ef4444',
+    href: '/admin/cuentas/caidas',
     permiso: 'cuentas.ver',
   },
   {
@@ -412,14 +452,6 @@ export function menuEquipo(permisos: readonly Permiso[]): {
 
 /** Páginas de dentro de los módulos que también se encuentran en el buscador. */
 const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
-  {
-    etiqueta: 'Vencimientos y cortes',
-    href: '/admin/suscripciones/vencimientos',
-    icono: 'suscripciones',
-    detalle: 'Suscripciones',
-    claves: 'vencen hoy manana cortes gracia renovar',
-    permiso: 'suscripciones.ver',
-  },
   {
     etiqueta: 'Leer pedidos pegados',
     href: '/admin/suscripciones/leer',

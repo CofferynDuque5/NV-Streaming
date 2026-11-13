@@ -15,6 +15,7 @@ import {
   asignarPerfilSchema,
   pasarAIndividualesSchema,
   reponerPerfilSchema,
+  reporteCaidasSchema,
   buscarAsignablesSchema,
   crearCuentaSchema,
   editarCuentaSchema,
@@ -38,6 +39,7 @@ import { validar } from '../comun/zod.pipe.js';
 import { CuentasService } from './cuentas.service.js';
 import { ImportarCuentasService } from './importar-cuentas.service.js';
 import { ImportarGestorService } from './importar-gestor.service.js';
+import { ReporteCaidasService } from './reporte-caidas.service.js';
 import { InventarioCuentasService } from './inventario-cuentas.service.js';
 import { PerfilesClienteService } from './perfiles-cliente.service.js';
 
@@ -53,6 +55,7 @@ export class CuentasController {
     @Inject(CuentasService) private readonly cuentas: CuentasService,
     @Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService,
     @Inject(InventarioCuentasService) private readonly inventario: InventarioCuentasService,
+    @Inject(ReporteCaidasService) private readonly caidas: ReporteCaidasService,
   ) {}
 
   /** Todas las cuentas con sus perfiles y quién los usa (sin secretos). */
@@ -68,6 +71,14 @@ export class CuentasController {
   @DocConsulta(listarCuentasSchema)
   listar(@Query(validar(listarCuentasSchema)) q: z.output<typeof listarCuentasSchema>) {
     return this.cuentas.listar(q);
+  }
+
+  /** Caídas de los últimos N días, con cuánto tardaron en volver, por plataforma y proveedor. */
+  @Get('reporte-caidas')
+  @RequierePermiso('cuentas.ver')
+  @DocConsulta(reporteCaidasSchema)
+  reporteCaidas(@Query(validar(reporteCaidasSchema)) q: z.output<typeof reporteCaidasSchema>) {
+    return this.caidas.ver(q.dias);
   }
 
   @Get('reposicion')

@@ -76,6 +76,13 @@ export class SuscripcionesController {
     return this.suscripciones.vencimientos(auth);
   }
 
+  /** Cuánto devolver si se cancela hoy (proporcional a los días que le quedan). */
+  @Get(':id/devolucion')
+  @RequierePermiso('suscripciones.ver')
+  devolucion(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
+    return this.suscripciones.devolucion(auth, id);
+  }
+
   @Get(':id')
   @RequierePermiso('suscripciones.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {

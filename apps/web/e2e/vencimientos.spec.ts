@@ -26,7 +26,7 @@ test('vencen mañana, por plataforma, y se renueva por 3 meses', async ({ page }
   test.setTimeout(90_000);
   await entrarEquipo(page, 'admin@nv.test');
   await page.goto('/admin/suscripciones');
-  await page.getByRole('link', { name: 'Vencimientos y cortes' }).click();
+  await page.locator('#contenido').getByRole('link', { name: 'Vencimientos y cortes' }).click();
   await expect(page).toHaveURL(/\/admin\/suscripciones\/vencimientos$/);
 
   const manana = page.getByRole('region', { name: 'Vencen mañana' });

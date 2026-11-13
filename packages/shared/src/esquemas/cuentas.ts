@@ -228,6 +228,11 @@ export const anularPagoCuentaSchema = z.object({
     .max(500, 'Máximo 500 caracteres.'),
 });
 
+export const reporteCaidasSchema = z.object({
+  /** Días hacia atrás desde hoy (1 a 365). */
+  dias: z.coerce.number().int().min(1).max(365).default(30),
+});
+
 export const porPagarSchema = z.object({
   /** Cobros que vencen en los próximos N días (los atrasados siempre salen). */
   dias: z.coerce.number().int().min(0).max(60).default(7),
