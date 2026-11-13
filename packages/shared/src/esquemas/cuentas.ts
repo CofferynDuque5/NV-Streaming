@@ -4,13 +4,15 @@ import { paginacionSchema, uuidSchema } from './comunes.js';
 import { MAX_FILAS_IMPORTAR } from '../importar-cuentas.js';
 import { montoOCeroSchema } from './dinero.js';
 
-export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada'] as const;
+/** `en_espera`: comprada pero sin anotar (geobloqueo, liberación): todavía no se asigna. */
+export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada', 'en_espera'] as const;
 export type EstadoCuentaServicio = (typeof ESTADOS_CUENTA_SERVICIO)[number];
 
 export const ETIQUETA_ESTADO_CUENTA: Record<EstadoCuentaServicio, string> = {
   activa: 'Activa',
   caida: 'Caída',
   retirada: 'Retirada',
+  en_espera: 'Sin anotar',
 };
 
 /** «perfiles»: se vende por perfil; «completa»: la cuenta entera es de un cliente. */
@@ -78,6 +80,8 @@ const camposCuenta = {
     .optional(),
   /** Próximo cobro del proveedor de la cuenta. */
   facturaEn: fechaSchema.nullable().optional(),
+  /** Cuándo queda libre para usarla (cuentas sin anotar). */
+  liberacionEn: fechaSchema.nullable().optional(),
   /** Cómo la pagas («Tarjeta ···· 1234», «Binance»…). Nunca el número completo. */
   metodoPago: textoOpcional(60).refine(sinNumeroTarjeta, MENSAJE_TARJETA),
   proveedor: textoOpcional(120),
@@ -128,6 +132,8 @@ export const crearCuentaSchema = z
       .max(MAX_PERFILES_CUENTA, `Máximo ${MAX_PERFILES_CUENTA} perfiles.`),
     /** Opcional: nombre y PIN de los perfiles. Los que falten quedan «Perfil N» sin PIN. */
     datosPerfiles: z.array(datosPerfilSchema).max(MAX_PERFILES_CUENTA).optional(),
+    /** Guardarla como «sin anotar»: en espera, sin asignar todavía. */
+    enEspera: z.boolean().optional(),
     ...camposCuenta,
   })
   .refine((o) => !o.datosPerfiles || o.datosPerfiles.length <= o.perfiles, {

@@ -47,6 +47,8 @@ function camposDatos(d: FormData) {
     costoUsd: textoDe(d, 'costoUsd') ?? '0',
     cicloMeses: textoDe(d, 'cicloMeses') ?? '1',
     facturaEn: textoDe(d, 'facturaEn') ?? null,
+    // Solo las cuentas sin anotar llevan fecha de liberación.
+    ...(d.has('liberacionEn') ? { liberacionEn: textoDe(d, 'liberacionEn') ?? null } : {}),
     metodoPago: textoDe(d, 'metodoPago') ?? null,
     proveedor: textoDe(d, 'proveedor') ?? null,
     notas: textoDe(d, 'notas') ?? null,
@@ -56,12 +58,25 @@ function camposDatos(d: FormData) {
 function DatosCuenta({
   campos,
   cuenta,
+  conLiberacion = false,
 }: {
   campos: Record<string, string>;
   cuenta?: CuentaServicioDetalle;
+  /** Cuentas sin anotar: cuándo quedan libres para usarlas. */
+  conLiberacion?: boolean;
 }) {
   return (
     <>
+      {conLiberacion && (
+        <Campo
+          etiqueta="Fecha de liberación"
+          name="liberacionEn"
+          type="date"
+          defaultValue={cuenta?.liberacionEn ?? ''}
+          ayuda="Cuándo puedes empezar a usarla (fin del geobloqueo, espera del proveedor…)."
+          error={campos.liberacionEn}
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Campo
           etiqueta="Plan de la cuenta (opcional)"
@@ -195,7 +210,14 @@ function leerDatosPerfiles(d: FormData, cantidad: number) {
   return lista.some((p) => p.nombre || p.pin) ? lista : undefined;
 }
 
-export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: string }[] }) {
+export function NuevaCuenta({
+  servicios,
+  enEspera = false,
+}: {
+  servicios: { id: string; nombre: string }[];
+  /** Guardarla como «sin anotar»: en espera, sin asignar todavía. */
+  enEspera?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<ModoCuenta>('perfiles');
   const [cantidad, setCantidad] = useState(5);
@@ -214,6 +236,7 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
       modo,
       perfiles: modo === 'completa' ? 1 : (textoDe(d, 'perfiles') ?? ''),
       datosPerfiles: leerDatosPerfiles(d, modo === 'completa' ? 1 : cantidad),
+      ...(enEspera ? { enEspera: true } : {}),
       ...camposDatos(d),
     });
     if (r) {
@@ -228,15 +251,19 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
   if (!abierto) {
     return (
       <Boton onClick={() => setAbierto(true)} icono={<Plus className="size-4" />}>
-        Nueva cuenta
+        {enEspera ? 'Agregar cuenta sin anotar' : 'Nueva cuenta'}
       </Boton>
     );
   }
 
   return (
     <PanelFormulario
-      titulo="Nueva cuenta de servicio"
-      descripcion="El correo, la clave y los PIN se guardan cifrados. En las listas solo se ve una pista del correo."
+      titulo={enEspera ? 'Cuenta sin anotar' : 'Nueva cuenta de servicio'}
+      descripcion={
+        enEspera
+          ? 'Queda en espera, fuera del inventario, hasta que la anotes. El correo, la clave y los PIN se guardan cifrados.'
+          : 'El correo, la clave y los PIN se guardan cifrados. En las listas solo se ve una pista del correo.'
+      }
       onCerrar={() => {
         setAbierto(false);
         setCreada(null);
@@ -318,7 +345,7 @@ export function NuevaCuenta({ servicios }: { servicios: { id: string; nombre: st
           </div>
         </div>
         <DatosPerfiles cantidad={modo === 'completa' ? 1 : cantidad} campos={campos} />
-        <DatosCuenta campos={campos} />
+        <DatosCuenta campos={campos} conLiberacion={enEspera} />
         <ErrorGeneral error={error} />
         {creada && !error && <Alerta tono="exito">Cuenta {creada} guardada.</Alerta>}
         <div className="flex flex-wrap gap-2">
@@ -411,7 +438,11 @@ export function EditarCuenta({ cuenta }: { cuenta: CuentaServicioDetalle }) {
             error={campos.clave}
           />
         </div>
-        <DatosCuenta campos={campos} cuenta={cuenta} />
+        <DatosCuenta
+          campos={campos}
+          cuenta={cuenta}
+          conLiberacion={cuenta.estado === 'en_espera'}
+        />
         <ErrorGeneral error={error} />
         <div className="flex flex-wrap gap-2">
           <Boton type="submit" cargando={cargando}>

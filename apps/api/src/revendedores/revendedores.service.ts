@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { EstadoRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
 import type {
+  ClienteDeRevendedor,
   ActualizarRevendedorEntrada,
   AprobarRevendedorEntrada,
   ListarRevendedoresEntrada,
@@ -180,6 +181,48 @@ export class RevendedoresService {
       compras: r._count.compras,
       recargasEnRevision: r._count.recargas,
     };
+  }
+
+  /** Clientes finales del revendedor con sus suscripciones (la «lista por responsable» del Gestor). */
+  async clientes(id: string): Promise<ClienteDeRevendedor[]> {
+    const r = await this.prisma.revendedor.findUnique({ where: { id }, select: { id: true } });
+    if (!r) throw Errores.noEncontrado('El revendedor');
+    const filas = await this.prisma.cliente.findMany({
+      where: { revendedorId: id },
+      select: {
+        id: true,
+        nombre: true,
+        correo: true,
+        estado: true,
+        contactos: { where: { tipo: 'whatsapp' }, select: { valor: true }, take: 1 },
+        suscripciones: {
+          where: { estado: { notIn: ['cancelada', 'vencida'] } },
+          select: {
+            id: true,
+            estado: true,
+            venceEn: true,
+            plan: { select: { nombre: true, servicio: { select: { nombre: true } } } },
+          },
+          orderBy: { venceEn: { sort: 'asc', nulls: 'last' } },
+        },
+      },
+      orderBy: [{ estado: 'asc' }, { nombre: 'asc' }],
+      take: 1000,
+    });
+    return filas.map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      correo: c.correo,
+      whatsapp: c.contactos[0]?.valor ?? null,
+      estado: c.estado,
+      suscripciones: c.suscripciones.map((s) => ({
+        id: s.id,
+        servicio: s.plan.servicio.nombre,
+        plan: s.plan.nombre,
+        estado: s.estado,
+        venceEn: s.venceEn?.toISOString() ?? null,
+      })),
+    }));
   }
 
   async resumenPrograma(ahora = new Date()): Promise<ResumenProgramaRevendedores> {

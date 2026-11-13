@@ -16,8 +16,12 @@ export interface CuentaServicioResumen {
   costoUsd: string;
   cicloMeses: number;
   facturaEn: string | null;
+  /** Cuándo queda libre (cuentas sin anotar). */
+  liberacionEn: string | null;
   metodoPago: string | null;
   proveedor: string | null;
+  /** Notas de la cuenta (sin secretos). */
+  notas: string | null;
   perfiles: {
     total: number;
     libres: number;

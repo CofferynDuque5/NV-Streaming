@@ -138,7 +138,9 @@ export type ModuloEquipo =
   | 'sitio'
   | 'equipo'
   | 'automatizaciones'
-  | 'auditoria';
+  | 'auditoria'
+  | 'notas'
+  | 'papelera';
 
 export type GrupoEquipo = 'atender' | 'ventas' | 'tienda' | 'sistema';
 
@@ -225,6 +227,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#4f8dff',
     href: '/admin/clientes',
     permiso: 'clientes.ver',
+  },
+  {
+    clave: 'notas',
+    grupo: 'ventas',
+    nombre: 'Notas y pendientes',
+    descripcion: 'Entregar, renovar, fiados y días de pago, con aviso a una hora',
+    color: '#f59e0b',
+    href: '/admin/notas',
+    permiso: 'clientes.notas',
   },
   {
     clave: 'suscripciones',
@@ -353,6 +364,15 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     href: '/admin/auditoria',
     permiso: 'auditoria.ver',
   },
+  {
+    clave: 'papelera',
+    grupo: 'sistema',
+    nombre: 'Papelera',
+    descripcion: 'Clientes archivados, cuentas retiradas y plataformas apagadas, para restaurar',
+    color: '#64748b',
+    href: '/admin/papelera',
+    permiso: 'auditoria.ver',
+  },
 ];
 
 /** Los módulos que el rol puede abrir. */
@@ -414,6 +434,14 @@ const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
     icono: 'cuentas',
     detalle: 'Cuentas de servicio',
     claves: 'caida caidas reponer reemplazo dias perdidos',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Cuentas sin anotar',
+    href: '/admin/cuentas/sin-anotar',
+    icono: 'cuentas',
+    detalle: 'Cuentas de servicio',
+    claves: 'espera liberacion geobloqueo anotar',
     permiso: 'cuentas.ver',
   },
   {

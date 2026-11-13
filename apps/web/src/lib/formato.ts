@@ -250,3 +250,8 @@ export const CICLOS_CUENTA = [
 /** «Cada mes», «Cada 3 meses»… */
 export const textoCiclo = (meses: number): string =>
   CICLOS_CUENTA.find(([m]) => m === meses)?.[1] ?? `Cada ${meses} meses`;
+
+/** Si el instante ya llegó (para avisos y recordatorios). */
+export function yaLlego(iso: string, ahora = Date.now()): boolean {
+  return new Date(iso).getTime() <= ahora;
+}
