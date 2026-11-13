@@ -1,4 +1,4 @@
-import { listarTicketsSchema, type Pagina, type TicketResumen } from '@nv/shared';
+import { enlaceWhatsapp, listarTicketsSchema, type Pagina, type TicketResumen } from '@nv/shared';
 import { MessageCircle, Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -18,6 +18,7 @@ import { leerFiltro } from '@/lib/consulta';
 import { CATEGORIA_TICKET } from '@/lib/estados';
 import { haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { leerTemaPublico } from '@/lib/tienda';
 
 export const metadata: Metadata = { title: 'Soporte' };
 
@@ -30,20 +31,37 @@ export default async function MiSoporte({
   const { filtro, consulta, parametros } = leerFiltro(listarTicketsSchema, await searchParams, {
     porPagina: 20,
   });
-  const { datos } = await leerApi<Pagina<TicketResumen>>(`/mi/tickets?${consulta}`);
+  const [{ datos }, tema] = await Promise.all([
+    leerApi<Pagina<TicketResumen>>(`/mi/tickets?${consulta}`),
+    leerTemaPublico(),
+  ]);
   const hay = (datos?.total ?? 0) > 0;
+  const whatsapp = tema.contacto.whatsapp
+    ? enlaceWhatsapp(tema.contacto.whatsapp, 'Hola, necesito ayuda con mi cuenta de NV Streaming.')
+    : null;
+  const botonWhatsapp = whatsapp && (
+    <BotonEnlace href={whatsapp} variante="secundario" target="_blank" rel="noopener noreferrer">
+      <MessageCircle className="size-4" aria-hidden="true" />
+      Escríbenos por WhatsApp
+    </BotonEnlace>
+  );
 
   return (
     <>
       <CabeceraCuenta
         titulo="Soporte"
-        descripcion="¿Algo no funciona o tienes una duda? Escríbenos y te respondemos aquí."
+        descripcion="¿Algo no funciona o tienes una duda? Escríbenos y te respondemos aquí o por WhatsApp."
         accion={
-          hay && (
-            <BotonEnlace href="/cuenta/soporte/nueva">
-              <Plus className="size-4" aria-hidden="true" />
-              Nueva solicitud
-            </BotonEnlace>
+          (hay || botonWhatsapp) && (
+            <span className="flex flex-wrap gap-2">
+              {botonWhatsapp}
+              {hay && (
+                <BotonEnlace href="/cuenta/soporte/nueva">
+                  <Plus className="size-4" aria-hidden="true" />
+                  Nueva solicitud
+                </BotonEnlace>
+              )}
+            </span>
           )
         }
       />

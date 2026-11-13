@@ -56,7 +56,7 @@ export default defineConfig({
     {
       name: 'gestor',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /vencimientos\.spec|reposicion\.spec|gestor-dos\.spec/,
+      testMatch: /vencimientos\.spec|reposicion\.spec|gestor-dos\.spec|whatsapp\.spec/,
     },
     // Automatizaciones entra con administración y operación ya configuradas por roles.spec.ts.
     {

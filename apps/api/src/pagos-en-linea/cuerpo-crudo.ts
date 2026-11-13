@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 /** Cuerpo máximo de un webhook de pasarela (los reales pesan unos pocos KB). */
 export const LIMITE_WEBHOOK_BYTES = 256 * 1024;
 
-const RUTA_WEBHOOK = /^\/api\/v1\/pasarelas\/[a-z]{1,30}\/webhook\/?(\?.*)?$/;
+const RUTA_WEBHOOK = /^\/api\/v1\/(pasarelas\/[a-z]{1,30}|whatsapp)\/webhook\/?(\?.*)?$/;
 
 declare module 'fastify' {
   interface FastifyRequest {

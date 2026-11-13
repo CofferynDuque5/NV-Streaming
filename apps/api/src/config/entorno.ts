@@ -123,6 +123,10 @@ const EntornoSchema = z
       .trim()
       .regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, 'WHATSAPP_IDIOMA debe ser un código como "es" o "es_MX".')
       .default('es'),
+    /** Palabra que se escribe en Meta al registrar el webhook de la bandeja de WhatsApp. */
+    WHATSAPP_VERIFICAR_TOKEN: z.string().trim().default(''),
+    /** Clave secreta de la app de Meta: con ella se comprueba la firma de cada aviso. */
+    WHATSAPP_SECRETO_APP: z.string().trim().default(''),
     /** Versión de la Graph API de Meta. */
     WHATSAPP_API_VERSION: z
       .string()
