@@ -155,6 +155,7 @@ export class FacturasService {
         cupon: cupon?.codigo ?? null,
         clienteId: f.clienteId,
         cuponYaCanjeado: true,
+        periodos: f.periodos,
         // El combo se mantiene: su parte en USD vuelve a convertirse con la tasa de hoy.
         descuentoCombo: f.descuentoComboUsd
           ? await this.facturacion.enMoneda(tx, plan, f.descuentoComboUsd, moneda)
@@ -176,7 +177,7 @@ export class FacturasService {
         where: { id: linea.id },
         data: {
           descripcion: descripcionLinea(plan, f.concepto),
-          precioUnitario: c.subtotal,
+          precioUnitario: c.unitario,
           total: c.subtotal,
         },
       });

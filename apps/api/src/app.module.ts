@@ -1,4 +1,9 @@
 import { CajaController } from './caja/caja.controller.js';
+import { NotasController } from './clientes/notas.controller.js';
+import { NotasService } from './clientes/notas.service.js';
+import { InicioGestorService } from './metricas/inicio-gestor.service.js';
+import { PapeleraController } from './papelera/papelera.controller.js';
+import { PapeleraService } from './papelera/papelera.service.js';
 import { CajaService } from './caja/caja.service.js';
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
@@ -110,6 +115,8 @@ export class AppModule {
         TicketsController,
         MetricasController,
         CajaController,
+        NotasController,
+        PapeleraController,
         AutoservicioController,
         ...CONTROLADORES_REVENDEDORES,
         ...CONTROLADORES_BILLETERA,
@@ -148,6 +155,9 @@ export class AppModule {
         MetricasService,
         CentroService,
         CajaService,
+        NotasService,
+        PapeleraService,
+        InicioGestorService,
         ...PROVEEDORES_REVENDEDORES,
         ...PROVEEDORES_BILLETERA,
         ...PROVEEDORES_SITIO,

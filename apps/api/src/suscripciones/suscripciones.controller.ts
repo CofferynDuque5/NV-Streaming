@@ -70,6 +70,12 @@ export class SuscripcionesController {
     return this.suscripciones.cotizar(auth, cuerpo);
   }
 
+  @Get('vencimientos')
+  @RequierePermiso('suscripciones.ver')
+  vencimientos(@Auth() auth: ContextoAuth) {
+    return this.suscripciones.vencimientos(auth);
+  }
+
   @Get(':id')
   @RequierePermiso('suscripciones.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
@@ -99,7 +105,7 @@ export class SuscripcionesController {
     @Body(validar(renovarSchema)) cuerpo: z.output<typeof renovarSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.suscripciones.renovar(auth, id, cuerpo.moneda, cliente);
+    return this.suscripciones.renovar(auth, id, cuerpo, cliente);
   }
 
   @Post(':id/pausar')

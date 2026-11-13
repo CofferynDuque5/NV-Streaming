@@ -13,7 +13,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { EVENTO_SUSCRIPCION } from '@/lib/estados';
-import { formatearDuracion, formatearFecha, formatearFechaHora } from '@/lib/formato';
+import { diasHasta, formatearDuracion, formatearFecha, formatearFechaHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Detalle de la suscripción' };
@@ -231,6 +231,8 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
             cancelarAlVencer={s.cancelarAlVencer}
             renovable={s.plan.renovable}
             facturaAbierta={s.facturaAbierta}
+            duracion={{ cantidad: s.plan.duracionCantidad, unidad: s.plan.duracionUnidad }}
+            vencida={!s.venceEn || diasHasta(s.venceEn) <= 0}
             puedeRenovar={puedeRenovar}
             puedeGestionar={puedeGestionar}
           />

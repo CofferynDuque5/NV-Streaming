@@ -5,6 +5,7 @@ import {
   INFO_MONEDA,
   MONEDAS,
   type Moneda,
+  PERIODOS_RENOVACION,
   REGLAS_COBRO,
 } from '@nv/shared';
 import { ArrowRight, Pause, Play, RefreshCw, Undo2 } from 'lucide-react';
@@ -16,6 +17,7 @@ import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { Casilla, Selector } from '@/componentes/ui/selector';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
+import { formatearDuracion } from '@/lib/formato';
 
 type Accion = 'renovar' | 'pausar' | 'reanudar' | 'cancelar' | 'revertir';
 
@@ -26,6 +28,10 @@ interface Props {
   cancelarAlVencer: boolean;
   renovable: boolean;
   facturaAbierta: { id: string; numero: string } | null;
+  /** Duración de un periodo del plan, para ofrecer 1, 2, 3, 6 o 12 de una vez. */
+  duracion: { cantidad: number; unidad: 'dia' | 'mes' };
+  /** Vence (o venció) en el pasado: «desde hoy» es lo más probable. */
+  vencida: boolean;
   puedeRenovar: boolean;
   puedeGestionar: boolean;
 }
@@ -60,6 +66,8 @@ export function AccionesSuscripcion({
   cancelarAlVencer,
   renovable,
   facturaAbierta,
+  duracion,
+  vencida,
   puedeRenovar,
   puedeGestionar,
 }: Props) {
@@ -122,7 +130,7 @@ export function AccionesSuscripcion({
       <Bloque
         key="renovar"
         titulo="Renovar"
-        descripcion={`Emite la factura del siguiente periodo. El cliente tiene ${REGLAS_COBRO.diasParaPagar} días para pagarla; el periodo se extiende al confirmarse el pago.`}
+        descripcion={`Emite la factura de uno o varios periodos. El cliente tiene ${REGLAS_COBRO.diasParaPagar} días para pagarla; el periodo se extiende al confirmarse el pago.`}
       >
         {!renovable ? (
           <Alerta tono="aviso">Este plan ya no admite renovaciones. Ofrécele otro plan.</Alerta>
@@ -142,10 +150,10 @@ export function AccionesSuscripcion({
             className="flex flex-wrap items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              const m = new FormData(e.currentTarget).get('moneda');
+              const d = new FormData(e.currentTarget);
               void ejecutar<{ factura: { id: string; numero: string } }>(
                 'renovar',
-                { moneda: m },
+                { moneda: d.get('moneda'), periodos: d.get('periodos'), desde: d.get('desde') },
                 (d) => (
                   <>
                     Emitimos la factura{' '}
@@ -160,6 +168,29 @@ export function AccionesSuscripcion({
               );
             }}
           >
+            <Selector
+              etiqueta="Cuánto renueva"
+              name="periodos"
+              defaultValue="1"
+              className="min-w-0 flex-1 basis-32"
+              error={campoError('renovar', 'periodos')}
+            >
+              {PERIODOS_RENOVACION.map((n) => (
+                <option key={n} value={n}>
+                  {formatearDuracion(duracion.cantidad * n, duracion.unidad)}
+                </option>
+              ))}
+            </Selector>
+            <Selector
+              etiqueta="Cuenta desde"
+              name="desde"
+              defaultValue={vencida ? 'hoy' : 'vencimiento'}
+              className="min-w-0 flex-1 basis-48"
+              error={campoError('renovar', 'desde')}
+            >
+              <option value="vencimiento">Su fecha de vencimiento</option>
+              <option value="hoy">El día del pago</option>
+            </Selector>
             <Selector
               etiqueta="Moneda de la factura"
               name="moneda"

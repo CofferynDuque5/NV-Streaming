@@ -13,6 +13,8 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import {
   asignarPerfilSchema,
+  pasarAIndividualesSchema,
+  reponerPerfilSchema,
   buscarAsignablesSchema,
   crearCuentaSchema,
   editarCuentaSchema,
@@ -68,6 +70,25 @@ export class CuentasController {
     return this.cuentas.listar(q);
   }
 
+  @Get('reposicion')
+  @RequierePermiso('cuentas.ver')
+  porReponer() {
+    return this.cuentas.porReponer();
+  }
+
+  @Post('reposicion/:perfilId')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(reponerPerfilSchema)
+  reponer(
+    @Auth() auth: ContextoAuth,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(reponerPerfilSchema)) cuerpo: z.output<typeof reponerPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.reponer(auth, perfilId, cuerpo, cliente);
+  }
+
   @Get(':id')
   @RequierePermiso('cuentas.ver')
   ver(@Param('id', idValido) id: string) {
@@ -98,6 +119,19 @@ export class CuentasController {
   }
 
   /** Descifra correo, clave y PIN. Queda en la auditoría y tiene límite por hora. */
+  @Post(':id/individuales')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(pasarAIndividualesSchema)
+  pasarAIndividuales(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(pasarAIndividualesSchema)) cuerpo: z.output<typeof pasarAIndividualesSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.pasarAIndividuales(auth, id, cuerpo.perfiles, cliente);
+  }
+
   @Post(':id/revelar')
   @Header('Cache-Control', SIN_CACHE)
   @RequierePermiso('cuentas.revelar')

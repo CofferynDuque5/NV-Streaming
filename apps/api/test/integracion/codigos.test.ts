@@ -107,6 +107,7 @@ describe('cuentas: PIN al crear, nota del perfil e inventario', () => {
       libres: 1,
       ocupados: 1,
       bloqueados: 1,
+      respaldos: 0,
       porVencer: 1,
       vencidos: 0,
     });

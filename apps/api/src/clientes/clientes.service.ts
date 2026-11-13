@@ -17,10 +17,10 @@ import { TokensService } from '../auth/tokens.service.js';
 import { alcanceClientes } from '../comun/alcance.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
-import { iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { CorreoService } from '../correo/correo.service.js';
 import { Plantillas } from '../correo/plantillas.js';
+import { INCLUIR_NOTA, notaPublica } from './notas.service.js';
 import { clienteDetalle, clienteResumen, INCLUIR_CLIENTE } from './presentacion.js';
 
 type Tx = Prisma.TransactionClient;
@@ -253,14 +253,9 @@ export class ClientesService {
       where: { clienteId: id },
       orderBy: { creadoEn: 'desc' },
       take: 100,
-      include: { autor: { select: { id: true, nombre: true } } },
+      include: INCLUIR_NOTA,
     });
-    return filas.map((n) => ({
-      id: n.id,
-      texto: n.texto,
-      autor: n.autor,
-      creadoEn: iso(n.creadoEn)!,
-    }));
+    return filas.map(notaPublica);
   }
 
   async agregarNota(
@@ -273,6 +268,7 @@ export class ClientesService {
       await this.exigirAlcance(auth, id, tx);
       const n = await tx.notaInterna.create({
         data: { clienteId: id, autorId: auth.usuario.id, texto },
+        include: INCLUIR_NOTA,
       });
       await this.auditoria.registrar(
         {
@@ -285,12 +281,7 @@ export class ClientesService {
         },
         tx,
       );
-      return {
-        id: n.id,
-        texto: n.texto,
-        autor: { id: auth.usuario.id, nombre: auth.usuario.nombre },
-        creadoEn: iso(n.creadoEn)!,
-      };
+      return notaPublica(n);
     });
   }
 

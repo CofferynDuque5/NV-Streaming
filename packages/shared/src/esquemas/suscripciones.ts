@@ -49,4 +49,17 @@ export const cancelarSuscripcionSchema = z.object({
 });
 export type CancelarSuscripcionEntrada = z.infer<typeof cancelarSuscripcionSchema>;
 
-export const renovarSchema = z.object({ moneda: monedaSchema.optional() });
+/** Periodos que se pueden renovar de una vez (meses si el plan es mensual). */
+export const PERIODOS_RENOVACION = [1, 2, 3, 6, 12] as const;
+
+export const renovarSchema = z.object({
+  moneda: monedaSchema.optional(),
+  /** Cuántos periodos del plan cubre la factura (se cobran todos juntos). */
+  periodos: z.coerce
+    .number()
+    .int()
+    .refine((n) => (PERIODOS_RENOVACION as readonly number[]).includes(n), 'Elige 1, 2, 3, 6 o 12.')
+    .default(1),
+  /** Desde cuándo cuenta: su vencimiento (no pierde días) o hoy (si ya venció o se repuso). */
+  desde: z.enum(['vencimiento', 'hoy']).default('vencimiento'),
+});

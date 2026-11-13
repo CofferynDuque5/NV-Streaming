@@ -60,3 +60,7 @@ export const metodoCobroSchema = z.object({
 });
 export type MetodoCobroEntrada = z.infer<typeof metodoCobroSchema>;
 export const actualizarMetodoCobroSchema = parcialSinDefectos(metodoCobroSchema);
+
+/** Meta de ingresos del mes en curso (USD). null la quita. */
+export const metaMesSchema = z.object({ montoUsd: montoSchema.nullable() });
+export type MetaMesEntrada = z.infer<typeof metaMesSchema>;

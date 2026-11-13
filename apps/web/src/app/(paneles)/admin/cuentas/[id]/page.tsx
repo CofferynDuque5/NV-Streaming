@@ -3,7 +3,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { AccionesPerfil, EditarCuenta, VerCredenciales } from '@/componentes/admin/cuentas';
+import {
+  AccionesPerfil,
+  EditarCuenta,
+  PasarAIndividuales,
+  VerCredenciales,
+} from '@/componentes/admin/cuentas';
 import { AnularPagoCuenta, RegistrarPagoCuenta } from '@/componentes/admin/pagos-cuenta';
 import { Volver } from '@/componentes/admin/piezas-crm';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -109,7 +114,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
       <Tarjeta>
         <CabeceraTarjeta
           titulo={c.modo === 'completa' ? 'Cupo' : 'Perfiles'}
-          descripcion={`${c.perfiles.libres} libres · ${c.perfiles.asignados} asignados · ${c.perfiles.bloqueados} bloqueados`}
+          descripcion={`${c.perfiles.libres} libres · ${c.perfiles.asignados} asignados · ${c.perfiles.bloqueados} bloqueados${c.perfiles.respaldos ? ` · ${c.perfiles.respaldos} de respaldo` : ''}`}
         />
         <Tabla minimo="48rem">
           <Encabezados
@@ -176,6 +181,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
             })}
           </Cuerpo>
         </Tabla>
+        {puedeGestionar && c.modo === 'completa' && <PasarAIndividuales cuentaId={c.id} />}
       </Tarjeta>
 
       <Tarjeta>
