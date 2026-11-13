@@ -7,7 +7,9 @@ import { entrarEquipo, reiniciarLimiteIngreso } from './ayudas';
  */
 test.beforeAll(() => reiniciarLimiteIngreso());
 
-const ayer = () => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+// Dos días atrás: entre las 00:00 y las 04:00 UTC «ayer» en UTC todavía es «hoy» en
+// Caracas, y la cuenta aún no figuraría como liberada.
+const ayer = () => new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
 
 test('una nota con aviso vencido sale arriba y al marcarla hecha pasa a «Hechas»', async ({
   page,
