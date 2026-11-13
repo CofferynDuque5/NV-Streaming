@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Inject,
@@ -30,13 +31,37 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { WhatsAppBandejaService } from './whatsapp-bandeja.service.js';
+import { WhatsAppQrService } from './whatsapp-qr.service.js';
 
 const idValido = validar(uuidSchema);
 
 @ApiTags('Soporte')
 @Controller('whatsapp')
 export class WhatsAppBandejaController {
-  constructor(@Inject(WhatsAppBandejaService) private readonly bandeja: WhatsAppBandejaService) {}
+  constructor(
+    @Inject(WhatsAppBandejaService) private readonly bandeja: WhatsAppBandejaService,
+    @Inject(WhatsAppQrService) private readonly qr: WhatsAppQrService,
+  ) {}
+
+  /** Número vinculado por código QR: estado y, mientras espera, la imagen del QR. */
+  @Get('vinculo')
+  @RequierePermiso('automatizaciones.configurar')
+  vinculo() {
+    return this.qr.ver();
+  }
+
+  @Post('vinculo')
+  @RequierePermiso('automatizaciones.configurar')
+  @HttpCode(200)
+  vincular() {
+    return this.qr.vincular();
+  }
+
+  @Delete('vinculo')
+  @RequierePermiso('automatizaciones.configurar')
+  desvincular() {
+    return this.qr.desvincular();
+  }
 
   /** Meta comprueba el webhook con un GET al registrarlo. */
   @Get('webhook')

@@ -12,7 +12,13 @@ import { cargarEntorno } from './config/entorno.js';
  * la cola y las claves únicas evitan duplicados. Termina limpio con SIGTERM.
  */
 // El temporizador de respaldo de la API nunca corre aquí: esto ya es el trabajador.
-const entorno = { ...cargarEntorno(), VENCIMIENTOS_EN_API: false, ENTREGAS_EN_API: false };
+// La conexión del WhatsApp vinculado por QR vive en la API (solo puede haber una).
+const entorno = {
+  ...cargarEntorno(),
+  VENCIMIENTOS_EN_API: false,
+  ENTREGAS_EN_API: false,
+  WHATSAPP_QR_EN_ESTE_PROCESO: false,
+};
 const app = await NestFactory.createApplicationContext(AppModule.con(entorno), {
   logger: ['error', 'warn', 'log'],
 });

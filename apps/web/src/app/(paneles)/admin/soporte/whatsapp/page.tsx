@@ -7,6 +7,7 @@ import {
   CerrarConversacion,
   RefrescoBandeja,
   ResponderWhatsApp,
+  VinculoWhatsAppQr,
 } from '@/componentes/admin/whatsapp-bandeja';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
@@ -52,7 +53,8 @@ export default async function BandejaWhatsAppPagina({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requerirSesion({ permiso: 'tickets.gestionar' });
+  const sesion = await requerirSesion({ permiso: 'tickets.gestionar' });
+  const puedeVincular = sesion.permisos.includes('automatizaciones.configurar');
   const crudo = await searchParams;
   const estado = crudo.estado === 'cerradas' ? 'cerradas' : 'abiertas';
   const elegida = typeof crudo.c === 'string' && UUID.test(crudo.c) ? crudo.c : null;
@@ -71,8 +73,8 @@ export default async function BandejaWhatsAppPagina({
     }).toString()}`;
 
   const motivo = !bandeja?.canalListo
-    ? 'WhatsApp no está configurado en el servidor: por ahora responde desde tu teléfono.'
-    : detalle && !detalle.ventanaHasta
+    ? 'El número de WhatsApp no está vinculado: por ahora responde desde tu teléfono.'
+    : detalle && !bandeja.sinVentana && !detalle.ventanaHasta
       ? 'Pasaron más de 24 h desde su último mensaje. WhatsApp solo deja escribirle de nuevo cuando vuelva a escribir (o con una plantilla aprobada).'
       : null;
 
@@ -89,14 +91,16 @@ export default async function BandejaWhatsAppPagina({
         }
       />
 
-      {bandeja && (!bandeja.webhookListo || !bandeja.canalListo) && (
+      {bandeja && puedeVincular && (
+        <Tarjeta className="grid gap-3 p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Número de la empresa</h2>
+          <VinculoWhatsAppQr inicial={bandeja.vinculo} />
+        </Tarjeta>
+      )}
+
+      {bandeja && !puedeVincular && !bandeja.canalListo && (
         <Alerta tono="aviso" titulo="Falta conectar el número de la empresa">
-          {!bandeja.webhookListo
-            ? 'Todavía no llegan mensajes: falta registrar el webhook en Meta (WHATSAPP_VERIFICAR_TOKEN y WHATSAPP_SECRETO_APP). '
-            : ''}
-          {!bandeja.canalListo
-            ? 'Para responder desde aquí falta WHATSAPP_PROVEEDOR=cloud_api con su token y el id del número.'
-            : ''}
+          Un administrador tiene que vincular el número de WhatsApp desde esta misma pantalla.
         </Alerta>
       )}
 
@@ -201,9 +205,11 @@ export default async function BandejaWhatsAppPagina({
                     </h2>
                     <p className="text-xs text-tinta-suave">
                       {detalle.telefono}
-                      {detalle.ventanaHasta
-                        ? ` · Puedes responder hasta el ${formatearFechaHora(detalle.ventanaHasta)}`
-                        : ' · Ventana de 24 h cerrada'}
+                      {bandeja.sinVentana
+                        ? ''
+                        : detalle.ventanaHasta
+                          ? ` · Puedes responder hasta el ${formatearFechaHora(detalle.ventanaHasta)}`
+                          : ' · Ventana de 24 h cerrada'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { WhatsAppBandejaService } from '../../src/soporte/whatsapp-bandeja.service.js';
 import { conectar, type Contexto, crearContexto, limpiar } from './ayudas.js';
 
 const SECRETO = 'secreto-de-la-app-de-prueba';
@@ -142,5 +143,56 @@ describe('Bandeja de WhatsApp', () => {
     expect(r.estado).toBe(409);
     expect(r.cuerpo.error.codigo).toBe('VENTANA_CERRADA');
     expect(await ctx.prisma.mensajeWhatsApp.count({ where: { direccion: 'saliente' } })).toBe(0);
+  });
+
+  it('el número vinculado por QR guarda lo del cliente y lo escrito desde el teléfono', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const vinculo = await admin.n.get('/whatsapp/vinculo');
+    expect(vinculo.estado).toBe(200);
+    expect(vinculo.cuerpo).toMatchObject({ estado: 'desvinculado', qr: null });
+    const ventas = await conectar(ctx, 'ventas');
+    expect((await ventas.n.get('/whatsapp/vinculo')).estado).toBe(403);
+
+    const bandeja = ctx.app.get(WhatsAppBandejaService);
+    const hace = new Date(Date.now() - 30 * 3_600_000); // Sin ventana de 24 h de por medio.
+    await bandeja.entrante({
+      telefono: '584241112233',
+      waId: 'QR-1',
+      tipo: 'text',
+      texto: 'Hola, ¿tienen Disney?',
+      fecha: hace,
+      nombre: 'Luis',
+    });
+    // Respondió desde el teléfono: se ve en la bandeja y deja la conversación leída.
+    await bandeja.salienteDesdeTelefono({
+      telefono: '584241112233',
+      waId: 'QR-2',
+      tipo: 'text',
+      texto: 'Sí, te paso los planes.',
+      fecha: new Date(),
+    });
+    // El mismo aviso dos veces no duplica.
+    await bandeja.salienteDesdeTelefono({
+      telefono: '584241112233',
+      waId: 'QR-2',
+      tipo: 'text',
+      texto: 'Sí, te paso los planes.',
+      fecha: new Date(),
+    });
+    await bandeja.estado('QR-2', 'leido');
+
+    const lista = await admin.n.get('/whatsapp/conversaciones');
+    expect(lista.cuerpo).toMatchObject({
+      sinVentana: false,
+      vinculo: { estado: 'desvinculado', numero: null },
+      sinLeer: 0,
+    });
+    const [c] = lista.cuerpo.conversaciones;
+    expect(c).toMatchObject({ nombre: 'Luis', ultimoMensaje: { direccion: 'saliente' } });
+    const detalle = await admin.n.get(`/whatsapp/conversaciones/${c.id}`);
+    expect(detalle.cuerpo.mensajes.map((m: { estado: string | null }) => m.estado)).toEqual([
+      null,
+      'leido',
+    ]);
   });
 });

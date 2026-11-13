@@ -3,11 +3,11 @@ import { ejecutarSql, entrarEquipo, reiniciarLimiteIngreso } from './ayudas';
 
 /**
  * Bandeja de WhatsApp en Soporte: lo que escribe un cliente aparece en la
- * bandeja; sin el número conectado en el servidor, avisa y no deja responder.
+ * bandeja; sin el número vinculado, ofrece vincularlo y no deja responder.
  */
 test.beforeAll(() => reiniciarLimiteIngreso());
 
-test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conectar el número', async ({
+test('un mensaje de WhatsApp sale en la bandeja, se lee y ofrece vincular el número', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -26,7 +26,8 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y avisa si falta conecta
   await page.goto('/admin/soporte');
   await page.locator('#contenido').getByRole('link', { name: 'WhatsApp', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/soporte\/whatsapp$/);
-  await expect(page.getByText('Falta conectar el número de la empresa')).toBeVisible();
+  // El administrador ve cómo vincular el número con un código QR (no se pulsa: conectaría con WhatsApp).
+  await expect(page.getByRole('button', { name: 'Vincular con código QR' })).toBeVisible();
 
   const lista = page.getByRole('navigation', { name: 'Conversaciones de WhatsApp' });
   await lista.getByRole('link', { name: new RegExp(`Ana WhatsApp ${telefono}`) }).click();
