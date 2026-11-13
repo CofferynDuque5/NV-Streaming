@@ -16,7 +16,11 @@ import { cifrarDatosSecretos } from '../comun/datos-cliente.js';
 import { CombosService, combosDelCarrito, repartirDescuento } from '../catalogo/combos.service.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
-import { type CalculoFactura, FacturacionService } from '../cobros/facturacion.service.js';
+import {
+  type CalculoFactura,
+  CUPON_SIN_SUMAR,
+  FacturacionService,
+} from '../cobros/facturacion.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { PRISMA } from '../comun/tokens.js';
@@ -396,7 +400,7 @@ export class PedidosService {
       let mejor: { i: number; calculo: CalculoFactura; ahorroUsd: Dec } | null = null;
       let primerError: unknown = null;
       for (const [i, { plan, calculo: base, combo }] of lineas.entries()) {
-        if (combo) continue;
+        if (combo || base.descuentoOferta.gt(0)) continue;
         try {
           const con = await this.facturacion.calcular(tx, {
             plan,
@@ -414,8 +418,7 @@ export class PedidosService {
       }
       if (!mejor) {
         if (primerError) throw primerError;
-        const m = 'Los planes de tu carrito ya tienen el precio de combo: el cupón no se suma.';
-        throw new ErrorApp(409, 'CUPON_NO_VALIDO', m, { cupon: [m] });
+        throw new ErrorApp(409, 'CUPON_NO_VALIDO', CUPON_SIN_SUMAR, { cupon: [CUPON_SIN_SUMAR] });
       }
       lineas[mejor.i] = { ...lineas[mejor.i]!, calculo: mejor.calculo };
       planConCupon = lineas[mejor.i]!.plan.id;

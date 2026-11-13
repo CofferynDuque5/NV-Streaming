@@ -11,7 +11,16 @@ import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
-import { CERO, D, type Dec, type MapaTasas, precioEn, redondear } from '../dinero/dinero.js';
+import {
+  CERO,
+  D,
+  type Dec,
+  descuentoOferta,
+  type MapaTasas,
+  ofertaVigente,
+  precioEn,
+  redondear,
+} from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { INCLUIR_PLAN, type PlanCompleto, planVendible } from './catalogo.service.js';
 
@@ -70,7 +79,11 @@ export function combosDelCarrito(
       for (const { plan } of c.planes) {
         const p = precioEn(plan, moneda, tasas);
         if (!p) return [];
-        sinCombo = sinCombo.add(p.precio);
+        // Si el plan está en oferta HOT, se compara con su precio rebajado.
+        const pct = ofertaVigente(plan);
+        sinCombo = sinCombo.add(
+          pct === null ? p.precio : p.precio.sub(descuentoOferta(p.precio, pct, moneda)),
+        );
       }
       return sinCombo.gt(precio) ? [{ combo: c, precio, sinCombo }] : [];
     })

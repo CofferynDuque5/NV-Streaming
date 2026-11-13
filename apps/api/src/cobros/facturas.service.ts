@@ -160,6 +160,8 @@ export class FacturasService {
         descuentoCombo: f.descuentoComboUsd
           ? await this.facturacion.enMoneda(tx, plan, f.descuentoComboUsd, moneda)
           : null,
+        // La oferta HOT con que se emitió se respeta aunque ya haya vencido.
+        descuentoOfertaUsd: f.descuentoOfertaUsd,
       });
       await tx.factura.update({
         where: { id },

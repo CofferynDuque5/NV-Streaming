@@ -40,6 +40,38 @@ export function precioEn(
   return { precio: redondear(plan.precioUsd.mul(tasa), moneda), fijo: false, tasa };
 }
 
+/** Porcentaje de la oferta HOT del plan si sigue vigente en `ahora`; null si no tiene. */
+export function ofertaVigente(
+  plan: Pick<Plan, 'ofertaPorcentaje' | 'ofertaHasta'>,
+  ahora: Date = new Date(),
+): number | null {
+  if (!plan.ofertaPorcentaje || !plan.ofertaHasta) return null;
+  return plan.ofertaHasta.getTime() > ahora.getTime() ? plan.ofertaPorcentaje : null;
+}
+
+/** Descuento de una oferta del `porcentaje` sobre `subtotal`, redondeado a la moneda. */
+export function descuentoOferta(subtotal: Dec, porcentaje: number, moneda: Moneda): Dec {
+  return redondear(subtotal.mul(porcentaje).div(100), moneda);
+}
+
+/** Precios con la oferta HOT aplicada (null si el plan no tiene oferta vigente). */
+export function preciosOfertaPorMoneda(
+  plan: Parameters<typeof precioEn>[0] & Pick<Plan, 'ofertaPorcentaje' | 'ofertaHasta'>,
+  tasas: MapaTasas,
+  ahora: Date = new Date(),
+): PreciosPorMoneda | null {
+  const pct = ofertaVigente(plan, ahora);
+  if (pct === null) return null;
+  const r = {} as PreciosPorMoneda;
+  for (const m of MONEDAS) {
+    const p = precioEn(plan, m, tasas);
+    r[m] = p
+      ? { precio: p.precio.sub(descuentoOferta(p.precio, pct, m)).toFixed(2), fijo: p.fijo }
+      : null;
+  }
+  return r;
+}
+
 export function preciosPorMoneda(
   plan: Parameters<typeof precioEn>[0],
   tasas: MapaTasas,

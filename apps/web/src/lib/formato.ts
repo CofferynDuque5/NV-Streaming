@@ -67,6 +67,8 @@ Object.assign(ACCIONES_AUDITORIA, {
   'plan.creado': 'Plan creado',
   'plan.actualizado': 'Plan actualizado',
   'plan.precio_fijado': 'Precio fijo cambiado',
+  'plan.oferta_fijada': 'Oferta HOT puesta',
+  'plan.oferta_quitada': 'Oferta HOT quitada',
   'catalogo.semilla': 'Catálogo de demostración creado',
   'cliente.creado': 'Cliente creado',
   'cliente.actualizado': 'Cliente actualizado',

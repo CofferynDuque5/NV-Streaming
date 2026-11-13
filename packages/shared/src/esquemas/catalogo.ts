@@ -158,6 +158,35 @@ export const precioFijoSchema = z.object({
 });
 export type PrecioFijoEntrada = z.infer<typeof precioFijoSchema>;
 
+/** Oferta HOT de un plan: porcentaje y fin. `porcentaje: null` la quita. */
+export const ofertaPlanSchema = z
+  .object({
+    porcentaje: z.preprocess(
+      (v) => (v === '' ? null : v),
+      z.coerce
+        .number({ error: 'Escribe el porcentaje.' })
+        .int('Usa un número entero.')
+        .min(1, 'Mínimo 1 %.')
+        .max(90, 'Máximo 90 %.')
+        .nullable(),
+    ),
+    hasta: z.preprocess(
+      (v) => (v === '' ? null : v),
+      z.coerce.date({ error: 'Elige hasta cuándo dura.' }).nullable().optional(),
+    ),
+  })
+  .superRefine((o, ctx) => {
+    if (o.porcentaje === null) return;
+    if (!o.hasta) {
+      ctx.addIssue({ code: 'custom', path: ['hasta'], message: 'Elige hasta cuándo dura.' });
+    } else if (o.hasta.getTime() <= Date.now()) {
+      ctx.addIssue({ code: 'custom', path: ['hasta'], message: 'La fecha de fin ya pasó.' });
+    } else if (o.hasta.getTime() > Date.now() + 366 * 24 * 3600_000) {
+      ctx.addIssue({ code: 'custom', path: ['hasta'], message: 'Máximo un año de oferta.' });
+    }
+  });
+export type OfertaPlanEntrada = z.infer<typeof ofertaPlanSchema>;
+
 export const idOpcionalSchema = uuidSchema.optional();
 
 export const actualizarProveedorSchema = parcialSinDefectos(proveedorSchema);

@@ -4,7 +4,15 @@ import { type Cotizacion, REGLAS_COBRO } from '@nv/shared';
 import { ErrorApp } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import type { PlanCompleto } from '../catalogo/catalogo.service.js';
-import { aUsd, CERO, type Dec, precioEn, redondear } from '../dinero/dinero.js';
+import {
+  aUsd,
+  CERO,
+  type Dec,
+  descuentoOferta,
+  ofertaVigente,
+  precioEn,
+  redondear,
+} from '../dinero/dinero.js';
 import { sinTasa, TasasService } from '../dinero/tasas.service.js';
 
 type Tx = Prisma.TransactionClient;
@@ -26,7 +34,12 @@ export interface CalculoFactura {
   cupon: Cupon | null;
   /** Parte de `descuento` que viene de un combo. */
   descuentoCombo: Dec;
+  /** Parte de `descuento` que viene de una oferta HOT. */
+  descuentoOferta: Dec;
 }
+
+/** Mensaje cuando un cupón no se suma a un precio ya rebajado. */
+export const CUPON_SIN_SUMAR = 'El cupón no se suma a planes en oferta HOT ni con precio de combo.';
 
 /** Precios, descuentos y emisión de facturas. Todo el cálculo ocurre aquí, en el servidor. */
 @Injectable()
@@ -47,11 +60,30 @@ export class FacturacionService {
       descuentoCombo?: Dec | null;
       /** Periodos del plan que cubre (1 por defecto). */
       periodos?: number;
+      /**
+       * Oferta HOT en USD ya fijada (al recotizar se conserva aunque haya
+       * vencido; null = sin oferta). Sin indicarla, en un alta se aplica la
+       * oferta vigente del plan, salvo que la línea vaya en un combo.
+       */
+      descuentoOfertaUsd?: Dec | null;
     },
   ): Promise<CalculoFactura> {
     const precio = precioEn(e.plan, e.moneda, await this.tasas.mapa(tx));
     if (!precio) throw sinTasa(e.moneda);
     const subtotal = precio.precio.mul(e.periodos ?? 1);
+    let descuentoOfertaCalc = CERO;
+    if (e.descuentoOfertaUsd !== undefined) {
+      if (e.descuentoOfertaUsd?.gt(0)) {
+        descuentoOfertaCalc = redondear(e.descuentoOfertaUsd.mul(precio.tasa), e.moneda);
+      }
+    } else if (e.concepto === 'alta' && !e.descuentoCombo?.gt(0)) {
+      const pct = ofertaVigente(e.plan);
+      if (pct !== null) descuentoOfertaCalc = descuentoOferta(subtotal, pct, e.moneda);
+    }
+    if (descuentoOfertaCalc.gt(subtotal)) descuentoOfertaCalc = subtotal;
+    if (e.cupon && descuentoOfertaCalc.gt(0) && !e.cuponYaCanjeado) {
+      throw cuponNoValido(CUPON_SIN_SUMAR);
+    }
     const cupon = e.cupon
       ? await this.validarCupon(tx, e.cupon, e.plan.id, e.concepto, e.clienteId, e.cuponYaCanjeado)
       : null;
@@ -70,6 +102,12 @@ export class FacturacionService {
         : e.descuentoCombo;
       descuento = descuento.add(descuentoCombo);
     }
+    if (descuentoOfertaCalc.gt(0)) {
+      if (descuentoOfertaCalc.gt(subtotal.sub(descuento))) {
+        descuentoOfertaCalc = subtotal.sub(descuento);
+      }
+      descuento = descuento.add(descuentoOfertaCalc);
+    }
     const total = subtotal.sub(descuento);
     return {
       moneda: e.moneda,
@@ -81,6 +119,7 @@ export class FacturacionService {
       totalUsd: aUsd(total, precio.tasa),
       cupon,
       descuentoCombo,
+      descuentoOferta: descuentoOfertaCalc,
     };
   }
 
@@ -145,6 +184,7 @@ export class FacturacionService {
           totalUsd: c.totalUsd,
           cuponId: c.cupon?.id ?? null,
           descuentoComboUsd: c.descuentoCombo.gt(0) ? aUsd(c.descuentoCombo, c.tasa) : null,
+          descuentoOfertaUsd: c.descuentoOferta.gt(0) ? aUsd(c.descuentoOferta, c.tasa) : null,
           periodos: e.periodos ?? 1,
           desdeHoy: e.desdeHoy ?? false,
           venceEn: new Date(ahora.getTime() + REGLAS_COBRO.diasParaPagar * DIA_MS),
