@@ -1,19 +1,20 @@
 import { ETIQUETAS_ROL, limitadoACartera, type SesionActual } from '@nv/shared';
-import { Globe, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, Suspense } from 'react';
-import { iniciales } from '@/componentes/panel/avatar';
-import { MarcoCuenta } from '@/componentes/panel/marco-cliente';
-import { claseEnlaceCabecera, Sello } from '@/componentes/panel/piezas-marco';
+import { LogoTienda } from '@/componentes/logo';
+import { Avatar, iniciales } from '@/componentes/panel/avatar';
+import { SalirCuenta } from '@/componentes/panel/menu-cuenta';
+import { Sello } from '@/componentes/panel/piezas-marco';
 import { colaEquipo, pendientesPorModulo } from '@/lib/equipo';
-import { destinosBuscador, menuEquipo } from '@/lib/navegacion';
 import { leerLicencia } from '@/lib/licencia';
+import { destinosBuscador, menuEquipo } from '@/lib/navegacion';
 import { leerCentro } from '@/lib/panel-equipo';
 import { AvisoLicencia } from './aviso-licencia';
 import { BarraEquipo } from './barra';
 import { BotonBuscador, Buscador } from './buscador';
-import { MenuEquipo } from './menu-equipo';
+import { CuerpoEquipo } from './cuerpo';
 import { urlGestor } from './ecosistema';
+import { LateralEquipo, SCRIPT_RIEL } from './lateral';
 
 type Permisos = SesionActual['permisos'];
 
@@ -25,9 +26,32 @@ async function pendientesDe(sesion: SesionActual) {
     : {};
 }
 
-async function MenuConPendientes({ sesion }: { sesion: SesionActual }) {
-  const { grupos, titulos } = menuEquipo(sesion.permisos);
-  return <MenuEquipo grupos={grupos} titulos={titulos} contadores={await pendientesDe(sesion)} />;
+function lateral(sesion: SesionActual, contadores: Awaited<ReturnType<typeof pendientesDe>>) {
+  const { usuario, permisos } = sesion;
+  const { grupos, titulos } = menuEquipo(permisos);
+  return (
+    <LateralEquipo
+      grupos={grupos}
+      titulos={titulos}
+      contadores={contadores}
+      persona={{
+        letras: iniciales(usuario.nombre),
+        nombre: usuario.nombre,
+        rol: ETIQUETAS_ROL[usuario.rol],
+      }}
+      gestor={urlGestor()}
+      marca={
+        <>
+          <LogoTienda compacto className="[&_img]:h-9 [&>span]:hidden" />
+          <Sello>Equipo</Sello>
+        </>
+      }
+    />
+  );
+}
+
+async function LateralConPendientes({ sesion }: { sesion: SesionActual }) {
+  return lateral(sesion, await pendientesDe(sesion));
 }
 
 function barra(permisos: Permisos, cobros: number) {
@@ -49,71 +73,67 @@ async function Licencia() {
 }
 
 /**
- * Marco del equipo (administración, operación y ventas): sello «Equipo» junto
- * al logo, el buscador (Ctrl K), «Ver tienda» y la persona en la cabecera; en
- * escritorio, su tarjeta con el rol y el menú por grupos plegables con lo que
- * espera en cada módulo; en el teléfono, las pestañas de abajo.
+ * Marco del equipo (administración, operación y ventas). En escritorio, un
+ * menú lateral fijo a toda la altura (marca, buscador, módulos con lo que
+ * espera en cada uno y la persona abajo) y el contenido a todo el ancho; en
+ * el teléfono, una cabecera corta y las pestañas de abajo.
  *
  * Los pendientes y la licencia se cargan aparte (Suspense): la página se ve
  * enseguida y las cifras del menú llegan cuando están listas.
  */
 export function MarcoEquipo({ sesion, children }: { sesion: SesionActual; children: ReactNode }) {
   const { usuario, permisos } = sesion;
-  const { grupos, titulos } = menuEquipo(permisos);
-  const nombre = usuario.nombre.split(' ')[0]!;
-  const gestor = urlGestor();
 
   return (
-    <MarcoCuenta
-      sello={<Sello>Equipo</Sello>}
-      pantallaCompleta="/admin/sitio/"
-      acciones={
-        <>
+    <div className="min-h-dvh">
+      {/* Menú plegado: se aplica antes de pintar para que no salte. */}
+      <script dangerouslySetInnerHTML={{ __html: SCRIPT_RIEL }} />
+      <a
+        href="#contenido"
+        className="sr-only z-50 rounded-lg bg-superficie px-4 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Saltar al contenido
+      </a>
+      <header className="vidrio sticky top-0 z-40 border-x-0 border-t-0 nav:hidden">
+        <div className="flex min-h-14 items-center gap-2 px-4 py-2 sm:px-6">
+          <div className="mr-auto flex min-w-0 items-center gap-2">
+            <LogoTienda compacto className="max-sm:[&>span]:hidden" />
+            <Sello>Equipo</Sello>
+          </div>
           <BotonBuscador />
-          <Link href="/" className={claseEnlaceCabecera}>
-            <Globe className="size-4 text-cian" aria-hidden="true" />
-            Ver tienda
+          <Link
+            href="/ajustes"
+            aria-label={`${usuario.nombre.split(' ')[0]}, perfil`}
+            className="rounded-full border border-borde-fuerte p-0.5 hover:border-cian"
+          >
+            <Avatar letras={iniciales(usuario.nombre)} className="size-8 text-[0.8rem]" />
           </Link>
-          {gestor && (
-            <a
-              href={gestor}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={claseEnlaceCabecera}
-              aria-label="NV Gestor (se abre en otra pestaña)"
-            >
-              <LayoutGrid className="size-4 text-violeta" aria-hidden="true" />
-              NV Gestor
-            </a>
-          )}
-        </>
-      }
-      pastilla={{ letras: iniciales(usuario.nombre), nombre, href: '/ajustes' }}
-      tarjeta={{
-        letras: iniciales(usuario.nombre),
-        titulo: usuario.nombre,
-        lineas: [ETIQUETAS_ROL[usuario.rol]],
-      }}
-      menu={
-        <Suspense fallback={<MenuEquipo grupos={grupos} titulos={titulos} contadores={{}} />}>
-          <MenuConPendientes sesion={sesion} />
+          <SalirCuenta />
+        </div>
+      </header>
+      <CuerpoEquipo
+        pantallaCompleta="/admin/sitio/"
+        lateral={
+          <Suspense fallback={lateral(sesion, {})}>
+            <LateralConPendientes sesion={sesion} />
+          </Suspense>
+        }
+        barraInferior={
+          <Suspense fallback={barra(permisos, 0)}>
+            <BarraConPendientes sesion={sesion} />
+          </Suspense>
+        }
+      >
+        <Buscador
+          destinos={destinosBuscador(permisos)}
+          clientes={permisos.includes('clientes.ver')}
+          cuentas={permisos.includes('cuentas.ver')}
+        />
+        <Suspense fallback={null}>
+          <Licencia />
         </Suspense>
-      }
-      barraInferior={
-        <Suspense fallback={barra(permisos, 0)}>
-          <BarraConPendientes sesion={sesion} />
-        </Suspense>
-      }
-    >
-      <Buscador
-        destinos={destinosBuscador(permisos)}
-        clientes={permisos.includes('clientes.ver')}
-        cuentas={permisos.includes('cuentas.ver')}
-      />
-      <Suspense fallback={null}>
-        <Licencia />
-      </Suspense>
-      {children}
-    </MarcoCuenta>
+        {children}
+      </CuerpoEquipo>
+    </div>
   );
 }

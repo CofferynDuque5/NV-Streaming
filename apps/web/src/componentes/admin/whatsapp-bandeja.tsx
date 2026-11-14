@@ -3,7 +3,7 @@
 import type { VinculoWhatsApp } from '@nv/shared';
 import { Archive, ArchiveRestore, QrCode, Send, Unlink } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState } from 'react';
+import { type ComponentProps, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { clasesEntrada } from '@/componentes/ui/clases';
 import { llamarApi } from '@/lib/api-cliente';
@@ -21,7 +21,22 @@ export function RefrescoBandeja({ cadaMs = 15_000 }: { cadaMs?: number }) {
   return null;
 }
 
-/** Caja para responder dentro de la ventana de 24 h. */
+/** Lista de mensajes que se queda abajo, en lo último, como en WhatsApp. */
+export function ListaAlFinal({ children, ...props }: ComponentProps<'ol'>) {
+  const lista = useRef<HTMLOListElement>(null);
+  const cuantos = Array.isArray(children) ? children.length : 1;
+  useLayoutEffect(() => {
+    const el = lista.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [cuantos]);
+  return (
+    <ol ref={lista} {...props}>
+      {children}
+    </ol>
+  );
+}
+
+/** Caja para responder (dentro de la ventana de 24 h si es por la Cloud API). */
 export function ResponderWhatsApp({
   conversacionId,
   puede,
@@ -46,7 +61,7 @@ export function ResponderWhatsApp({
 
   return (
     <form
-      className="grid gap-2 border-t border-borde px-4 py-3 sm:px-5"
+      className="grid shrink-0 gap-2 border-t border-borde bg-[rgb(10_14_32/0.9)] px-3 py-2.5 sm:px-4"
       onSubmit={(e) => {
         e.preventDefault();
         void enviar();
@@ -58,7 +73,7 @@ export function ResponderWhatsApp({
       <div className="flex items-end gap-2">
         <textarea
           id={id}
-          rows={2}
+          rows={1}
           maxLength={4096}
           value={texto}
           disabled={!puede}
@@ -70,7 +85,7 @@ export function ResponderWhatsApp({
               void enviar();
             }
           }}
-          className={`${clasesEntrada} min-h-[2.75rem] resize-y`}
+          className={`${clasesEntrada} max-h-40 min-h-11 resize-none rounded-[1.4rem] py-2.5 [field-sizing:content]`}
         />
         <Boton
           type="submit"

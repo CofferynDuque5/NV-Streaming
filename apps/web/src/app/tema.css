@@ -7,6 +7,9 @@
   --breakpoint-cuenta: 61.25rem;
 }
 
+/* Menú lateral del equipo plegado a solo iconos (se recuerda en este navegador). */
+@custom-variant riel (&:where(:root[data-lateral='riel'] *));
+
 @theme inline {
   --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
   --font-titulo: var(--fuente-titulo), var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
