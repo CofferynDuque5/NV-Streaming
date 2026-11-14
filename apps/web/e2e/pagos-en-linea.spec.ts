@@ -204,7 +204,10 @@ test('administración ve el pago en línea, devuelve una parte y revisa las pasa
   await expect(autorizados.getByRole('button', { name: /^Revocar/ })).toBeVisible();
 
   // Pagos en línea: pestaña de «Monedas y cobro»; la pasarela de pruebas está configurada.
-  await page.getByRole('link', { name: /^Monedas y cobro/ }).first().click();
+  await page
+    .getByRole('link', { name: /^Monedas y cobro/ })
+    .first()
+    .click();
   await page
     .getByRole('navigation', { name: 'Pestañas de la sección' })
     .getByRole('link', { name: 'Pagos en línea' })
