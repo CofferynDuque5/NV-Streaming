@@ -38,7 +38,9 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   const abiertos = colas.tickets!.abiertos;
 
   await expect(page.getByRole('heading', { level: 1, name: 'Hola, Administración' })).toBeVisible();
-  await expect(page.getByText('Equipo', { exact: true }).first()).toBeVisible();
+  // En escritorio la marca va en el menú lateral; la cabecera corta es solo del teléfono.
+  const lateral = page.getByRole('complementary', { name: 'Menú del equipo' });
+  await expect(lateral.getByText('Equipo', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ver tienda' })).toBeVisible();
 
   const atender = page.getByRole('region', { name: 'Para atender' });
