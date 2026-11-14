@@ -17,6 +17,28 @@ export const formatearDia = (dia: string) =>
     new Date(`${dia}T00:00:00Z`),
   );
 
+const hora = new Intl.DateTimeFormat('es', { timeStyle: 'short', timeZone: ZONA_HORARIA });
+const diaClave = new Intl.DateTimeFormat('en-CA', { dateStyle: 'short', timeZone: ZONA_HORARIA });
+const diaCorto = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: ZONA_HORARIA,
+});
+
+/** Solo la hora («2:45 p. m.»), en la zona del negocio. */
+export const formatearHora = (iso: string) => hora.format(new Date(iso));
+
+/** Día del calendario («2026-11-14») en la zona del negocio, para agrupar por día. */
+export const claveDia = (iso: string) => diaClave.format(new Date(iso));
+
+/** «Hoy», «Ayer» o la fecha corta («12 nov»), como en los chats. */
+export function etiquetaDia(iso: string, ahora = Date.now()): string {
+  const dia = claveDia(iso);
+  if (dia === claveDia(new Date(ahora).toISOString())) return 'Hoy';
+  if (dia === claveDia(new Date(ahora - 86_400_000).toISOString())) return 'Ayer';
+  return diaCorto.format(new Date(iso));
+}
+
 export function haceCuanto(iso: string, ahora = Date.now()): string {
   const segundos = Math.round((new Date(iso).getTime() - ahora) / 1000);
   const abs = Math.abs(segundos);

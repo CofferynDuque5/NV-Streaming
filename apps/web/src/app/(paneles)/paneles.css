@@ -1577,3 +1577,11 @@
     padding-bottom: calc(var(--nv-barra-inferior) + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Ancho del menú lateral del equipo en escritorio (plegado: solo iconos). */
+:root {
+  --ancho-lateral: 15.5rem;
+}
+:root[data-lateral='riel'] {
+  --ancho-lateral: 4.5rem;
+}
