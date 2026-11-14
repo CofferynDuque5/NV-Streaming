@@ -106,8 +106,19 @@ export class AlmacenService {
     });
   }
 
+  /**
+   * Guarda un archivo de la bandeja de WhatsApp (imagen, audio…) sin registro
+   * en «archivos»: el mensaje guarda la clave y su tipo. Solo se sirve con permiso.
+   */
+  async guardarWhatsApp(contenido: Buffer): Promise<string> {
+    const clave = `whatsapp/${randomUUID()}`;
+    await mkdir(join(this.raiz, 'whatsapp'), { recursive: true, mode: 0o750 });
+    await writeFile(join(this.raiz, clave), contenido, { mode: 0o640, flag: 'wx' });
+    return clave;
+  }
+
   async leer(archivo: Pick<Archivo, 'clave'>): Promise<Buffer> {
-    if (!/^(comprobantes|medios)\/[0-9a-f-]{36}$/.test(archivo.clave)) {
+    if (!/^(comprobantes|medios|whatsapp)\/[0-9a-f-]{36}$/.test(archivo.clave)) {
       throw new ErrorApp(404, 'NO_ENCONTRADO', 'El archivo no existe.');
     }
     try {

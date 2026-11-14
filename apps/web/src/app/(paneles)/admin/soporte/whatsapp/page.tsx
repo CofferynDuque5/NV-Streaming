@@ -4,31 +4,27 @@ import type {
   ConversacionWhatsAppResumen,
 } from '@nv/shared';
 import clsx from 'clsx';
-import {
-  ArrowLeft,
-  Check,
-  CheckCheck,
-  CircleAlert,
-  MessageCircle,
-  Phone,
-  UserRound,
-} from 'lucide-react';
+import { ArrowLeft, MessageCircle, Phone, Pin, UserRound } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Fragment } from 'react';
 import {
   CerrarConversacion,
-  ListaAlFinal,
+  FijarConversacion,
   RefrescoBandeja,
   ResponderWhatsApp,
   VinculoWhatsAppQr,
 } from '@/componentes/admin/whatsapp-bandeja';
+import {
+  FijadosWhatsApp,
+  MensajesWhatsApp,
+  PresenciaContacto,
+} from '@/componentes/admin/whatsapp-chat';
 import { Alerta } from '@/componentes/ui/alerta';
 import { BotonEnlace } from '@/componentes/ui/boton';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { leerApi } from '@/lib/api-servidor';
-import { claveDia, etiquetaDia, formatearFechaHora, formatearHora } from '@/lib/formato';
+import { etiquetaDia, formatearFechaHora, formatearHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'WhatsApp' };
@@ -70,35 +66,6 @@ function Iniciales({ c, className }: { c: ConversacionWhatsAppResumen; className
     >
       {letras ?? <Phone className="size-[45%]" />}
     </i>
-  );
-}
-
-function EstadoEnvio({ estado }: { estado: string | null }) {
-  if (estado === 'fallido')
-    return (
-      <span className="inline-flex items-center gap-1 text-peligro">
-        <CircleAlert className="size-3.5" aria-hidden="true" /> No se entregó
-      </span>
-    );
-  if (estado === 'leido')
-    return (
-      <span className="inline-flex text-cian" title="Leído">
-        <CheckCheck className="size-4" aria-hidden="true" />
-        <span className="sr-only">Leído</span>
-      </span>
-    );
-  if (estado === 'entregado')
-    return (
-      <span className="inline-flex" title="Entregado">
-        <CheckCheck className="size-4" aria-hidden="true" />
-        <span className="sr-only">Entregado</span>
-      </span>
-    );
-  return (
-    <span className="inline-flex" title="Enviado">
-      <Check className="size-4" aria-hidden="true" />
-      <span className="sr-only">Enviado</span>
-    </span>
   );
 }
 
@@ -247,6 +214,9 @@ export default async function BandejaWhatsAppPagina({
                         <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-0.5">
                           <span className="flex min-w-0 items-baseline gap-2">
                             <b className="min-w-0 flex-1 truncate text-sm">{nombreDe(c)}</b>
+                            {c.fijada && (
+                              <Pin className="size-3.5 shrink-0 text-aviso" aria-label="Fijada" />
+                            )}
                             <span
                               className={clsx(
                                 'shrink-0 text-[0.7rem]',
@@ -303,12 +273,18 @@ export default async function BandejaWhatsAppPagina({
                   <div className="grid min-w-0 flex-1 leading-tight">
                     <h2 className="truncate text-[0.95rem] font-semibold">{nombreDe(detalle)}</h2>
                     <p className="truncate text-xs text-tinta-suave">
-                      {detalle.telefono}
-                      {bandeja.sinVentana
-                        ? ''
-                        : detalle.ventanaHasta
-                          ? ` · Puedes responder hasta el ${formatearFechaHora(detalle.ventanaHasta)}`
-                          : ' · Ventana de 24 h cerrada'}
+                      {bandeja.sinVentana ? (
+                        <PresenciaContacto
+                          conversacionId={detalle.id}
+                          respaldo={detalle.telefono}
+                        />
+                      ) : (
+                        `${detalle.telefono}${
+                          detalle.ventanaHasta
+                            ? ` · Puedes responder hasta el ${formatearFechaHora(detalle.ventanaHasta)}`
+                            : ' · Ventana de 24 h cerrada'
+                        }`
+                      )}
                     </p>
                   </div>
                   {detalle.cliente && (
@@ -321,45 +297,17 @@ export default async function BandejaWhatsAppPagina({
                       <span className="max-sm:sr-only">Ficha</span>
                     </BotonEnlace>
                   )}
+                  <FijarConversacion conversacionId={detalle.id} fijada={detalle.fijada} />
                   <CerrarConversacion conversacionId={detalle.id} cerrada={detalle.cerrada} />
                 </header>
-                <ListaAlFinal
-                  aria-label="Mensajes"
-                  className="grid min-h-0 flex-1 content-start gap-1.5 overflow-y-auto overscroll-contain bg-[radial-gradient(rgb(255_255_255/0.035)_1px,transparent_1px)] [background-size:18px_18px] px-3 py-4 [scrollbar-width:thin] sm:px-6"
-                >
-                  {detalle.mensajes.map((m, i) => {
-                    const dia = claveDia(m.creadoEn);
-                    const nuevoDia = i === 0 || claveDia(detalle.mensajes[i - 1]!.creadoEn) !== dia;
-                    const entrante = m.direccion === 'entrante';
-                    return (
-                      <Fragment key={m.id}>
-                        {nuevoDia && (
-                          <li className="my-2 justify-self-center rounded-lg bg-white/[0.06] px-3 py-1 text-[0.7rem] font-semibold text-tinta-suave">
-                            {etiquetaDia(m.creadoEn)}
-                          </li>
-                        )}
-                        <li
-                          className={clsx(
-                            'grid max-w-[min(80%,36rem)] gap-0.5 rounded-2xl px-3 py-1.5 text-sm shadow-[0_1px_0_rgb(0_0_0/0.25)]',
-                            entrante
-                              ? 'justify-self-start rounded-tl-md bg-[#1b2238]'
-                              : 'justify-self-end rounded-tr-md bg-[#0f4a3c]',
-                          )}
-                        >
-                          <p className="whitespace-pre-wrap break-words">{m.texto}</p>
-                          <p className="flex items-center justify-end gap-1.5 text-[0.68rem] text-tinta-tenue">
-                            {m.autor && <span className="truncate">{m.autor.nombre} ·</span>}
-                            <time dateTime={m.creadoEn} title={formatearFechaHora(m.creadoEn)}>
-                              {formatearHora(m.creadoEn)}
-                            </time>
-                            {!entrante && <EstadoEnvio estado={m.estado} />}
-                          </p>
-                        </li>
-                      </Fragment>
-                    );
-                  })}
-                </ListaAlFinal>
-                <ResponderWhatsApp conversacionId={detalle.id} puede={!motivo} motivo={motivo} />
+                <FijadosWhatsApp fijados={detalle.fijados} />
+                <MensajesWhatsApp detalle={detalle} />
+                <ResponderWhatsApp
+                  conversacionId={detalle.id}
+                  puede={!motivo}
+                  motivo={motivo}
+                  puedeMedios={conectado}
+                />
               </>
             )}
           </section>

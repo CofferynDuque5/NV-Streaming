@@ -38,7 +38,7 @@ test('una cuenta sin anotar espera fuera del inventario hasta que se anota', asy
   const usuario = `espera.${Date.now().toString(36)}@example.com`;
   await entrarEquipo(page, 'admin@nv.test');
   await page.goto('/admin/cuentas');
-  await page.getByRole('link', { name: 'Sin anotar' }).click();
+  await page.getByRole('link', { name: 'Sin anotar' }).first().click();
   await expect(page).toHaveURL(/\/admin\/cuentas\/sin-anotar$/);
   await page.getByRole('button', { name: 'Agregar cuenta sin anotar' }).click();
   await page.getByLabel('Servicio').selectOption({ index: 1 });

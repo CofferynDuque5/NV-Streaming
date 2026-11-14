@@ -106,7 +106,6 @@ export default async function EditarServicio({ params }: { params: Promise<{ id:
               <NuevoPlan servicios={[servicio]} />
             </div>
           </Tarjeta>
-
         </div>
 
         <aside aria-label="Así se ve en la tienda" className="grid gap-3 xl:sticky xl:top-6">
@@ -129,9 +128,7 @@ export default async function EditarServicio({ params }: { params: Promise<{ id:
               <div className="grid min-w-0 gap-1">
                 <b className="truncate text-lg">{servicio.nombre}</b>
                 <span className="text-xs text-tinta-tenue">
-                  {servicio.categoria
-                    ? INFO_CATEGORIA[servicio.categoria].nombre
-                    : 'Sin categoría'}
+                  {servicio.categoria ? INFO_CATEGORIA[servicio.categoria].nombre : 'Sin categoría'}
                 </span>
               </div>
             </div>
@@ -145,7 +142,8 @@ export default async function EditarServicio({ params }: { params: Promise<{ id:
                 <Insignia tono="aviso">Desactivado: no se vende</Insignia>
               ) : desde ? (
                 <span className="text-sm">
-                  Desde <b className="text-base">{formatearMonto(String(desde.precioUsd), 'USD')}</b>
+                  Desde{' '}
+                  <b className="text-base">{formatearMonto(String(desde.precioUsd), 'USD')}</b>
                 </span>
               ) : (
                 <Insignia tono="aviso">Sin planes a la venta</Insignia>

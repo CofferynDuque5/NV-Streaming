@@ -27,7 +27,12 @@ function Opcion({
 }) {
   return (
     <label className="flex items-center gap-2 text-xs font-semibold text-tinta-suave">
-      <Interruptor activo={activo} onCambiar={onCambiar} cargando={cargando} aria-label={etiqueta} />
+      <Interruptor
+        activo={activo}
+        onCambiar={onCambiar}
+        cargando={cargando}
+        aria-label={etiqueta}
+      />
       {etiqueta}
     </label>
   );

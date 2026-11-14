@@ -1022,6 +1022,8 @@ model ConversacionWhatsApp {
   ultimoMensajeEn  DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(3)
   noLeidos         Int       @default(0) @map("no_leidos")
   cerrada          Boolean   @default(false)
+  /// Fijada arriba de la lista (como en WhatsApp); nulo si no está fijada.
+  fijadaEn         DateTime? @map("fijada_en") @db.Timestamptz(3)
   creadaEn         DateTime  @default(now()) @map("creada_en") @db.Timestamptz(3)
   actualizadaEn    DateTime  @updatedAt @map("actualizada_en") @db.Timestamptz(3)
 
@@ -1044,6 +1046,15 @@ model MensajeWhatsApp {
   /// enviado, entregado, leido o fallido (solo los salientes).
   estado         String?           @db.VarChar(20)
   autorId        String?           @map("autor_id") @db.Uuid
+  /// Imagen, audio, video, sticker o documento: dónde quedó guardado en el almacén privado.
+  medioClave     String?           @map("medio_clave") @db.VarChar(80)
+  medioMime      String?           @map("medio_mime") @db.VarChar(100)
+  /// Duración de un audio o video, en segundos.
+  medioSegundos  Int?              @map("medio_segundos")
+  /// Datos cifrados para bajar el archivo de WhatsApp cuando se abre (número vinculado por QR).
+  medioRef       String?           @map("medio_ref")
+  /// Mensaje fijado arriba de la conversación.
+  fijadoEn       DateTime?         @map("fijado_en") @db.Timestamptz(3)
   creadoEn       DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
 
   conversacion ConversacionWhatsApp @relation(fields: [conversacionId], references: [id], onDelete: Cascade)

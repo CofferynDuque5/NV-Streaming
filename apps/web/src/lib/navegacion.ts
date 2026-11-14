@@ -434,7 +434,9 @@ export function todosLosModulosDe(permisos: readonly Permiso[]): ModuloInfo[] {
 
 /** Las secciones del menú y del centro que el rol puede abrir (sin las que son pestañas). */
 export function modulosDe(permisos: readonly Permiso[]): ModuloInfo[] {
-  return todosLosModulosDe(permisos).filter((m) => !m.dentroDe);
+  const todos = todosLosModulosDe(permisos);
+  // Si el rol no puede abrir la sección madre, la hija sigue en el menú por su cuenta.
+  return todos.filter((m) => !m.dentroDe || !todos.some((p) => p.clave === m.dentroDe));
 }
 
 /**

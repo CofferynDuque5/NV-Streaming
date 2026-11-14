@@ -43,9 +43,7 @@ export function VistaPagina({ ruta, titulo }: { ruta: string; titulo: string }) 
               onClick={() => setAncho(clave)}
               className={clsx(
                 'inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold',
-                ancho === clave
-                  ? 'bg-marca/[0.2] text-tinta'
-                  : 'text-tinta-suave hover:text-tinta',
+                ancho === clave ? 'bg-marca/[0.2] text-tinta' : 'text-tinta-suave hover:text-tinta',
               )}
             >
               <Icono className="size-3.5" aria-hidden="true" />

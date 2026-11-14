@@ -1,3 +1,4 @@
+import type { TipoMedioWhatsApp } from '@nv/shared';
 import { getContentType, normalizeMessageContent, type proto } from 'baileys';
 
 /** Lo que se guarda de un mensaje que no es texto: el equipo lo abre en su WhatsApp. */
@@ -28,6 +29,61 @@ const IGNORADOS = new Set<keyof proto.IMessage>([
   'pinInChatMessage',
   'encReactionMessage',
 ]);
+
+/** Mensajes con archivo que se pueden ver o escuchar en el panel. */
+const MEDIOS: Partial<Record<keyof proto.IMessage, TipoMedioWhatsApp>> = {
+  imageMessage: 'imagen',
+  audioMessage: 'audio',
+  videoMessage: 'video',
+  ptvMessage: 'video',
+  stickerMessage: 'sticker',
+  documentMessage: 'documento',
+  documentWithCaptionMessage: 'documento',
+};
+
+/** Las etiquetas con que empieza el texto guardado de un mensaje con archivo. */
+const PREFIJOS_MEDIO = [...new Set(Object.values(ETIQUETAS))].filter((e) =>
+  /Imagen|Nota de voz|Video|Documento|Sticker/.test(e),
+);
+
+/** El texto propio de un mensaje con archivo (su pie), sin la etiqueta «📷 Imagen». */
+export function leyendaDeMedio(texto: string): string {
+  for (const p of PREFIJOS_MEDIO) {
+    if (texto === p) return '';
+    if (texto.startsWith(`${p}: `)) return texto.slice(p.length + 2);
+  }
+  return texto;
+}
+
+export interface MedioQr {
+  tipo: TipoMedioWhatsApp;
+  mime: string | null;
+  segundos: number | null;
+  /** Tamaño que anuncia WhatsApp, en bytes. */
+  tamano: number | null;
+}
+
+/** Qué archivo trae un mensaje (imagen, audio…), sin bajarlo; nulo si no trae. */
+export function medioDeMensajeQr(mensaje: proto.IMessage | null | undefined): MedioQr | null {
+  const m = normalizeMessageContent(mensaje);
+  const tipo = getContentType(m);
+  if (!m || !tipo) return null;
+  const clase = MEDIOS[tipo];
+  if (!clase) return null;
+  const datos = (
+    tipo === 'documentWithCaptionMessage'
+      ? m.documentWithCaptionMessage?.message?.documentMessage
+      : (m as Record<string, unknown>)[tipo]
+  ) as { mimetype?: string | null; seconds?: number | null; fileLength?: unknown } | null;
+  if (!datos) return null;
+  const largo = Number(datos.fileLength ?? NaN);
+  return {
+    tipo: clase,
+    mime: typeof datos.mimetype === 'string' ? datos.mimetype.slice(0, 100) : null,
+    segundos: typeof datos.seconds === 'number' ? datos.seconds : null,
+    tamano: Number.isFinite(largo) ? largo : null,
+  };
+}
 
 const limpio = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 

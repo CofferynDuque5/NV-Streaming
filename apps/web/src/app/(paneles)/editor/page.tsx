@@ -134,7 +134,10 @@ export default async function EditorTienda() {
         ) : (
           <ul className="divide-y divide-borde">
             {activos.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6">
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6"
+              >
                 {s.imagen ? (
                   <img
                     src={s.imagen.url}
