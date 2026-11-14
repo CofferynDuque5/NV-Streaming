@@ -35,7 +35,7 @@ import { formatearDia } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
-export const metadata: Metadata = { title: 'Cuentas de servicio' };
+export const metadata: Metadata = { title: 'Cuentas' };
 
 const POR_PAGINA = 50;
 
@@ -106,7 +106,7 @@ export default async function Cuentas({
     // minmax(0,1fr): la tabla ancha se desplaza dentro de su tarjeta y no ensancha la página en el teléfono.
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <CabeceraPagina
-        titulo="Cuentas de servicio"
+        titulo="Cuentas"
         descripcion="Las cuentas que revendes, con sus perfiles. Asigna cada perfil a la suscripción de un cliente. El correo, la clave y los PIN van cifrados y solo se ven con «Ver credenciales»."
         acciones={
           puedeGestionar ? (

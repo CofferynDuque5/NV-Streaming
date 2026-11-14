@@ -12,7 +12,7 @@ import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Correos de códigos' };
+export const metadata: Metadata = { title: 'Códigos por correo' };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -48,7 +48,7 @@ export default async function CorreosDeCodigos({
   return (
     <>
       <CabeceraPagina
-        titulo="Correos de códigos"
+        titulo="Códigos por correo"
         descripcion="Lee los buzones donde llegan los correos de Netflix, Disney+, Max y los demás, y muestra el último código o enlace (Hogar, verificación) de cada cuenta. También lo pueden pedir tus clientes desde «Mis accesos»."
       />
       {sinBuzones && (

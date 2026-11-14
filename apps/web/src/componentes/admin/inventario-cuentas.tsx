@@ -243,7 +243,7 @@ export function InventarioCuentas({
             </Link>
           }
         >
-          Agrega tus cuentas en «Cuentas de servicio» (una por una, desde la lista del proveedor o
+          Agrega tus cuentas en «Cuentas e inventario → Cuentas» (una por una, desde la lista del proveedor o
           desde el Gestor viejo) y aquí verás todos sus perfiles.
         </EstadoVacio>
       </Tarjeta>

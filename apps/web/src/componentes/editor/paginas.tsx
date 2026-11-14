@@ -90,7 +90,7 @@ export function PaginasSitio({
       return;
     }
     void refrescarSitio();
-    router.push(`/admin/sitio/${r.datos.id}`);
+    router.push(`/editor/paginas/${r.datos.id}`);
   }
   const [nueva, setNueva] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
@@ -222,7 +222,7 @@ export function PaginasSitio({
                 )}
                 {!p.archivada && (
                   <BotonEnlace
-                    href={`/admin/sitio/${p.id}`}
+                    href={`/editor/paginas/${p.id}`}
                     variante="secundario"
                     tamano="sm"
                     aria-label={`Editar ${p.titulo} (${p.ruta})`}
@@ -387,7 +387,7 @@ function NuevaPagina({
       if (!r.error.campos) notificar(r.error.mensaje, 'error');
       return;
     }
-    router.push(`/admin/sitio/${r.datos.id}`);
+    router.push(`/editor/paginas/${r.datos.id}`);
     notificar(
       plantilla
         ? `Página creada como borrador con la plantilla ${PLANTILLAS_PAGINA[plantilla].nombre}. Revisa sus textos antes de publicarla.`

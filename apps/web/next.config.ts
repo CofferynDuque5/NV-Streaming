@@ -18,14 +18,15 @@ const politicaContenido = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  // Solo la propia tienda puede mostrarse dentro de otra página suya (la vista previa del editor).
+  "frame-ancestors 'self'",
 ].join('; ');
 
 const cabecerasSeguridad = [
   { key: 'Content-Security-Policy', value: politicaContenido },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];

@@ -54,7 +54,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <Volver href="/admin/cuentas">Cuentas de servicio</Volver>
+      <Volver href="/admin/cuentas">Cuentas</Volver>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="grid gap-1">
           <h1 className="font-titulo text-2xl font-bold">{c.servicio.nombre}</h1>

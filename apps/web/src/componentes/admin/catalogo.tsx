@@ -21,6 +21,7 @@ import {
 import clsx from 'clsx';
 import { Building2, Layers, PackageCheck, Pencil, Plus, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -254,16 +255,18 @@ const aSlug = (t: string) =>
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
 
-function FormularioServicio({
+export function FormularioServicio({
   servicio,
   proveedores,
   onListo,
 }: {
   servicio?: ServicioPublico;
   proveedores: ProveedorPublico[];
-  onListo: () => void;
+  /** Sin él (editor de servicio), el formulario se queda abierto y avisa que guardó. */
+  onListo?: (id: string) => void;
 }) {
   const { cargando, error, campos, ejecutar } = useAccion();
+  const [guardado, setGuardado] = useState(false);
   const [slug, setSlug] = useState(servicio?.slug ?? '');
   const [slugTocado, setSlugTocado] = useState(Boolean(servicio));
 
@@ -280,17 +283,25 @@ function FormularioServicio({
       datosRequeridos: leerDatosRequeridos(d),
       activo: marcada(d, 'activo'),
     };
+    setGuardado(false);
     const r = servicio
-      ? await ejecutar('PATCH', `/catalogo/servicios/${servicio.id}`, comun)
-      : await ejecutar('POST', '/catalogo/servicios', {
+      ? await ejecutar<ServicioPublico>('PATCH', `/catalogo/servicios/${servicio.id}`, comun)
+      : await ejecutar<ServicioPublico>('POST', '/catalogo/servicios', {
           ...comun,
           proveedorId: d.get('proveedorId'),
         });
-    if (r) onListo();
+    if (!r) return;
+    if (onListo) onListo(r.datos.id);
+    else setGuardado(true);
   }
 
   return (
     <form onSubmit={enviar} className="@container grid gap-4" noValidate>
+      <ImagenServicio
+        nombre={servicio?.nombre ?? slug}
+        inicial={servicio?.imagen ?? null}
+        error={campos.imagenId}
+      />
       <div className="grid gap-4 @lg:grid-cols-2">
         <Campo
           etiqueta="Nombre"
@@ -362,11 +373,6 @@ function FormularioServicio({
         error={campos.descripcion}
         ayuda="Se muestra en la página del servicio en la tienda."
       />
-      <ImagenServicio
-        nombre={servicio?.nombre ?? slug}
-        inicial={servicio?.imagen ?? null}
-        error={campos.imagenId}
-      />
       <DatosRequeridosServicio
         iniciales={servicio?.datosRequeridos ?? []}
         error={campos.datosRequeridos}
@@ -382,9 +388,17 @@ function FormularioServicio({
         <Boton type="submit" cargando={cargando}>
           {servicio ? 'Guardar cambios' : 'Crear servicio'}
         </Boton>
-        <Boton variante="fantasma" onClick={onListo}>
-          Cancelar
-        </Boton>
+        {onListo ? (
+          <Boton variante="fantasma" onClick={() => onListo(servicio?.id ?? '')}>
+            Cancelar
+          </Boton>
+        ) : (
+          guardado && (
+            <p role="status" className="self-center text-sm font-medium text-exito">
+              Cambios guardados.
+            </p>
+          )
+        )}
       </div>
     </form>
   );
@@ -394,11 +408,15 @@ export function ListaServicios({
   servicios,
   proveedores,
   puedeGestionar,
+  planesALaVenta,
 }: {
   servicios: ServicioPublico[];
   proveedores: ProveedorPublico[];
   puedeGestionar: boolean;
+  /** Cuántos planes de cada servicio están a la venta (por id). */
+  planesALaVenta?: Record<string, number>;
 }) {
+  const router = useRouter();
   const [editando, setEditando] = useState<string | null>(null);
   const sinProveedores = proveedores.length === 0;
 
@@ -420,7 +438,14 @@ export function ListaServicios({
       {puedeGestionar && editando === 'nuevo' && (
         <div className="border-b border-borde p-4 sm:p-5">
           <PanelFormulario titulo="Nuevo servicio" onCerrar={() => setEditando(null)}>
-            <FormularioServicio proveedores={proveedores} onListo={() => setEditando(null)} />
+            <FormularioServicio
+              proveedores={proveedores}
+              onListo={(id) => {
+                setEditando(null);
+                // Recién creado: se abre su editor para poner los planes y precios.
+                if (id) router.push(`/editor/servicios/${id}`);
+              }}
+            />
           </PanelFormulario>
         </div>
       )}
@@ -438,46 +463,55 @@ export function ListaServicios({
         <ul className="divide-y divide-borde">
           {servicios.map((s) => (
             <li key={s.id} className="px-5 py-4 sm:px-6">
-              {editando === s.id ? (
-                <PanelFormulario titulo={`Editar ${s.nombre}`} onCerrar={() => setEditando(null)}>
-                  <FormularioServicio
-                    servicio={s}
-                    proveedores={proveedores}
-                    onListo={() => setEditando(null)}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {s.imagen ? (
+                  <img
+                    src={s.imagen.url}
+                    alt=""
+                    className="size-11 shrink-0 rounded-xl border border-borde bg-hundida object-contain"
                   />
-                </PanelFormulario>
-              ) : (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                  <div className="grid min-w-0 flex-1 gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={clsx('font-medium', !s.activo && 'text-tinta-suave')}>
-                        {s.nombre}
-                      </span>
-                      {!s.activo && <Insignia>Inactivo</Insignia>}
-                    </div>
-                    <p className="flex flex-wrap items-center gap-x-2 text-sm text-tinta-tenue">
-                      <code className="font-mono text-xs text-tinta-suave">{s.slug}</code>
-                      <span aria-hidden="true">·</span>
-                      <span>{s.proveedor.nombre}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>
-                        {s.categoria ? INFO_CATEGORIA[s.categoria].nombre : 'Sin categoría'}
-                      </span>
-                    </p>
+                ) : (
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-borde bg-hundida text-sm font-bold text-tinta-suave">
+                    {s.nombre.slice(0, 1)}
+                  </span>
+                )}
+                <div className="grid min-w-0 flex-1 gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={clsx('font-medium', !s.activo && 'text-tinta-suave')}>
+                      {s.nombre}
+                    </span>
+                    {!s.activo && <Insignia>Inactivo</Insignia>}
                   </div>
-                  {puedeGestionar && (
-                    <Boton
-                      variante="fantasma"
-                      tamano="sm"
-                      icono={<Pencil className="size-3.5" />}
-                      onClick={() => setEditando(s.id)}
-                      aria-label={`Editar ${s.nombre}`}
-                    >
-                      Editar
-                    </Boton>
-                  )}
+                  <p className="flex flex-wrap items-center gap-x-2 text-sm text-tinta-tenue">
+                    <code className="font-mono text-xs text-tinta-suave">{s.slug}</code>
+                    <span aria-hidden="true">·</span>
+                    <span>{s.proveedor.nombre}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      {s.categoria ? INFO_CATEGORIA[s.categoria].nombre : 'Sin categoría'}
+                    </span>
+                    {planesALaVenta && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          {planesALaVenta[s.id] === 1
+                            ? '1 plan a la venta'
+                            : `${planesALaVenta[s.id] ?? 0} planes a la venta`}
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
-              )}
+                {puedeGestionar && (
+                  <Link
+                    href={`/editor/servicios/${s.id}`}
+                    aria-label={`Editar ${s.nombre}`}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-borde px-3 text-sm font-semibold text-tinta-suave hover:border-borde-fuerte hover:text-tinta"
+                  >
+                    <Pencil className="size-3.5" aria-hidden="true" /> Editar
+                  </Link>
+                )}
+              </div>
             </li>
           ))}
         </ul>

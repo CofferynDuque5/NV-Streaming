@@ -103,7 +103,7 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   const buscador = page.getByRole('combobox', { name: 'Buscar en todo el panel' });
   await expect(buscador).toBeFocused();
   await buscador.fill('codigos');
-  await expect(page.getByRole('option', { name: /Correos de códigos/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Códigos por correo/ })).toBeVisible();
   await buscador.fill('cliente@nv.test');
   await expect(page.getByRole('option', { name: /cliente@nv\.test/ })).toBeVisible();
   await buscador.fill('cobros');
@@ -117,7 +117,7 @@ test('operación: sus 20 módulos, sin auditoría ni actividad', async ({ page }
   await expect(modulos(page)).toHaveCount(20);
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Auditoría/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /^Códigos de activación/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Tarjetas y códigos para vender/ })).toHaveCount(0);
   const sistema = page.getByRole('region', { name: 'Estado del sistema' });
   await expect(sistema.getByText('Correo')).toBeVisible();
   await expect(sistema.getByText('PayPal')).toHaveCount(0);

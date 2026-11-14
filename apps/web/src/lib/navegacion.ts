@@ -165,6 +165,11 @@ export interface ModuloInfo {
   href: string;
   /** Permiso con el que se abre (la API lo vuelve a comprobar). */
   permiso: Permiso;
+  /**
+   * Va como pestaña dentro de otra sección: no sale en el menú ni en el centro,
+   * pero sí en el buscador (con el nombre de la sección de la que forma parte).
+   */
+  dentroDe?: ModuloEquipo;
 }
 
 /** Módulos del equipo, en el orden del menú y de la cuadrícula del centro. */
@@ -245,7 +250,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'suscripciones',
     grupo: 'ventas',
     nombre: 'Suscripciones',
-    descripcion: 'Renovar, pausar, reanudar o cancelar',
+    descripcion: 'Renovar, pausar o cancelar; vencimientos, cortes y devoluciones',
     color: '#22d3ee',
     href: '/admin/suscripciones',
     permiso: 'suscripciones.ver',
@@ -258,6 +263,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#f43f5e',
     href: '/admin/suscripciones/vencimientos',
     permiso: 'suscripciones.ver',
+    dentroDe: 'suscripciones',
   },
   {
     clave: 'devoluciones',
@@ -267,6 +273,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#14b8a6',
     href: '/admin/suscripciones/devoluciones',
     permiso: 'suscripciones.ver',
+    dentroDe: 'suscripciones',
   },
   {
     clave: 'cupones',
@@ -281,7 +288,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'balance',
     grupo: 'ventas',
     nombre: 'Balance',
-    descripcion: 'Ventas, costos de las cuentas, por cobrar y por pagar',
+    descripcion: 'Ventas, costos, por cobrar y lo que debes a los proveedores',
     color: '#10b981',
     href: '/admin/balance',
     permiso: 'balance.ver',
@@ -294,6 +301,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#eab308',
     href: '/admin/cuentas/por-pagar',
     permiso: 'cuentas.ver',
+    dentroDe: 'balance',
   },
   {
     clave: 'catalogo',
@@ -307,8 +315,8 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   {
     clave: 'existencias',
     grupo: 'tienda',
-    nombre: 'Inventario',
-    descripcion: 'Todas las cuentas y sus perfiles: libres, ocupados y por vencer',
+    nombre: 'Cuentas e inventario',
+    descripcion: 'Las cuentas que revendes con sus perfiles: libres, ocupados, por vencer y caídas',
     color: '#14b8a6',
     href: '/admin/inventario',
     permiso: 'cuentas.ver',
@@ -321,6 +329,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#a855f7',
     href: '/admin/cuentas',
     permiso: 'cuentas.ver',
+    dentroDe: 'existencias',
   },
   {
     clave: 'caidas',
@@ -330,11 +339,12 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#ef4444',
     href: '/admin/cuentas/caidas',
     permiso: 'cuentas.ver',
+    dentroDe: 'existencias',
   },
   {
     clave: 'codigos',
     grupo: 'tienda',
-    nombre: 'Correos de códigos',
+    nombre: 'Códigos por correo',
     descripcion:
       'Buzones donde llegan los códigos de Netflix, Disney+… y el último código de cada cuenta',
     color: '#f43f5e',
@@ -344,7 +354,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   {
     clave: 'inventario',
     grupo: 'tienda',
-    nombre: 'Códigos de activación',
+    nombre: 'Tarjetas y códigos para vender',
     descripcion: 'Códigos, tarjetas y activaciones disponibles por plan',
     color: '#22c55e',
     href: '/admin/inventario/codigos',
@@ -354,7 +364,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'finanzas',
     grupo: 'tienda',
     nombre: 'Monedas y cobro',
-    descripcion: 'Tasas del día y métodos de pago',
+    descripcion: 'Tasas del día, métodos de pago y pagos en línea (PayPal, Mercado Pago)',
     color: '#f59e0b',
     href: '/admin/finanzas',
     permiso: 'finanzas.configurar',
@@ -367,14 +377,16 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#22d3ee',
     href: '/admin/pagos-en-linea',
     permiso: 'pasarelas.configurar',
+    dentroDe: 'finanzas',
   },
   {
     clave: 'sitio',
     grupo: 'tienda',
-    nombre: 'Sitio y páginas',
-    descripcion: 'Portada, páginas y datos de contacto',
+    nombre: 'Editor de la tienda',
+    descripcion:
+      'Páginas, servicios con sus precios y logos, colores y contacto, en un panel aparte',
     color: '#d946ef',
-    href: '/admin/sitio',
+    href: '/editor',
     permiso: 'sitio.editar',
   },
   {
@@ -415,9 +427,57 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   },
 ];
 
-/** Los módulos que el rol puede abrir. */
-export function modulosDe(permisos: readonly Permiso[]): ModuloInfo[] {
+/** Los módulos que el rol puede abrir, con los que van como pestaña dentro de otro. */
+export function todosLosModulosDe(permisos: readonly Permiso[]): ModuloInfo[] {
   return MODULOS_EQUIPO.filter((m) => permisos.includes(m.permiso));
+}
+
+/** Las secciones del menú y del centro que el rol puede abrir (sin las que son pestañas). */
+export function modulosDe(permisos: readonly Permiso[]): ModuloInfo[] {
+  return todosLosModulosDe(permisos).filter((m) => !m.dentroDe);
+}
+
+/**
+ * Pestañas de cada sección que junta varias páginas: la sección y lo que va
+ * dentro de ella. Solo las que el rol puede abrir; una sección con una sola
+ * pestaña no muestra la barra.
+ */
+export function pestanasSecciones(
+  permisos: readonly Permiso[],
+): { etiqueta: string; href: string }[][] {
+  const mios = todosLosModulosDe(permisos);
+  const extra: Partial<
+    Record<ModuloEquipo, { etiqueta: string; href: string; permiso: Permiso }[]>
+  > = {
+    existencias: [
+      {
+        etiqueta: 'Reposición',
+        href: '/admin/cuentas/reposicion',
+        permiso: 'cuentas.ver',
+      },
+      { etiqueta: 'Sin anotar', href: '/admin/cuentas/sin-anotar', permiso: 'cuentas.ver' },
+    ],
+  };
+  const nombreCorto: Partial<Record<ModuloEquipo, string>> = {
+    existencias: 'Inventario',
+    cuentas: 'Cuentas',
+    caidas: 'Caídas',
+    'por-pagar': 'Por pagar',
+    pasarelas: 'Pagos en línea',
+    finanzas: 'Monedas y métodos',
+  };
+  return mios
+    .filter((m) => !m.dentroDe)
+    .map((padre) => [
+      { etiqueta: nombreCorto[padre.clave] ?? padre.nombre, href: padre.href },
+      ...mios
+        .filter((m) => m.dentroDe === padre.clave)
+        .map((m) => ({ etiqueta: nombreCorto[m.clave] ?? m.nombre, href: m.href })),
+      ...(extra[padre.clave] ?? [])
+        .filter((e) => permisos.includes(e.permiso))
+        .map(({ etiqueta, href }) => ({ etiqueta, href })),
+    ])
+    .filter((g) => g.length > 1);
 }
 
 /**
@@ -515,11 +575,13 @@ export function destinosBuscador(permisos: readonly Permiso[]): DestinoBuscadorB
   const nombres = Object.fromEntries(GRUPOS_EQUIPO);
   return [
     { etiqueta: 'Centro de módulos', href: '/admin', icono: 'centro', detalle: 'Inicio' },
-    ...modulosDe(permisos).map((m) => ({
+    ...todosLosModulosDe(permisos).map((m) => ({
       etiqueta: m.nombre,
       href: m.href,
       icono: m.clave,
-      detalle: nombres[m.grupo] ?? '',
+      detalle: m.dentroDe
+        ? (MODULOS_EQUIPO.find((p) => p.clave === m.dentroDe)?.nombre ?? '')
+        : (nombres[m.grupo] ?? ''),
       claves: m.descripcion,
     })),
     ...PAGINAS_BUSCADOR.filter((p) => permisos.includes(p.permiso)).map((p) => ({

@@ -32,7 +32,7 @@ const GRUPOS = [
   ['revendedor.,nivel_revendedor.,precio_mayorista.,compra_revendedor.', 'Revendedores'],
   ['ticket.', 'Soporte'],
   ['tasa.,metodo_cobro.,metodo_autorizado.', 'Monedas y métodos de cobro'],
-  ['pagina.,medio.,tema_sitio.,temporada_sitio.', 'Sitio y páginas'],
+  ['pagina.,medio.,tema_sitio.,temporada_sitio.', 'Editor de la tienda'],
   ['automatizacion.,aviso.', 'Automatizaciones y avisos'],
 ] as const;
 

@@ -88,7 +88,7 @@ export function pasosPuestaEnMarcha(c: CentroEquipo): Paso[] {
       titulo: 'Publica tu portada',
       detalle: 'Revisa los textos y los datos de contacto (WhatsApp) antes de recibir visitas.',
       hecho: c.modulos.paginasPublicadas > 0,
-      href: '/admin/sitio',
+      href: '/editor',
       accion: 'Ir al sitio',
     });
   }

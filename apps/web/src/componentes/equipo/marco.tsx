@@ -7,7 +7,7 @@ import { SalirCuenta } from '@/componentes/panel/menu-cuenta';
 import { Sello } from '@/componentes/panel/piezas-marco';
 import { colaEquipo, pendientesPorModulo } from '@/lib/equipo';
 import { leerLicencia } from '@/lib/licencia';
-import { destinosBuscador, menuEquipo } from '@/lib/navegacion';
+import { destinosBuscador, menuEquipo, pestanasSecciones } from '@/lib/navegacion';
 import { leerCentro } from '@/lib/panel-equipo';
 import { AvisoLicencia } from './aviso-licencia';
 import { BarraEquipo } from './barra';
@@ -112,7 +112,7 @@ export function MarcoEquipo({ sesion, children }: { sesion: SesionActual; childr
         </div>
       </header>
       <CuerpoEquipo
-        pantallaCompleta="/admin/sitio/"
+        pestanas={pestanasSecciones(permisos)}
         lateral={
           <Suspense fallback={lateral(sesion, {})}>
             <LateralConPendientes sesion={sesion} />
