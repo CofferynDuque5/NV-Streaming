@@ -6,6 +6,8 @@ export const VENTANA_WHATSAPP_HORAS = 24;
 
 export const listarConversacionesWhatsAppSchema = z.object({
   estado: z.enum(['abiertas', 'cerradas']).default('abiertas'),
+  /** Nombre, teléfono o texto de algún mensaje. */
+  busqueda: z.string().trim().max(80).optional(),
 });
 
 export const responderWhatsAppSchema = z.object({
@@ -14,12 +16,27 @@ export const responderWhatsAppSchema = z.object({
     .trim()
     .min(1, 'Escribe la respuesta.')
     .max(4096, 'WhatsApp admite hasta 4096 caracteres.'),
+  /** Mensaje al que se responde (citado). */
+  respuestaDe: z.string().uuid().optional(),
+});
+
+/** Reacción del equipo a un mensaje; nulo la quita. */
+export const reaccionWhatsAppSchema = z.object({
+  emoji: z.string().trim().min(1).max(16).nullable(),
 });
 
 /** Cerrar o reabrir, y fijar o soltar una conversación (cualquiera de los dos). */
 export const estadoConversacionWhatsAppSchema = z
-  .object({ cerrada: z.boolean().optional(), fijada: z.boolean().optional() })
-  .refine((v) => v.cerrada !== undefined || v.fijada !== undefined, 'Indica qué cambiar.');
+  .object({
+    cerrada: z.boolean().optional(),
+    fijada: z.boolean().optional(),
+    /** Volver a marcarla como no leída. */
+    noLeida: z.boolean().optional(),
+  })
+  .refine(
+    (v) => v.cerrada !== undefined || v.fijada !== undefined || v.noLeida !== undefined,
+    'Indica qué cambiar.',
+  );
 
 export const fijarMensajeWhatsAppSchema = z.object({ fijado: z.boolean() });
 
@@ -34,6 +51,7 @@ export const medioWhatsAppSchema = z.object({
     .max(1024, 'El texto de la imagen admite hasta 1024 caracteres.')
     .optional(),
   segundos: z.coerce.number().int().min(0).max(3600).optional(),
+  respuestaDe: z.string().uuid().optional(),
 });
 
 /** Tope de una imagen o audio que se envía desde el panel. */
@@ -84,6 +102,17 @@ export interface MensajeWhatsAppPublico {
   /** Imagen, audio, video, sticker o documento; el texto es su descripción (puede ir vacío). */
   medio: MedioWhatsApp | null;
   fijado: boolean;
+  /** El mensaje citado, si es una respuesta. */
+  respuestaDe: {
+    id: string;
+    direccion: 'entrante' | 'saliente';
+    texto: string;
+    medio: TipoMedioWhatsApp | null;
+  } | null;
+  reacciones: { cliente: string | null; equipo: string | null };
+  /** Quien lo envió lo borró para todos. */
+  eliminado: boolean;
+  editado: boolean;
 }
 
 export interface ConversacionWhatsAppDetalle extends ConversacionWhatsAppResumen {

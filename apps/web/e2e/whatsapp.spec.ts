@@ -27,7 +27,11 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y ofrece vincular el nú
   await page.locator('#contenido').getByRole('link', { name: 'WhatsApp', exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/soporte\/whatsapp$/);
   // El administrador ve cómo vincular el número con un código QR (no se pulsa: conectaría con WhatsApp).
-  await expect(page.getByRole('button', { name: 'Vincular con código QR' })).toBeVisible();
+  await page.getByRole('button', { name: 'Vincular número' }).click();
+  const vinculo = page.getByRole('dialog', { name: 'Número de WhatsApp de la empresa' });
+  await expect(vinculo.getByRole('button', { name: 'Mostrar código QR' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(vinculo).toBeHidden();
 
   const lista = page.getByRole('navigation', { name: 'Conversaciones de WhatsApp' });
   await lista.getByRole('link', { name: new RegExp(`Ana WhatsApp ${telefono}`) }).click();
@@ -35,7 +39,14 @@ test('un mensaje de WhatsApp sale en la bandeja, se lee y ofrece vincular el nú
   await expect(conversacion.getByText(`Hola, no me entra Netflix ${telefono}`)).toBeVisible();
   await expect(conversacion.getByLabel('Respuesta por WhatsApp')).toBeDisabled();
 
-  await conversacion.getByRole('button', { name: 'Cerrar' }).click();
+  // Buscar dentro del chat resalta lo encontrado.
+  await conversacion.getByRole('button', { name: 'Buscar en este chat' }).click();
+  await conversacion.getByRole('textbox', { name: 'Buscar en este chat' }).fill('netflix');
+  await expect(conversacion.getByText('1 de 1')).toBeVisible();
+  await expect(conversacion.locator('mark')).toHaveText('Netflix');
+
+  await conversacion.getByRole('button', { name: 'Cerrar la búsqueda' }).click();
+  await conversacion.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await expect(conversacion.getByRole('button', { name: 'Reabrir' })).toBeVisible();
   await lista.getByRole('link', { name: 'Cerradas' }).click();
   await expect(

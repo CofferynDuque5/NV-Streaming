@@ -7,25 +7,146 @@ import type {
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
+  Ban,
   Check,
   CheckCheck,
+  ChevronDown,
+  ChevronUp,
   CircleAlert,
+  Copy,
   Download,
+  Headset,
   History,
   ImageOff,
   LoaderCircle,
+  Mic,
   Pause,
   Pin,
   PinOff,
   Play,
+  Reply,
+  Search,
+  SmilePlus,
+  Trash2,
+  UserRound,
   X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { llamarApi } from '@/lib/api-cliente';
 import { claveDia, etiquetaDia, formatearFechaHora, formatearHora } from '@/lib/formato';
 
 const rutaMedio = (id: string) => `/api/v1/whatsapp/mensajes/${id}/medio`;
+const rutaFoto = (conversacionId: string) =>
+  `/api/v1/whatsapp/conversaciones/${conversacionId}/foto`;
+
+const NOMBRE_MEDIO = {
+  imagen: '📷 Imagen',
+  audio: '🎤 Nota de voz',
+  video: '🎬 Video',
+  sticker: 'Sticker',
+  documento: '📄 Documento',
+} as const;
+
+/** Texto corto de un mensaje para citas y fijados. */
+export function resumenMensaje(m: {
+  texto: string;
+  medio: { tipo: keyof typeof NOMBRE_MEDIO } | keyof typeof NOMBRE_MEDIO | null;
+}) {
+  const tipo = typeof m.medio === 'string' ? m.medio : m.medio?.tipo;
+  if (tipo) return m.texto ? `${NOMBRE_MEDIO[tipo]}: ${m.texto}` : NOMBRE_MEDIO[tipo];
+  return m.texto;
+}
+
+/** Va a un mensaje del chat y lo hace brillar un momento. */
+export function irAMensaje(id: string) {
+  const el = document.getElementById(`m-${id}`);
+  if (!el) return false;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.animate(
+    [{ boxShadow: '0 0 0 2px rgb(34 211 238 / 0.8)' }, { boxShadow: '0 0 0 0 transparent' }],
+    { duration: 1600 },
+  );
+  return true;
+}
+
+// Mensaje al que se está respondiendo: lo elige la burbuja y lo usa la caja de abajo.
+type CitaElegida = { conversacionId: string; m: MensajeWhatsAppPublico } | null;
+let citaActual: CitaElegida = null;
+const oyentesCita = new Set<() => void>();
+export function elegirCita(c: CitaElegida) {
+  citaActual = c;
+  oyentesCita.forEach((f) => f());
+}
+export function useCita(conversacionId: string): MensajeWhatsAppPublico | null {
+  const c = useSyncExternalStore(
+    (f) => {
+      oyentesCita.add(f);
+      return () => oyentesCita.delete(f);
+    },
+    () => citaActual,
+    () => null,
+  );
+  return c?.conversacionId === conversacionId ? c.m : null;
+}
+
+/** Foto de perfil de WhatsApp encima de las iniciales; si no hay, quedan las iniciales. */
+export function FotoContacto({
+  conversacionId,
+  conFoto,
+  children,
+}: {
+  conversacionId: string;
+  conFoto: boolean;
+  children: ReactNode;
+}) {
+  const [sinFoto, setSinFoto] = useState<string | null>(null);
+  return (
+    <span className="relative inline-grid shrink-0">
+      {children}
+      {conFoto && sinFoto !== conversacionId && (
+        <img
+          src={rutaFoto(conversacionId)}
+          alt=""
+          loading="lazy"
+          onError={() => setSinFoto(conversacionId)}
+          className="absolute inset-0 size-full rounded-full object-cover"
+        />
+      )}
+    </span>
+  );
+}
+
+/** Quita acentos y mayúsculas, letra por letra, para buscar sin mover las posiciones. */
+const normalizar = (t: string) =>
+  [...t].map((c) => (c.normalize('NFD').replace(/\p{M}/gu, '')[0] ?? c).toLowerCase()).join('');
+
+function Resaltado({ texto, q }: { texto: string; q: string }) {
+  const buscado = normalizar(q.trim());
+  if (!buscado) return <>{texto}</>;
+  const base = normalizar(texto);
+  const trozos: ReactNode[] = [];
+  let desde = 0;
+  for (let i = base.indexOf(buscado); i !== -1; i = base.indexOf(buscado, i + buscado.length)) {
+    trozos.push(texto.slice(desde, i));
+    trozos.push(
+      <mark key={i} className="rounded-sm bg-aviso/80 text-black">
+        {texto.slice(i, i + buscado.length)}
+      </mark>,
+    );
+    desde = i + buscado.length;
+  }
+  trozos.push(texto.slice(desde));
+  return <>{trozos}</>;
+}
 
 const duracion = (s: number) =>
   `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -59,13 +180,82 @@ export function EstadoEnvio({ estado }: { estado: string | null }) {
   );
 }
 
-/** Nota de voz con su botón, barra y tiempo, como en WhatsApp. */
-export function NotaDeVoz({ src, segundos }: { src: string; segundos: number | null }) {
+// Ondas ya calculadas de cada audio (para no decodificarlo de nuevo al refrescar).
+const ondas = new Map<string, number[]>();
+const BARRAS = 34;
+
+/** Barras de relleno mientras se calcula la onda real (siempre las mismas para el mismo audio). */
+function ondaDeRelleno(src: string): number[] {
+  let n = [...src].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  return Array.from({ length: BARRAS }, () => {
+    n = (n * 1103515245 + 12345) >>> 0;
+    return 0.25 + ((n >>> 16) % 1000) / 1600;
+  });
+}
+
+async function calcularOnda(src: string): Promise<number[]> {
+  const r = await fetch(src);
+  if (!r.ok) throw new Error('sin audio');
+  const contexto = new AudioContext();
+  try {
+    const audio = await contexto.decodeAudioData(await r.arrayBuffer());
+    const datos = audio.getChannelData(0);
+    const tramo = Math.max(1, Math.floor(datos.length / BARRAS));
+    const paso = Math.max(1, Math.floor(tramo / 200));
+    const picos = Array.from({ length: BARRAS }, (_, b) => {
+      let suma = 0;
+      let n = 0;
+      for (let i = b * tramo; i < (b + 1) * tramo && i < datos.length; i += paso) {
+        suma += Math.abs(datos[i]!);
+        n++;
+      }
+      return n ? suma / n : 0;
+    });
+    const max = Math.max(...picos, 0.0001);
+    return picos.map((p) => 0.14 + 0.86 * (p / max));
+  } finally {
+    void contexto.close();
+  }
+}
+
+const VELOCIDADES = [1, 1.5, 2] as const;
+
+/** Nota de voz como en WhatsApp: onda, avance, velocidad y la foto con el micrófono. */
+export function NotaDeVoz({
+  src,
+  segundos,
+  entrante = true,
+  conversacionId,
+  conFoto = false,
+}: {
+  src: string;
+  segundos: number | null;
+  entrante?: boolean;
+  conversacionId?: string;
+  conFoto?: boolean;
+}) {
   const audio = useRef<HTMLAudioElement>(null);
   const [sonando, setSonando] = useState(false);
   const [actual, setActual] = useState(0);
   const [total, setTotal] = useState(segundos ?? 0);
   const [error, setError] = useState(false);
+  const [escuchada, setEscuchada] = useState(false);
+  const [velocidad, setVelocidad] = useState<(typeof VELOCIDADES)[number]>(1);
+  const [onda, setOnda] = useState(() => ondas.get(src) ?? ondaDeRelleno(src));
+
+  useEffect(() => {
+    if (ondas.has(src) || typeof AudioContext === 'undefined') return;
+    let activo = true;
+    calcularOnda(src)
+      .then((o) => {
+        ondas.set(src, o);
+        if (activo) setOnda(o);
+      })
+      .catch(() => undefined); // Se quedan las barras de relleno.
+    return () => {
+      activo = false;
+    };
+  }, [src]);
 
   if (error) {
     return (
@@ -75,8 +265,53 @@ export function NotaDeVoz({ src, segundos }: { src: string; segundos: number | n
       </span>
     );
   }
+  const progreso = total > 0 ? Math.min(1, actual / total) : 0;
+  const ir = (fraccion: number) => {
+    const a = audio.current;
+    if (a && total > 0) {
+      a.currentTime = Math.max(0, Math.min(total, fraccion * total));
+      setActual(a.currentTime);
+    }
+  };
+  const enCurso = sonando || actual > 0;
+  const avatar = (
+    <span className="relative shrink-0" aria-hidden="true">
+      {entrante && conversacionId ? (
+        <FotoContacto conversacionId={conversacionId} conFoto={conFoto}>
+          <i className="grid size-11 place-items-center rounded-full bg-white/10 text-tinta-suave not-italic">
+            <UserRound className="size-6" />
+          </i>
+        </FotoContacto>
+      ) : (
+        <i className="grid size-11 place-items-center rounded-full bg-[linear-gradient(135deg,#0ea5e9,#22c55e)] text-white not-italic">
+          <Headset className="size-5" />
+        </i>
+      )}
+      <Mic
+        className={clsx(
+          'absolute -bottom-0.5 size-4 drop-shadow',
+          entrante ? '-right-1' : '-left-1',
+          escuchada ? 'text-cian' : 'text-exito',
+        )}
+      />
+    </span>
+  );
+  const botonVelocidad = (
+    <button
+      type="button"
+      onClick={() => {
+        const siguiente = VELOCIDADES[(VELOCIDADES.indexOf(velocidad) + 1) % VELOCIDADES.length]!;
+        setVelocidad(siguiente);
+        if (audio.current) audio.current.playbackRate = siguiente;
+      }}
+      className="grid h-7 w-11 shrink-0 place-items-center rounded-full bg-white/15 text-xs font-bold text-tinta hover:bg-white/25"
+      aria-label={`Velocidad ${velocidad}x. Tocar para cambiarla`}
+    >
+      {velocidad}×
+    </button>
+  );
   return (
-    <div className="flex w-[min(17rem,62vw)] items-center gap-2.5 py-0.5">
+    <div className="flex w-[min(20rem,66vw)] items-center gap-2.5 py-1">
       <audio
         ref={audio}
         src={src}
@@ -86,7 +321,11 @@ export function NotaDeVoz({ src, segundos }: { src: string; segundos: number | n
           if (Number.isFinite(d) && d > 0) setTotal(d);
         }}
         onTimeUpdate={(e) => setActual(e.currentTarget.currentTime)}
-        onPlay={() => setSonando(true)}
+        onPlay={(e) => {
+          e.currentTarget.playbackRate = velocidad;
+          setSonando(true);
+          setEscuchada(true);
+        }}
         onPause={() => setSonando(false)}
         onEnded={() => {
           setSonando(false);
@@ -94,6 +333,7 @@ export function NotaDeVoz({ src, segundos }: { src: string; segundos: number | n
         }}
         onError={() => setError(true)}
       />
+      {entrante && (enCurso ? botonVelocidad : avatar)}
       <button
         type="button"
         onClick={() => {
@@ -102,33 +342,66 @@ export function NotaDeVoz({ src, segundos }: { src: string; segundos: number | n
           if (a.paused) void a.play().catch(() => setError(true));
           else a.pause();
         }}
-        className="grid size-9 shrink-0 place-items-center rounded-full bg-exito text-black hover:brightness-110"
+        className="grid size-8 shrink-0 place-items-center rounded-full text-tinta-suave hover:text-tinta"
         aria-label={sonando ? 'Pausar la nota de voz' : 'Escuchar la nota de voz'}
       >
         {sonando ? (
-          <Pause className="size-4" aria-hidden="true" />
+          <Pause className="size-6 fill-current" aria-hidden="true" />
         ) : (
-          <Play className="ml-0.5 size-4" aria-hidden="true" />
+          <Play className="size-6 fill-current" aria-hidden="true" />
         )}
       </button>
-      <div className="grid min-w-0 flex-1 gap-1">
-        <input
-          type="range"
-          min={0}
-          max={total || 1}
-          step={0.1}
-          value={Math.min(actual, total || 1)}
-          onChange={(e) => {
-            const a = audio.current;
-            if (a) a.currentTime = Number(e.currentTarget.value);
-          }}
+      <div className="grid min-w-0 flex-1 gap-0.5">
+        <div
+          role="slider"
+          tabIndex={0}
           aria-label="Avance de la nota de voz"
-          className="h-1 w-full cursor-pointer accent-exito"
-        />
+          aria-valuemin={0}
+          aria-valuemax={Math.round(total)}
+          aria-valuenow={Math.round(actual)}
+          aria-valuetext={duracion(actual)}
+          onPointerDown={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            ir((e.clientX - r.left) / r.width);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+              e.preventDefault();
+              const delta = (e.key === 'ArrowRight' ? 5 : -5) / (total || 1);
+              ir(progreso + delta);
+            }
+          }}
+          className="relative flex h-8 cursor-pointer touch-none items-center gap-[2px] rounded focus-visible:ring-2 focus-visible:ring-cian"
+        >
+          {onda.map((h, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              className={clsx(
+                'min-w-0 flex-1 rounded-full transition-colors',
+                (i + 0.5) / onda.length <= progreso
+                  ? escuchada
+                    ? 'bg-cian'
+                    : 'bg-exito'
+                  : 'bg-white/30',
+              )}
+              style={{ height: `${Math.round(h * 100)}%` }}
+            />
+          ))}
+          <span
+            aria-hidden="true"
+            className={clsx(
+              'pointer-events-none absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow',
+              escuchada ? 'bg-cian' : 'bg-exito',
+            )}
+            style={{ left: `${progreso * 100}%` }}
+          />
+        </div>
         <span className="text-[0.68rem] text-tinta-tenue tabular-nums">
-          {duracion(sonando || actual > 0 ? actual : total)}
+          {duracion(enCurso ? actual : total)}
         </span>
       </div>
+      {!entrante && (enCurso ? botonVelocidad : avatar)}
     </div>
   );
 }
@@ -202,7 +475,15 @@ function ImagenMensaje({ m }: { m: MensajeWhatsAppPublico }) {
   );
 }
 
-function MedioMensaje({ m }: { m: MensajeWhatsAppPublico }) {
+function MedioMensaje({
+  m,
+  conversacionId,
+  conFoto,
+}: {
+  m: MensajeWhatsAppPublico;
+  conversacionId: string;
+  conFoto: boolean;
+}) {
   const medio = m.medio!;
   if (!medio.disponible) {
     const nombre = {
@@ -219,7 +500,17 @@ function MedioMensaje({ m }: { m: MensajeWhatsAppPublico }) {
     );
   }
   if (medio.tipo === 'imagen' || medio.tipo === 'sticker') return <ImagenMensaje m={m} />;
-  if (medio.tipo === 'audio') return <NotaDeVoz src={rutaMedio(m.id)} segundos={medio.segundos} />;
+  if (medio.tipo === 'audio') {
+    return (
+      <NotaDeVoz
+        src={rutaMedio(m.id)}
+        segundos={medio.segundos}
+        entrante={m.direccion === 'entrante'}
+        conversacionId={conversacionId}
+        conFoto={conFoto}
+      />
+    );
+  }
   if (medio.tipo === 'video') {
     return (
       <video
@@ -244,18 +535,93 @@ async function fijarMensaje(id: string, fijado: boolean) {
   return llamarApi('PATCH', `/whatsapp/mensajes/${id}`, { fijado });
 }
 
-/** Un mensaje del chat, con su archivo si trae, la hora y el botón para fijarlo. */
+const REACCIONES = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+/**
+ * Un mensaje del chat, como en WhatsApp: cita, archivo, texto, hora, reacciones
+ * y su menú (reaccionar, responder, copiar, fijar y eliminar para todos).
+ */
 export function BurbujaWhatsApp({
   m,
-  alFijar,
+  conversacionId,
+  contacto,
+  conQr,
+  busqueda = '',
+  alCambiar,
 }: {
   m: MensajeWhatsAppPublico;
-  alFijar: () => void;
+  conversacionId: string;
+  /** Nombre del cliente, para las citas. */
+  contacto: string;
+  /** El número está vinculado por QR: se puede reaccionar y borrar para todos. */
+  conQr: boolean;
+  busqueda?: string;
+  alCambiar: (cambio: Partial<MensajeWhatsAppPublico>) => void;
 }) {
   const entrante = m.direccion === 'entrante';
+  const yo = useRef<HTMLLIElement>(null);
+  const [menu, setMenu] = useState<'abajo' | 'arriba' | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmarBorrado, setConfirmarBorrado] = useState(false);
+
+  useEffect(() => {
+    if (!menu) return;
+    const fuera = (e: PointerEvent) => {
+      if (!yo.current?.contains(e.target as Node)) setMenu(null);
+    };
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null);
+    };
+    document.addEventListener('pointerdown', fuera);
+    document.addEventListener('keydown', tecla);
+    return () => {
+      document.removeEventListener('pointerdown', fuera);
+      document.removeEventListener('keydown', tecla);
+    };
+  }, [menu]);
+
+  function abrirMenu() {
+    if (menu) {
+      setMenu(null);
+      return;
+    }
+    const r = yo.current?.getBoundingClientRect();
+    setAviso(null);
+    setConfirmarBorrado(false);
+    setMenu(r && r.bottom > window.innerHeight - 300 ? 'arriba' : 'abajo');
+  }
+
+  async function accion(
+    hacer: () => ReturnType<typeof llamarApi>,
+    cambio: Partial<MensajeWhatsAppPublico>,
+  ) {
+    setOcupado(true);
+    setAviso(null);
+    const r = await hacer();
+    setOcupado(false);
+    if (!r.ok) {
+      setAviso(r.error.mensaje);
+      return;
+    }
+    setMenu(null);
+    alCambiar(cambio);
+  }
+
+  const reaccionar = (emoji: string) => {
+    const nueva = m.reacciones.equipo === emoji ? null : emoji;
+    void accion(() => llamarApi('PUT', `/whatsapp/mensajes/${m.id}/reaccion`, { emoji: nueva }), {
+      reacciones: { ...m.reacciones, equipo: nueva },
+    });
+  };
+
+  const reacciones = [m.reacciones.cliente, m.reacciones.equipo].filter(Boolean) as string[];
+  const opcion =
+    'flex w-full items-center gap-3 px-3.5 py-2 text-left text-sm hover:bg-white/[0.06] disabled:opacity-50';
+
   return (
     <li
+      ref={yo}
       id={`m-${m.id}`}
       className={clsx(
         'group relative grid max-w-[min(80%,36rem)] gap-1 rounded-2xl px-2.5 py-1.5 text-sm shadow-[0_1px_0_rgb(0_0_0/0.25)] transition-[box-shadow]',
@@ -263,42 +629,214 @@ export function BurbujaWhatsApp({
           ? 'justify-self-start rounded-tl-md bg-[#1b2238]'
           : 'justify-self-end rounded-tr-md bg-[#0f4a3c]',
         m.medio?.tipo === 'sticker' && 'bg-transparent shadow-none',
+        reacciones.length > 0 && 'mb-3.5',
+        menu && 'z-20',
       )}
     >
-      {m.medio && <MedioMensaje m={m} />}
-      {m.texto && <p className="px-0.5 whitespace-pre-wrap break-words">{m.texto}</p>}
+      {m.respuestaDe && (
+        <button
+          type="button"
+          onClick={() => irAMensaje(m.respuestaDe!.id)}
+          className={clsx(
+            'grid min-w-0 gap-0.5 rounded-lg border-l-4 bg-black/25 px-2.5 py-1.5 text-left text-xs hover:bg-black/35',
+            m.respuestaDe.direccion === 'entrante' ? 'border-cian' : 'border-exito',
+          )}
+          aria-label="Ir al mensaje citado"
+        >
+          <b className={m.respuestaDe.direccion === 'entrante' ? 'text-cian' : 'text-exito'}>
+            {m.respuestaDe.direccion === 'entrante' ? contacto : 'Tú'}
+          </b>
+          <span className="line-clamp-2 text-tinta-suave">{resumenMensaje(m.respuestaDe)}</span>
+        </button>
+      )}
+      {m.eliminado ? (
+        <p className="flex items-center gap-1.5 px-0.5 text-tinta-tenue italic">
+          <Ban className="size-3.5" aria-hidden="true" />
+          {entrante ? 'Se eliminó este mensaje' : 'Eliminaste este mensaje'}
+        </p>
+      ) : (
+        <>
+          {m.medio && <MedioMensaje m={m} conversacionId={conversacionId} conFoto={conQr} />}
+          {m.texto && (
+            <p className="px-0.5 pr-5 whitespace-pre-wrap break-words">
+              <Resaltado texto={m.texto} q={busqueda} />
+            </p>
+          )}
+        </>
+      )}
       <p className="flex items-center justify-end gap-1.5 px-0.5 text-[0.68rem] text-tinta-tenue">
         {m.fijado && <Pin className="size-3 text-aviso" aria-label="Fijado" />}
+        {m.editado && !m.eliminado && <span>Editado</span>}
         {m.autor && <span className="truncate">{m.autor.nombre} ·</span>}
         <time dateTime={m.creadoEn} title={formatearFechaHora(m.creadoEn)}>
           {formatearHora(m.creadoEn)}
         </time>
-        {!entrante && <EstadoEnvio estado={m.estado} />}
+        {!entrante && !m.eliminado && <EstadoEnvio estado={m.estado} />}
       </p>
-      <button
-        type="button"
-        disabled={ocupado}
-        onClick={async () => {
-          setOcupado(true);
-          const r = await fijarMensaje(m.id, !m.fijado);
-          setOcupado(false);
-          if (r.ok) alFijar();
-        }}
-        className={clsx(
-          'absolute top-1 grid size-7 place-items-center rounded-full border border-borde bg-elevada text-tinta-suave opacity-0 shadow-nv group-hover:opacity-100 hover:text-tinta focus-visible:opacity-100 [@media(hover:none)]:opacity-70',
-          entrante ? '-right-9' : '-left-9',
+      {reacciones.length > 0 && (
+        <span
+          className={clsx(
+            'absolute -bottom-3.5 flex items-center gap-0.5 rounded-full border border-borde bg-elevada px-1.5 py-0.5 text-xs shadow-nv',
+            entrante ? 'left-2' : 'right-2',
+          )}
+          title={[
+            m.reacciones.cliente && `${contacto}: ${m.reacciones.cliente}`,
+            m.reacciones.equipo && `Tú: ${m.reacciones.equipo}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        >
+          {[...new Set(reacciones)].map((r) => (
+            <span key={r}>{r}</span>
+          ))}
+          {reacciones.length > 1 && (
+            <span className="pl-0.5 text-[0.65rem] text-tinta-suave">{reacciones.length}</span>
+          )}
+        </span>
+      )}
+
+      {/* Flecha del menú dentro de la burbuja y carita al costado, como en WhatsApp Web. */}
+      <>
+        <button
+          type="button"
+          onClick={abrirMenu}
+          className={clsx(
+            'absolute top-1 right-1 grid size-6 place-items-center rounded-full text-tinta-suave opacity-0 group-hover:opacity-100 hover:text-tinta focus-visible:opacity-100 [@media(hover:none)]:opacity-60',
+            entrante ? 'bg-[#1b2238]' : 'bg-[#0f4a3c]',
+            menu && 'opacity-100',
+          )}
+          aria-label="Opciones del mensaje"
+          aria-expanded={Boolean(menu)}
+        >
+          <ChevronDown className="size-4" aria-hidden="true" />
+        </button>
+        {conQr && !m.eliminado && (
+          <button
+            type="button"
+            onClick={abrirMenu}
+            className={clsx(
+              'absolute top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-elevada text-tinta-suave opacity-0 shadow-nv group-hover:opacity-100 hover:text-tinta focus-visible:opacity-100',
+              entrante ? '-right-10' : '-left-10',
+            )}
+            aria-label="Reaccionar"
+            title="Reaccionar"
+          >
+            <SmilePlus className="size-4" aria-hidden="true" />
+          </button>
         )}
-        aria-label={m.fijado ? 'Desfijar el mensaje' : 'Fijar el mensaje'}
-        title={m.fijado ? 'Desfijar' : 'Fijar'}
-      >
-        {ocupado ? (
-          <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : m.fijado ? (
-          <PinOff className="size-3.5" aria-hidden="true" />
-        ) : (
-          <Pin className="size-3.5" aria-hidden="true" />
-        )}
-      </button>
+      </>
+
+      {menu && (
+        <div
+          role="menu"
+          aria-label="Opciones del mensaje"
+          className={clsx(
+            'absolute z-30 w-60 overflow-hidden rounded-2xl border border-borde-fuerte bg-elevada py-1 shadow-nv',
+            entrante ? 'left-0' : 'right-0',
+            menu === 'abajo' ? 'top-full mt-1' : 'bottom-full mb-1',
+          )}
+        >
+          {conQr && !m.eliminado && (
+            <div className="flex items-center justify-between gap-0.5 border-b border-borde px-2 py-1.5">
+              {REACCIONES.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  role="menuitem"
+                  disabled={ocupado}
+                  onClick={() => reaccionar(e)}
+                  className={clsx(
+                    'grid size-8 place-items-center rounded-full text-lg transition-transform hover:scale-125',
+                    m.reacciones.equipo === e && 'bg-white/15',
+                  )}
+                  aria-label={m.reacciones.equipo === e ? `Quitar ${e}` : `Reaccionar con ${e}`}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+          {!m.eliminado && (
+            <button
+              type="button"
+              role="menuitem"
+              className={opcion}
+              onClick={() => {
+                elegirCita({ conversacionId, m });
+                setMenu(null);
+              }}
+            >
+              <Reply className="size-4 text-tinta-suave" aria-hidden="true" /> Responder
+            </button>
+          )}
+          {!m.eliminado && m.texto && (
+            <button
+              type="button"
+              role="menuitem"
+              className={opcion}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(m.texto);
+                  setMenu(null);
+                } catch {
+                  setAviso('No se pudo copiar.');
+                }
+              }}
+            >
+              <Copy className="size-4 text-tinta-suave" aria-hidden="true" /> Copiar
+            </button>
+          )}
+          <button
+            type="button"
+            role="menuitem"
+            disabled={ocupado}
+            className={opcion}
+            onClick={() =>
+              void accion(
+                () => llamarApi('PATCH', `/whatsapp/mensajes/${m.id}`, { fijado: !m.fijado }),
+                {
+                  fijado: !m.fijado,
+                },
+              )
+            }
+          >
+            {m.fijado ? (
+              <PinOff className="size-4 text-tinta-suave" aria-hidden="true" />
+            ) : (
+              <Pin className="size-4 text-tinta-suave" aria-hidden="true" />
+            )}
+            {m.fijado ? 'Desfijar' : 'Fijar'}
+          </button>
+          {conQr && !entrante && !m.eliminado && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={ocupado}
+              className={clsx(opcion, 'text-peligro')}
+              onClick={() => {
+                if (!confirmarBorrado) {
+                  setConfirmarBorrado(true);
+                  return;
+                }
+                void accion(() => llamarApi('DELETE', `/whatsapp/mensajes/${m.id}`), {
+                  eliminado: true,
+                  texto: '',
+                  medio: null,
+                  fijado: false,
+                });
+              }}
+            >
+              {ocupado ? (
+                <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Trash2 className="size-4" aria-hidden="true" />
+              )}
+              {confirmarBorrado ? 'Toca otra vez para borrarlo' : 'Eliminar para todos'}
+            </button>
+          )}
+          {aviso && <p className="px-3.5 py-1.5 text-xs text-peligro">{aviso}</p>}
+        </div>
+      )}
     </li>
   );
 }
@@ -309,33 +847,13 @@ export function FijadosWhatsApp({ fijados }: { fijados: MensajeWhatsAppPublico[]
   const [i, setI] = useState(0);
   if (fijados.length === 0) return null;
   const actual = fijados[Math.min(i, fijados.length - 1)]!;
-  const resumen =
-    actual.texto ||
-    (actual.medio
-      ? {
-          imagen: '📷 Imagen',
-          audio: '🎤 Nota de voz',
-          video: '🎬 Video',
-          sticker: 'Sticker',
-          documento: '📄 Documento',
-        }[actual.medio.tipo]
-      : '');
+  const resumen = resumenMensaje(actual);
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-borde bg-white/[0.025] px-3 py-1.5 sm:px-4">
       <button
         type="button"
         onClick={() => {
-          const el = document.getElementById(`m-${actual.id}`);
-          if (el) {
-            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            el.animate(
-              [
-                { boxShadow: '0 0 0 2px rgb(34 211 238 / 0.8)' },
-                { boxShadow: '0 0 0 0 transparent' },
-              ],
-              { duration: 1600 },
-            );
-          }
+          irAMensaje(actual.id);
           setI((n) => (n + 1) % fijados.length);
         }}
         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
@@ -383,7 +901,13 @@ export function FijadosWhatsApp({ fijados }: { fijados: MensajeWhatsAppPublico[]
  * Mensajes del chat, de abajo hacia arriba como en WhatsApp: se queda en lo
  * último y, arriba, carga los anteriores guardados o los pide al teléfono.
  */
-export function MensajesWhatsApp({ detalle }: { detalle: ConversacionWhatsAppDetalle }) {
+export function MensajesWhatsApp({
+  detalle,
+  contacto,
+}: {
+  detalle: ConversacionWhatsAppDetalle;
+  contacto: string;
+}) {
   const router = useRouter();
   const lista = useRef<HTMLOListElement>(null);
   const [anteriores, setAnteriores] = useState<MensajeWhatsAppPublico[]>([]);
@@ -391,6 +915,12 @@ export function MensajesWhatsApp({ detalle }: { detalle: ConversacionWhatsAppDet
   const [cargando, setCargando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const alturaAntes = useRef<number | null>(null);
+  const conQr = detalle.puedePedirHistorial;
+  // Buscar dentro del chat.
+  const [buscando, setBuscando] = useState(false);
+  const [q, setQ] = useState('');
+  const [hallazgo, setHallazgo] = useState(0);
+  const caja = useRef<HTMLInputElement>(null);
 
   // Al cambiar de chat se empieza de cero.
   const [chat, setChat] = useState(detalle.id);
@@ -399,6 +929,8 @@ export function MensajesWhatsApp({ detalle }: { detalle: ConversacionWhatsAppDet
     setAnteriores([]);
     setHayMas(detalle.hayAnteriores);
     setAviso(null);
+    setBuscando(false);
+    setQ('');
   }
 
   const todos = [...anteriores, ...detalle.mensajes];
@@ -461,58 +993,149 @@ export function MensajesWhatsApp({ detalle }: { detalle: ConversacionWhatsAppDet
   }
 
   const mostrarBoton = todos.length > 0 && (hayMas || detalle.puedePedirHistorial);
+  const buscado = normalizar(q.trim());
+  const coincidencias = buscado
+    ? todos.filter((m) => !m.eliminado && normalizar(m.texto).includes(buscado)).map((m) => m.id)
+    : [];
+  // Se empieza por la más reciente (abajo) y se sube.
+  const marcado = coincidencias.length
+    ? coincidencias[Math.max(0, coincidencias.length - 1 - (hallazgo % coincidencias.length))]
+    : null;
+  useEffect(() => {
+    if (marcado) irAMensaje(marcado);
+  }, [marcado]);
+  useEffect(() => {
+    if (buscando) caja.current?.focus();
+  }, [buscando]);
 
   return (
-    <ol
-      ref={lista}
-      aria-label="Mensajes"
-      className="grid min-h-0 flex-1 content-start gap-1.5 overflow-y-auto overscroll-contain bg-[radial-gradient(rgb(255_255_255/0.035)_1px,transparent_1px)] [background-size:18px_18px] px-3 py-4 [scrollbar-width:thin] sm:px-12"
-    >
-      {mostrarBoton && (
-        <li className="mb-1 grid justify-items-center gap-1">
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      {buscando ? (
+        <div className="flex shrink-0 items-center gap-1.5 border-b border-borde bg-[rgb(10_14_32/0.9)] px-3 py-1.5 sm:px-4">
+          <Search className="size-4 shrink-0 text-tinta-tenue" aria-hidden="true" />
+          <input
+            ref={caja}
+            type="text"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setHallazgo(0);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                setHallazgo((n) => (e.shiftKey ? Math.max(0, n - 1) : n + 1));
+              }
+              if (e.key === 'Escape') {
+                setBuscando(false);
+                setQ('');
+              }
+            }}
+            placeholder="Buscar en este chat…"
+            aria-label="Buscar en este chat"
+            className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-tinta-tenue"
+          />
+          {buscado && (
+            <span className="shrink-0 text-xs text-tinta-suave tabular-nums" aria-live="polite">
+              {coincidencias.length
+                ? `${(hallazgo % coincidencias.length) + 1} de ${coincidencias.length}`
+                : 'Sin resultados'}
+            </span>
+          )}
           <button
             type="button"
-            onClick={() => void masAntiguos()}
-            disabled={cargando}
-            className="inline-flex items-center gap-1.5 rounded-full border border-borde bg-elevada px-3.5 py-1.5 text-xs font-semibold text-tinta-suave hover:border-borde-fuerte hover:text-tinta disabled:opacity-70"
+            disabled={coincidencias.length < 2}
+            onClick={() => setHallazgo((n) => n + 1)}
+            className="grid size-8 place-items-center rounded-lg text-tinta-suave hover:bg-white/[0.06] disabled:opacity-40"
+            aria-label="Resultado anterior (más viejo)"
           >
-            {cargando ? (
-              <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <History className="size-3.5 text-cian" aria-hidden="true" />
-            )}
-            {cargando
-              ? 'Cargando…'
-              : hayMas
-                ? 'Ver mensajes anteriores'
-                : 'Traer mensajes anteriores del teléfono'}
+            <ChevronUp className="size-4" aria-hidden="true" />
           </button>
-          {aviso && <span className="text-xs text-tinta-tenue">{aviso}</span>}
-        </li>
+          <button
+            type="button"
+            disabled={coincidencias.length < 2 || hallazgo === 0}
+            onClick={() => setHallazgo((n) => Math.max(0, n - 1))}
+            className="grid size-8 place-items-center rounded-lg text-tinta-suave hover:bg-white/[0.06] disabled:opacity-40"
+            aria-label="Resultado siguiente (más nuevo)"
+          >
+            <ChevronDown className="size-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setBuscando(false);
+              setQ('');
+            }}
+            className="grid size-8 place-items-center rounded-lg text-tinta-suave hover:bg-white/[0.06]"
+            aria-label="Cerrar la búsqueda"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setBuscando(true)}
+          className="absolute top-2.5 right-3 z-10 grid size-9 place-items-center rounded-full border border-borde bg-elevada/90 text-tinta-suave shadow-nv backdrop-blur hover:text-tinta"
+          aria-label="Buscar en este chat"
+          title="Buscar en este chat"
+        >
+          <Search className="size-4" aria-hidden="true" />
+        </button>
       )}
-      {todos.map((m, i) => {
-        const nuevoDia = i === 0 || claveDia(todos[i - 1]!.creadoEn) !== claveDia(m.creadoEn);
-        return (
-          <Fragment key={m.id}>
-            {nuevoDia && (
-              <li className="my-2 justify-self-center rounded-lg bg-white/[0.06] px-3 py-1 text-[0.7rem] font-semibold text-tinta-suave">
-                {etiquetaDia(m.creadoEn)}
-              </li>
-            )}
-            <BurbujaWhatsApp
-              m={m}
-              alFijar={() => {
-                // Los anteriores no vuelven del servidor: se actualizan aquí.
-                setAnteriores((a) =>
-                  a.map((x) => (x.id === m.id ? { ...x, fijado: !x.fijado } : x)),
-                );
-                router.refresh();
-              }}
-            />
-          </Fragment>
-        );
-      })}
-    </ol>
+      <ol
+        ref={lista}
+        aria-label="Mensajes"
+        className="grid min-h-0 flex-1 content-start gap-1.5 overflow-y-auto overscroll-contain bg-[radial-gradient(rgb(255_255_255/0.035)_1px,transparent_1px)] [background-size:18px_18px] px-3 py-4 [scrollbar-width:thin] sm:px-12"
+      >
+        {mostrarBoton && (
+          <li className="mb-1 grid justify-items-center gap-1">
+            <button
+              type="button"
+              onClick={() => void masAntiguos()}
+              disabled={cargando}
+              className="inline-flex items-center gap-1.5 rounded-full border border-borde bg-elevada px-3.5 py-1.5 text-xs font-semibold text-tinta-suave hover:border-borde-fuerte hover:text-tinta disabled:opacity-70"
+            >
+              {cargando ? (
+                <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <History className="size-3.5 text-cian" aria-hidden="true" />
+              )}
+              {cargando
+                ? 'Cargando…'
+                : hayMas
+                  ? 'Ver mensajes anteriores'
+                  : 'Traer mensajes anteriores del teléfono'}
+            </button>
+            {aviso && <span className="text-xs text-tinta-tenue">{aviso}</span>}
+          </li>
+        )}
+        {todos.map((m, i) => {
+          const nuevoDia = i === 0 || claveDia(todos[i - 1]!.creadoEn) !== claveDia(m.creadoEn);
+          return (
+            <Fragment key={m.id}>
+              {nuevoDia && (
+                <li className="my-2 justify-self-center rounded-lg bg-white/[0.06] px-3 py-1 text-[0.7rem] font-semibold text-tinta-suave">
+                  {etiquetaDia(m.creadoEn)}
+                </li>
+              )}
+              <BurbujaWhatsApp
+                m={m}
+                conversacionId={detalle.id}
+                contacto={contacto}
+                conQr={conQr}
+                busqueda={buscado ? q : ''}
+                alCambiar={(cambio) => {
+                  // Los anteriores no vuelven del servidor: se actualizan aquí.
+                  setAnteriores((a) => a.map((x) => (x.id === m.id ? { ...x, ...cambio } : x)));
+                  router.refresh();
+                }}
+              />
+            </Fragment>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

@@ -284,4 +284,49 @@ describe('Bandeja de WhatsApp', () => {
       409,
     );
   });
+
+  it('guarda citas, reacciones, borrados y ediciones, y busca en los chats', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const bandeja = ctx.app.get(WhatsAppBandejaService);
+    const hace = (s: number) => new Date(Date.now() - s * 1000);
+    const base = { telefono: '584140000003', tipo: 'text', nombre: 'Ejemplo Tres' };
+    await bandeja.entrante({ ...base, waId: 'C-1', texto: 'Quiero Netflix', fecha: hace(3) });
+    await bandeja.salienteDesdeTelefono({
+      ...base,
+      waId: 'C-2',
+      texto: 'Claro, te paso el precio',
+      fecha: hace(2),
+      respuestaDeWaId: 'C-1',
+    });
+    await bandeja.cambio({ tipo: 'reaccion', waId: 'C-2', emoji: '❤️', deMi: false });
+    await bandeja.cambio({ tipo: 'editado', waId: 'C-1', texto: 'Quiero Netflix 4K', deMi: false });
+    await bandeja.entrante({ ...base, waId: 'C-3', texto: 'Ups', fecha: hace(1) });
+    await bandeja.cambio({ tipo: 'eliminado', waId: 'C-3', deMi: false });
+
+    const lista = (await admin.n.get('/whatsapp/conversaciones?busqueda=netflix')).cuerpo;
+    expect(lista.conversaciones.map((c: { nombre: string }) => c.nombre)).toEqual(['Ejemplo Tres']);
+    expect(
+      (await admin.n.get('/whatsapp/conversaciones?busqueda=nada-parecido')).cuerpo.conversaciones,
+    ).toEqual([]);
+    const id = lista.conversaciones[0].id;
+    const { mensajes } = (await admin.n.get(`/whatsapp/conversaciones/${id}`)).cuerpo;
+    const [pedido, respuesta, borrado] = mensajes;
+    expect(pedido).toMatchObject({ texto: 'Quiero Netflix 4K', editado: true });
+    expect(respuesta).toMatchObject({
+      respuestaDe: { id: pedido.id, direccion: 'entrante', texto: 'Quiero Netflix 4K' },
+      reacciones: { cliente: '❤️', equipo: null },
+    });
+    expect(borrado).toMatchObject({ eliminado: true, texto: '' });
+
+    // Marcar como no leído.
+    await admin.n.patch(`/whatsapp/conversaciones/${id}`, { noLeida: true });
+    expect((await admin.n.get('/whatsapp/conversaciones')).cuerpo.sinLeer).toBe(1);
+
+    // Sin el número vinculado no se puede reaccionar ni borrar para todos.
+    expect(
+      (await admin.n.put(`/whatsapp/mensajes/${pedido.id}/reaccion`, { emoji: '👍' })).estado,
+    ).toBe(409);
+    expect((await admin.n.delete(`/whatsapp/mensajes/${respuesta.id}`)).estado).toBe(409);
+    expect((await admin.n.get(`/whatsapp/conversaciones/${id}/foto`)).estado).toBe(204);
+  });
 });

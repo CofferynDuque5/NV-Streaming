@@ -19,9 +19,10 @@ import { ErrorApp } from '../comun/errores.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
 import { aNotaDeVoz, esAudio } from './whatsapp-audio.js';
-import { leyendaDeMedio } from './whatsapp-qr-mensajes.js';
+import { type CambioQr, leyendaDeMedio } from './whatsapp-qr-mensajes.js';
 import {
   type MensajeQr,
+  type MensajeRef,
   type ReceptorWhatsAppQr,
   WhatsAppQrService,
 } from './whatsapp-qr.service.js';
@@ -51,7 +52,12 @@ function claseDeMedio(tipo: string): TipoMedioWhatsApp | null {
   return TIPOS_MEDIO.has(t as TipoMedioWhatsApp) ? (t as TipoMedioWhatsApp) : null;
 }
 
-const conAutor = { autor: { select: { id: true, nombre: true } } } as const;
+const conAutor = {
+  autor: { select: { id: true, nombre: true } },
+  respuestaDe: {
+    select: { id: true, direccion: true, texto: true, tipo: true, eliminadoEn: true },
+  },
+} as const;
 
 interface FilaMensaje {
   id: string;
@@ -66,6 +72,17 @@ interface FilaMensaje {
   medioSegundos: number | null;
   medioRef: string | null;
   fijadoEn: Date | null;
+  reaccionCliente: string | null;
+  reaccionEquipo: string | null;
+  eliminadoEn: Date | null;
+  editadoEn: Date | null;
+  respuestaDe: {
+    id: string;
+    direccion: 'entrante' | 'saliente';
+    texto: string;
+    tipo: string;
+    eliminadoEn: Date | null;
+  } | null;
 }
 
 /** Lo que se guarda de un mensaje que no es texto: el equipo lo abre en su WhatsApp. */
@@ -250,7 +267,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
       select: { id: true, clienteId: true, ultimoMensajeEn: true, ultimoEntranteEn: true },
     });
     const clienteId = existente?.clienteId ?? (await this.clientePorTelefono(telefono));
-    const medio = this.datosMedio(m);
+    const medio = { ...this.datosMedio(m), ...(await this.cita(m.respuestaDeWaId)) };
     if (m.historico) {
       // Del historial: se guarda leído, sin reabrir el chat ni moverlo si ya hay algo más nuevo.
       await this.guardarHistorico(existente, telefono, nombre, clienteId, fecha, {
@@ -332,6 +349,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
       estado: 'enviado',
       creadoEn: fecha,
       ...this.datosMedio(m),
+      ...(await this.cita(m.respuestaDeWaId)),
     };
     if (m.historico) {
       await this.guardarHistorico(existente, telefono, null, clienteId, fecha, mensaje);
@@ -346,6 +364,29 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     } catch (e) {
       if ((e as { code?: string }).code !== 'P2002') throw e;
     }
+  }
+
+  /** El mensaje citado, si ya está guardado. */
+  private async cita(waId: string | null | undefined): Promise<{ respuestaDeId?: string }> {
+    if (!waId) return {};
+    const citado = await this.prisma.mensajeWhatsApp.findUnique({
+      where: { waId },
+      select: { id: true },
+    });
+    return citado ? { respuestaDeId: citado.id } : {};
+  }
+
+  /** Reacción, borrado para todos o edición que llegó de WhatsApp. */
+  async cambio(c: CambioQr & { deMi: boolean }): Promise<void> {
+    const data =
+      c.tipo === 'reaccion'
+        ? c.deMi
+          ? { reaccionEquipo: c.emoji }
+          : { reaccionCliente: c.emoji }
+        : c.tipo === 'eliminado'
+          ? { eliminadoEn: new Date(), fijadoEn: null }
+          : { texto: c.texto.slice(0, 4096), editadoEn: new Date() };
+    await this.prisma.mensajeWhatsApp.updateMany({ where: { waId: c.waId }, data });
   }
 
   private datosMedio(m: MensajeQr) {
@@ -500,7 +541,12 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     noLeidos: number;
     cerrada: boolean;
     fijadaEn: Date | null;
-    mensajes: { texto: string; direccion: 'entrante' | 'saliente'; creadoEn: Date }[];
+    mensajes: {
+      texto: string;
+      direccion: 'entrante' | 'saliente';
+      creadoEn: Date;
+      eliminadoEn: Date | null;
+    }[];
   }): ConversacionWhatsAppResumen {
     const ultimo = c.mensajes[0];
     return {
@@ -510,7 +556,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
       cliente: c.cliente,
       ultimoMensaje: ultimo
         ? {
-            texto: ultimo.texto.slice(0, 160),
+            texto: ultimo.eliminadoEn ? '🚫 Mensaje eliminado' : ultimo.texto.slice(0, 160),
             direccion: ultimo.direccion,
             creadoEn: ultimo.creadoEn.toISOString(),
           }
@@ -523,10 +569,27 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     };
   }
 
-  async bandeja(estado: 'abiertas' | 'cerradas'): Promise<BandejaWhatsApp> {
+  async bandeja(estado: 'abiertas' | 'cerradas', busqueda?: string): Promise<BandejaWhatsApp> {
+    const q = busqueda?.trim();
+    const digitos = q?.replace(/\D/g, '') ?? '';
+    const filtro = q
+      ? {
+          OR: [
+            { nombre: { contains: q, mode: 'insensitive' as const } },
+            { cliente: { nombre: { contains: q, mode: 'insensitive' as const } } },
+            ...(digitos.length >= 3 ? [{ telefono: { contains: digitos } }] : []),
+            {
+              mensajes: {
+                some: { texto: { contains: q, mode: 'insensitive' as const }, eliminadoEn: null },
+              },
+            },
+          ],
+        }
+      : {};
     const [filas, sinLeer] = await Promise.all([
       this.prisma.conversacionWhatsApp.findMany({
-        where: { cerrada: estado === 'cerradas' },
+        // Al buscar se miran abiertas y cerradas.
+        where: q ? filtro : { cerrada: estado === 'cerradas' },
         // Las fijadas arriba (la última que se fijó primero) y luego por el último mensaje.
         orderBy: [{ fijadaEn: { sort: 'desc', nulls: 'last' } }, { ultimoMensajeEn: 'desc' }],
         take: MAX_CONVERSACIONES,
@@ -535,7 +598,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
           mensajes: {
             orderBy: { creadoEn: 'desc' },
             take: 1,
-            select: { texto: true, direccion: true, creadoEn: true },
+            select: { texto: true, direccion: true, creadoEn: true, eliminadoEn: true },
           },
         },
       }),
@@ -553,11 +616,13 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
   }
 
   private publico(m: FilaMensaje): MensajeWhatsAppPublico {
-    const clase = claseDeMedio(m.tipo);
+    const eliminado = m.eliminadoEn !== null;
+    const clase = eliminado ? null : claseDeMedio(m.tipo);
+    const citado = m.respuestaDe;
     return {
       id: m.id,
       direccion: m.direccion,
-      texto: clase ? leyendaDeMedio(m.texto) : m.texto,
+      texto: eliminado ? '' : clase ? leyendaDeMedio(m.texto) : m.texto,
       tipo: m.tipo,
       estado: m.estado,
       autor: m.autor,
@@ -571,6 +636,21 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
           }
         : null,
       fijado: m.fijadoEn !== null,
+      respuestaDe: citado
+        ? {
+            id: citado.id,
+            direccion: citado.direccion,
+            texto: citado.eliminadoEn
+              ? 'Mensaje eliminado'
+              : claseDeMedio(citado.tipo)
+                ? leyendaDeMedio(citado.texto)
+                : citado.texto.slice(0, 200),
+            medio: citado.eliminadoEn ? null : claseDeMedio(citado.tipo),
+          }
+        : null,
+      reacciones: { cliente: m.reaccionCliente, equipo: m.reaccionEquipo },
+      eliminado,
+      editado: m.editadoEn !== null,
     };
   }
 
@@ -597,6 +677,14 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     if (!c) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa conversación no existe.');
     if (c.noLeidos > 0 && !antes) {
       await this.prisma.conversacionWhatsApp.update({ where: { id }, data: { noLeidos: 0 } });
+      // Doble check azul en el teléfono del cliente.
+      const leidos = c.mensajes
+        .filter((m) => m.direccion === 'entrante' && m.waId)
+        .slice(0, Math.min(c.noLeidos, 20))
+        .map((m) => m.waId!);
+      this.qr.marcarLeidos(c.telefono, leidos).catch((e: Error) => {
+        this.logger.warn(`No se pudieron marcar leídos: ${e.message}`);
+      });
     }
     const fijados = antes
       ? []
@@ -666,6 +754,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     auth: ContextoAuth,
     id: string,
     contenido: string,
+    respuestaDe?: string,
   ): Promise<MensajeWhatsAppPublico> {
     const c = await this.prisma.conversacionWhatsApp.findUnique({
       where: { id },
@@ -688,9 +777,12 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
         'Pasaron más de 24 h desde el último mensaje del cliente. WhatsApp solo deja escribirle de nuevo con una plantilla aprobada, o cuando vuelva a escribir.',
       );
     }
+    const citado = await this.citado(id, respuestaDe);
     let referencia: string;
     try {
-      ({ referencia } = await (porQr ? this.qr : this.canal).enviarTexto(c.telefono, contenido));
+      ({ referencia } = porQr
+        ? await this.qr.enviarTexto(c.telefono, contenido, citado?.ref)
+        : await this.canal.enviarTexto(c.telefono, contenido));
     } catch (e) {
       this.logger.warn(`No se pudo enviar una respuesta de WhatsApp: ${(e as Error).message}`);
       throw new ErrorApp(502, 'WHATSAPP_RECHAZO', (e as Error).message.slice(0, 300));
@@ -709,6 +801,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
           estado: 'enviado',
           autorId: auth.usuario.id,
           creadoEn: ahora,
+          respuestaDeId: citado?.id ?? null,
         },
         update: { autorId: auth.usuario.id },
         include: conAutor,
@@ -726,7 +819,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
     auth: ContextoAuth,
     id: string,
     archivo: ArchivoRecibido | null,
-    datos: { texto?: string; segundos?: number },
+    datos: { texto?: string; segundos?: number; respuestaDe?: string },
   ): Promise<MensajeWhatsAppPublico> {
     const c = await this.prisma.conversacionWhatsApp.findUnique({
       where: { id },
@@ -774,6 +867,8 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
         'Envía una imagen JPG, PNG o WebP, o una nota de voz.',
       );
     }
+    const citado = await this.citado(id, datos.respuestaDe);
+    if (citado) medio.cita = citado.ref;
     let referencia: string;
     try {
       ({ referencia } = await this.qr.enviarMedio(c.telefono, medio));
@@ -802,6 +897,7 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
           medioClave: clave,
           medioMime: medio.tipo === 'imagen' ? medio.mime : 'audio/ogg',
           medioSegundos: medio.segundos ?? null,
+          respuestaDeId: citado?.id ?? null,
         },
         update: { autorId: auth.usuario.id, medioClave: clave },
         include: conAutor,
@@ -812,6 +908,105 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
       }),
     ]);
     return this.publico(m);
+  }
+
+  /** Mensaje de esta conversación al que se responde (para citarlo en WhatsApp). */
+  private async citado(
+    conversacionId: string,
+    mensajeId: string | undefined,
+  ): Promise<{ id: string; ref: MensajeRef } | null> {
+    if (!mensajeId) return null;
+    const m = await this.prisma.mensajeWhatsApp.findFirst({
+      where: { id: mensajeId, conversacionId, eliminadoEn: null },
+      select: { id: true, waId: true, direccion: true, texto: true },
+    });
+    if (!m) throw new ErrorApp(404, 'NO_ENCONTRADO', 'El mensaje que citas ya no existe.');
+    return m.waId
+      ? {
+          id: m.id,
+          ref: { waId: m.waId, deMi: m.direccion === 'saliente', texto: m.texto.slice(0, 200) },
+        }
+      : null;
+  }
+
+  /** Mensaje con su chat, para acciones que van a WhatsApp. */
+  private async mensajeConChat(id: string) {
+    const m = await this.prisma.mensajeWhatsApp.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        waId: true,
+        direccion: true,
+        eliminadoEn: true,
+        conversacion: { select: { telefono: true } },
+      },
+    });
+    if (!m) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Ese mensaje no existe.');
+    if (!this.qr.conectado || !m.waId) {
+      throw new ErrorApp(
+        409,
+        'WHATSAPP_SIN_CONECTAR',
+        'Esto solo funciona con el número vinculado con QR.',
+      );
+    }
+    return { ...m, waId: m.waId };
+  }
+
+  /** Reacciona con un emoji (nulo la quita); el cliente la ve en su WhatsApp. */
+  async reaccionar(id: string, emoji: string | null): Promise<{ emoji: string | null }> {
+    const m = await this.mensajeConChat(id);
+    try {
+      await this.qr.reaccionar(
+        m.conversacion.telefono,
+        { waId: m.waId, deMi: m.direccion === 'saliente' },
+        emoji ?? '',
+      );
+    } catch (e) {
+      throw new ErrorApp(502, 'WHATSAPP_RECHAZO', (e as Error).message.slice(0, 300));
+    }
+    await this.prisma.mensajeWhatsApp.update({ where: { id }, data: { reaccionEquipo: emoji } });
+    return { emoji };
+  }
+
+  /** Borra para todos un mensaje que envió la empresa. */
+  async eliminar(id: string): Promise<{ eliminado: true }> {
+    const m = await this.mensajeConChat(id);
+    if (m.direccion !== 'saliente') {
+      throw new ErrorApp(403, 'NO_PERMITIDO', 'Solo se pueden borrar los mensajes de la empresa.');
+    }
+    if (!m.eliminadoEn) {
+      try {
+        await this.qr.eliminarParaTodos(m.conversacion.telefono, m.waId);
+      } catch (e) {
+        throw new ErrorApp(502, 'WHATSAPP_RECHAZO', (e as Error).message.slice(0, 300));
+      }
+      await this.prisma.mensajeWhatsApp.update({
+        where: { id },
+        data: { eliminadoEn: new Date(), fijadoEn: null },
+      });
+    }
+    return { eliminado: true };
+  }
+
+  /** Muestra «escribiendo…» o «grabando audio…» al cliente. */
+  async escribiendo(id: string, grabando: boolean): Promise<{ ok: true }> {
+    const c = await this.prisma.conversacionWhatsApp.findUnique({
+      where: { id },
+      select: { telefono: true },
+    });
+    if (!c) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa conversación no existe.');
+    await this.qr.escribiendo(c.telefono, grabando).catch(() => undefined);
+    return { ok: true };
+  }
+
+  /** Foto de perfil del contacto, o nulo si no tiene o no se puede ver. */
+  async foto(id: string): Promise<Buffer | null> {
+    const c = await this.prisma.conversacionWhatsApp.findUnique({
+      where: { id },
+      select: { telefono: true },
+    });
+    if (!c) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa conversación no existe.');
+    return this.qr.foto(c.telefono);
   }
 
   async fijarMensaje(id: string, fijado: boolean): Promise<{ fijado: boolean }> {
@@ -825,13 +1020,14 @@ export class WhatsAppBandejaService implements ReceptorWhatsAppQr {
 
   async cambiarEstado(
     id: string,
-    cambio: { cerrada?: boolean; fijada?: boolean },
-  ): Promise<{ cerrada?: boolean; fijada?: boolean }> {
+    cambio: { cerrada?: boolean; fijada?: boolean; noLeida?: boolean },
+  ): Promise<{ cerrada?: boolean; fijada?: boolean; noLeida?: boolean }> {
     const r = await this.prisma.conversacionWhatsApp.updateMany({
       where: { id },
       data: {
         ...(cambio.cerrada !== undefined ? { cerrada: cambio.cerrada } : {}),
         ...(cambio.fijada !== undefined ? { fijadaEn: cambio.fijada ? new Date() : null } : {}),
+        ...(cambio.noLeida !== undefined ? { noLeidos: cambio.noLeida ? 1 : 0 } : {}),
       },
     });
     if (!r.count) throw new ErrorApp(404, 'NO_ENCONTRADO', 'Esa conversación no existe.');

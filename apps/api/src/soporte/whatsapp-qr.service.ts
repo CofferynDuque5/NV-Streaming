@@ -28,6 +28,9 @@ import { Cifrador } from '../comun/cripto.js';
 import { ENTORNO, PRISMA } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
 import {
+  type CambioQr,
+  cambioDeMensajeQr,
+  citaDeMensajeQr,
   estadoEntregaQr,
   type MedioQr,
   medioDeMensajeQr,
@@ -45,6 +48,15 @@ export interface MensajeQr {
   medio?: (MedioQr & { ref: string }) | null;
   /** Viene del historial que manda el teléfono al vincular o al pedir mensajes anteriores. */
   historico?: boolean;
+  /** Id de WhatsApp del mensaje al que responde (citado). */
+  respuestaDeWaId?: string | null;
+}
+
+/** Lo necesario para citar o reaccionar a un mensaje ya guardado. */
+export interface MensajeRef {
+  waId: string;
+  deMi: boolean;
+  texto?: string;
 }
 
 /** Quién guarda lo que llega por el número vinculado (la bandeja). */
@@ -55,10 +67,13 @@ export interface ReceptorWhatsAppQr {
   estado(waId: string, estado: string): Promise<void>;
   /** Un archivo recién llegado: se baja de una vez, por si después ya no está en WhatsApp. */
   medioNuevo?(waId: string): Promise<void>;
+  /** Reacción, borrado para todos o edición de un mensaje ya guardado. */
+  cambio?(c: CambioQr & { deMi: boolean }): Promise<void>;
 }
 
 /** Un archivo que se envía desde el panel. */
 export interface MedioSaliente {
+  cita?: MensajeRef;
   tipo: 'imagen' | 'audio';
   contenido: Buffer;
   mime: string;
@@ -194,11 +209,19 @@ export class WhatsAppQrService implements OnModuleInit, OnApplicationShutdown {
     return this.ver();
   }
 
-  async enviarTexto(telefono: string, texto: string): Promise<{ referencia: string }> {
+  async enviarTexto(
+    telefono: string,
+    texto: string,
+    cita?: MensajeRef,
+  ): Promise<{ referencia: string }> {
     const s = this.socket;
     if (!s || !this.conectado) throw new Error('El número de WhatsApp no está conectado.');
-    const digitos = telefono.replace(/\D/g, '');
-    const r = await s.sendMessage(`${digitos}@s.whatsapp.net`, { text: texto.slice(0, 4096) });
+    const jid = this.jid(telefono);
+    const r = await s.sendMessage(
+      jid,
+      { text: texto.slice(0, 4096) },
+      cita ? { quoted: this.citado(jid, cita) } : undefined,
+    );
     const id = r?.key.id;
     if (!id) throw new Error('WhatsApp no devolvió el id del mensaje.');
     this.recordarDelPanel(id);
@@ -224,11 +247,81 @@ export class WhatsAppQrService implements OnModuleInit, OnApplicationShutdown {
             ptt: true,
             ...(medio.segundos ? { seconds: medio.segundos } : {}),
           },
+      medio.cita ? { quoted: this.citado(jid, medio.cita) } : undefined,
     );
     const id = r?.key.id;
     if (!id) throw new Error('WhatsApp no devolvió el id del mensaje.');
     this.recordarDelPanel(id);
     return { referencia: id.slice(0, 160) };
+  }
+
+  private jid(telefono: string): string {
+    return `${telefono.replace(/\D/g, '')}@s.whatsapp.net`;
+  }
+
+  /** Un mensaje guardado, con la forma que pide WhatsApp para citarlo. */
+  private citado(jid: string, ref: MensajeRef): WAMessage {
+    return {
+      key: { remoteJid: jid, fromMe: ref.deMi, id: ref.waId },
+      message: { conversation: ref.texto ?? '' },
+    };
+  }
+
+  /** Reacciona a un mensaje con un emoji (vacío la quita). */
+  async reaccionar(telefono: string, ref: MensajeRef, emoji: string): Promise<void> {
+    const s = this.socket;
+    if (!s || !this.conectado) throw new Error('El número de WhatsApp no está conectado.');
+    const jid = this.jid(telefono);
+    await s.sendMessage(jid, {
+      react: { text: emoji, key: { remoteJid: jid, fromMe: ref.deMi, id: ref.waId } },
+    });
+  }
+
+  /** Borra para todos un mensaje que envió la empresa. */
+  async eliminarParaTodos(telefono: string, waId: string): Promise<void> {
+    const s = this.socket;
+    if (!s || !this.conectado) throw new Error('El número de WhatsApp no está conectado.');
+    const jid = this.jid(telefono);
+    await s.sendMessage(jid, { delete: { remoteJid: jid, fromMe: true, id: waId } });
+  }
+
+  /** Doble check azul para el cliente: avisa que se leyeron sus mensajes. */
+  async marcarLeidos(telefono: string, waIds: string[]): Promise<void> {
+    const s = this.socket;
+    if (!s || !this.conectado || waIds.length === 0) return;
+    const jid = this.jid(telefono);
+    await s.readMessages(waIds.map((id) => ({ remoteJid: jid, fromMe: false, id })));
+  }
+
+  /** «Escribiendo…» en el teléfono del cliente mientras el equipo escribe. */
+  async escribiendo(telefono: string, grabando = false): Promise<void> {
+    const s = this.socket;
+    if (!s || !this.conectado) return;
+    await s.sendPresenceUpdate(grabando ? 'recording' : 'composing', this.jid(telefono));
+  }
+
+  private readonly fotos = new Map<string, { contenido: Buffer | null; en: number }>();
+
+  /** Foto de perfil del contacto (si su privacidad la deja ver); se guarda unas horas. */
+  async foto(telefono: string): Promise<Buffer | null> {
+    const digitos = telefono.replace(/\D/g, '');
+    const guardada = this.fotos.get(digitos);
+    if (guardada && Date.now() - guardada.en < 6 * 3_600_000) return guardada.contenido;
+    const s = this.socket;
+    if (!s || !this.conectado) return guardada?.contenido ?? null;
+    let contenido: Buffer | null = null;
+    try {
+      const url = await s.profilePictureUrl(this.jid(digitos), 'preview');
+      if (url) {
+        const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (r.ok) contenido = Buffer.from(await r.arrayBuffer());
+      }
+    } catch {
+      contenido = null; // Sin foto o privada.
+    }
+    this.fotos.set(digitos, { contenido, en: Date.now() });
+    if (this.fotos.size > 500) this.fotos.delete(this.fotos.keys().next().value!);
+    return contenido;
   }
 
   private recordarDelPanel(id: string): void {
@@ -470,6 +563,11 @@ export class WhatsAppQrService implements OnModuleInit, OnApplicationShutdown {
     const telefono = await this.telefonoDe(s, m.key.remoteJid ?? '', m.key.remoteJidAlt);
     if (!telefono) return; // Grupos, estados, canales o un contacto sin número conocido.
     if (this.numero && `+${telefono}` === this.numero) return; // Chat consigo mismo.
+    const cambio = cambioDeMensajeQr(m.message);
+    if (cambio) {
+      if (this.receptor.cambio) await this.receptor.cambio({ ...cambio, deMi: desdeTelefono });
+      return;
+    }
     const contenido = textoMensajeQr(m.message);
     if (!contenido) return;
     const medio = medioDeMensajeQr(m.message);
@@ -480,6 +578,7 @@ export class WhatsAppQrService implements OnModuleInit, OnApplicationShutdown {
       fecha,
       historico,
       medio: medio ? { ...medio, ref: this.refMedio(m) } : null,
+      respuestaDeWaId: citaDeMensajeQr(m.message),
     };
     if (desdeTelefono) {
       if (this.delPanel.has(m.key.id)) return;

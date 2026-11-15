@@ -175,6 +175,7 @@ export class Navegador {
   get = <T = any>(ruta: string) => this.pedir<T>('GET', ruta);
   post = <T = any>(ruta: string, cuerpo?: unknown) => this.pedir<T>('POST', ruta, cuerpo ?? {});
   patch = <T = any>(ruta: string, cuerpo?: unknown) => this.pedir<T>('PATCH', ruta, cuerpo ?? {});
+  put = <T = any>(ruta: string, cuerpo?: unknown) => this.pedir<T>('PUT', ruta, cuerpo ?? {});
   delete = <T = any>(ruta: string) => this.pedir<T>('DELETE', ruta);
 
   async entrar(correo: string, contrasena = CONTRASENA) {

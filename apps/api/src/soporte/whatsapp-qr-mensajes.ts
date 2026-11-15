@@ -144,3 +144,46 @@ export function estadoEntregaQr(status: number | null | undefined): string | nul
       return null;
   }
 }
+
+/** Cambios sobre un mensaje ya enviado: reacción, borrado para todos o edición. */
+export type CambioQr =
+  | { tipo: 'reaccion'; waId: string; emoji: string | null }
+  | { tipo: 'eliminado'; waId: string }
+  | { tipo: 'editado'; waId: string; texto: string };
+
+/** Si el mensaje es una reacción, un borrado o una edición de otro mensaje; nulo si no. */
+export function cambioDeMensajeQr(mensaje: proto.IMessage | null | undefined): CambioQr | null {
+  const m = normalizeMessageContent(mensaje);
+  if (!m) return null;
+  const r = m.reactionMessage;
+  if (r?.key?.id) {
+    return {
+      tipo: 'reaccion',
+      waId: r.key.id.slice(0, 160),
+      emoji: limpio(r.text)?.slice(0, 16) ?? null,
+    };
+  }
+  const p = m.protocolMessage;
+  if (p?.key?.id) {
+    // 0 = REVOKE (borrado para todos), 14 = MESSAGE_EDIT.
+    if (p.type === 0) return { tipo: 'eliminado', waId: p.key.id.slice(0, 160) };
+    if (p.type === 14) {
+      const editado = p.editedMessage ? textoMensajeQr(p.editedMessage) : null;
+      if (editado?.tipo === 'text') {
+        return { tipo: 'editado', waId: p.key.id.slice(0, 160), texto: editado.texto };
+      }
+    }
+  }
+  return null;
+}
+
+/** Id del mensaje citado (si el mensaje responde a otro). */
+export function citaDeMensajeQr(mensaje: proto.IMessage | null | undefined): string | null {
+  const m = normalizeMessageContent(mensaje);
+  const tipo = getContentType(m);
+  if (!m || !tipo) return null;
+  const contenido = (m as Record<string, unknown>)[tipo] as
+    { contextInfo?: { stanzaId?: string | null } | null } | null | undefined;
+  const id = contenido && typeof contenido === 'object' ? contenido.contextInfo?.stanzaId : null;
+  return typeof id === 'string' && id ? id.slice(0, 160) : null;
+}

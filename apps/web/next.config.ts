@@ -36,6 +36,8 @@ const cabecerasSeguridad = [
 const autonomo = process.env.WEB_SALIDA === 'standalone';
 
 const config: NextConfig = {
+  // Sin el indicador de Next.js (la «N» de la esquina) al probar en local.
+  devIndicators: false,
   poweredByHeader: false,
   reactStrictMode: true,
   ...(autonomo ? { output: 'standalone' as const } : {}),

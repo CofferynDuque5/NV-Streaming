@@ -4,18 +4,20 @@ import type {
   ConversacionWhatsAppResumen,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { ArrowLeft, MessageCircle, Phone, Pin, UserRound } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Phone, Pin, Search, UserRound, X } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   CerrarConversacion,
   FijarConversacion,
+  MarcarNoLeida,
   RefrescoBandeja,
   ResponderWhatsApp,
   VinculoWhatsAppQr,
 } from '@/componentes/admin/whatsapp-bandeja';
 import {
   FijadosWhatsApp,
+  FotoContacto,
   MensajesWhatsApp,
   PresenciaContacto,
 } from '@/componentes/admin/whatsapp-chat';
@@ -85,17 +87,21 @@ export default async function BandejaWhatsAppPagina({
   const crudo = await searchParams;
   const estado = crudo.estado === 'cerradas' ? 'cerradas' : 'abiertas';
   const elegida = typeof crudo.c === 'string' && UUID.test(crudo.c) ? crudo.c : null;
+  const q = typeof crudo.q === 'string' ? crudo.q.trim().slice(0, 80) : '';
   const [{ datos: bandeja }, detalle] = await Promise.all([
-    leerApi<BandejaWhatsApp>(`/whatsapp/conversaciones?estado=${estado}`),
+    leerApi<BandejaWhatsApp>(
+      `/whatsapp/conversaciones?${new URLSearchParams({ estado, ...(q ? { busqueda: q } : {}) }).toString()}`,
+    ),
     elegida
       ? leerApi<ConversacionWhatsAppDetalle>(`/whatsapp/conversaciones/${elegida}`).then(
           (r) => r.datos,
         )
       : Promise.resolve(null),
   ]);
-  const enlace = (c: string | null, e = estado) =>
+  const enlace = (c: string | null, e = estado, busqueda = q) =>
     `/admin/soporte/whatsapp?${new URLSearchParams({
       ...(e === 'cerradas' ? { estado: e } : {}),
+      ...(busqueda ? { q: busqueda } : {}),
       ...(c ? { c } : {}),
     }).toString()}`;
 
@@ -105,6 +111,7 @@ export default async function BandejaWhatsAppPagina({
       ? 'Pasaron más de 24 h desde su último mensaje. WhatsApp solo deja escribirle de nuevo cuando vuelva a escribir (o con una plantilla aprobada).'
       : null;
   const conectado = bandeja?.vinculo.estado === 'conectado';
+  const conFoto = Boolean(bandeja?.sinVentana);
 
   return (
     <>
@@ -115,25 +122,16 @@ export default async function BandejaWhatsAppPagina({
           titulo="WhatsApp"
           descripcion="Lo que los clientes escriben al número de la empresa. Respondes desde aquí y les llega a su WhatsApp."
           acciones={
-            <BotonEnlace href="/admin/soporte" variante="secundario">
-              <ArrowLeft className="size-4" aria-hidden="true" /> Tickets
-            </BotonEnlace>
+            <>
+              {bandeja && (
+                <VinculoWhatsAppQr inicial={bandeja.vinculo} puedeCambiar={puedeVincular} />
+              )}
+              <BotonEnlace href="/admin/soporte" variante="secundario">
+                <ArrowLeft className="size-4" aria-hidden="true" /> Tickets
+              </BotonEnlace>
+            </>
           }
         />
-
-        {bandeja && puedeVincular && (
-          <section
-            aria-label="Número de la empresa"
-            className={clsx(
-              'rounded-[1.25rem] border',
-              conectado
-                ? 'border-exito/30 bg-exito/[0.06] px-4 py-2.5'
-                : 'border-borde bg-superficie/80 p-4 sm:p-5',
-            )}
-          >
-            <VinculoWhatsAppQr inicial={bandeja.vinculo} />
-          </section>
-        )}
       </div>
 
       {bandeja && !puedeVincular && !bandeja.canalListo && (
@@ -151,7 +149,7 @@ export default async function BandejaWhatsAppPagina({
           className={clsx(
             'grid min-h-[30rem] overflow-hidden rounded-[1.25rem] border border-borde bg-[rgb(8_11_26/0.85)] lg:grid-cols-[21rem_minmax(0,1fr)]',
             // Cabe entero en la pantalla: el que escribe siempre ve la caja de respuesta.
-            puedeVincular ? 'nav:h-[calc(100dvh-17rem)]' : 'nav:h-[calc(100dvh-13rem)]',
+            'nav:h-[calc(100dvh-13rem)]',
             detalle ? 'max-nav:h-[calc(100dvh-12.5rem)]' : 'max-nav:h-[calc(100dvh-20rem)]',
           )}
         >
@@ -185,17 +183,54 @@ export default async function BandejaWhatsAppPagina({
                 </Link>
               ))}
             </div>
-            {bandeja.conversaciones.length === 0 ? (
-              <div className="grid flex-1 place-items-center p-4">
-                <EstadoVacio
-                  icono={MessageCircle}
-                  titulo={estado === 'abiertas' ? 'Sin conversaciones abiertas' : 'Nada cerrado'}
+            <form
+              action="/admin/soporte/whatsapp"
+              role="search"
+              className="flex shrink-0 items-center gap-2 border-b border-borde px-3 py-2"
+            >
+              {estado === 'cerradas' && <input type="hidden" name="estado" value="cerradas" />}
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white/[0.05] px-3 focus-within:ring-2 focus-within:ring-cian/60">
+                <Search className="size-4 shrink-0 text-tinta-tenue" aria-hidden="true" />
+                <span className="sr-only">Buscar chats</span>
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q}
+                  maxLength={80}
+                  placeholder="Buscar nombre, número o mensaje"
+                  className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-tinta-tenue"
+                />
+              </label>
+              {q && (
+                <Link
+                  href={enlace(null, estado, '')}
+                  className="grid size-8 shrink-0 place-items-center rounded-full text-tinta-suave hover:bg-white/[0.06] hover:text-tinta"
+                  aria-label="Quitar la búsqueda"
                 >
-                  {estado === 'abiertas'
-                    ? 'Cuando un cliente escriba al WhatsApp de la empresa, aparece aquí.'
-                    : undefined}
-                </EstadoVacio>
-              </div>
+                  <X className="size-4" aria-hidden="true" />
+                </Link>
+              )}
+            </form>
+            {q && (
+              <p className="shrink-0 px-3.5 pt-2 text-xs text-tinta-suave">
+                {bandeja.conversaciones.length === 0
+                  ? `Ningún chat coincide con «${q}».`
+                  : `${bandeja.conversaciones.length} ${bandeja.conversaciones.length === 1 ? 'chat' : 'chats'} con «${q}» (abiertos y cerrados)`}
+              </p>
+            )}
+            {bandeja.conversaciones.length === 0 ? (
+              q ? null : (
+                <div className="grid flex-1 place-items-center p-4">
+                  <EstadoVacio
+                    icono={MessageCircle}
+                    titulo={estado === 'abiertas' ? 'Sin conversaciones abiertas' : 'Nada cerrado'}
+                  >
+                    {estado === 'abiertas'
+                      ? 'Cuando un cliente escriba al WhatsApp de la empresa, aparece aquí.'
+                      : undefined}
+                  </EstadoVacio>
+                </div>
+              )
             ) : (
               <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
                 {bandeja.conversaciones.map((c) => {
@@ -210,7 +245,9 @@ export default async function BandejaWhatsAppPagina({
                           marcada ? 'bg-marca/[0.14]' : 'hover:bg-white/[0.03]',
                         )}
                       >
-                        <Iniciales c={c} className="size-11 text-sm" />
+                        <FotoContacto conversacionId={c.id} conFoto={conFoto}>
+                          <Iniciales c={c} className="size-11 text-sm" />
+                        </FotoContacto>
                         <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-0.5">
                           <span className="flex min-w-0 items-baseline gap-2">
                             <b className="min-w-0 flex-1 truncate text-sm">{nombreDe(c)}</b>
@@ -269,7 +306,9 @@ export default async function BandejaWhatsAppPagina({
                   >
                     <ArrowLeft className="size-5" aria-hidden="true" />
                   </Link>
-                  <Iniciales c={detalle} className="size-10 text-sm" />
+                  <FotoContacto conversacionId={detalle.id} conFoto={conFoto}>
+                    <Iniciales c={detalle} className="size-10 text-sm" />
+                  </FotoContacto>
                   <div className="grid min-w-0 flex-1 leading-tight">
                     <h2 className="truncate text-[0.95rem] font-semibold">{nombreDe(detalle)}</h2>
                     <p className="truncate text-xs text-tinta-suave">
@@ -297,11 +336,12 @@ export default async function BandejaWhatsAppPagina({
                       <span className="max-sm:sr-only">Ficha</span>
                     </BotonEnlace>
                   )}
+                  <MarcarNoLeida conversacionId={detalle.id} volverA={enlace(null)} />
                   <FijarConversacion conversacionId={detalle.id} fijada={detalle.fijada} />
                   <CerrarConversacion conversacionId={detalle.id} cerrada={detalle.cerrada} />
                 </header>
                 <FijadosWhatsApp fijados={detalle.fijados} />
-                <MensajesWhatsApp detalle={detalle} />
+                <MensajesWhatsApp detalle={detalle} contacto={nombreDe(detalle)} />
                 <ResponderWhatsApp
                   conversacionId={detalle.id}
                   puede={!motivo}
