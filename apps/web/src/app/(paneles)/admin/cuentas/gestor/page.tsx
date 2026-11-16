@@ -28,7 +28,7 @@ export default async function ImportarDelGestor() {
         className="inline-flex w-fit items-center gap-1.5 text-sm text-tinta-suave hover:text-tinta"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Cuentas de servicio
+        Cuentas
       </Link>
       <CabeceraPagina
         titulo="Importar del Gestor"

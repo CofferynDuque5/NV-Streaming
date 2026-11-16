@@ -10,8 +10,8 @@ const NUEVO = 'Streaming autorizado, ahora editado desde el panel';
 const RUTA_PRUEBA = '/prueba-del-editor';
 
 async function abrirPortada(page: Page) {
-  await page.goto('/admin/sitio');
-  await expect(page.getByRole('heading', { level: 1, name: 'Sitio y páginas' })).toBeVisible();
+  await page.goto('/editor');
+  await expect(page.getByRole('heading', { level: 1, name: 'Páginas de la tienda' })).toBeVisible();
   await page.getByRole('link', { name: 'Editar NV Streaming (/)' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'NV Streaming' })).toBeVisible();
 }
@@ -123,7 +123,7 @@ test('administración crea una página con la ruta validada en vivo y ve el conf
 }) => {
   await entrarEquipo(page, 'admin@nv.test');
   await page.waitForURL(/\/admin$/);
-  await page.goto('/admin/sitio');
+  await page.goto('/editor');
   await page.getByRole('button', { name: 'Nueva página' }).click();
   const panel = page.getByRole('dialog', { name: 'Nueva página' });
   await panel.getByLabel('Título', { exact: true }).fill('Prueba del editor');
@@ -197,7 +197,7 @@ test('administración crea «Quiénes somos» con la plantilla, escribe su histo
 
   await entrarEquipo(page, 'admin@nv.test');
   await page.waitForURL(/\/admin$/);
-  await page.goto('/admin/sitio');
+  await page.goto('/editor');
   await page.getByRole('button', { name: 'Nueva página' }).click();
   const panel = page.getByRole('dialog', { name: 'Nueva página' });
   const plantillas = panel.getByRole('group', { name: /Empezar con una plantilla/ });
@@ -255,8 +255,9 @@ test('administración crea «Quiénes somos» con la plantilla, escribe su histo
 test('operación guarda borradores pero no publica ni cambia la paleta', async ({ page }) => {
   await entrarEquipo(page, 'operador@nv.test');
   await page.waitForURL((url) => !url.pathname.startsWith('/ingresar'));
-  await page.goto('/admin/sitio');
+  await page.goto('/editor/apariencia');
   await expect(page.getByText('Solo administración cambia la paleta.')).toBeVisible();
+  await page.goto('/editor');
   await page.getByRole('link', { name: `Editar Prueba del editor (${RUTA_PRUEBA})` }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Prueba del editor' })).toBeVisible();
 

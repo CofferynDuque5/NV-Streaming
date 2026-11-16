@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { AlmacenService } from '../../src/almacen/almacen.service.js';
 import { WhatsAppBandejaService } from '../../src/soporte/whatsapp-bandeja.service.js';
 import { conectar, type Contexto, crearContexto, limpiar } from './ayudas.js';
 
@@ -194,5 +195,138 @@ describe('Bandeja de WhatsApp', () => {
       null,
       'leido',
     ]);
+  });
+
+  it('fija chats y mensajes, guarda el historial leído y sirve los archivos solo al equipo', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const bandeja = ctx.app.get(WhatsAppBandejaService);
+    const ahora = Date.now();
+    await bandeja.entrante({
+      telefono: '584140000001',
+      waId: 'F-1',
+      tipo: 'text',
+      texto: 'Prueba uno',
+      fecha: new Date(ahora - 60_000),
+      nombre: 'Prueba Uno',
+    });
+    await bandeja.entrante({
+      telefono: '584140000002',
+      waId: 'F-2',
+      tipo: 'text',
+      texto: 'Prueba dos',
+      fecha: new Date(ahora),
+      nombre: 'Prueba Dos',
+    });
+    // Del historial: entra leído y no pasa adelante de lo más nuevo.
+    await bandeja.entrante({
+      telefono: '584140000001',
+      waId: 'F-viejo',
+      tipo: 'image',
+      texto: '📷 Imagen: foto vieja',
+      fecha: new Date(ahora - 5 * 86_400_000),
+      nombre: null,
+      historico: true,
+      medio: { tipo: 'imagen', mime: 'image/jpeg', segundos: null, tamano: 10, ref: 'x' },
+    });
+    let lista = (await admin.n.get('/whatsapp/conversaciones')).cuerpo;
+    expect(lista.conversaciones.map((c: { nombre: string }) => c.nombre)).toEqual([
+      'Prueba Dos',
+      'Prueba Uno',
+    ]);
+    expect(lista.sinLeer).toBe(2);
+    const uno = lista.conversaciones[1];
+
+    // Fijada: sube arriba aunque su último mensaje sea más viejo.
+    expect(
+      (await admin.n.patch(`/whatsapp/conversaciones/${uno.id}`, { fijada: true })).estado,
+    ).toBe(200);
+    lista = (await admin.n.get('/whatsapp/conversaciones')).cuerpo;
+    expect(lista.conversaciones[0]).toMatchObject({ nombre: 'Prueba Uno', fijada: true });
+    expect((await admin.n.patch(`/whatsapp/conversaciones/${uno.id}`, {})).estado).toBe(400);
+
+    const detalle = (await admin.n.get(`/whatsapp/conversaciones/${uno.id}`)).cuerpo;
+    expect(detalle).toMatchObject({ hayAnteriores: false, puedePedirHistorial: false });
+    const [foto, texto] = detalle.mensajes;
+    expect(foto).toMatchObject({
+      texto: 'foto vieja',
+      medio: { tipo: 'imagen', mime: 'image/jpeg', disponible: true },
+      fijado: false,
+    });
+    expect(texto).toMatchObject({ texto: 'Prueba uno', medio: null });
+
+    // Fijar un mensaje.
+    expect((await admin.n.patch(`/whatsapp/mensajes/${texto.id}`, { fijado: true })).estado).toBe(
+      200,
+    );
+    const otra = (await admin.n.get(`/whatsapp/conversaciones/${uno.id}`)).cuerpo;
+    expect(otra.mensajes[1].fijado).toBe(true);
+    expect(otra.fijados.map((m: { id: string }) => m.id)).toEqual([texto.id]);
+
+    // Un archivo guardado se sirve con su tipo y sin poder ejecutarse como página.
+    const almacen = ctx.app.get(AlmacenService);
+    const clave = await almacen.guardarWhatsApp(Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+    await ctx.prisma.mensajeWhatsApp.update({
+      where: { id: foto.id },
+      data: { medioClave: clave },
+    });
+    const archivo = await admin.n.descargar(`/whatsapp/mensajes/${foto.id}/medio`);
+    expect(archivo.estado).toBe(200);
+    expect(archivo.cabeceras['content-type']).toBe('image/jpeg');
+    expect(archivo.cabeceras['content-security-policy']).toContain('sandbox');
+    const ventas = await conectar(ctx, 'ventas');
+    expect((await ventas.n.descargar(`/whatsapp/mensajes/${foto.id}/medio`)).estado).toBe(403);
+    // Un mensaje de texto no tiene archivo.
+    expect((await admin.n.get(`/whatsapp/mensajes/${texto.id}/medio`)).estado).toBe(404);
+
+    // Sin el número vinculado no hay presencia, historial ni envío de archivos.
+    expect((await admin.n.get(`/whatsapp/conversaciones/${uno.id}/presencia`)).estado).toBe(200);
+    expect((await admin.n.post(`/whatsapp/conversaciones/${uno.id}/historial`, {})).estado).toBe(
+      409,
+    );
+  });
+
+  it('guarda citas, reacciones, borrados y ediciones, y busca en los chats', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const bandeja = ctx.app.get(WhatsAppBandejaService);
+    const hace = (s: number) => new Date(Date.now() - s * 1000);
+    const base = { telefono: '584140000003', tipo: 'text', nombre: 'Ejemplo Tres' };
+    await bandeja.entrante({ ...base, waId: 'C-1', texto: 'Quiero Netflix', fecha: hace(3) });
+    await bandeja.salienteDesdeTelefono({
+      ...base,
+      waId: 'C-2',
+      texto: 'Claro, te paso el precio',
+      fecha: hace(2),
+      respuestaDeWaId: 'C-1',
+    });
+    await bandeja.cambio({ tipo: 'reaccion', waId: 'C-2', emoji: '❤️', deMi: false });
+    await bandeja.cambio({ tipo: 'editado', waId: 'C-1', texto: 'Quiero Netflix 4K', deMi: false });
+    await bandeja.entrante({ ...base, waId: 'C-3', texto: 'Ups', fecha: hace(1) });
+    await bandeja.cambio({ tipo: 'eliminado', waId: 'C-3', deMi: false });
+
+    const lista = (await admin.n.get('/whatsapp/conversaciones?busqueda=netflix')).cuerpo;
+    expect(lista.conversaciones.map((c: { nombre: string }) => c.nombre)).toEqual(['Ejemplo Tres']);
+    expect(
+      (await admin.n.get('/whatsapp/conversaciones?busqueda=nada-parecido')).cuerpo.conversaciones,
+    ).toEqual([]);
+    const id = lista.conversaciones[0].id;
+    const { mensajes } = (await admin.n.get(`/whatsapp/conversaciones/${id}`)).cuerpo;
+    const [pedido, respuesta, borrado] = mensajes;
+    expect(pedido).toMatchObject({ texto: 'Quiero Netflix 4K', editado: true });
+    expect(respuesta).toMatchObject({
+      respuestaDe: { id: pedido.id, direccion: 'entrante', texto: 'Quiero Netflix 4K' },
+      reacciones: { cliente: '❤️', equipo: null },
+    });
+    expect(borrado).toMatchObject({ eliminado: true, texto: '' });
+
+    // Marcar como no leído.
+    await admin.n.patch(`/whatsapp/conversaciones/${id}`, { noLeida: true });
+    expect((await admin.n.get('/whatsapp/conversaciones')).cuerpo.sinLeer).toBe(1);
+
+    // Sin el número vinculado no se puede reaccionar ni borrar para todos.
+    expect(
+      (await admin.n.put(`/whatsapp/mensajes/${pedido.id}/reaccion`, { emoji: '👍' })).estado,
+    ).toBe(409);
+    expect((await admin.n.delete(`/whatsapp/mensajes/${respuesta.id}`)).estado).toBe(409);
+    expect((await admin.n.get(`/whatsapp/conversaciones/${id}/foto`)).estado).toBe(204);
   });
 });

@@ -17,7 +17,7 @@ import { ADAPTADOR_ENTREGA, ESTADO_CODIGO } from '@/lib/entregas';
 import { formatearFecha, formatearFechaHora } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
 
-export const metadata: Metadata = { title: 'Códigos de activación' };
+export const metadata: Metadata = { title: 'Tarjetas y códigos para vender' };
 
 const RUTA = '/admin/inventario/codigos';
 const ESTADOS = ['disponible', 'entregado', 'anulado'] as const;
@@ -45,7 +45,7 @@ export default async function Inventario({
   return (
     <>
       <CabeceraPagina
-        titulo="Códigos de activación"
+        titulo="Tarjetas y códigos para vender"
         descripcion="Códigos, tarjetas o activaciones que NV compra como distribuidor oficial, por plan. Se guardan cifrados: el equipo ve cuántos hay, nunca los códigos."
       />
       {!datos && (
@@ -134,7 +134,7 @@ async function DetallePlan({
   if (!d) {
     return (
       <>
-        <CabeceraPagina titulo="Códigos de activación" />
+        <CabeceraPagina titulo="Tarjetas y códigos para vender" />
         <Alerta tono="peligro" titulo="Este plan no existe o no se pudo cargar">
           <Link href={RUTA} className="underline">
             Volver al inventario

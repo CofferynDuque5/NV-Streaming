@@ -64,9 +64,9 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await expect(page.getByText('Suscripciones por estado')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toBeVisible();
 
-  // Módulos: los 27 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
-  await expect(page.getByText('27 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(27);
+  // Módulos: los 21 del rol, búsqueda sin tildes y chips por grupo con su cuenta.
+  await expect(page.getByText('21 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(21);
   await page.getByLabel('Buscar módulo').fill('tasa');
   await expect(modulos(page)).toHaveCount(1);
   await expect(modulos(page).first()).toContainText('Monedas y cobro');
@@ -103,7 +103,7 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   const buscador = page.getByRole('combobox', { name: 'Buscar en todo el panel' });
   await expect(buscador).toBeFocused();
   await buscador.fill('codigos');
-  await expect(page.getByRole('option', { name: /Correos de códigos/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /Códigos por correo/ })).toBeVisible();
   await buscador.fill('cliente@nv.test');
   await expect(page.getByRole('option', { name: /cliente@nv\.test/ })).toBeVisible();
   await buscador.fill('cobros');
@@ -111,22 +111,22 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await expect(page).toHaveURL(/\/admin\/cobros$/);
 });
 
-test('operación: sus 20 módulos, sin auditoría ni actividad', async ({ page }) => {
+test('operación: sus 16 módulos, sin auditoría ni actividad', async ({ page }) => {
   await entrar(page, 'operador@nv.test');
-  await expect(page.getByText('20 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(20);
+  await expect(page.getByText('16 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(16);
   await expect(page.getByRole('region', { name: 'Actividad reciente' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /^Auditoría/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /^Códigos de activación/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^Tarjetas y códigos para vender/ })).toHaveCount(0);
   const sistema = page.getByRole('region', { name: 'Estado del sistema' });
   await expect(sistema.getByText('Correo')).toBeVisible();
   await expect(sistema.getByText('PayPal')).toHaveCount(0);
 });
 
-test('ventas: sus 10 módulos y las cifras de su cartera', async ({ page }) => {
+test('ventas: sus 8 módulos y las cifras de su cartera', async ({ page }) => {
   await entrar(page, 'ventas@nv.test');
-  await expect(page.getByText('10 módulos para tu rol')).toBeVisible();
-  await expect(modulos(page)).toHaveCount(10);
+  await expect(page.getByText('8 módulos para tu rol')).toBeVisible();
+  await expect(modulos(page)).toHaveCount(8);
   await expect(page.getByText('Estas cifras son solo de tu cartera de clientes.')).toBeVisible();
   await expect(page.getByRole('link', { name: /^Equipo y usuarios/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Sistema/ })).toHaveCount(0);

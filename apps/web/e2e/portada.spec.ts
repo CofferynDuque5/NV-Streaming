@@ -48,7 +48,7 @@ test('la web envía su política de seguridad de contenido y las páginas la cum
   expect(politica).toContain("default-src 'self'");
   expect(politica).toContain("object-src 'none'");
   expect(politica).toContain("base-uri 'self'");
-  expect(politica).toContain("frame-ancestors 'none'");
+  expect(politica).toContain("frame-ancestors 'self'");
   for (const ruta of ['/', '/catalogo', '/ingresar', '/registro', '/politicas']) {
     if (ruta !== '/') await page.goto(ruta);
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();

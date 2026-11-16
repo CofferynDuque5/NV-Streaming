@@ -203,8 +203,15 @@ test('administración ve el pago en línea, devuelve una parte y revisa las pasa
   await expect(autorizados.getByText('Pasarela de pruebas · USD', { exact: false })).toBeVisible();
   await expect(autorizados.getByRole('button', { name: /^Revocar/ })).toBeVisible();
 
-  // Pagos en línea: la pasarela de pruebas está configurada.
-  await page.getByRole('link', { name: 'Pagos en línea' }).first().click();
+  // Pagos en línea: pestaña de «Monedas y cobro»; la pasarela de pruebas está configurada.
+  await page
+    .getByRole('link', { name: /^Monedas y cobro/ })
+    .first()
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Pestañas de la sección' })
+    .getByRole('link', { name: 'Pagos en línea' })
+    .click();
   await expect(page).toHaveURL(/\/admin\/pagos-en-linea$/);
   const sandbox = page.getByRole('region', { name: 'Pasarela de pruebas' });
   await expect(sandbox.getByText('Configurada', { exact: true })).toBeVisible();

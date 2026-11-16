@@ -138,7 +138,7 @@ export function AvisosCentro({
           }
         >
           Quien entra ve «Estamos preparando el catálogo». Mientras tanto, el catálogo ofrece
-          escribir por WhatsApp (si lo pusiste en Sitio y páginas) o crear una cuenta.
+          escribir por WhatsApp (si lo pusiste en el Editor de la tienda) o crear una cuenta.
         </Aviso>
       )}
       {centro.correoSinConfigurar && (
@@ -470,9 +470,9 @@ const MODULO_DE_ACCION: [RegExp, ModuloEquipo][] = [
   [/^cupon/, 'cupones'],
   [/^(servicio|plan|proveedor|catalogo)/, 'catalogo'],
   [/^tasa/, 'finanzas'],
-  [/^(pasarela|pago_en_linea|reembolso)/, 'pasarelas'],
+  [/^(pasarela|pago_en_linea|reembolso)/, 'finanzas'],
   [/^(pagina|sitio|tema)/, 'sitio'],
-  [/^(cuenta_servicio|perfil_cuenta)/, 'cuentas'],
+  [/^(cuenta_servicio|perfil_cuenta)/, 'existencias'],
   [/^(usuario|sesion|cuenta|dos_pasos|2fa)/, 'equipo'],
   [/^automatizacion/, 'automatizaciones'],
 ];

@@ -37,7 +37,7 @@ export default async function EntregaProveedor({ params }: { params: Promise<{ i
       <Volver href="/admin/catalogo">Catálogo</Volver>
       <CabeceraPagina
         titulo={`Entrega de ${c.proveedor.nombre}`}
-        descripcion="Cómo recibe el cliente el servicio al pagar: código, enlace o pasos. Los perfiles de cuentas compartidas se asignan aparte, en «Cuentas de servicio»."
+        descripcion="Cómo recibe el cliente el servicio al pagar: código, enlace o pasos. Los perfiles de cuentas compartidas se asignan aparte, en «Cuentas e inventario → Cuentas»."
         acciones={
           <span className="flex flex-wrap items-center gap-2">
             <InsigniaTipoProveedor tipo={c.proveedor.tipo} />

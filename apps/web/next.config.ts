@@ -18,14 +18,15 @@ const politicaContenido = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  // Solo la propia tienda puede mostrarse dentro de otra página suya (la vista previa del editor).
+  "frame-ancestors 'self'",
 ].join('; ');
 
 const cabecerasSeguridad = [
   { key: 'Content-Security-Policy', value: politicaContenido },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=()' },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
@@ -35,6 +36,8 @@ const cabecerasSeguridad = [
 const autonomo = process.env.WEB_SALIDA === 'standalone';
 
 const config: NextConfig = {
+  // Sin el indicador de Next.js (la «N» de la esquina) al probar en local.
+  devIndicators: false,
   poweredByHeader: false,
   reactStrictMode: true,
   ...(autonomo ? { output: 'standalone' as const } : {}),

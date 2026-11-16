@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cambioDeMensajeQr,
+  citaDeMensajeQr,
   estadoEntregaQr,
+  leyendaDeMedio,
+  medioDeMensajeQr,
   telefonoDeJid,
   textoMensajeQr,
 } from '../../src/soporte/whatsapp-qr-mensajes.js';
@@ -50,5 +54,58 @@ describe('Mensajes del número vinculado por QR', () => {
     expect(estadoEntregaQr(5)).toBe('leido');
     expect(estadoEntregaQr(0)).toBe('fallido');
     expect(estadoEntregaQr(1)).toBeNull();
+  });
+});
+
+describe('archivos de los mensajes del número vinculado', () => {
+  it('reconoce imágenes y notas de voz sin bajarlas', () => {
+    expect(
+      medioDeMensajeQr({
+        imageMessage: { mimetype: 'image/jpeg', fileLength: 2048, caption: 'x' },
+      }),
+    ).toEqual({ tipo: 'imagen', mime: 'image/jpeg', segundos: null, tamano: 2048 });
+    expect(
+      medioDeMensajeQr({
+        audioMessage: { mimetype: 'audio/ogg; codecs=opus', seconds: 7, ptt: true },
+      }),
+    ).toMatchObject({ tipo: 'audio', segundos: 7 });
+    expect(medioDeMensajeQr({ conversation: 'hola' })).toBeNull();
+  });
+
+  it('quita la etiqueta y deja solo el pie de la imagen', () => {
+    expect(leyendaDeMedio('📷 Imagen: mi captura')).toBe('mi captura');
+    expect(leyendaDeMedio('🎤 Nota de voz')).toBe('');
+    expect(leyendaDeMedio('Hola')).toBe('Hola');
+  });
+
+  it('reconoce reacciones, borrados, ediciones y citas', () => {
+    expect(cambioDeMensajeQr({ reactionMessage: { key: { id: 'A1' }, text: '👍' } })).toEqual({
+      tipo: 'reaccion',
+      waId: 'A1',
+      emoji: '👍',
+    });
+    expect(cambioDeMensajeQr({ reactionMessage: { key: { id: 'A1' }, text: '' } })).toEqual({
+      tipo: 'reaccion',
+      waId: 'A1',
+      emoji: null,
+    });
+    expect(cambioDeMensajeQr({ protocolMessage: { key: { id: 'A2' }, type: 0 } })).toEqual({
+      tipo: 'eliminado',
+      waId: 'A2',
+    });
+    expect(
+      cambioDeMensajeQr({
+        protocolMessage: {
+          key: { id: 'A3' },
+          type: 14,
+          editedMessage: { conversation: 'Corregido' },
+        },
+      }),
+    ).toEqual({ tipo: 'editado', waId: 'A3', texto: 'Corregido' });
+    expect(cambioDeMensajeQr({ conversation: 'Hola' })).toBeNull();
+    expect(
+      citaDeMensajeQr({ extendedTextMessage: { text: 'Sí', contextInfo: { stanzaId: 'A4' } } }),
+    ).toBe('A4');
+    expect(citaDeMensajeQr({ conversation: 'Hola' })).toBeNull();
   });
 });

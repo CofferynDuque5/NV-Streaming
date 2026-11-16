@@ -667,9 +667,9 @@ export function EditorPagina({
   return (
     <>
       <div className="ed-top">
-        <Link href="/admin/sitio" className="ed-volver">
+        <Link href="/editor" className="ed-volver">
           <ChevronLeft className="size-4" aria-hidden="true" />
-          Sitio y páginas
+          Páginas
         </Link>
         <div className="ed-top-t">
           <div className="fila">

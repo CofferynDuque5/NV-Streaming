@@ -27,12 +27,12 @@ export default async function InventarioPagina() {
           <div className="flex flex-wrap gap-2">
             {puede('codigos.consultar') && (
               <BotonEnlace href="/admin/codigos" variante="secundario" tamano="sm">
-                <MailSearch className="size-4" aria-hidden /> Correos de códigos
+                <MailSearch className="size-4" aria-hidden /> Códigos por correo
               </BotonEnlace>
             )}
             {puede('inventario.gestionar') && (
               <BotonEnlace href="/admin/inventario/codigos" variante="fantasma" tamano="sm">
-                <Gem className="size-4" aria-hidden /> Códigos de activación
+                <Gem className="size-4" aria-hidden /> Tarjetas y códigos para vender
               </BotonEnlace>
             )}
             {puede('cuentas.gestionar') && (
