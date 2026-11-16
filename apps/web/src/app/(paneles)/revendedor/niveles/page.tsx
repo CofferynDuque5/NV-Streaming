@@ -62,9 +62,8 @@ export default async function NivelesRevendedor() {
           </p>
           {actual?.margenPromedio != null && (
             <p className="text-tinta-suave">
-              Ganas en promedio{' '}
-              <b className="text-exito tabular-nums">{actual.margenPromedio}%</b> del precio al
-              público en cada venta.
+              Ganas en promedio <b className="text-exito tabular-nums">{actual.margenPromedio}%</b>{' '}
+              del precio al público en cada venta.
             </p>
           )}
         </div>
@@ -107,7 +106,8 @@ export default async function NivelesRevendedor() {
             Todos los niveles
           </h2>
           <Link href="/revendedores/ganancias" className={claseEnlace}>
-            Lo que ganas en cada plan <ArrowUpRight className="inline size-3.5" aria-hidden="true" />
+            Lo que ganas en cada plan{' '}
+            <ArrowUpRight className="inline size-3.5" aria-hidden="true" />
           </Link>
         </div>
         {niveles.length > 0 ? (

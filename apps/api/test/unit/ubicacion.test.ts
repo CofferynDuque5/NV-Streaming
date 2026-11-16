@@ -13,7 +13,17 @@ describe('paisDeIp', () => {
   });
 
   it('ignora direcciones privadas, locales o inválidas', () => {
-    for (const ip of ['10.0.0.1', '192.168.1.5', '172.18.0.3', '127.0.0.1', '::1', 'fd00::1', 'hola', '', null]) {
+    for (const ip of [
+      '10.0.0.1',
+      '192.168.1.5',
+      '172.18.0.3',
+      '127.0.0.1',
+      '::1',
+      'fd00::1',
+      'hola',
+      '',
+      null,
+    ]) {
       expect(paisDeIp(ip)).toBeNull();
     }
   });

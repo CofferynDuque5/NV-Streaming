@@ -507,9 +507,21 @@ function CarritoConPlanes({
 
         <ul className="grid gap-2 sm:grid-cols-3" aria-label="Por qué comprar en NV">
           {[
-            { icono: PackageCheck, titulo: 'Entrega en tu panel', texto: 'Tus accesos llegan a «Mis accesos».' },
-            { icono: ShieldCheck, titulo: 'Servicios autorizados', texto: 'Con garantía mientras dure tu plan.' },
-            { icono: Headphones, titulo: 'Soporte en español', texto: 'Personas reales por WhatsApp.' },
+            {
+              icono: PackageCheck,
+              titulo: 'Entrega en tu panel',
+              texto: 'Tus accesos llegan a «Mis accesos».',
+            },
+            {
+              icono: ShieldCheck,
+              titulo: 'Servicios autorizados',
+              texto: 'Con garantía mientras dure tu plan.',
+            },
+            {
+              icono: Headphones,
+              titulo: 'Soporte en español',
+              texto: 'Personas reales por WhatsApp.',
+            },
           ].map(({ icono: Icono, titulo, texto }) => (
             <li
               key={titulo}

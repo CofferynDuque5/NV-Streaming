@@ -92,26 +92,25 @@ export default async function MetodosGuardados() {
             se guardan.
           </p>
         </div>
-      {!datos ? (
-        <Alerta tono="peligro">
-          No pudimos cargar tus métodos de pago. Recarga la página en un momento.
-        </Alerta>
-      ) : activos.length === 0 ? (
-        <Vacio
-          icono={<WalletCards className="size-5" aria-hidden="true" />}
-          titulo="No tienes métodos guardados"
-        >
-          Cuando pagues una factura en línea (en dólares, euros, pesos o soles), marca «Guardar este
-          método para cobros automáticos» y aparecerá aquí.
-        </Vacio>
-      ) : (
-        <ul className="grid gap-3.5">
-          {activos.map((m) => (
-            <Metodo key={m.id} m={m} servicios={servicios} />
-          ))}
-        </ul>
-      )}
-
+        {!datos ? (
+          <Alerta tono="peligro">
+            No pudimos cargar tus métodos de pago. Recarga la página en un momento.
+          </Alerta>
+        ) : activos.length === 0 ? (
+          <Vacio
+            icono={<WalletCards className="size-5" aria-hidden="true" />}
+            titulo="No tienes métodos guardados"
+          >
+            Cuando pagues una factura en línea (en dólares, euros, pesos o soles), marca «Guardar
+            este método para cobros automáticos» y aparecerá aquí.
+          </Vacio>
+        ) : (
+          <ul className="grid gap-3.5">
+            {activos.map((m) => (
+              <Metodo key={m.id} m={m} servicios={servicios} />
+            ))}
+          </ul>
+        )}
       </section>
 
       {historial.length > 0 && (
@@ -139,13 +138,7 @@ export default async function MetodosGuardados() {
  * Las formas de pago activas de la tienda, agrupadas por moneda: con
  * comprobante (las revisa el equipo) o en línea (se confirman solas).
  */
-function FormasDePago({
-  formas,
-  guardados,
-}: {
-  formas: MetodoCobroPublico[];
-  guardados: number;
-}) {
+function FormasDePago({ formas, guardados }: { formas: MetodoCobroPublico[]; guardados: number }) {
   const enLinea = formas.filter((f) => f.tipo === 'pasarela').length;
   return (
     <section aria-labelledby="titulo-formas" className="grid gap-4">
@@ -179,55 +172,55 @@ function FormasDePago({
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {formas.map((f) => (
-              <li
-                key={f.id}
-                className="grid content-start gap-3 rounded-[1.25rem] border border-borde bg-[rgb(10_14_32/0.6)] p-4 transition-colors hover:border-borde-fuerte"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/[0.06]">
-                      <Bandera moneda={f.moneda} grande decorativa />
-                    </span>
-                    <span className="grid min-w-0">
-                  <b className="truncate text-base">{f.nombre}</b>
-                  <span className="text-xs text-tinta-tenue">
-                    {f.moneda === 'USD' ? 'Dólares' : INFO_MONEDA[f.moneda].nombre} · {f.moneda}
+            <li
+              key={f.id}
+              className="grid content-start gap-3 rounded-[1.25rem] border border-borde bg-[rgb(10_14_32/0.6)] p-4 transition-colors hover:border-borde-fuerte"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/[0.06]">
+                    <Bandera moneda={f.moneda} grande decorativa />
                   </span>
-                </span>
-                  </div>
-                  {f.tipo === 'pasarela' ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-exito/15 px-2.5 py-1 text-xs font-semibold text-exito">
-                      <Zap className="size-3" aria-hidden="true" /> Al instante
+                  <span className="grid min-w-0">
+                    <b className="truncate text-base">{f.nombre}</b>
+                    <span className="text-xs text-tinta-tenue">
+                      {f.moneda === 'USD' ? 'Dólares' : INFO_MONEDA[f.moneda].nombre} · {f.moneda}
                     </span>
-                  ) : (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-cian/10 px-2.5 py-1 text-xs font-semibold text-cian">
-                      <Clock className="size-3" aria-hidden="true" /> Con comprobante
-                    </span>
-                  )}
+                  </span>
                 </div>
-                <p className="flex items-start gap-1.5 text-sm text-tinta-suave">
-                  <BadgeCheck className="mt-0.5 size-4 shrink-0 text-marca" aria-hidden="true" />
-                  {f.tipo === 'pasarela'
-                    ? 'Pagas en línea y tu servicio se activa solo.'
-                    : f.requiereReferencia
-                      ? 'Pagas, subes el comprobante con la referencia y el equipo lo confirma.'
-                      : 'Pagas y subes el comprobante; el equipo lo confirma.'}
-                </p>
-                {f.instrucciones && f.tipo !== 'pasarela' && (
-                  <details className="group text-sm">
-                    <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold text-cian [&::-webkit-details-marker]:hidden">
-                      Ver datos para pagar
-                      <ChevronDown
-                        className="size-4 transition-transform group-open:rotate-180"
-                        aria-hidden="true"
-                      />
-                    </summary>
-                    <p className="mt-2 rounded-xl border border-borde bg-white/[0.03] px-3 py-2.5 whitespace-pre-line text-tinta-suave">
-                      {f.instrucciones}
-                    </p>
-                  </details>
+                {f.tipo === 'pasarela' ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-exito/15 px-2.5 py-1 text-xs font-semibold text-exito">
+                    <Zap className="size-3" aria-hidden="true" /> Al instante
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-cian/10 px-2.5 py-1 text-xs font-semibold text-cian">
+                    <Clock className="size-3" aria-hidden="true" /> Con comprobante
+                  </span>
                 )}
-              </li>
+              </div>
+              <p className="flex items-start gap-1.5 text-sm text-tinta-suave">
+                <BadgeCheck className="mt-0.5 size-4 shrink-0 text-marca" aria-hidden="true" />
+                {f.tipo === 'pasarela'
+                  ? 'Pagas en línea y tu servicio se activa solo.'
+                  : f.requiereReferencia
+                    ? 'Pagas, subes el comprobante con la referencia y el equipo lo confirma.'
+                    : 'Pagas y subes el comprobante; el equipo lo confirma.'}
+              </p>
+              {f.instrucciones && f.tipo !== 'pasarela' && (
+                <details className="group text-sm">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 font-semibold text-cian [&::-webkit-details-marker]:hidden">
+                    Ver datos para pagar
+                    <ChevronDown
+                      className="size-4 transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <p className="mt-2 rounded-xl border border-borde bg-white/[0.03] px-3 py-2.5 whitespace-pre-line text-tinta-suave">
+                    {f.instrucciones}
+                  </p>
+                </details>
+              )}
+            </li>
           ))}
         </ul>
       )}

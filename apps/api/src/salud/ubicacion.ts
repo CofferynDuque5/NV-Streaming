@@ -92,9 +92,11 @@ function numeroV6(ip: string): bigint {
 
 /** Direcciones privadas, locales o reservadas: no tienen país. */
 function esPrivada(ip: string): boolean {
-  return /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(
-    ip,
-  ) || /^(::1?$|f[cd]|fe[89ab])/i.test(ip);
+  return (
+    /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(
+      ip,
+    ) || /^(::1?$|f[cd]|fe[89ab])/i.test(ip)
+  );
 }
 
 /** País (ISO de 2 letras) de una IP pública, o null si no se sabe. */
