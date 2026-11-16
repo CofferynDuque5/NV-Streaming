@@ -15,7 +15,7 @@ const centro = async (page: Page) =>
 
 const modulos = (page: Page) => page.locator('#modulos').getByRole('listitem');
 
-test('administración: colas reales, cifras, módulos con buscador y chips, actividad y sistema', async ({
+test('administración: colas reales, cifras, módulos con buscador y por área, actividad y sistema', async ({
   page,
 }) => {
   await entrar(page, 'admin@nv.test');
@@ -73,12 +73,11 @@ test('administración: colas reales, cifras, módulos con buscador y chips, acti
   await page.getByLabel('Buscar módulo').fill('xyz');
   await expect(page.getByText('Ningún módulo coincide.')).toBeVisible();
   await page.getByRole('button', { name: 'Limpiar búsqueda' }).click();
-  await page.getByRole('button', { name: 'Sistema · 4' }).click();
-  await expect(modulos(page)).toHaveCount(4);
-  await expect(page.getByRole('button', { name: 'Sistema · 4' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  // Los módulos se agrupan por área, como en el menú.
+  await expect(modulos(page)).toHaveCount(21);
+  await expect(
+    page.locator('#modulos').getByRole('region', { name: 'Sistema' }).getByRole('listitem'),
+  ).toHaveCount(4);
 
   // «Revisar» lleva a la cola de su módulo.
   await atender
