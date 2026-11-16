@@ -137,6 +137,29 @@ export function planMasBarato(planes: PlanPublico[], moneda: Moneda): PlanPublic
   return mejor;
 }
 
+/** Color de marcas sin tarjeta propia, para su tarjeta generada. */
+const COLORES_MARCA: [string, string][] = [
+  ['prime', '#1a98ff'],
+  ['amazon', '#1a98ff'],
+  ['plex', '#e5a00d'],
+  ['rakuten', '#e0245e'],
+  ['viki', '#e0245e'],
+  ['star', '#c724b1'],
+  ['mubi', '#3b82f6'],
+  ['pluto', '#facc15'],
+  ['canva', '#00c4cc'],
+  ['duolingo', '#58cc02'],
+  ['xbox', '#22c55e'],
+  ['playstation', '#2563eb'],
+  ['free', '#f97316'],
+  ['call', '#84cc16'],
+];
+
+function colorMarca(slug: string): string | null {
+  const s = normalizar(slug);
+  return COLORES_MARCA.find(([m]) => s.startsWith(m))?.[1] ?? null;
+}
+
 /**
  * Imagen y color con los que se muestra un servicio: su logo subido si tiene;
  * si no, la tarjeta de su marca (por el slug); si tampoco, ninguna (orbe).
@@ -152,9 +175,7 @@ export function aspectoServicio(
     arte: imagen ?? (clave ? `/servicios/${clave}.webp` : null),
     color: clave
       ? ARTE_SERVICIOS[clave]
-      : categoria
-        ? COLOR_CATEGORIA[categoria]
-        : COLOR_SIN_CATEGORIA,
+      : (colorMarca(slug) ?? (categoria ? COLOR_CATEGORIA[categoria] : COLOR_SIN_CATEGORIA)),
   };
 }
 

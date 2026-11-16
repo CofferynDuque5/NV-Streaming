@@ -167,12 +167,12 @@ export default async function DetalleServicioPagina({
             alt=""
             fetchPriority="high"
             className={clsx(
-              'absolute inset-0 size-full object-cover opacity-60',
+              'absolute inset-0 size-full object-cover opacity-90',
               v.movimiento && 'fondo-en-movimiento',
             )}
           />
-          <span className="absolute inset-0 bg-[linear-gradient(90deg,rgb(5_8_22/0.92),rgb(5_8_22/0.55)_45%,rgb(5_8_22/0.2))]" />
-          <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,var(--nv-fondo,#050816))]" />
+          <span className="absolute inset-0 bg-[linear-gradient(90deg,rgb(5_8_22/0.7),rgb(5_8_22/0.3)_45%,rgb(5_8_22/0.05))]" />
+          <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,var(--nv-fondo,#050816))]" />
         </div>
       )}
       <div className="contenedor grid gap-7 pt-7 pb-16">

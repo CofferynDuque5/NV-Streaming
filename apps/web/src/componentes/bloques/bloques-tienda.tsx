@@ -657,8 +657,8 @@ export function PortalServicios({
   anillo?: boolean;
 }) {
   const lista = seleccion ?? seleccionPortada(contexto);
-  // El primero va al centro; con uno solo de arte no se completa el abanico.
-  const conArte = lista.filter((s) => s.arte).slice(0, 3);
+  // El primero va al centro. Los que no tienen imagen salen con su tarjeta generada.
+  const conArte = lista.slice(0, 3);
   const cats = categoriasTienda(seleccion ?? servicios(contexto), contexto.moneda).slice(0, 4);
   const color = conArte[0]?.color ?? '#8b5cf6';
   return (
@@ -690,13 +690,19 @@ export function PortalServicios({
                   transform: `rotate(${pos * 9}deg) translateY(${Math.abs(pos) * 14}px) scale(${pos === 0 ? 1 : 0.78})`,
                 }}
               >
-                <ArteServicio
-                  arte={s.arte}
-                  nombre={s.servicio.nombre}
-                  categoria={s.servicio.categoria}
-                  color={s.color}
-                  className="h-40 w-auto @2xl:h-56 @5xl:h-64"
-                />
+                {/* Cada tarjeta flota a su ritmo, como en el video de la portada. */}
+                <div
+                  className="motion-safe:animate-[nv-flotar_6s_ease-in-out_infinite]"
+                  style={{ animationDelay: `${i * -2}s` }}
+                >
+                  <ArteServicio
+                    arte={s.arte}
+                    nombre={s.servicio.nombre}
+                    categoria={s.servicio.categoria}
+                    color={s.color}
+                    className="h-40 w-auto @2xl:h-56 @5xl:h-64"
+                  />
+                </div>
               </div>
             );
           })}

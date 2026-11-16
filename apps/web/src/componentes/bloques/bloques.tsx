@@ -153,13 +153,7 @@ function Portada({
       key={`d${i}`}
       c={d}
       Titulo="h2"
-      visual={
-        <PortalServicios
-          contexto={contexto}
-          seleccion={seleccion}
-          anillo={!seleccion.some((s) => s.arte)}
-        />
-      }
+      visual={<PortalServicios contexto={contexto} seleccion={seleccion} anillo={false} />}
       precio={precioPortada(contexto, seleccion)}
     />
   ));
