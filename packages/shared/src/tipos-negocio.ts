@@ -1,5 +1,5 @@
 import type { CategoriaServicio } from './categorias.js';
-import type { DatoRequerido } from './esquemas/catalogo.js';
+import type { DatoRequerido, PreguntaServicio, VitrinaServicio } from './esquemas/catalogo.js';
 import type { EntregaPlan, TipoPlan, TipoProveedor, UnidadDuracion } from './tipos-plan.js';
 import type { EstadoCliente, TipoNota } from './esquemas/clientes.js';
 import type { EstadoFactura, EstadoPago, TipoCupon } from './esquemas/cobros.js';
@@ -170,6 +170,25 @@ export interface ServicioPublico {
   /** Datos que el cliente escribe al comprar (ID de jugador, servidor…). */
   datosRequeridos: DatoRequerido[];
   activo: boolean;
+  /** Presentación en la tienda (pestañas del editor). */
+  vitrina: VitrinaServicio;
+}
+
+/** Lo que la tienda muestra de la vitrina de un servicio, con las imágenes ya resueltas. */
+export interface VitrinaPublica {
+  enInicio: boolean;
+  destacado: boolean;
+  nuevo: boolean;
+  invertirLogo: boolean;
+  mensajeWhatsapp: string | null;
+  preguntas: PreguntaServicio[];
+  /** Dirección del fondo de la página del servicio. */
+  portada: string | null;
+  movimiento: boolean;
+  combos: boolean;
+  tituloCartelera: string | null;
+  cartelera: { titulo: string; etiqueta: string | null; imagen: string }[];
+  comentarios: boolean;
 }
 
 /** Precio en cada moneda. `null` si falta la tasa de esa moneda y no hay precio fijo. */
@@ -468,6 +487,7 @@ export interface ServicioCatalogo {
   imagen: string | null;
   /** Datos que el cliente escribe al comprar (ID de jugador, servidor…). */
   datosRequeridos: DatoRequerido[];
+  vitrina: VitrinaPublica;
 }
 
 /** Combo: varios planes juntos a un precio especial. */
@@ -514,4 +534,34 @@ export interface DevolucionSugerida {
   /** Sugerencia: total × días restantes ÷ días del período, en la moneda de la factura. */
   monto: string;
   montoUsd: string;
+}
+
+/** Comentario que se ve en la página del servicio. */
+export interface ComentarioPublico {
+  id: string;
+  /** Nombre y la inicial del apellido («Ana P.»). */
+  autor: string;
+  texto: string;
+  estrellas: number | null;
+  /** Quien lo escribió ya compró este servicio. */
+  compro: boolean;
+  respuesta: string | null;
+  creadoEn: string;
+  /** Lo escribió quien está viendo la página (puede borrarlo). */
+  propio: boolean;
+}
+
+export interface ComentariosServicio {
+  comentarios: ComentarioPublico[];
+  total: number;
+  /** Promedio de estrellas (una cifra decimal); null si nadie calificó. */
+  promedio: number | null;
+  /** El servicio acepta comentarios nuevos. */
+  abiertos: boolean;
+}
+
+/** Lo que el equipo ve al moderar: también los ocultos y quién escribió. */
+export interface ComentarioEquipo extends Omit<ComentarioPublico, 'propio'> {
+  oculto: boolean;
+  usuario: Referencia & { correo: string };
 }

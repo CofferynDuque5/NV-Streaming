@@ -65,10 +65,12 @@ model Usuario {
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  sesiones        Sesion[]
-  tokens          TokenUnUso[]
-  codigosRespaldo CodigoRespaldo[]
-  auditoria       Auditoria[]
+  sesiones               Sesion[]
+  comentarios            ComentarioServicio[] @relation("ComentarioAutor")
+  comentariosRespondidos ComentarioServicio[] @relation("ComentarioRespuesta")
+  tokens                 TokenUnUso[]
+  codigosRespaldo        CodigoRespaldo[]
+  auditoria              Auditoria[]
 
   clientePropio        Cliente?            @relation("ClienteUsuario")
   clientesAsignados    Cliente[]           @relation("ClienteAsignado")
@@ -483,18 +485,44 @@ model Servicio {
   imagenId        String?            @map("imagen_id") @db.Uuid
   /// Datos que el cliente escribe al comprar (ID de jugador, servidor…): [{clave, etiqueta, ayuda, obligatorio}].
   datosRequeridos Json               @default("[]") @map("datos_requeridos")
+  /// Presentación en la tienda: insignias, preguntas, fondo, cartelera… (ver vitrinaServicioSchema).
+  vitrina         Json               @default("{}")
   activo          Boolean            @default(true)
   creadoEn        DateTime           @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn   DateTime           @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  proveedor     Proveedor        @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
-  imagen        Medio?           @relation(fields: [imagenId], references: [id], onDelete: SetNull)
+  proveedor     Proveedor            @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  imagen        Medio?               @relation(fields: [imagenId], references: [id], onDelete: SetNull)
   planes        Plan[]
   alias         AliasServicio[]
   cuentas       CuentaServicio[]
   asuntosCodigo AsuntoCodigo[]
+  comentarios   ComentarioServicio[]
 
   @@map("servicios")
+}
+
+/// Comentario de un cliente en la página de un servicio. El equipo lo puede ocultar o responder.
+model ComentarioServicio {
+  id              String    @id @default(uuid()) @db.Uuid
+  servicioId      String    @map("servicio_id") @db.Uuid
+  usuarioId       String    @map("usuario_id") @db.Uuid
+  texto           String    @db.VarChar(600)
+  /// De 1 a 5; nulo si no calificó.
+  estrellas       Int?      @db.SmallInt
+  oculto          Boolean   @default(false)
+  respuesta       String?   @db.VarChar(600)
+  respondidoPorId String?   @map("respondido_por_id") @db.Uuid
+  respondidoEn    DateTime? @map("respondido_en") @db.Timestamptz(3)
+  creadoEn        DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  servicio      Servicio @relation(fields: [servicioId], references: [id], onDelete: Cascade)
+  usuario       Usuario  @relation("ComentarioAutor", fields: [usuarioId], references: [id], onDelete: Cascade)
+  respondidoPor Usuario? @relation("ComentarioRespuesta", fields: [respondidoPorId], references: [id], onDelete: SetNull)
+
+  @@index([servicioId, creadoEn(sort: Desc)])
+  @@index([usuarioId])
+  @@map("comentarios_servicio")
 }
 
 /// Palabra que el lector de pedidos entiende como un servicio («plus» es Spotify).

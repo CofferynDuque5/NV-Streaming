@@ -82,6 +82,91 @@ export const slugSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Usa minúsculas, números y guiones (ej. nv-cine).')
   .max(80);
 
+// ---------------------------------------------------------------------------
+// Vitrina: cómo se presenta el servicio en la tienda (pestañas del editor)
+
+export const MAX_PREGUNTAS_SERVICIO = 15;
+export const MAX_ESTRENOS_SERVICIO = 16;
+/** Variables que se reemplazan en el mensaje de WhatsApp del servicio. */
+export const VARIABLES_MENSAJE_WHATSAPP = [
+  '{nombre}',
+  '{servicio}',
+  '{plan}',
+  '{precio}',
+  '{fecha}',
+] as const;
+
+const idMedioOpcional = z.preprocess(
+  (v) => (v === '' ? null : v),
+  uuidSchema.nullable().optional(),
+);
+
+export const preguntaServicioSchema = z.object({
+  pregunta: z.string().trim().min(3, 'Escribe la pregunta.').max(160, 'Máximo 160 caracteres.'),
+  respuesta: z.string().trim().min(2, 'Escribe la respuesta.').max(800, 'Máximo 800 caracteres.'),
+});
+export type PreguntaServicio = z.infer<typeof preguntaServicioSchema>;
+
+/** Una tarjeta de la cartelera de estrenos del servicio (película, serie, temporada…). */
+export const estrenoServicioSchema = z.object({
+  titulo: z.string().trim().min(1, 'Escribe el título.').max(80, 'Máximo 80 caracteres.'),
+  /** Texto corto sobre la imagen: «Estreno», «Nueva temporada», «TOP 1»… */
+  etiqueta: textoOpcional(30),
+  imagenId: uuidSchema,
+});
+export type EstrenoServicio = z.infer<typeof estrenoServicioSchema>;
+
+export const vitrinaServicioSchema = z.object({
+  /** Aparece en el catálogo y tiene página propia. */
+  visible: z.boolean().default(true),
+  /** Sale en «Servicios» de la portada de la tienda. */
+  enInicio: z.boolean().default(false),
+  /** Insignia «HOT» en su tarjeta. */
+  destacado: z.boolean().default(false),
+  /** Insignia «NUEVO» en su tarjeta. */
+  nuevo: z.boolean().default(false),
+  /** Invierte los colores del logo (un logo negro se ve blanco sobre el fondo oscuro). */
+  invertirLogo: z.boolean().default(false),
+  /** Mensaje con que el cliente pide el servicio por WhatsApp; vacío usa el general. */
+  mensajeWhatsapp: textoOpcional(500),
+  preguntas: z
+    .array(preguntaServicioSchema)
+    .max(MAX_PREGUNTAS_SERVICIO, `Máximo ${MAX_PREGUNTAS_SERVICIO} preguntas.`)
+    .default([]),
+  /** Fondo de la página del servicio: una escena (WebP animado para que se mueva). */
+  portadaId: idMedioOpcional,
+  /** Movimiento lento del fondo (acercamiento suave) cuando la imagen es fija. */
+  movimiento: z.boolean().default(true),
+  /** Carril con los combos que incluyen este servicio. */
+  combos: z.boolean().default(true),
+  tituloCartelera: textoOpcional(60),
+  cartelera: z
+    .array(estrenoServicioSchema)
+    .max(MAX_ESTRENOS_SERVICIO, `Máximo ${MAX_ESTRENOS_SERVICIO} tarjetas.`)
+    .default([]),
+  /** Los clientes pueden escribir comentarios en la página del servicio. */
+  comentarios: z.boolean().default(true),
+});
+export type VitrinaServicio = z.output<typeof vitrinaServicioSchema>;
+export const actualizarVitrinaSchema = parcialSinDefectos(vitrinaServicioSchema);
+export type ActualizarVitrinaEntrada = z.infer<typeof actualizarVitrinaSchema>;
+
+/** Vitrina leída de la base: si algo no cuadra, los valores por defecto. */
+export function vitrinaDe(v: unknown): VitrinaServicio {
+  const r = vitrinaServicioSchema.safeParse(v ?? {});
+  return r.success ? r.data : vitrinaServicioSchema.parse({});
+}
+
+/** Rellena el mensaje de WhatsApp con los datos del pedido. */
+export function mensajeWhatsappServicio(
+  plantilla: string,
+  datos: Partial<Record<'nombre' | 'servicio' | 'plan' | 'precio' | 'fecha', string>>,
+): string {
+  return plantilla.replace(/\{(nombre|servicio|plan|precio|fecha)\}/g, (_, k: string) => {
+    return datos[k as keyof typeof datos] ?? '';
+  });
+}
+
 export const servicioSchema = z.object({
   proveedorId: uuidSchema,
   nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
@@ -100,6 +185,8 @@ export const servicioSchema = z.object({
   /** Datos que el cliente escribe al comprar (ID de jugador, servidor…). */
   datosRequeridos: datosRequeridosSchema,
   activo: z.boolean().default(true),
+  /** Al crear: la vitrina completa. Al editar se manda solo lo que cambia (se mezcla). */
+  vitrina: actualizarVitrinaSchema.optional(),
 });
 export type ServicioEntrada = z.infer<typeof servicioSchema>;
 
@@ -187,3 +274,26 @@ export const comboSchema = z.object({
 export type ComboEntrada = z.infer<typeof comboSchema>;
 export const actualizarComboSchema = parcialSinDefectos(comboSchema);
 export type ActualizarComboEntrada = z.infer<typeof actualizarComboSchema>;
+
+// ---------------------------------------------------------------------------
+// Comentarios de los clientes en la página de un servicio
+
+/** Comentarios que una persona puede escribir por servicio en un día. */
+export const MAX_COMENTARIOS_DIA = 3;
+
+export const comentarioServicioSchema = z.object({
+  servicioId: uuidSchema,
+  texto: z.string().trim().min(3, 'Escribe tu comentario.').max(600, 'Máximo 600 caracteres.'),
+  estrellas: z.preprocess(
+    (v) => (v === '' || v === undefined ? null : v),
+    z.coerce.number().int().min(1).max(5).nullable(),
+  ),
+});
+export type ComentarioServicioEntrada = z.infer<typeof comentarioServicioSchema>;
+
+export const moderarComentarioSchema = z.object({
+  oculto: z.boolean().optional(),
+  /** Respuesta del equipo; vacío la quita. */
+  respuesta: textoOpcional(600),
+});
+export type ModerarComentarioEntrada = z.infer<typeof moderarComentarioSchema>;

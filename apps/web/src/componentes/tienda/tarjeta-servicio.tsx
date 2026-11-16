@@ -70,7 +70,7 @@ export function TarjetaServicio(props: PropsTarjeta) {
         href={href}
         tabIndex={-1}
         aria-hidden="true"
-        className="escenario h-48 rounded-t-[1.3rem] @max-[13rem]/t:h-40"
+        className="escenario relative h-48 rounded-t-[1.3rem] @max-[13rem]/t:h-40"
       >
         <ArteServicio
           arte={item.arte}
@@ -78,8 +78,25 @@ export function TarjetaServicio(props: PropsTarjeta) {
           categoria={servicio.categoria}
           color={item.color}
           prioridad={prioridad}
-          className="relative h-40 w-auto @max-[13rem]/t:h-32"
+          className={clsx(
+            'relative h-40 w-auto @max-[13rem]/t:h-32',
+            servicio.vitrina?.invertirLogo && servicio.imagen && '[&_img]:invert',
+          )}
         />
+        {(servicio.vitrina?.destacado || servicio.vitrina?.nuevo) && (
+          <span className="absolute top-3 left-3 z-10 flex gap-1.5">
+            {servicio.vitrina.destacado && (
+              <span className="rounded-full bg-[linear-gradient(90deg,#ef4444,#f97316)] px-2 py-0.5 text-[0.66rem] font-extrabold tracking-wide text-white shadow-[0_0_14px_rgb(249_115_22/0.6)]">
+                🔥 HOT
+              </span>
+            )}
+            {servicio.vitrina.nuevo && (
+              <span className="rounded-full bg-[linear-gradient(90deg,#8b5cf6,#d946ef)] px-2 py-0.5 text-[0.66rem] font-extrabold tracking-wide text-white shadow-[0_0_14px_rgb(168_85_247/0.6)]">
+                NUEVO
+              </span>
+            )}
+          </span>
+        )}
       </Link>
       <div className="grid gap-2.5 p-4 pt-3.5 @max-[13rem]/t:p-3">
         <p className="flex items-center gap-1.5 text-[0.68rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">

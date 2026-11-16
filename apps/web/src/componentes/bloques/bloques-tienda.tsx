@@ -7,6 +7,8 @@
 import {
   ahorroCombo,
   type BloqueDe,
+  type ComboPublico,
+  type Moneda,
   categoriasTienda,
   formatearMonto,
   filtrarCatalogo,
@@ -131,10 +133,19 @@ export function Servicios({
 }) {
   const { moneda, mayorista } = contexto;
   const todos = servicios(contexto);
+  // «Mostrar en inicio» (editor del servicio): si alguno lo tiene, van primero.
   const resultados = filtrarCatalogo(todos, moneda, {
     categoria: b.categoria ?? null,
     orden: b.orden,
-  }).slice(0, b.limite);
+  })
+    .map((r, i) => ({ r, i }))
+    .sort(
+      (x, y) =>
+        Number(Boolean(y.r.item.servicio.vitrina?.enInicio)) -
+          Number(Boolean(x.r.item.servicio.vitrina?.enInicio)) || x.i - y.i,
+    )
+    .map(({ r }) => r)
+    .slice(0, b.limite);
   if (resultados.length === 0) {
     return (
       <SinDatos
@@ -217,10 +228,14 @@ export function Servicios({
 
 /* ------------------------------------------------------------------ combos */
 
-export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: ContextoBloques }) {
-  const { moneda } = contexto;
-  const porServicio = new Map(servicios(contexto).map((s) => [s.servicio.id, s]));
-  const combos: ComboTienda[] = (contexto.catalogo?.combos ?? []).flatMap((c) => {
+/** Combos del catálogo listos para su carril (con ahorro y las artes de cada servicio). */
+export function combosTienda(
+  lista: ComboPublico[],
+  moneda: Moneda,
+  todos: ServicioTienda[],
+): ComboTienda[] {
+  const porServicio = new Map(todos.map((s) => [s.servicio.id, s]));
+  return lista.flatMap((c) => {
     const ahorro = ahorroCombo(c, moneda);
     if (!ahorro) return [];
     const usd = moneda === 'USD' ? null : c.precios.USD;
@@ -249,6 +264,14 @@ export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: Conte
       },
     ];
   });
+}
+
+export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: ContextoBloques }) {
+  const combos = combosTienda(
+    contexto.catalogo?.combos ?? [],
+    contexto.moneda,
+    servicios(contexto),
+  );
   if (combos.length === 0) {
     return (
       <SinDatos

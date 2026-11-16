@@ -281,7 +281,8 @@ export function FormularioServicio({
       categoria: String(d.get('categoria') ?? '') || null,
       imagenId: String(d.get('imagenId') ?? '') || null,
       datosRequeridos: leerDatosRequeridos(d),
-      activo: marcada(d, 'activo'),
+      // Al editar, «activo» se cambia con su interruptor en Estado.
+      ...(servicio ? {} : { activo: marcada(d, 'activo') }),
     };
     setGuardado(false);
     const r = servicio
@@ -377,12 +378,14 @@ export function FormularioServicio({
         iniciales={servicio?.datosRequeridos ?? []}
         error={campos.datosRequeridos}
       />
-      <Casilla
-        name="activo"
-        etiqueta="Activo"
-        ayuda="Si lo desactivas, sus planes dejan de venderse."
-        defaultChecked={servicio?.activo ?? true}
-      />
+      {!servicio && (
+        <Casilla
+          name="activo"
+          etiqueta="Activo"
+          ayuda="Si lo desactivas, sus planes dejan de venderse."
+          defaultChecked
+        />
+      )}
       <ErrorGeneral error={error} />
       <div className="flex flex-wrap gap-2">
         <Boton type="submit" cargando={cargando}>

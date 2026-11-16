@@ -545,6 +545,23 @@
   font-size: 1.3rem;
 }
 
+/* Fondo de la página de un servicio: acercamiento y paneo lentos, como una escena en movimiento. */
+@keyframes nv-escena {
+  0% {
+    transform: scale(1.06) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.16) translate3d(-2.5%, -1.5%, 0);
+  }
+  100% {
+    transform: scale(1.06) translate3d(0, 0, 0);
+  }
+}
+.fondo-en-movimiento {
+  animation: nv-escena 28s ease-in-out infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
