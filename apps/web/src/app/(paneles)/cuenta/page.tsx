@@ -12,6 +12,7 @@ import {
 } from '@nv/shared';
 import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
+import { AtajosCuenta } from '@/componentes/cliente/atajos-cuenta';
 import { Cifra } from '@/componentes/cliente/piezas-cuenta';
 import {
   AvisosCuenta,
@@ -314,6 +315,7 @@ export default async function MisServicios() {
             Aquí verás tus servicios, lo que tienes por pagar y tus solicitudes de ayuda.
           </p>
         </div>
+        <AtajosCuenta />
         <ServiciosCuenta servicios={[]} metodos={[]} conRevendedor={conRevendedor} />
         <div className="grid grid-cols-2 gap-2.5">
           {cifraSaldo}
@@ -344,6 +346,7 @@ export default async function MisServicios() {
       </div>
       {avisos.length > 0 && <AvisosCuenta etiqueta="Para revisar" avisos={avisos} />}
       {cifras}
+      <AtajosCuenta />
       <ServiciosCuenta
         servicios={servicios}
         metodos={metodos ?? []}

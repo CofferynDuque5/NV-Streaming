@@ -47,7 +47,7 @@ const CUENTA: ElementoCuenta[][] = [
   ],
   [
     {
-      etiqueta: 'Métodos guardados',
+      etiqueta: 'Métodos de pago',
       href: '/cuenta/metodos-pago',
       icono: 'metodos',
       soloDirecto: true,

@@ -166,7 +166,32 @@ export function colaEquipo(c: CentroEquipo, soloCartera: boolean): ItemCola[] {
     href: '/admin/asistente/acciones?estado=propuesta',
     libre: 'asistente',
   });
-  for (const p of q.pocosCodigos ?? []) {
+  // Muchos planes sin códigos llenaban la lista: los que no tienen entregas
+  // esperando se juntan en una sola fila; los que frenan una entrega van aparte.
+  const pocos = q.pocosCodigos ?? [];
+  const juntar = pocos.length > 3;
+  const sueltos = juntar ? pocos.filter((p) => p.pendientes > 0) : pocos;
+  const agrupados = juntar ? pocos.filter((p) => p.pendientes === 0) : [];
+  if (agrupados.length > 0) {
+    const sinNinguno = agrupados.filter((p) => p.disponibles === 0).length;
+    const nombres = agrupados.map((p) => p.servicio);
+    it.push({
+      clave: 'codigos-varios',
+      modulo: 'inventario',
+      icono: 'inventario',
+      color: '#22c55e',
+      orden: 10,
+      antes: '',
+      n: agrupados.length,
+      despues: `planes con pocos códigos${sinNinguno ? ` (${sinNinguno} sin ninguno)` : ''}`,
+      detalle: `${nombres.slice(0, 3).join(', ')}${nombres.length > 3 ? ` y ${nombres.length - 3} más` : ''} · carga lotes nuevos`,
+      urgente: false,
+      href: '/admin/inventario/codigos',
+      libre: null,
+      cuenta: 0,
+    });
+  }
+  for (const p of sueltos) {
     const nombre = `${p.servicio} ${p.plan}`;
     it.push({
       clave: `codigos-${p.planId}`,
