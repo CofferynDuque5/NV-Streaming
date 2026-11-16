@@ -75,8 +75,8 @@ function numeroV4(ip: string): number {
 }
 
 function numeroV6(ip: string): bigint {
-  let [izq = '', der = ''] = ip.split('::');
-  if (!ip.includes('::')) der = '';
+  const [izq = '', resto = ''] = ip.split('::');
+  const der = ip.includes('::') ? resto : '';
   const a = izq ? izq.split(':') : [];
   const b = der ? der.split(':') : [];
   // IPv4 al final (::ffff:1.2.3.4).
