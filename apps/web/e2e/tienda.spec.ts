@@ -89,7 +89,7 @@ test('en el detalle se elige un plan real y se agrega al carrito', async ({ page
   await page
     .getByRole('article')
     .filter({ hasText: 'NV Cine' })
-    .getByRole('link', { name: /Ver detalles/ })
+    .getByRole('link', { name: /Elegir plan/ })
     .click();
   await expect(page).toHaveURL(/\/catalogo\/nv-cine/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('NV Cine');

@@ -74,8 +74,9 @@ export function ArteServicio({
 
 /**
  * Tarjeta con el nombre del servicio, para los que no tienen imagen subida ni
- * tarjeta de marca (Rakuten Viki, Prime Video, Plex…): misma forma y brillo
- * que las tarjetas de marca, en el color del servicio.
+ * tarjeta de marca (Rakuten Viki, Prime Video, Plex…): la misma tarjeta de
+ * regalo que las de marca (negra, ranura para colgar, trazos de luz en su
+ * color, «PREMIUM · GLOBAL ACCESS»), dibujada en el navegador.
  */
 function TarjetaGenerada({
   nombre,
@@ -96,19 +97,52 @@ function TarjetaGenerada({
       aria-label={decorativa ? undefined : `Tarjeta de ${nombre}`}
       aria-hidden={decorativa || undefined}
       className={clsx(
-        'tarjeta-generada relative grid aspect-[258/397] max-w-full grid-rows-[1fr_auto] justify-items-center overflow-hidden rounded-[0.9rem] border border-white/15 px-[8%] pb-[9%] drop-shadow-[0_18px_30px_rgb(0_0_0/0.55)] @container/g',
+        'tarjeta-generada relative grid aspect-[258/397] max-w-full content-center justify-items-center gap-[4%] overflow-hidden rounded-[0.9rem] px-[8%] drop-shadow-[0_18px_30px_rgb(0_0_0/0.55)] @container/g',
         className,
       )}
       style={{ '--c': color } as CSSProperties}
     >
+      {/* Trazos de luz, como en las tarjetas de marca. */}
+      <svg
+        viewBox="0 0 258 397"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-0 size-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <filter id="tg-brillo" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" />
+          </filter>
+        </defs>
+        <g fill="none" stroke="var(--c)" strokeLinecap="round">
+          <g filter="url(#tg-brillo)" opacity="0.75">
+            <path d="M-30 330 C 40 250, 210 300, 250 150 S 210 -10, 120 -20" strokeWidth="9" />
+            <path d="M290 380 C 200 330, 30 360, 10 230 S 90 40, 190 10" strokeWidth="7" />
+          </g>
+          <g opacity="0.9">
+            <path d="M-30 330 C 40 250, 210 300, 250 150 S 210 -10, 120 -20" strokeWidth="1.6" />
+            <path d="M-20 345 C 60 270, 220 315, 262 160 S 220 0, 140 -25" strokeWidth="0.8" />
+            <path d="M290 380 C 200 330, 30 360, 10 230 S 90 40, 190 10" strokeWidth="1.4" />
+            <path d="M300 395 C 205 345, 18 372, -2 235 S 80 30, 200 -2" strokeWidth="0.7" />
+          </g>
+        </g>
+      </svg>
       {/* Ranura para colgar, como en las tarjetas de regalo. */}
-      <i className="absolute top-[4%] left-1/2 h-[3.5%] w-[34%] -translate-x-1/2 rounded-full bg-black/70" />
-      <span className="grid place-items-center self-center rounded-full border border-white/25 bg-white/10 p-[14%] shadow-[0_0_30px_var(--c)]">
-        <IconoCategoria categoria={categoria} className="size-[18cqw] min-h-5 min-w-5 text-white" />
+      <i className="absolute top-[3.5%] left-1/2 h-[4%] w-[30%] -translate-x-1/2 rounded-full border border-white/25 bg-black shadow-[inset_0_2px_4px_rgb(0_0_0/0.9)]" />
+      <span className="relative grid place-items-center rounded-full border border-white/30 bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/0.35),rgb(255_255_255/0.06)_60%)] p-[11%] shadow-[0_0_28px_var(--c)]">
+        <IconoCategoria categoria={categoria} className="size-[16cqw] min-h-5 min-w-5 text-white" />
       </span>
-      <b className="w-full text-center font-titulo text-[clamp(0.7rem,13cqw,1.6rem)] leading-[1.05] font-extrabold tracking-tight text-white uppercase [text-shadow:0_2px_12px_rgb(0_0_0/0.6)]">
+      <b className="relative w-full text-center font-titulo text-[clamp(0.7rem,12cqw,1.6rem)] leading-[1.05] font-extrabold tracking-tight text-white uppercase [text-shadow:0_2px_12px_rgb(0_0_0/0.8)]">
         {nombre}
       </b>
+      <span className="relative grid justify-items-center gap-[0.15em] text-center leading-none">
+        <span className="text-[clamp(0.45rem,6.5cqw,0.85rem)] font-semibold tracking-[0.2em] text-white/90">
+          PREMIUM
+        </span>
+        <span className="text-[clamp(0.35rem,4cqw,0.6rem)] tracking-[0.12em] text-white/60">
+          GLOBAL ACCESS
+        </span>
+      </span>
     </span>
   );
 }
