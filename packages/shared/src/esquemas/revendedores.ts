@@ -92,6 +92,11 @@ export type ListarRevendedoresEntrada = z.infer<typeof listarRevendedoresSchema>
 export const nivelRevendedorSchema = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre del nivel.').max(60),
   descripcion: textoOpcional(300),
+  requisito: textoOpcional(200),
+  beneficios: z
+    .array(z.string().trim().min(1).max(120, 'Cada beneficio puede tener hasta 120 letras.'))
+    .max(12, 'Hasta 12 beneficios por nivel.')
+    .default([]),
   orden: z.coerce.number().int().min(0).max(999).default(0),
   activo: z.boolean().default(true),
 });

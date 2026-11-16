@@ -127,6 +127,8 @@ describe('catálogo y monedas', () => {
         categoria: 'musica',
         imagen: null,
         datosRequeridos: [],
+        // La vitrina de fábrica: visible, con combos, comentarios y fondo en movimiento.
+        vitrina: expect.objectContaining({ comentarios: true, combos: true, portada: null }),
       },
     ]);
     // Una categoría que no existe se rechaza; vacía la quita.

@@ -47,6 +47,8 @@ const QUIENES_SOMOS: PlantillaPagina = {
       botonSecundario: { texto: 'Escríbenos', enlace: '/cuenta/soporte/nueva' },
       imagen: null,
       ilustracion: true,
+      diapositivas: [],
+      segundos: 7,
     },
     {
       id: ID_BLOQUE_HISTORIA,

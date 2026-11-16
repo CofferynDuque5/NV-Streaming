@@ -80,8 +80,15 @@ export function MenuCuenta({
 }) {
   const ruta = usePathname();
   const fila = useRef<HTMLElement>(null);
-  const activo = (href: string) =>
+  const coincide = (href: string) =>
     ruta === href || (!RAICES.includes(href) && ruta.startsWith(`${href}/`));
+  // Solo la entrada más parecida a la página abierta queda marcada.
+  const marcada = grupos
+    .flat()
+    .map((e) => e.href)
+    .filter(coincide)
+    .sort((a, b) => b.length - a.length)[0];
+  const activo = (href: string) => href === marcada;
 
   // En el teléfono, la pastilla abierta queda centrada en la fila (sin mover la página).
   useEffect(() => {

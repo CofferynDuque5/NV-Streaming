@@ -63,14 +63,18 @@ export function miSolicitud(r: Revendedor): MiSolicitudRevendedor {
 
 export function nivelPublico(
   n: NivelRevendedor & { _count?: { revendedores: number } },
+  descuentoPromedio: number | null = null,
 ): NivelPublico {
   return {
     id: n.id,
     nombre: n.nombre,
     descripcion: n.descripcion,
+    requisito: n.requisito,
+    beneficios: n.beneficios,
     orden: n.orden,
     activo: n.activo,
     revendedores: n._count?.revendedores ?? 0,
+    descuentoPromedio,
   };
 }
 

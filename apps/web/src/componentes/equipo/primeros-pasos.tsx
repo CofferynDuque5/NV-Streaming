@@ -121,38 +121,43 @@ export function PrimerosPasos({ centro }: { centro: CentroEquipo }) {
           style={{ width: `${(hechos / pasos.length) * 100}%` }}
         />
       </div>
+      {/* Solo lo que falta: lo hecho ya no ocupa lugar. */}
       <ol className={claseLista}>
-        {pasos.map((p, i) => (
-          <li
-            key={p.clave}
-            className={clsx(
-              'grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-3.5 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]',
-              p === siguiente && 'bg-marca/[0.06]',
-            )}
-          >
-            <span
+        {pasos.map((p, i) =>
+          p.hecho ? null : (
+            <li
+              key={p.clave}
               className={clsx(
-                'grid size-7 place-items-center rounded-full text-xs font-bold tabular-nums',
-                p.hecho ? 'bg-exito/20 text-exito' : 'border border-borde-fuerte text-tinta-suave',
+                'grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-3.5 py-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]',
+                p === siguiente && 'bg-marca/[0.06]',
               )}
-              aria-hidden="true"
             >
-              {p.hecho ? <Check className="size-3.5" /> : i + 1}
-            </span>
-            <div className="grid min-w-0 gap-0.5">
-              <b className={clsx('text-[0.94rem]', p.hecho && 'text-tinta-suave line-through')}>
-                <span className="sr-only">{p.hecho ? 'Hecho: ' : 'Pendiente: '}</span>
-                {p.titulo}
-              </b>
-              {!p.hecho && <p className="text-[0.82rem] text-tinta-suave">{p.detalle}</p>}
-            </div>
-            {!p.hecho && (
-              <Link href={p.href} className={clsx(claseEnlace, 'col-start-2 sm:col-start-auto')}>
-                {p.accion}
-              </Link>
-            )}
-          </li>
-        ))}
+              <span
+                className={clsx(
+                  'grid size-7 place-items-center rounded-full text-xs font-bold tabular-nums',
+                  p.hecho
+                    ? 'bg-exito/20 text-exito'
+                    : 'border border-borde-fuerte text-tinta-suave',
+                )}
+                aria-hidden="true"
+              >
+                {p.hecho ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <div className="grid min-w-0 gap-0.5">
+                <b className={clsx('text-[0.94rem]', p.hecho && 'text-tinta-suave line-through')}>
+                  <span className="sr-only">{p.hecho ? 'Hecho: ' : 'Pendiente: '}</span>
+                  {p.titulo}
+                </b>
+                {!p.hecho && <p className="text-[0.82rem] text-tinta-suave">{p.detalle}</p>}
+              </div>
+              {!p.hecho && (
+                <Link href={p.href} className={clsx(claseEnlace, 'col-start-2 sm:col-start-auto')}>
+                  {p.accion}
+                </Link>
+              )}
+            </li>
+          ),
+        )}
       </ol>
     </Seccion>
   );

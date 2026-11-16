@@ -5,7 +5,7 @@
  * universos, lo más pedido, métodos de pago, canal) se llenan con datos reales
  * y no se muestran si no los hay.
  */
-import type { BloqueSitio } from './esquemas/sitio.js';
+import type { BloqueSitio, DiapositivaPortada } from './esquemas/sitio.js';
 import { REGLAS_COBRO } from './monedas.js';
 
 const MAX_PLANES = REGLAS_COBRO.articulosPorPedido;
@@ -16,6 +16,34 @@ export const PAGINA_INICIO = {
   descripcion:
     'Streaming, música y más servicios autorizados en un solo portal. Pagas en tu moneda y lo gestionas desde tu panel.',
 } as const;
+
+/**
+ * Diapositivas de fábrica del carrusel de la portada. Toman el precio «desde»
+ * y las tarjetas del catálogo real.
+ */
+export const DIAPOSITIVAS_INICIO: DiapositivaPortada[] = [
+  {
+    etiqueta: 'Universo IA',
+    titulo: 'Tu asistente de IA, sin límites',
+    destacado: 'sin límites',
+    subtitulo:
+      'Para escribir, estudiar y crear. Actívalo en tu propia cuenta y gestiónalo desde tu panel.',
+    servicio: null,
+    categoria: 'ia',
+    botonPrimario: { texto: 'Ver planes de IA', enlace: '/catalogo?categoria=ia' },
+    botonSecundario: { texto: 'Ver universo IA', enlace: '/catalogo?categoria=ia' },
+  },
+  {
+    etiqueta: 'Universo música',
+    titulo: 'Tu música favorita, sin anuncios',
+    destacado: 'sin anuncios',
+    subtitulo: 'Escucha sin cortes en tu teléfono, carro o computadora.',
+    servicio: null,
+    categoria: 'musica',
+    botonPrimario: { texto: 'Ver planes de música', enlace: '/catalogo?categoria=musica' },
+    botonSecundario: { texto: 'Comparar planes', enlace: '/planes' },
+  },
+];
 
 export const BLOQUES_INICIO: BloqueSitio[] = [
   {
@@ -31,6 +59,8 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     botonSecundario: { texto: 'Cómo comprar', enlace: '/#como-comprar' },
     imagen: null,
     ilustracion: true,
+    diapositivas: DIAPOSITIVAS_INICIO,
+    segundos: 7,
   },
   {
     id: 'tira',
@@ -244,3 +274,14 @@ export const BLOQUES_INICIO: BloqueSitio[] = [
     categoria: null,
   },
 ];
+
+/**
+ * Diapositivas de una portada. Las guardadas antes del carrusel no traen el
+ * campo: la del inicio (id «portada») toma las de fábrica y las demás, ninguna.
+ */
+export function diapositivasDe(b: {
+  id: string;
+  diapositivas?: DiapositivaPortada[] | undefined;
+}): DiapositivaPortada[] {
+  return b.diapositivas ?? (b.id === 'portada' ? DIAPOSITIVAS_INICIO : []);
+}

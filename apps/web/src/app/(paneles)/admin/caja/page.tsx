@@ -3,11 +3,12 @@ import {
   diaCajaSchema,
   ETIQUETA_MOVIMIENTO_CAJA,
   formatearMonto,
+  type GananciaDia,
   type TotalCaja,
   ZONA_HORARIA,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { CalendarDays, Wallet } from 'lucide-react';
+import { ArrowRight, CalendarDays, Wallet } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CerrarCaja } from '@/componentes/admin/caja';
@@ -69,6 +70,169 @@ function Totales({ totales }: { totales: TotalCaja[] }) {
   );
 }
 
+const usd = (m: string) => formatearMonto(m, 'USD');
+
+/** Una cifra de la cuenta del día: etiqueta, monto y una nota corta. */
+function Cifra({
+  etiqueta,
+  monto,
+  nota,
+  signo,
+  destacada,
+}: {
+  etiqueta: string;
+  monto: string;
+  nota?: string;
+  signo?: '+' | '−';
+  destacada?: boolean;
+}) {
+  const negativo = monto.startsWith('-');
+  return (
+    <div
+      className={clsx(
+        'grid gap-0.5 rounded-xl border p-4',
+        destacada ? 'border-marca/40 bg-marca/10' : 'border-borde bg-hundida/50',
+      )}
+    >
+      <p className="text-xs font-medium tracking-wide text-tinta-tenue uppercase">{etiqueta}</p>
+      <p
+        className={clsx(
+          'font-titulo text-2xl font-semibold tabular-nums',
+          negativo ? 'text-peligro' : destacada && 'text-exito',
+        )}
+      >
+        {signo && <span className="mr-1 text-tinta-tenue">{signo}</span>}
+        {usd(monto)}
+      </p>
+      {nota && <p className="text-xs text-tinta-suave">{nota}</p>}
+    </div>
+  );
+}
+
+/** Ventas del día, lo que cuestan, lo que se paga a proveedores y lo que queda. */
+function GananciaDelDia({ g, hoy }: { g: GananciaDia; hoy: boolean }) {
+  const ventas = (Number(g.ventasClientesUsd) + Number(g.ventasRevendedoresUsd)).toFixed(2);
+  return (
+    <Tarjeta>
+      <CabeceraTarjeta
+        titulo="Cuentas y ganancia del día"
+        descripcion="En USD. Ventas confirmadas menos el costo de cada plan vendido, y lo que queda después de pagar las cuentas de los proveedores."
+      />
+      <div className="grid gap-5 p-5 sm:p-6">
+        <div
+          className={clsx(
+            'grid gap-3',
+            Number(g.reembolsosUsd) > 0 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'sm:grid-cols-3',
+          )}
+        >
+          <Cifra
+            etiqueta="Vendido"
+            monto={ventas}
+            nota={
+              Number(g.ventasRevendedoresUsd) > 0
+                ? `Clientes ${usd(g.ventasClientesUsd)} · revendedores ${usd(g.ventasRevendedoresUsd)}`
+                : 'Pagos de clientes confirmados'
+            }
+          />
+          <Cifra
+            etiqueta="Costo de lo vendido"
+            signo="−"
+            monto={g.costoVendidoUsd}
+            nota={
+              g.vendidosSinCosto
+                ? `${g.vendidosSinCosto} sin costo en el catálogo: escríbelo en el plan`
+                : 'Costo escrito en cada plan'
+            }
+          />
+          {Number(g.reembolsosUsd) > 0 && (
+            <Cifra etiqueta="Reembolsos" signo="−" monto={g.reembolsosUsd} />
+          )}
+          <Cifra
+            etiqueta="Ganancia de lo vendido"
+            monto={g.gananciaVentasUsd}
+            nota="Vendido − costo − reembolsos"
+            destacada
+          />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Cifra
+            etiqueta="Pagado a proveedores"
+            signo="−"
+            monto={g.pagadoProveedoresUsd}
+            nota={
+              g.pagosProveedor.length === 1
+                ? '1 cuenta pagada este día'
+                : `${g.pagosProveedor.length} cuentas pagadas este día`
+            }
+          />
+          <Cifra
+            etiqueta={hoy ? 'Falta pagar hoy' : 'Vencía y sigue sin pagar'}
+            signo="−"
+            monto={g.porPagarUsd}
+            nota={
+              g.porPagar.length === 0
+                ? 'Ninguna cuenta pendiente'
+                : g.porPagar.length === 1
+                  ? '1 cuenta por pagar'
+                  : `${g.porPagar.length} cuentas por pagar`
+            }
+          />
+          <Cifra
+            etiqueta="Queda"
+            monto={g.quedaUsd}
+            nota="Vendido − reembolsos − pagado − por pagar"
+            destacada
+          />
+        </div>
+
+        {g.porPagar.length > 0 && (
+          <div className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Cuentas por pagar</h3>
+              <Link
+                href="/admin/cuentas/por-pagar"
+                className="inline-flex items-center gap-1 text-sm text-marca hover:underline"
+              >
+                Pagarlas en Por pagar <ArrowRight className="size-3.5" aria-hidden="true" />
+              </Link>
+            </div>
+            <ul className="divide-y divide-borde rounded-xl border border-borde">
+              {g.porPagar.slice(0, 8).map((c) => (
+                <li
+                  key={c.cuenta.id}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm"
+                >
+                  <span className="min-w-0">
+                    <b>{c.cuenta.servicio.nombre}</b>{' '}
+                    <span className="text-tinta-suave">· {c.cuenta.pista}</span>
+                    {c.cuenta.proveedor && (
+                      <span className="text-tinta-tenue"> · {c.cuenta.proveedor}</span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {c.dias < 0 && (
+                      <Insignia tono="peligro">
+                        {c.dias === -1 ? '1 día de atraso' : `${-c.dias} días de atraso`}
+                      </Insignia>
+                    )}
+                    <b className="tabular-nums">{usd(c.costoUsd)}</b>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {g.porPagar.length > 8 && (
+              <p className="text-xs text-tinta-tenue">
+                Y {g.porPagar.length - 8} más en Por pagar.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </Tarjeta>
+  );
+}
+
 export default async function Caja({
   searchParams,
 }: {
@@ -78,7 +242,13 @@ export default async function Caja({
   const puedeCerrar = sesion.permisos.includes('caja.cerrar');
   const { dia: crudo } = await searchParams;
   const dia = diaCajaSchema.safeParse(crudo).success ? crudo : undefined;
-  const { datos: caja, estado } = await leerApi<CajaDia>(dia ? `/caja?dia=${dia}` : '/caja');
+  const verGanancia = sesion.permisos.includes('balance.ver');
+  const [{ datos: caja, estado }, ganancia] = await Promise.all([
+    leerApi<CajaDia>(dia ? `/caja?dia=${dia}` : '/caja'),
+    verGanancia
+      ? leerApi<GananciaDia>(dia ? `/balance/dia?dia=${dia}` : '/balance/dia')
+      : Promise.resolve(null),
+  ]);
 
   // Hoy en Venezuela (AAAA-MM-DD): no se puede pedir la caja de un día que no ha llegado.
   const hoyCaracas = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_HORARIA }).format(
@@ -174,6 +344,8 @@ export default async function Caja({
               )}
             </div>
           </Tarjeta>
+
+          {ganancia?.datos && <GananciaDelDia g={ganancia.datos} hoy={caja.hoy} />}
 
           <Tarjeta>
             <CabeceraTarjeta

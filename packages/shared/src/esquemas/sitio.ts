@@ -187,6 +187,40 @@ const encabezado = {
 // ---------------------------------------------------------------------------
 // Bloques
 
+/** Slug de un servicio del catálogo (vacío = ninguno). */
+const slugOpcional = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+  z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Servicio no válido.')
+    .max(80)
+    .nullable()
+    .optional(),
+);
+
+/**
+ * Otra diapositiva del carrusel de la portada. Con un servicio, muestra su
+ * precio «desde» y su tarjeta al frente; con un universo, las tarjetas de ese
+ * universo.
+ */
+export const diapositivaPortadaSchema = z.object({
+  etiqueta: textoOpcional(60),
+  titulo: texto(120, 'Escribe el título.'),
+  destacado: textoOpcional(60),
+  subtitulo: textoOpcional(300),
+  servicio: slugOpcional,
+  categoria: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.enum(CATEGORIAS_SERVICIO).nullable().optional(),
+  ),
+  botonPrimario: opcional(botonSitioSchema),
+  botonSecundario: opcional(botonSitioSchema),
+});
+export type DiapositivaPortada = z.infer<typeof diapositivaPortadaSchema>;
+/** Diapositivas además de la principal. */
+export const MAX_DIAPOSITIVAS_PORTADA = 5;
+
 export const bloquePortadaSchema = z.object({
   ...base,
   tipo: z.literal('portada'),
@@ -200,6 +234,13 @@ export const bloquePortadaSchema = z.object({
   imagen: opcional(imagenSitioSchema),
   /** Sin imagen, muestra la ilustración del panel hecha con CSS. */
   ilustracion: z.boolean().default(true),
+  /**
+   * Carrusel: más diapositivas que rotan después de la principal. Sin el campo
+   * (portadas guardadas antes del carrusel), la del inicio usa las de fábrica.
+   */
+  diapositivas: z.array(diapositivaPortadaSchema).max(MAX_DIAPOSITIVAS_PORTADA).optional(),
+  /** Segundos que se muestra cada diapositiva. */
+  segundos: z.number().int().min(3).max(20).default(7),
 });
 
 export const bloquePlanesSchema = z.object({

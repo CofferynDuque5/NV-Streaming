@@ -38,11 +38,20 @@ export class NivelesService {
   ) {}
 
   async listar(): Promise<NivelPublico[]> {
-    const filas = await this.prisma.nivelRevendedor.findMany({
-      include: CON_CONTEO,
-      orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
-    });
-    return filas.map(nivelPublico);
+    const [filas, descuentos] = await Promise.all([
+      this.prisma.nivelRevendedor.findMany({
+        include: CON_CONTEO,
+        orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
+      }),
+      // Cuánto menos paga el nivel que el público, en promedio, en los planes activos.
+      this.prisma.$queryRaw<{ nivel_id: string; descuento: number | null }[]>`
+        SELECT pm.nivel_id, ROUND(AVG((p.precio_usd - pm.precio_usd) / p.precio_usd * 100))::int AS descuento
+        FROM precios_mayoristas pm JOIN planes p ON p.id = pm.plan_id
+        WHERE p.activo AND p.precio_usd > 0
+        GROUP BY pm.nivel_id`,
+    ]);
+    const porNivel = new Map(descuentos.map((d) => [d.nivel_id, d.descuento]));
+    return filas.map((n) => nivelPublico(n, porNivel.get(n.id) ?? null));
   }
 
   async crear(
@@ -52,7 +61,7 @@ export class NivelesService {
   ): Promise<NivelPublico> {
     return this.guardar(async (tx) => {
       const n = await tx.nivelRevendedor.create({
-        data: { ...e, descripcion: e.descripcion ?? null },
+        data: { ...e, descripcion: e.descripcion ?? null, requisito: e.requisito ?? null },
         include: CON_CONTEO,
       });
       await this.auditoria.registrar(
@@ -89,6 +98,8 @@ export class NivelesService {
           antes: {
             nombre: antes.nombre,
             descripcion: antes.descripcion,
+            requisito: antes.requisito,
+            beneficios: antes.beneficios,
             orden: antes.orden,
             activo: antes.activo,
           },
@@ -108,7 +119,7 @@ export class NivelesService {
     const [niveles, planes] = await Promise.all([
       this.prisma.nivelRevendedor.findMany({
         where: { activo: true },
-        select: { id: true, nombre: true, descripcion: true },
+        select: { id: true, nombre: true, descripcion: true, requisito: true, beneficios: true },
         orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
       }),
       this.prisma.plan.findMany({
@@ -120,33 +131,39 @@ export class NivelesService {
         orderBy: [{ servicio: { nombre: 'asc' } }, { orden: 'asc' }, { precioUsd: 'asc' }],
       }),
     ]);
+    const filas = planes.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      servicio: p.servicio,
+      duracionCantidad: p.duracionCantidad,
+      duracionUnidad: p.duracionUnidad,
+      precioPublicoUsd: p.precioUsd.toFixed(2),
+      porNivel: Object.fromEntries(
+        niveles.map((n) => {
+          const m = p.preciosMayoristas.find((x) => x.nivelId === n.id);
+          if (!m) return [n.id, null];
+          const ganancia = p.precioUsd.sub(m.precioUsd);
+          return [
+            n.id,
+            {
+              precioUsd: m.precioUsd.toFixed(2),
+              gananciaUsd: ganancia.toFixed(2),
+              margen: p.precioUsd.isZero()
+                ? 0
+                : ganancia.div(p.precioUsd).mul(100).toDecimalPlaces(0).toNumber(),
+            },
+          ];
+        }),
+      ),
+    }));
+    // Margen promedio de cada nivel sobre los planes que tiene con precio.
+    const margenDe = (id: string) => {
+      const m = filas.map((f) => f.porNivel[id]?.margen).filter((x) => x !== undefined);
+      return m.length ? Math.round(m.reduce((a, b) => a + b, 0) / m.length) : null;
+    };
     return {
-      niveles,
-      planes: planes.map((p) => ({
-        id: p.id,
-        nombre: p.nombre,
-        servicio: p.servicio,
-        duracionCantidad: p.duracionCantidad,
-        duracionUnidad: p.duracionUnidad,
-        precioPublicoUsd: p.precioUsd.toFixed(2),
-        porNivel: Object.fromEntries(
-          niveles.map((n) => {
-            const m = p.preciosMayoristas.find((x) => x.nivelId === n.id);
-            if (!m) return [n.id, null];
-            const ganancia = p.precioUsd.sub(m.precioUsd);
-            return [
-              n.id,
-              {
-                precioUsd: m.precioUsd.toFixed(2),
-                gananciaUsd: ganancia.toFixed(2),
-                margen: p.precioUsd.isZero()
-                  ? 0
-                  : ganancia.div(p.precioUsd).mul(100).toDecimalPlaces(0).toNumber(),
-              },
-            ];
-          }),
-        ),
-      })),
+      niveles: niveles.map((n) => ({ ...n, margenPromedio: margenDe(n.id) })),
+      planes: filas,
     };
   }
 

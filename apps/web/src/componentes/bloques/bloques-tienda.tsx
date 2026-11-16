@@ -7,10 +7,13 @@
 import {
   ahorroCombo,
   type BloqueDe,
+  type ComboPublico,
+  type Moneda,
   categoriasTienda,
   formatearMonto,
   filtrarCatalogo,
   INFO_CATEGORIA,
+  planMasBarato,
   type ServicioTienda,
   serviciosTienda,
 } from '@nv/shared';
@@ -131,10 +134,19 @@ export function Servicios({
 }) {
   const { moneda, mayorista } = contexto;
   const todos = servicios(contexto);
+  // «Mostrar en inicio» (editor del servicio): si alguno lo tiene, van primero.
   const resultados = filtrarCatalogo(todos, moneda, {
     categoria: b.categoria ?? null,
     orden: b.orden,
-  }).slice(0, b.limite);
+  })
+    .map((r, i) => ({ r, i }))
+    .sort(
+      (x, y) =>
+        Number(Boolean(y.r.item.servicio.vitrina?.enInicio)) -
+          Number(Boolean(x.r.item.servicio.vitrina?.enInicio)) || x.i - y.i,
+    )
+    .map(({ r }) => r)
+    .slice(0, b.limite);
   if (resultados.length === 0) {
     return (
       <SinDatos
@@ -217,10 +229,14 @@ export function Servicios({
 
 /* ------------------------------------------------------------------ combos */
 
-export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: ContextoBloques }) {
-  const { moneda } = contexto;
-  const porServicio = new Map(servicios(contexto).map((s) => [s.servicio.id, s]));
-  const combos: ComboTienda[] = (contexto.catalogo?.combos ?? []).flatMap((c) => {
+/** Combos del catálogo listos para su carril (con ahorro y las artes de cada servicio). */
+export function combosTienda(
+  lista: ComboPublico[],
+  moneda: Moneda,
+  todos: ServicioTienda[],
+): ComboTienda[] {
+  const porServicio = new Map(todos.map((s) => [s.servicio.id, s]));
+  return lista.flatMap((c) => {
     const ahorro = ahorroCombo(c, moneda);
     if (!ahorro) return [];
     const usd = moneda === 'USD' ? null : c.precios.USD;
@@ -249,6 +265,14 @@ export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: Conte
       },
     ];
   });
+}
+
+export function Combos({ b, contexto }: { b: BloqueDe<'combos'>; contexto: ContextoBloques }) {
+  const combos = combosTienda(
+    contexto.catalogo?.combos ?? [],
+    contexto.moneda,
+    servicios(contexto),
+  );
   if (combos.length === 0) {
     return (
       <SinDatos
@@ -582,22 +606,76 @@ export function Panel({ b, contexto }: { b: BloqueDe<'panel'>; contexto: Context
 
 /* ------------------------------------------------------ portal de la portada */
 
-/** Portal de la portada: anillo con las tarjetas de los servicios más pedidos. */
-export function PortalServicios({ contexto }: { contexto: ContextoBloques }) {
-  const lista = servicios(contexto);
-  const ordenados = [...lista].sort(
+/**
+ * Servicios de una diapositiva de la portada: el servicio elegido al frente y
+ * otros de su universo a los lados; sin nada elegido, los más pedidos.
+ */
+export function seleccionPortada(
+  contexto: ContextoBloques,
+  filtro: { servicio?: string | null; categoria?: string | null } = {},
+): ServicioTienda[] {
+  const lista = [...servicios(contexto)].sort(
     (a, b) => (a.ranking ?? Number.POSITIVE_INFINITY) - (b.ranking ?? Number.POSITIVE_INFINITY),
   );
-  const conArte = ordenados.filter((s) => s.arte).slice(0, 3);
-  const cats = categoriasTienda(lista, contexto.moneda).slice(0, 4);
+  const elegido = filtro.servicio
+    ? lista.find((s) => s.servicio.slug === filtro.servicio)
+    : undefined;
+  const categoria = filtro.categoria ?? elegido?.servicio.categoria ?? null;
+  const delUniverso = categoria
+    ? lista.filter((s) => s.servicio.categoria === categoria && s !== elegido)
+    : filtro.servicio
+      ? []
+      : lista;
+  return [...(elegido ? [elegido] : []), ...delUniverso];
+}
+
+/** Precio «desde» de una diapositiva: el plan más barato de lo elegido. */
+export function precioPortada(
+  contexto: ContextoBloques,
+  seleccion: ServicioTienda[],
+): { principal: string; referencia: string | null } | null {
+  const plan = planMasBarato(
+    seleccion.flatMap((s) => s.planes),
+    contexto.moneda,
+  );
+  if (!plan) return null;
+  const precio = precioDeTarjeta(plan, contexto.moneda, contexto.mayorista);
+  return precio.principal ? { principal: precio.principal, referencia: precio.referencia } : null;
+}
+
+/**
+ * Visual de la portada: tres tarjetas en abanico. Con `anillo`, dentro del
+ * anillo de colores del portal; sin él, sobre un brillo del color del universo.
+ */
+export function PortalServicios({
+  contexto,
+  seleccion,
+  anillo = true,
+}: {
+  contexto: ContextoBloques;
+  seleccion?: ServicioTienda[];
+  anillo?: boolean;
+}) {
+  const lista = seleccion ?? seleccionPortada(contexto);
+  // El primero va al centro. Los que no tienen imagen salen con su tarjeta generada.
+  const conArte = lista.slice(0, 3);
+  const cats = categoriasTienda(seleccion ?? servicios(contexto), contexto.moneda).slice(0, 4);
+  const color = conArte[0]?.color ?? '#8b5cf6';
   return (
     <div
       aria-hidden="true"
       className="relative mx-auto grid aspect-square w-full max-w-[26rem] place-items-center"
     >
-      <div className="absolute inset-[6%] rounded-full bg-[conic-gradient(from_200deg,#22d3ee,#3b82f6,#8b5cf6,#e879f9,#22d3ee)] p-[7%] shadow-[0_0_80px_-10px_rgb(139_92_246/0.8)] motion-safe:animate-[nv-girar_40s_linear_infinite]">
-        <div className="size-full rounded-full bg-[radial-gradient(circle_at_50%_40%,#0b1030,#04050d_70%)]" />
-      </div>
+      {anillo ? (
+        <div className="absolute inset-[6%] rounded-full bg-[conic-gradient(from_200deg,#22d3ee,#3b82f6,#8b5cf6,#e879f9,#22d3ee)] p-[7%] shadow-[0_0_80px_-10px_rgb(139_92_246/0.8)] motion-safe:animate-[nv-girar_40s_linear_infinite]">
+          <div className="size-full rounded-full bg-[radial-gradient(circle_at_50%_40%,#0b1030,#04050d_70%)]" />
+        </div>
+      ) : (
+        <div
+          className="absolute inset-[4%] rounded-full opacity-60 blur-3xl"
+          style={{ background: `radial-gradient(circle, ${color}, transparent 68%)` }}
+        />
+      )}
       {conArte.length > 0 ? (
         <div className="relative flex items-center justify-center">
           {conArte.map((s, i) => {
@@ -612,13 +690,19 @@ export function PortalServicios({ contexto }: { contexto: ContextoBloques }) {
                   transform: `rotate(${pos * 9}deg) translateY(${Math.abs(pos) * 14}px) scale(${pos === 0 ? 1 : 0.78})`,
                 }}
               >
-                <ArteServicio
-                  arte={s.arte}
-                  nombre={s.servicio.nombre}
-                  categoria={s.servicio.categoria}
-                  color={s.color}
-                  className="h-40 w-auto @2xl:h-56 @5xl:h-64"
-                />
+                {/* Cada tarjeta flota a su ritmo, como en el video de la portada. */}
+                <div
+                  className="motion-safe:animate-[nv-flotar_6s_ease-in-out_infinite]"
+                  style={{ animationDelay: `${i * -2}s` }}
+                >
+                  <ArteServicio
+                    arte={s.arte}
+                    nombre={s.servicio.nombre}
+                    categoria={s.servicio.categoria}
+                    color={s.color}
+                    className="h-40 w-auto @2xl:h-56 @5xl:h-64"
+                  />
+                </div>
               </div>
             );
           })}

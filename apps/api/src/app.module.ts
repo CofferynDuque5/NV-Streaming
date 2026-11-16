@@ -5,6 +5,12 @@ import { InicioGestorService } from './metricas/inicio-gestor.service.js';
 import { PapeleraController } from './papelera/papelera.controller.js';
 import { PapeleraService } from './papelera/papelera.service.js';
 import { CajaService } from './caja/caja.service.js';
+import {
+  ComentariosPublicosController,
+  MisComentariosController,
+  ModerarComentariosController,
+} from './comentarios/comentarios.controller.js';
+import { ComentariosService } from './comentarios/comentarios.service.js';
 import { type DynamicModule, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AuditoriaController } from './auditoria/auditoria.controller.js';
@@ -120,6 +126,9 @@ export class AppModule {
         WhatsAppBandejaController,
         MetricasController,
         CajaController,
+        ComentariosPublicosController,
+        MisComentariosController,
+        ModerarComentariosController,
         NotasController,
         PapeleraController,
         AutoservicioController,
@@ -163,6 +172,7 @@ export class AppModule {
         MetricasService,
         CentroService,
         CajaService,
+        ComentariosService,
         NotasService,
         PapeleraService,
         InicioGestorService,

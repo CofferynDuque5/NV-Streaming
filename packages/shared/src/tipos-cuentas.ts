@@ -110,6 +110,36 @@ export interface PorPagar {
   totalProximoUsd: string;
 }
 
+/** Un pago a un proveedor registrado en el día. */
+export interface PagoProveedorDia {
+  cuenta: { id: string; pista: string; servicio: Referencia };
+  montoUsd: string;
+}
+
+/**
+ * Cuentas y ganancia de un día, en USD. «Ganancia de lo vendido» descuenta el
+ * costo de cada plan vendido (el que tiene escrito en el catálogo); «Queda»
+ * resta además lo que se pagó a proveedores ese día y lo que falta pagar.
+ */
+export interface GananciaDia {
+  dia: string;
+  ventasClientesUsd: string;
+  ventasRevendedoresUsd: string;
+  reembolsosUsd: string;
+  /** Suma del costo de los planes vendidos. */
+  costoVendidoUsd: string;
+  /** Planes vendidos sin costo escrito en el catálogo (no se pueden descontar). */
+  vendidosSinCosto: number;
+  gananciaVentasUsd: string;
+  pagadoProveedoresUsd: string;
+  pagosProveedor: PagoProveedorDia[];
+  /** Cobros del proveedor que vencen ese día o antes y siguen sin pagar. */
+  porPagar: CuentaPorPagar[];
+  porPagarUsd: string;
+  /** Ventas − reembolsos − pagado a proveedores − por pagar. */
+  quedaUsd: string;
+}
+
 /**
  * Balance del período en USD. Ventas: facturas con pago confirmado (como en
  * Métricas) y compras de revendedores; las recargas de saldo no cuentan hasta

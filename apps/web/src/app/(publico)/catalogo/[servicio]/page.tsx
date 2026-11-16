@@ -7,12 +7,16 @@ import {
   type ServicioTienda,
   serviciosTienda,
 } from '@nv/shared';
+import clsx from 'clsx';
 import { Globe, Headset, type LucideIcon, Plus, Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { type CSSProperties, cache } from 'react';
+import { combosTienda } from '@/componentes/bloques/bloques-tienda';
+import { CarrilCombos } from '@/componentes/bloques/bloques-vitrina';
 import { ArteServicio } from '@/componentes/tienda/arte';
+import { ComentariosServicio } from '@/componentes/tienda/comentarios';
 import { AvisoMayorista } from '@/componentes/tienda/aviso-mayorista';
 import { Carril } from '@/componentes/tienda/deslizables';
 import { CompartirEnlace, DetalleServicio, type SaldoDetalle } from '@/componentes/tienda/detalle';
@@ -32,12 +36,13 @@ type Parametros = Record<string, string | string[] | undefined>;
 async function servicioDe(slug: string): Promise<{
   item: ServicioTienda;
   todos: ServicioTienda[];
+  catalogo: CatalogoPublico;
 } | null> {
   const buscar = (catalogo: CatalogoPublico | null) => {
     if (!catalogo) return null;
     const todos = serviciosTienda(catalogo);
     const item = todos.find((s) => s.servicio.slug === slug);
-    return item ? { item, todos } : null;
+    return item ? { item, todos, catalogo } : null;
   };
   // Un servicio recién creado aún no está en la copia en caché: se lee de nuevo sin ella.
   return buscar(await catalogoTienda()) ?? (await catalogoFresco().then(buscar));
@@ -111,8 +116,27 @@ export default async function DetalleServicioPagina({
     preguntasTienda(),
   ]);
   if (!datos) notFound();
-  const { item, todos } = datos;
+  const { item, todos, catalogo } = datos;
   const { servicio } = item;
+  // Un catálogo en caché de antes de la vitrina no la trae: se usan los valores de siempre.
+  const v = servicio.vitrina ?? {
+    preguntas: [],
+    portada: null,
+    movimiento: false,
+    combos: true,
+    tituloCartelera: null,
+    cartelera: [],
+    invertirLogo: false,
+  };
+  // Preguntas propias del servicio; sin ellas, las generales de la tienda.
+  const faq = v.preguntas.length > 0 ? v.preguntas : preguntas;
+  const combos = v.combos
+    ? combosTienda(
+        catalogo.combos.filter((c) => c.planes.some((p) => p.servicio.id === servicio.id)),
+        moneda,
+        todos,
+      )
+    : [];
   const mayorista = await mayoristaTienda(moneda);
   const categoria = servicio.categoria ? INFO_CATEGORIA[servicio.categoria] : null;
   const pedido = typeof parametros.plan === 'string' ? parametros.plan : undefined;
@@ -131,7 +155,26 @@ export default async function DetalleServicioPagina({
   const whatsapp = tema.contacto.whatsapp;
 
   return (
-    <div className="@container">
+    <div className="@container relative isolate">
+      {v.portada && (
+        // Fondo de portada: la escena del servicio detrás de la cabecera, que se funde con la página.
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] overflow-hidden @3xl:h-[44rem]"
+        >
+          <img
+            src={v.portada}
+            alt=""
+            fetchPriority="high"
+            className={clsx(
+              'absolute inset-0 size-full object-cover opacity-90',
+              v.movimiento && 'fondo-en-movimiento',
+            )}
+          />
+          <span className="absolute inset-0 bg-[linear-gradient(90deg,rgb(5_8_22/0.7),rgb(5_8_22/0.3)_45%,rgb(5_8_22/0.05))]" />
+          <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_55%,var(--nv-fondo,#050816))]" />
+        </div>
+      )}
       <div className="contenedor grid gap-7 pt-7 pb-16">
         <Migas
           pasos={[
@@ -170,7 +213,10 @@ export default async function DetalleServicioPagina({
                 color={item.color}
                 prioridad
                 decorativa={false}
-                className="relative h-56 w-auto @2xl:h-80 @5xl:h-96 [&_.orbe]:scale-150"
+                className={clsx(
+                  'relative h-56 w-auto @2xl:h-80 @5xl:h-96 [&_.orbe]:scale-150',
+                  v.invertirLogo && servicio.imagen && '[&_img]:invert',
+                )}
               />
             </div>
           }
@@ -261,9 +307,9 @@ export default async function DetalleServicioPagina({
             </ol>
           }
           preguntas={
-            preguntas.length > 0 ? (
+            faq.length > 0 ? (
               <div className="grid gap-2.5">
-                {preguntas.map((p) => (
+                {faq.map((p) => (
                   <details
                     key={p.pregunta}
                     className="group rounded-2xl border border-borde bg-white/[0.02] open:border-borde-fuerte"
@@ -293,6 +339,67 @@ export default async function DetalleServicioPagina({
             )
           }
         />
+
+        {v.cartelera.length > 0 && (
+          <section aria-labelledby="cartelera-servicio" className="mt-6">
+            <Carril
+              etiqueta={v.tituloCartelera ?? `Estrenos en ${servicio.nombre}`}
+              ancho="poster"
+              cabecera={
+                <h2 id="cartelera-servicio" className="text-[clamp(1.45rem,3.6vw,2.15rem)]">
+                  {v.tituloCartelera ?? `Estrenos en ${servicio.nombre}`}
+                </h2>
+              }
+            >
+              {v.cartelera.map((e, i) => (
+                <article key={`${e.titulo}-${i}`} className="grid gap-2">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-[1.1rem] border border-white/10 bg-hundida">
+                    <img
+                      src={e.imagen}
+                      alt={e.titulo}
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 size-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                    {e.etiqueta && (
+                      <span className="absolute top-2.5 left-2.5 rounded-full bg-[linear-gradient(90deg,#ef4444,#f97316)] px-2.5 py-0.5 text-[0.7rem] font-extrabold tracking-wide text-white uppercase shadow">
+                        {e.etiqueta}
+                      </span>
+                    )}
+                  </div>
+                  <b className="truncate text-sm">{e.titulo}</b>
+                </article>
+              ))}
+            </Carril>
+          </section>
+        )}
+
+        {combos.length > 0 && (
+          <section aria-label={`Combos con ${servicio.nombre}`} className="mt-6">
+            <CarrilCombos
+              b={
+                {
+                  id: 'combosserv',
+                  tipo: 'combos',
+                  etiqueta: 'Combos',
+                  titulo: `Combos con ${servicio.nombre}`,
+                  subtitulo: 'Llévalo junto con otros servicios y paga menos.',
+                } as Parameters<typeof CarrilCombos>[0]['b']
+              }
+              combos={combos}
+              conCarrito={!mayorista}
+            />
+          </section>
+        )}
+
+        <div className="mt-6">
+          <ComentariosServicio
+            servicioId={servicio.id}
+            nombre={servicio.nombre}
+            puedeComentar={sesion?.rol === 'cliente'}
+            conSesion={Boolean(sesion)}
+          />
+        </div>
 
         {otros.length > 0 && (
           <section aria-labelledby="similares" className="mt-10">

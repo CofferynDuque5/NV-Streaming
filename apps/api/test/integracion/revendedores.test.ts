@@ -304,7 +304,16 @@ describe('niveles y precios mayoristas', () => {
   });
   it('la página pública de ganancias muestra lo que gana cada nivel, sin costos ni planes ocultos', async () => {
     const e = await escenario();
-    const oro = await e.admin.post('/revendedores/niveles', { nombre: 'Oro', orden: 1 });
+    const oro = await e.admin.post('/revendedores/niveles', {
+      nombre: 'Oro',
+      orden: 1,
+      requisito: 'Desde 60 ventas al mes',
+      beneficios: ['Reposición inmediata', 'Soporte prioritario'],
+    });
+    expect(oro.cuerpo).toMatchObject({
+      requisito: 'Desde 60 ventas al mes',
+      beneficios: ['Reposición inmediata', 'Soporte prioritario'],
+    });
     await e.admin.pedir('PUT', '/revendedores/precios', {
       planId: e.planId,
       nivelId: oro.cuerpo.id,
@@ -329,6 +338,15 @@ describe('niveles y precios mayoristas', () => {
     expect(plan.porNivel).toEqual({
       [e.nivelId]: { precioUsd: '4.00', gananciaUsd: '1.00', margen: 20 },
       [oro.cuerpo.id]: { precioUsd: '3.50', gananciaUsd: '1.50', margen: 30 },
+    });
+    expect(r.cuerpo.niveles[1]).toMatchObject({
+      requisito: 'Desde 60 ventas al mes',
+      beneficios: ['Reposición inmediata', 'Soporte prioritario'],
+      margenPromedio: 30,
+    });
+    const niveles = await e.admin.get('/revendedores/niveles');
+    expect(niveles.cuerpo.find((n: { id: string }) => n.id === oro.cuerpo.id)).toMatchObject({
+      descuentoPromedio: 30,
     });
     expect(JSON.stringify(r.cuerpo)).not.toContain('costo');
 

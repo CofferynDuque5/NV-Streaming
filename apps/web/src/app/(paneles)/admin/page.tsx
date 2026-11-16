@@ -95,29 +95,36 @@ export default async function CentroModulos() {
     <>
       <CabeceraCentro nombre={nombre} rol={rol} />
       <AvisosCentro centro={centro} puede={puede} />
-      <PrimerosPasos centro={centro} />
-      <ParaAtender centro={centro} items={items} />
-      {hoy && !enMarcha && (
-        <HoyGestor
-          datos={hoy}
-          puedeFijarMeta={puede('finanzas.configurar')}
-          puedeVerCuentas={puede('cuentas.ver')}
-        />
-      )}
-      {metricas && !enMarcha && <EsteMes m={metricas} />}
-      <Modulos modulos={modulos} grupos={GRUPOS_EQUIPO} />
-      <EcosistemaNv />
-      {metricas && !enMarcha && (
-        <div className="grid gap-5.5 min-[68.75rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-          <Proximos
-            suscripciones={metricas.proximosVencimientos}
-            puedeVer={puede('suscripciones.ver')}
-          />
-          <PorEstado estados={metricas.suscripcionesPorEstado} />
+      {/* A la izquierda, el trabajo y las cifras; a la derecha, lo que se consulta de reojo. */}
+      <div className="grid items-start gap-5.5 min-[80rem]:grid-cols-[minmax(0,1fr)_23rem]">
+        <div className="grid min-w-0 gap-5.5">
+          <ParaAtender centro={centro} items={items} />
+          {hoy && !enMarcha && (
+            <HoyGestor
+              datos={hoy}
+              puedeFijarMeta={puede('finanzas.configurar')}
+              puedeVerCuentas={puede('cuentas.ver')}
+            />
+          )}
+          {metricas && !enMarcha && <EsteMes m={metricas} />}
+          <Modulos modulos={modulos} grupos={GRUPOS_EQUIPO} />
         </div>
-      )}
-      {actividad && <Actividad registros={actividad} />}
-      <EstadoSistema centro={centro} puede={puede} />
+        <aside aria-label="Resumen" className="grid min-w-0 content-start gap-5.5">
+          <PrimerosPasos centro={centro} />
+          {metricas && !enMarcha && (
+            <>
+              <Proximos
+                suscripciones={metricas.proximosVencimientos}
+                puedeVer={puede('suscripciones.ver')}
+              />
+              <PorEstado estados={metricas.suscripcionesPorEstado} />
+            </>
+          )}
+          <EstadoSistema centro={centro} puede={puede} />
+          {actividad && <Actividad registros={actividad} />}
+          <EcosistemaNv />
+        </aside>
+      </div>
     </>
   );
 }

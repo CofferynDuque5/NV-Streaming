@@ -207,6 +207,8 @@ export function bloqueNuevo(tipo: TipoBloque): BloqueSitio {
         botonSecundario: null,
         imagen: null,
         ilustracion: true,
+        diapositivas: [],
+        segundos: 7,
       };
     case 'planes':
       return {

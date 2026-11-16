@@ -16,6 +16,10 @@ import {
   type DatoRequerido,
   esCompraUnica,
   urlMedio,
+  type VitrinaPublica,
+  type VitrinaServicio,
+  vitrinaDe,
+  vitrinaServicioSchema,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -36,6 +40,7 @@ export type PlanCompleto = Plan & {
     | 'categoria'
     | 'imagenId'
     | 'datosRequeridos'
+    | 'vitrina'
   > & {
     proveedor: Pick<Proveedor, 'activo'>;
   };
@@ -53,6 +58,7 @@ export const INCLUIR_PLAN = {
       categoria: true,
       imagenId: true,
       datosRequeridos: true,
+      vitrina: true,
       proveedor: { select: { activo: true } },
     },
   },
@@ -132,7 +138,36 @@ const servicioPublico = (
   imagen: s.imagenId ? { id: s.imagenId, url: urlMedio(s.imagenId) } : null,
   datosRequeridos: datosDeServicio(s.datosRequeridos),
   activo: s.activo,
+  vitrina: vitrinaDe(s.vitrina),
 });
+
+/** Lo que la tienda ve de la vitrina: sin ids de la biblioteca, con las direcciones. */
+export function vitrinaPublica(v: VitrinaServicio): VitrinaPublica {
+  return {
+    enInicio: v.enInicio,
+    destacado: v.destacado,
+    nuevo: v.nuevo,
+    invertirLogo: v.invertirLogo,
+    mensajeWhatsapp: v.mensajeWhatsapp ?? null,
+    preguntas: v.preguntas,
+    portada: v.portadaId ? urlMedio(v.portadaId) : null,
+    movimiento: v.movimiento,
+    combos: v.combos,
+    tituloCartelera: v.tituloCartelera ?? null,
+    cartelera: v.cartelera.map((e) => ({
+      titulo: e.titulo,
+      etiqueta: e.etiqueta ?? null,
+      imagen: urlMedio(e.imagenId),
+    })),
+    comentarios: v.comentarios,
+  };
+}
+
+/** Imágenes de la vitrina que tienen que estar en la biblioteca. */
+const imagenesVitrina = (v: Partial<VitrinaServicio> | undefined) => [
+  ...(v?.portadaId ? [v.portadaId] : []),
+  ...(v?.cartelera ?? []).map((e) => e.imagenId),
+];
 
 /** Días que cuenta «Lo más pedido». */
 const DIAS_MAS_PEDIDOS = 30;
@@ -205,7 +240,7 @@ export class CatalogoService {
     ]);
     const servicios = new Map<string, ServicioCatalogo>();
     for (const { servicio: s } of planes) {
-      if (!servicios.has(s.id)) {
+      if (!servicios.has(s.id) && vitrinaDe(s.vitrina).visible) {
         servicios.set(s.id, {
           id: s.id,
           nombre: s.nombre,
@@ -214,11 +249,13 @@ export class CatalogoService {
           categoria: s.categoria,
           imagen: s.imagenId ? urlMedio(s.imagenId) : null,
           datosRequeridos: datosDeServicio(s.datosRequeridos),
+          vitrina: vitrinaPublica(vitrinaDe(s.vitrina)),
         });
       }
     }
     return {
-      planes: planes.map((p) => planPublico(p, tasas)),
+      // Un servicio oculto en la vitrina no sale con sus planes.
+      planes: planes.filter((p) => servicios.has(p.servicio.id)).map((p) => planPublico(p, tasas)),
       servicios: [...servicios.values()],
       masPedidos: pedidos.filter((id) => servicios.has(id)),
       monedas: MONEDAS.filter(
@@ -388,8 +425,14 @@ export class CatalogoService {
         throw Errores.noEncontrado('El proveedor');
       }
       await exigirImagen(tx, e.imagenId);
+      for (const img of imagenesVitrina(e.vitrina)) await exigirImagen(tx, img);
       const s = await tx.servicio.create({
-        data: { ...e, descripcion: e.descripcion ?? null, categoria: e.categoria ?? null },
+        data: {
+          ...e,
+          descripcion: e.descripcion ?? null,
+          categoria: e.categoria ?? null,
+          vitrina: vitrinaServicioSchema.parse(e.vitrina ?? {}) as Prisma.InputJsonObject,
+        },
         include: { proveedor: { select: { id: true, nombre: true, tipo: true } } },
       });
       return { id: s.id, antes: undefined, resultado: servicioPublico(s) };
@@ -406,9 +449,22 @@ export class CatalogoService {
       const antes = await tx.servicio.findUnique({ where: { id } });
       if (!antes) throw Errores.noEncontrado('El servicio');
       await exigirImagen(tx, e.imagenId);
+      for (const img of imagenesVitrina(e.vitrina)) await exigirImagen(tx, img);
+      // La vitrina se mezcla: cada pestaña del editor manda solo lo suyo.
+      const { vitrina, ...resto } = e;
       const s = await tx.servicio.update({
         where: { id },
-        data: e,
+        data: {
+          ...resto,
+          ...(vitrina
+            ? {
+                vitrina: vitrinaServicioSchema.parse({
+                  ...vitrinaDe(antes.vitrina),
+                  ...Object.fromEntries(Object.entries(vitrina).filter(([, v]) => v !== undefined)),
+                }) as Prisma.InputJsonObject,
+              }
+            : {}),
+        },
         include: { proveedor: { select: { id: true, nombre: true, tipo: true } } },
       });
       return { id, antes, resultado: servicioPublico(s) };
