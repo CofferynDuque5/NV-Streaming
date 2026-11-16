@@ -572,3 +572,34 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Carrusel de la portada: el texto sube y las tarjetas entran desde un lado. */
+@keyframes nv-subir {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nv-abanico {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nv-diapositiva-activa [data-entrar] {
+    animation: nv-subir 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 90ms);
+  }
+  .nv-diapositiva-activa [data-abanico] {
+    animation: nv-abanico 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}

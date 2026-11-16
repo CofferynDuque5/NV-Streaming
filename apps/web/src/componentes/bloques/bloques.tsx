@@ -5,7 +5,7 @@
  * consultas de contenedor (@container), así la vista previa a ancho de móvil se
  * ve igual que en un teléfono.
  */
-import { type BloqueDe, type BloqueSitio, INFO_MONEDA } from '@nv/shared';
+import { type BloqueDe, type BloqueSitio, diapositivasDe, INFO_MONEDA } from '@nv/shared';
 import clsx from 'clsx';
 import { ArrowRight, CircleCheck, Info, Layers, TriangleAlert } from 'lucide-react';
 import { type CSSProperties, Fragment, type ReactNode } from 'react';
@@ -17,12 +17,15 @@ import {
   MetodosPago,
   Panel,
   PortalServicios,
+  precioPortada,
+  seleccionPortada,
   Combos,
   Ranking,
   Servicios,
   Universos,
 } from './bloques-tienda';
 import { CarteleraSemana } from './bloques-vitrina';
+import { CarruselPortada } from './carrusel-portada';
 import {
   BotonSitio,
   COLOR_ICONO,
@@ -38,6 +41,79 @@ import { EnlaceSitio, TextoEnriquecido } from './texto-enriquecido';
 
 export type { ContextoBloques } from './piezas';
 
+/** Lo que cambia entre diapositivas de la portada. */
+interface ContenidoPortada {
+  etiqueta?: string | null | undefined;
+  titulo: string;
+  destacado?: string | null | undefined;
+  subtitulo?: string | null | undefined;
+  botonPrimario?: BloqueDe<'portada'>['botonPrimario'];
+  botonSecundario?: BloqueDe<'portada'>['botonSecundario'];
+}
+
+function DiapositivaPortada({
+  c,
+  Titulo,
+  visual,
+  precio,
+}: {
+  c: ContenidoPortada;
+  Titulo: 'h1' | 'h2';
+  visual: ReactNode;
+  precio: { principal: string; referencia: string | null } | null;
+}) {
+  // --i escalona la entrada de cada línea al cambiar de diapositiva.
+  const paso = (i: number) => ({ '--i': i }) as CSSProperties;
+  return (
+    <div
+      className={clsx(
+        'grid h-full items-center gap-10',
+        visual ? '@4xl:grid-cols-[1.1fr_1fr]' : 'justify-items-center text-center',
+      )}
+    >
+      <div className={clsx('grid justify-items-start gap-6', !visual && 'justify-items-center')}>
+        {c.etiqueta && (
+          <span data-entrar style={paso(0)} className="etiqueta-orbita">
+            {c.etiqueta}
+          </span>
+        )}
+        <Titulo
+          data-entrar
+          style={paso(1)}
+          className="text-[clamp(2.1rem,6.4vw,4.1rem)] leading-[1.02]"
+        >
+          <TituloConDestacado titulo={c.titulo} destacado={c.destacado} />
+        </Titulo>
+        {c.subtitulo && (
+          <p data-entrar style={paso(2)} className="max-w-xl text-[1.05rem] text-tinta-suave">
+            {c.subtitulo}
+          </p>
+        )}
+        {precio && (
+          <p data-entrar style={paso(3)} className="flex items-baseline gap-2 tabular-nums">
+            <b className="text-xl text-tinta">{precio.principal}</b>
+            {precio.referencia && (
+              <span className="text-sm text-tinta-tenue">{precio.referencia}</span>
+            )}
+            <span className="text-sm text-tinta-tenue">desde</span>
+          </p>
+        )}
+        {(c.botonPrimario || c.botonSecundario) && (
+          <div
+            data-entrar
+            style={paso(4)}
+            className={clsx('flex flex-wrap items-center gap-3', !visual && 'justify-center')}
+          >
+            <BotonSitio boton={c.botonPrimario} flecha />
+            <BotonSitio boton={c.botonSecundario} variante="enlace" />
+          </div>
+        )}
+      </div>
+      {visual && <div data-abanico>{visual}</div>}
+    </div>
+  );
+}
+
 function Portada({
   b,
   principal,
@@ -47,7 +123,6 @@ function Portada({
   principal: boolean;
   contexto: ContextoBloques;
 }) {
-  const Titulo = principal ? 'h1' : 'h2';
   const visual = b.imagen?.medioId ? (
     <ImagenMedio
       medioId={b.imagen.medioId}
@@ -59,36 +134,54 @@ function Portada({
   ) : b.ilustracion ? (
     <PortalServicios contexto={contexto} />
   ) : null;
+  const primera = (
+    <DiapositivaPortada
+      key="principal"
+      c={b}
+      Titulo={principal ? 'h1' : 'h2'}
+      visual={visual}
+      precio={null}
+    />
+  );
+  // Una diapositiva cuyo servicio o universo no tiene planes publicados no se
+  // muestra en el sitio (en la vista previa sí, para poder editarla).
+  const conDatos = diapositivasDe(b)
+    .map((d) => ({ d, seleccion: seleccionPortada(contexto, d) }))
+    .filter(({ seleccion }) => contexto.vistaPrevia || seleccion.length > 0);
+  const extra = conDatos.map(({ d, seleccion }, i) => (
+    <DiapositivaPortada
+      key={`d${i}`}
+      c={d}
+      Titulo="h2"
+      visual={
+        <PortalServicios
+          contexto={contexto}
+          seleccion={seleccion}
+          anillo={!seleccion.some((s) => s.arte)}
+        />
+      }
+      precio={precioPortada(contexto, seleccion)}
+    />
+  ));
   return (
     <Seccion bloque={b}>
       <div className={clsx(contenedor, 'pt-5 pb-2 @3xl:pt-8')}>
         <div
           className={clsx(
-            'relative grid items-center gap-10 overflow-hidden rounded-[2rem] border border-borde px-6 py-10 @3xl:px-14 @3xl:py-16',
+            'relative overflow-hidden rounded-[2rem] border border-borde px-6 py-10 @3xl:px-14 @3xl:py-16',
             'bg-[radial-gradient(70%_80%_at_85%_40%,rgb(139_92_246/0.18),transparent_70%),radial-gradient(60%_70%_at_0%_100%,rgb(37_99_235/0.16),transparent_70%),linear-gradient(180deg,rgb(12_16_38/0.75),rgb(6_8_20/0.85))]',
-            visual ? '@4xl:grid-cols-[1.1fr_1fr]' : 'justify-items-center text-center',
+            extra.length > 0 && 'pb-16 @3xl:pb-20',
           )}
         >
-          <div
-            className={clsx('grid justify-items-start gap-6', !visual && 'justify-items-center')}
-          >
-            {b.etiqueta && <span className="etiqueta-orbita">{b.etiqueta}</span>}
-            <Titulo className="text-[clamp(2.1rem,6.4vw,4.1rem)] leading-[1.02]">
-              <TituloConDestacado titulo={b.titulo} destacado={b.destacado} />
-            </Titulo>
-            {b.subtitulo && (
-              <p className="max-w-xl text-[1.05rem] text-tinta-suave">{b.subtitulo}</p>
-            )}
-            {(b.botonPrimario || b.botonSecundario) && (
-              <div
-                className={clsx('flex flex-wrap items-center gap-3', !visual && 'justify-center')}
-              >
-                <BotonSitio boton={b.botonPrimario} flecha />
-                <BotonSitio boton={b.botonSecundario} variante="enlace" />
-              </div>
-            )}
-          </div>
-          {visual}
+          {extra.length > 0 ? (
+            <CarruselPortada
+              diapositivas={[primera, ...extra]}
+              nombres={[b.titulo, ...conDatos.map(({ d }) => d.titulo)]}
+              segundos={b.segundos ?? 7}
+            />
+          ) : (
+            primera
+          )}
         </div>
       </div>
     </Seccion>

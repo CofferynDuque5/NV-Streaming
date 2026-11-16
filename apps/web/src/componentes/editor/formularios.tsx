@@ -11,6 +11,8 @@ import {
   FONDOS_BLOQUE,
   ICONOS_SITIO,
   INFO_CATEGORIA,
+  diapositivasDe,
+  MAX_DIAPOSITIVAS_PORTADA,
   type IconoSitio,
   type MedioSitio,
   ORDENES_SERVICIOS,
@@ -598,6 +600,115 @@ function FormPortada({ p }: P<'portada'>) {
           ayuda="Un anillo con las tarjetas de los servicios más pedidos. Sin ella, el texto se centra."
           checked={b.ilustracion}
           onChange={(e) => p.cambiar({ ilustracion: e.currentTarget.checked })}
+        />
+      )}
+      <Lista
+        p={q}
+        ruta="diapositivas"
+        titulo="Más diapositivas (carrusel)"
+        uno="diapositiva"
+        elementos={diapositivasDe(b)}
+        min={0}
+        max={MAX_DIAPOSITIVAS_PORTADA}
+        nuevo={() => ({
+          etiqueta: null,
+          titulo: '',
+          destacado: null,
+          subtitulo: null,
+          servicio: null,
+          categoria: null,
+          botonPrimario: null,
+          botonSecundario: null,
+        })}
+        resumen={(d) => d.titulo}
+        onCambio={(diapositivas, o) => p.cambiar({ diapositivas }, o)}
+      >
+        {(d, i, set) => (
+          <>
+            <Texto
+              p={q}
+              ruta={`diapositivas.${i}.etiqueta`}
+              etiqueta="Etiqueta"
+              opcional
+              valor={d.etiqueta}
+              max={60}
+              ayuda="Por ejemplo «Universo IA»"
+              onCambio={(etiqueta) => set({ etiqueta }, 'etiqueta')}
+            />
+            <Texto
+              p={q}
+              ruta={`diapositivas.${i}.titulo`}
+              etiqueta="Título"
+              valor={d.titulo}
+              max={120}
+              onCambio={(titulo) => set({ titulo }, 'titulo')}
+            />
+            <Texto
+              p={q}
+              ruta={`diapositivas.${i}.destacado`}
+              etiqueta="Texto destacado"
+              opcional
+              valor={d.destacado}
+              max={60}
+              onCambio={(destacado) => set({ destacado }, 'destacado')}
+            />
+            <Area
+              p={q}
+              ruta={`diapositivas.${i}.subtitulo`}
+              etiqueta="Descripción"
+              opcional
+              valor={d.subtitulo}
+              max={300}
+              filas={2}
+              onCambio={(subtitulo) => set({ subtitulo }, 'subtitulo')}
+            />
+            <CampoLista
+              etiqueta="Servicio al frente"
+              value={d.servicio ?? ''}
+              error={p.err(`diapositivas.${i}.servicio`)}
+              ayuda="Su precio «desde» y su tarjeta al centro del abanico"
+              onChange={(e) => set({ servicio: e.currentTarget.value || null }, 'servicio')}
+            >
+              <option value="">Ninguno</option>
+              {p.servicios.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {s.nombre}
+                </option>
+              ))}
+            </CampoLista>
+            <SelectorUniverso
+              valor={d.categoria}
+              todos="Automático"
+              ayuda="Las tarjetas de los lados y el precio «desde» si no eliges servicio"
+              onCambio={(categoria) => set({ categoria }, 'categoria')}
+            />
+            <GrupoBoton
+              p={q}
+              ruta={`diapositivas.${i}.botonPrimario`}
+              etiqueta="Botón principal"
+              boton={d.botonPrimario}
+              onCambio={(botonPrimario) => set({ botonPrimario }, 'botonPrimario')}
+            />
+            <GrupoBoton
+              p={q}
+              ruta={`diapositivas.${i}.botonSecundario`}
+              etiqueta="Enlace secundario"
+              boton={d.botonSecundario}
+              etiquetaTexto="Texto del enlace"
+              onCambio={(botonSecundario) => set({ botonSecundario }, 'botonSecundario')}
+            />
+          </>
+        )}
+      </Lista>
+      {diapositivasDe(b).length > 0 && (
+        <Numero
+          p={q}
+          ruta="segundos"
+          etiqueta="Segundos por diapositiva"
+          valor={b.segundos ?? 7}
+          min={3}
+          max={20}
+          onCambio={(segundos) => escribir(p, { segundos }, 'segundos')}
         />
       )}
     </>
