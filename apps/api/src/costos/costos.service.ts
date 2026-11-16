@@ -4,6 +4,7 @@ import type {
   BalanceEntrada,
   BalancePeriodo,
   CuentaPorPagar,
+  GananciaDia,
   PagoCuentaPublico,
   PorPagar,
   RegistrarPagoCuentaEntrada,
@@ -231,6 +232,87 @@ export class CostosService {
       proximas,
       totalAtrasadoUsd: atrasado.toFixed(2),
       totalProximoUsd: proximo.toFixed(2),
+    };
+  }
+
+  /**
+   * Lo que dejó un día: ventas menos el costo de lo vendido, y lo que queda
+   * después de pagar a los proveedores lo de ese día y lo que vence hasta ahí.
+   */
+  async gananciaDia(diaPedido: string | undefined, ahora = new Date()): Promise<GananciaDia> {
+    const hoy = fechaCaracas(ahora);
+    const d = diaPedido ?? hoy;
+    if (d > hoy) {
+      throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Ese día todavía no llega.', {
+        dia: ['Elige hoy o un día anterior.'],
+      });
+    }
+    const inicio = inicioDe(d);
+    const fin = new Date(inicio.getTime() + DIA_MS);
+    const [ventas, costoClientes, reembolsos, revendedores, pagados, pendientes] =
+      await Promise.all([
+        this.prisma.$queryRaw<{ usd: Prisma.Decimal | null }[]>`
+          SELECT SUM(f.total_usd) AS usd
+          FROM pagos p JOIN facturas f ON f.id = p.factura_id
+          WHERE p.estado = 'confirmado' AND p.revisado_en >= ${inicio} AND p.revisado_en < ${fin}`,
+        this.prisma.$queryRaw<{ usd: Prisma.Decimal | null; sin: number }[]>`
+          SELECT SUM(l.cantidad * pl.costo_usd) AS usd,
+                 COUNT(*) FILTER (WHERE pl.costo_usd IS NULL)::int AS sin
+          FROM pagos p
+          JOIN lineas_factura l ON l.factura_id = p.factura_id
+          JOIN planes pl ON pl.id = l.plan_id
+          WHERE p.estado = 'confirmado' AND p.revisado_en >= ${inicio} AND p.revisado_en < ${fin}`,
+        this.prisma.$queryRaw<{ usd: Prisma.Decimal | null }[]>`
+          SELECT SUM(ROUND(r.monto * f.total_usd / f.total, 2)) AS usd
+          FROM reembolsos r JOIN pagos p ON p.id = r.pago_id JOIN facturas f ON f.id = p.factura_id
+          WHERE r.estado = 'completado' AND f.total > 0
+            AND r.completado_en >= ${inicio} AND r.completado_en < ${fin}`,
+        this.prisma.compraRevendedor.findMany({
+          where: { estado: 'completada', creadoEn: { gte: inicio, lt: fin } },
+          select: { precioUsd: true, plan: { select: { costoUsd: true } } },
+        }),
+        this.prisma.pagoCuentaServicio.findMany({
+          where: { anuladoEn: null, pagadoEl: new Date(`${d}T00:00:00Z`) },
+          select: {
+            montoUsd: true,
+            cuenta: {
+              select: { id: true, pista: true, servicio: { select: { id: true, nombre: true } } },
+            },
+          },
+          orderBy: { creadoEn: 'asc' },
+        }),
+        this.porPagar(Math.max(0, diasEntre(hoy, d)), ahora),
+      ]);
+    // Solo lo que vence ese día o antes (porPagar cuenta desde hoy).
+    const porPagar = [...pendientes.atrasadas, ...pendientes.proximas].filter(
+      (c) => c.facturaEn <= d,
+    );
+    const ventasClientes = D(ventas[0]?.usd ?? 0);
+    const ventasRev = revendedores.reduce((s: Dec, c) => s.add(c.precioUsd), CERO);
+    const reembolsosUsd = D(reembolsos[0]?.usd ?? 0);
+    const costoRev = revendedores.reduce((s: Dec, c) => s.add(c.plan.costoUsd ?? 0), CERO);
+    const costoVendido = D(costoClientes[0]?.usd ?? 0).add(costoRev);
+    const sinCosto =
+      (costoClientes[0]?.sin ?? 0) + revendedores.filter((c) => !c.plan.costoUsd).length;
+    const pagado = pagados.reduce((s: Dec, p) => s.add(p.montoUsd), CERO);
+    const pendiente = porPagar.reduce((s: Dec, c) => s.add(c.costoUsd), CERO);
+    const neto = ventasClientes.add(ventasRev).sub(reembolsosUsd);
+    return {
+      dia: d,
+      ventasClientesUsd: ventasClientes.toFixed(2),
+      ventasRevendedoresUsd: ventasRev.toFixed(2),
+      reembolsosUsd: reembolsosUsd.toFixed(2),
+      costoVendidoUsd: costoVendido.toFixed(2),
+      vendidosSinCosto: sinCosto,
+      gananciaVentasUsd: neto.sub(costoVendido).toFixed(2),
+      pagadoProveedoresUsd: pagado.toFixed(2),
+      pagosProveedor: pagados.map((p) => ({
+        cuenta: { id: p.cuenta.id, pista: p.cuenta.pista, servicio: p.cuenta.servicio },
+        montoUsd: dec2(p.montoUsd),
+      })),
+      porPagar,
+      porPagarUsd: pendiente.toFixed(2),
+      quedaUsd: neto.sub(pagado).sub(pendiente).toFixed(2),
     };
   }
 

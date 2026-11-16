@@ -121,8 +121,9 @@ export function PrimerosPasos({ centro }: { centro: CentroEquipo }) {
           style={{ width: `${(hechos / pasos.length) * 100}%` }}
         />
       </div>
+      {/* Solo lo que falta: lo hecho ya no ocupa lugar. */}
       <ol className={claseLista}>
-        {pasos.map((p, i) => (
+        {pasos.map((p, i) => p.hecho ? null : (
           <li
             key={p.clave}
             className={clsx(

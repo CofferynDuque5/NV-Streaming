@@ -240,4 +240,44 @@ describe('balance', () => {
       netoUsd: '-99.00',
     });
   });
+
+  it('calcula la ganancia del día: costo de lo vendido, pagado a proveedores y por pagar', async () => {
+    const e = await escenario();
+    const cliente = await conectar(ctx, 'cliente');
+    await ctx.prisma.plan.update({ where: { id: e.planId }, data: { costoUsd: '1.50' } });
+
+    const alta = await cliente.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const pago = await cliente.n.formulario(
+      `/mi/facturas/${alta.cuerpo.factura.id}/pagos`,
+      { metodoCobroId: e.zelleId, monto: '5.00', referenciaExterna: 'Z-DIA-1', fechaPago: hoy() },
+      comprobante,
+    );
+    await e.operador.n.post(`/pagos/${pago.cuerpo.id}/confirmar`, { montoRecibido: '5.00' });
+
+    // Pagado hoy al proveedor (1), atrasado sin pagar (4) y uno que vence más adelante.
+    const pagada = await e.crear('pagada@example.com', { costoUsd: '1', facturaEn: diaMas(1) });
+    await e.operador.n.post(`/cuentas/${pagada.id}/pagos`, {});
+    await e.crear('atrasada@example.com', { costoUsd: '4', facturaEn: diaMas(-1) });
+    await e.crear('futura@example.com', { costoUsd: '9', facturaEn: diaMas(3) });
+
+    const r = await e.admin.n.get('/balance/dia');
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toMatchObject({
+      dia: fechaCaracas(new Date()),
+      ventasClientesUsd: '5.00',
+      costoVendidoUsd: '1.50',
+      vendidosSinCosto: 0,
+      gananciaVentasUsd: '3.50',
+      pagadoProveedoresUsd: '1.00',
+      porPagarUsd: '4.00',
+      quedaUsd: '0.00',
+    });
+    expect(r.cuerpo.pagosProveedor).toHaveLength(1);
+    expect(r.cuerpo.porPagar).toHaveLength(1);
+    expect(r.cuerpo.porPagar[0]).toMatchObject({ costoUsd: '4.00', dias: -1 });
+
+    // Sin permiso de balance no se ve; un día futuro no existe.
+    expect((await e.operador.n.get('/balance/dia')).estado).toBe(403);
+    expect((await e.admin.n.get(`/balance/dia?dia=${diaMas(1)}`)).estado).toBe(400);
+  });
 });

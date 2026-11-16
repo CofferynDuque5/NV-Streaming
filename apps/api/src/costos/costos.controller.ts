@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import {
   anularPagoCuentaSchema,
   balanceSchema,
+  consultarCajaSchema,
   porPagarSchema,
   registrarPagoCuentaSchema,
   uuidSchema,
@@ -70,6 +71,14 @@ export class BalanceController {
   @DocConsulta(balanceSchema)
   balance(@Query(validar(balanceSchema)) q: z.output<typeof balanceSchema>) {
     return this.costos.balance(q);
+  }
+
+  /** Ventas, costo de lo vendido, pagos a proveedores y lo que queda de un día (Caja diaria). */
+  @Get('dia')
+  @RequierePermiso('balance.ver')
+  @DocConsulta(consultarCajaSchema)
+  dia(@Query(validar(consultarCajaSchema)) q: z.output<typeof consultarCajaSchema>) {
+    return this.costos.gananciaDia(q.dia);
   }
 
   /** Cobros del proveedor atrasados y próximos (quien gestiona las cuentas los paga). */

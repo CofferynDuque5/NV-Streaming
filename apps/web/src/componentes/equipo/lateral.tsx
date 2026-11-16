@@ -129,8 +129,16 @@ export function LateralEquipo({
       .split('|')
       .filter(Boolean),
   );
-  const activo = (href: string) =>
+  const coincide = (href: string) =>
     ruta === href || (href !== '/admin' && ruta.startsWith(`${href}/`));
+  // Solo se marca la entrada que más se parece a la página abierta: con
+  // «/admin/suscripciones/devoluciones» se marca Devoluciones, no también Suscripciones.
+  const marcada = grupos
+    .flat()
+    .map((e) => e.href)
+    .filter(coincide)
+    .sort((a, b) => b.length - a.length)[0];
+  const activo = (href: string) => href === marcada;
 
   async function salir() {
     setSaliendo(true);
