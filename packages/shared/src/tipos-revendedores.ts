@@ -20,10 +20,14 @@ export interface NivelPublico {
   id: string;
   nombre: string;
   descripcion: string | null;
+  requisito: string | null;
+  beneficios: string[];
   orden: number;
   activo: boolean;
   /** Revendedores que tienen asignado el nivel. */
   revendedores: number;
+  /** Descuento promedio frente al precio al público (%); null sin precios. */
+  descuentoPromedio: number | null;
 }
 
 /** Lo que ve quien pidió ser revendedor sobre su propia solicitud. */
@@ -217,7 +221,15 @@ export interface TablaPreciosMayoristas {
  * y visibles, y niveles activos.
  */
 export interface GananciasRevendedor {
-  niveles: { id: string; nombre: string; descripcion: string | null }[];
+  niveles: {
+    id: string;
+    nombre: string;
+    descripcion: string | null;
+    requisito: string | null;
+    beneficios: string[];
+    /** Ganancia promedio sobre el precio al público (%); null sin precios. */
+    margenPromedio: number | null;
+  }[];
   planes: {
     id: string;
     nombre: string;

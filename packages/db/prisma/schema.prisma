@@ -1121,6 +1121,10 @@ model NivelRevendedor {
   id            String   @id @default(uuid()) @db.Uuid
   nombre        String   @unique @db.VarChar(60)
   descripcion   String?  @db.VarChar(300)
+  /// Qué se pide para llegar al nivel (ej. «Desde 20 ventas al mes»).
+  requisito     String?  @db.VarChar(200)
+  /// Beneficios del nivel, uno por renglón (además de sus precios).
+  beneficios    String[] @default([])
   orden         Int      @default(0)
   activo        Boolean  @default(true)
   creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)

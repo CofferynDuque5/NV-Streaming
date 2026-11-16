@@ -386,7 +386,7 @@ async function Precios({
             {niveles.map((n) => (
               <li
                 key={n.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 sm:px-6"
+                className="flex flex-wrap items-start justify-between gap-3 px-5 py-3.5 sm:px-6"
               >
                 <div className="grid min-w-0 gap-0.5">
                   <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
@@ -395,8 +395,31 @@ async function Precios({
                   </span>
                   <span className="text-xs text-tinta-tenue">
                     {n.revendedores === 1 ? '1 revendedor' : `${n.revendedores} revendedores`}
+                    {n.descuentoPromedio !== null &&
+                      ` · paga en promedio ${n.descuentoPromedio}% menos que el público`}
                     {n.descripcion ? ` · ${n.descripcion}` : ''}
                   </span>
+                  {n.requisito && (
+                    <span className="text-xs text-tinta-suave">Para llegar: {n.requisito}</span>
+                  )}
+                  {n.beneficios.length > 0 ? (
+                    <ul className="mt-1 flex flex-wrap gap-1.5" aria-label="Beneficios">
+                      {n.beneficios.map((b) => (
+                        <li
+                          key={b}
+                          className="rounded-full border border-exito/30 bg-exito/10 px-2 py-0.5 text-xs text-tinta"
+                        >
+                          {b}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    puedeGestionar && (
+                      <span className="text-xs text-[#fde68a]">
+                        Sin beneficios escritos: edítalo para que el revendedor sepa qué gana.
+                      </span>
+                    )
+                  )}
                 </div>
                 {puedeGestionar && <EditarNivel nivel={n} />}
               </li>

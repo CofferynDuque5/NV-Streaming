@@ -10,6 +10,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { claseEnlace } from '@/componentes/cliente/piezas-cuenta';
 import { GraficaVentas } from '@/componentes/revendedor/grafica';
+import { TarjetasNiveles } from '@/componentes/revendedor/niveles';
 import {
   AvisosRevendedor,
   CabeceraPanel,
@@ -28,6 +29,7 @@ import {
 } from '@/componentes/revendedor/panel';
 import { BotonEnlace, clasesBoton } from '@/componentes/ui/boton';
 import { leerApi } from '@/lib/api-servidor';
+import { leerGananciasRevendedor } from '@/lib/ganancias-revendedor';
 import { bloqueoVenta, leerResumenRevendedor } from '@/lib/panel-revendedor';
 import { requerirSesion } from '@/lib/sesion';
 
@@ -35,12 +37,13 @@ export const metadata: Metadata = { title: 'Panel de revendedor' };
 
 export default async function PanelRevendedor() {
   const sesion = await requerirSesion({ roles: ['revendedor'] });
-  const [{ estado, datos: r }, v30, v7, renovar, recargas] = await Promise.all([
+  const [{ estado, datos: r }, v30, v7, renovar, recargas, ganancias] = await Promise.all([
     leerResumenRevendedor(),
     leerApi<ResumenVentas>('/revendedor/ventas/resumen?periodo=30').then((x) => x.datos),
     leerApi<ResumenVentas>('/revendedor/ventas/resumen?periodo=7').then((x) => x.datos),
     leerApi<ListaRenovaciones>('/revendedor/renovaciones?filtro=urgentes').then((x) => x.datos),
     leerApi<Pagina<RecargaPublica>>('/revendedor/recargas?porPagina=1').then((x) => x.datos),
+    leerGananciasRevendedor(),
   ]);
   const nombre = sesion.usuario.nombre.split(' ')[0];
 
@@ -250,6 +253,20 @@ export default async function PanelRevendedor() {
           )}
         </Caja>
       </div>
+
+      {ganancias && ganancias.niveles.length > 0 && (
+        <section aria-labelledby="titulo-niveles" className="grid gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 id="titulo-niveles" className="text-xl">
+              Tu nivel y sus beneficios
+            </h2>
+            <Link href="/revendedores/ganancias" className={claseEnlace}>
+              Ver lo que ganas en cada plan
+            </Link>
+          </div>
+          <TarjetasNiveles niveles={ganancias.niveles} actualId={d.nivel?.id} />
+        </section>
+      )}
 
       <LimiteDiario hoy={r.comprasHoy} limite={d.limiteDiarioCompras} />
       <Nota>

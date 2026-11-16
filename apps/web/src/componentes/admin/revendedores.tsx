@@ -488,6 +488,25 @@ function CamposNivel({
         defaultValue={nivel?.descripcion ?? ''}
         error={campos.descripcion}
       />
+      <Campo
+        etiqueta="Para llegar a este nivel (opcional)"
+        name="requisito"
+        maxLength={200}
+        defaultValue={nivel?.requisito ?? ''}
+        placeholder="Ej. Desde 20 ventas al mes"
+        error={campos.requisito}
+      />
+      <AreaTexto
+        etiqueta="Beneficios (uno por renglón)"
+        name="beneficios"
+        rows={4}
+        defaultValue={nivel?.beneficios.join('\n') ?? ''}
+        placeholder={
+          'Ej.\nSoporte prioritario por WhatsApp\nReposición de cuentas en menos de 1 hora'
+        }
+        ayuda="Se muestran al revendedor y en la página de ganancias. Sus precios se ponen en la tabla de abajo."
+        error={campos.beneficios}
+      />
       <Casilla
         name="activo"
         defaultChecked={nivel?.activo ?? true}
@@ -502,6 +521,11 @@ function leerNivel(d: FormData) {
   return {
     nombre: textoDe(d, 'nombre') ?? '',
     descripcion: textoDe(d, 'descripcion') ?? null,
+    requisito: textoDe(d, 'requisito') ?? null,
+    beneficios: String(d.get('beneficios') ?? '')
+      .split('\n')
+      .map((b) => b.trim())
+      .filter(Boolean),
     orden: textoDe(d, 'orden') ?? '0',
     activo: d.get('activo') === 'on',
   };

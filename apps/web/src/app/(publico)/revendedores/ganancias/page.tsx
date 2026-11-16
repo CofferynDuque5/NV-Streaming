@@ -1,3 +1,4 @@
+import { TarjetasNiveles } from '@/componentes/revendedor/niveles';
 import { enlacePoliticas, etiquetaDuracion, formatearMonto } from '@nv/shared';
 import { CloudOff, Tag, TrendingUp } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -49,18 +50,12 @@ export default async function GananciasRevendedor() {
         </EstadoVacio>
       ) : (
         <>
-          {datos.niveles.some((n) => n.descripcion) && (
-            <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Niveles">
-              {datos.niveles.map((n) => (
-                <li key={n.id} className="rounded-2xl border border-borde bg-white/[0.03] p-4">
-                  <p className="font-semibold">Nivel {n.nombre}</p>
-                  {n.descripcion && (
-                    <p className="mt-1 text-sm text-tinta-suave">{n.descripcion}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+          <section aria-labelledby="titulo-niveles" className="grid gap-3">
+            <h2 id="titulo-niveles" className="text-xl">
+              Niveles y beneficios
+            </h2>
+            <TarjetasNiveles niveles={datos.niveles} />
+          </section>
 
           <ul className="grid gap-3" aria-label="Ganancia por plan">
             {datos.planes.map((p) => (
