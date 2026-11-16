@@ -20,7 +20,11 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  Headphones,
+  PackageCheck,
+  ShieldCheck,
   ShoppingCart,
+  Sparkles,
   Trash2,
   Wallet,
   X,
@@ -401,34 +405,50 @@ function CarritoConPlanes({
   return (
     <div className="grid grid-cols-1 items-start gap-6 min-[61.25rem]:grid-cols-[minmax(0,1fr)_23.75rem] min-[61.25rem]:gap-7">
       <div className="grid gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg" aria-live="polite">
-            {elegidos.length} de {MAX_CARRITO} planes
-          </h2>
-          <div className="grid w-[min(16.25rem,100%)] grid-cols-5 gap-1.5" aria-hidden="true">
-            {Array.from({ length: MAX_CARRITO }, (_, i) => {
-              const e = elegidos[i];
-              return (
-                <span
-                  key={i}
-                  className={clsx(
-                    'grid h-10 place-items-center overflow-hidden rounded-[0.625rem] border-[1.5px]',
-                    e ? 'border-marca/60 bg-marca-suave' : 'border-dashed border-borde-fuerte',
-                  )}
-                >
-                  {e && (
-                    <ArteServicio
-                      arte={e.item.arte}
-                      nombre={e.item.servicio.nombre}
-                      categoria={e.item.servicio.categoria}
-                      color={e.item.color}
-                      orbe="sm"
-                      className="h-[2.1rem] w-auto"
-                    />
-                  )}
-                </span>
-              );
-            })}
+        <div className="grid gap-3 rounded-[1.25rem] border border-borde bg-white/[0.02] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg" aria-live="polite">
+              <ShoppingCart className="size-5 text-cian" aria-hidden="true" />
+              {elegidos.length} de {MAX_CARRITO} planes
+            </h2>
+            <div className="flex gap-1.5" aria-hidden="true">
+              {Array.from({ length: MAX_CARRITO }, (_, i) => {
+                const e = elegidos[i];
+                return (
+                  <span
+                    key={i}
+                    className={clsx(
+                      'grid size-11 place-items-center overflow-hidden rounded-xl border-[1.5px]',
+                      e ? 'border-marca/60 bg-marca-suave' : 'border-dashed border-borde-fuerte',
+                    )}
+                  >
+                    {e && (
+                      <ArteServicio
+                        arte={e.item.arte}
+                        nombre={e.item.servicio.nombre}
+                        categoria={e.item.servicio.categoria}
+                        color={e.item.color}
+                        orbe="sm"
+                        className="h-9 w-auto"
+                      />
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"
+            role="progressbar"
+            aria-label="Espacios usados del pedido"
+            aria-valuemin={0}
+            aria-valuemax={MAX_CARRITO}
+            aria-valuenow={elegidos.length}
+          >
+            <span
+              className="block h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#8b5cf6,#e879f9)] transition-[width] duration-500"
+              style={{ width: `${(elegidos.length / MAX_CARRITO) * 100}%` }}
+            />
           </div>
         </div>
 
@@ -467,6 +487,42 @@ function CarritoConPlanes({
             Tu carrito está lleno. Quita un plan para agregar otro.
           </p>
         )}
+
+        {cotizacion && !cotizando && Number(cotizacion.descuento) > 0 && (
+          <p
+            role="status"
+            className="flex items-center gap-2.5 rounded-2xl border border-exito/35 bg-exito/10 px-4 py-3 text-sm"
+          >
+            <Sparkles className="size-4 shrink-0 text-exito" aria-hidden="true" />
+            <span>
+              Con este pedido ahorras{' '}
+              <b className="text-exito tabular-nums">
+                {formatearMonto(cotizacion.descuento, moneda)}
+              </b>
+              {cotizacion.lineas.some((l) => l.combo) ? ' gracias al combo' : ''}
+              {cotizacion.cupon ? ` y el cupón ${cotizacion.cupon}` : ''}.
+            </span>
+          </p>
+        )}
+
+        <ul className="grid gap-2 sm:grid-cols-3" aria-label="Por qué comprar en NV">
+          {[
+            { icono: PackageCheck, titulo: 'Entrega en tu panel', texto: 'Tus accesos llegan a «Mis accesos».' },
+            { icono: ShieldCheck, titulo: 'Servicios autorizados', texto: 'Con garantía mientras dure tu plan.' },
+            { icono: Headphones, titulo: 'Soporte en español', texto: 'Personas reales por WhatsApp.' },
+          ].map(({ icono: Icono, titulo, texto }) => (
+            <li
+              key={titulo}
+              className="flex items-start gap-2.5 rounded-2xl border border-borde bg-white/[0.02] px-3.5 py-3"
+            >
+              <Icono className="mt-0.5 size-4 shrink-0 text-cian" aria-hidden="true" />
+              <span className="grid text-xs">
+                <b className="text-sm">{titulo}</b>
+                <span className="text-tinta-tenue">{texto}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <aside
@@ -627,16 +683,19 @@ function LineaCarrito({
   const combo = linea && Number(linea.descuentoCombo) > 0 ? linea : null;
   const cuponLinea = linea ? Number(linea.descuento) - Number(linea.descuentoCombo) : 0;
   const descuento = cuponLinea > 0 ? cuponLinea.toFixed(2) : null;
+  const rebajado = linea && Number(linea.descuento) > 0;
+  // «Combo Cine + Música» ya trae la palabra: no se repite.
+  const nombreCombo = combo?.combo?.replace(/^combo\s+/i, '') ?? '';
   return (
     <li
-      className="aparecer grid grid-cols-[4.75rem_minmax(0,1fr)] gap-3 rounded-[1.25rem] border border-borde bg-[linear-gradient(180deg,rgb(15_21_48/0.86),rgb(8_11_26/0.94))] p-3 sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:gap-3.5"
+      className="aparecer group relative grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 overflow-hidden rounded-[1.4rem] border border-borde bg-[linear-gradient(120deg,color-mix(in_srgb,var(--c)_14%,transparent),transparent_45%),linear-gradient(180deg,rgb(15_21_48/0.9),rgb(8_11_26/0.95))] p-3.5 transition-colors hover:border-borde-fuerte sm:grid-cols-[7rem_minmax(0,1fr)_auto] sm:items-center sm:p-4"
       style={{ '--c': item.color } as CSSProperties}
     >
       <Link
         href={`/catalogo/${item.servicio.slug}?plan=${plan.id}`}
         tabIndex={-1}
         aria-hidden="true"
-        className="grid min-h-24 place-items-center overflow-hidden rounded-[0.875rem] bg-[radial-gradient(60%_60%_at_50%_55%,color-mix(in_srgb,var(--c)_45%,transparent),transparent_75%),rgb(3_5_14/0.5)]"
+        className="row-span-2 grid aspect-[4/5] place-items-center overflow-hidden rounded-2xl bg-[radial-gradient(60%_60%_at_50%_55%,color-mix(in_srgb,var(--c)_45%,transparent),transparent_75%),rgb(3_5_14/0.5)] sm:row-span-1"
       >
         <ArteServicio
           arte={item.arte}
@@ -644,74 +703,35 @@ function LineaCarrito({
           categoria={item.servicio.categoria}
           color={item.color}
           orbe="md"
-          className="h-20 w-auto"
+          className="h-[85%] w-auto transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:rotate-[-3deg]"
         />
       </Link>
+
       <div className="grid min-w-0 content-center gap-2">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          <div className="grid min-w-0">
-            {categoria && (
-              <span className="flex items-center gap-1.5 text-[0.68rem] font-bold tracking-[0.1em] text-tinta-suave uppercase">
-                <i
-                  className="size-1.5 rounded-full bg-[var(--c)] shadow-[0_0_8px_var(--c)]"
-                  aria-hidden="true"
-                />
-                {categoria.nombre}
-              </span>
-            )}
-            <Link
-              href={`/catalogo/${item.servicio.slug}?plan=${plan.id}`}
-              className="font-semibold hover:underline sm:truncate"
-              title={nombre}
-            >
-              {nombre}
-            </Link>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-baseline gap-x-2 tabular-nums sm:grid sm:justify-items-end sm:text-right">
-            {cotizando ? (
-              <>
-                <Esqueleto ancho="w-20" />
-                <span className="sr-only">Calculando el precio</span>
-              </>
-            ) : linea ? (
-              <>
-                <strong className="font-titulo text-[1.05rem] whitespace-nowrap">
-                  {formatearMonto(linea.total, moneda)}
-                </strong>
-                {moneda !== 'USD' && (
-                  <small className="text-xs text-tinta-suave">
-                    {formatearMonto(linea.totalUsd, 'USD')}
-                  </small>
-                )}
-                {combo && (
-                  <span className="text-xs whitespace-nowrap text-exito">
-                    Combo {combo.combo} −{formatearMonto(combo.descuentoCombo, moneda)}
-                  </span>
-                )}
-                {descuento && (
-                  <span className="text-xs whitespace-nowrap text-exito">
-                    Cupón −{formatearMonto(descuento, moneda)}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                <strong className="font-titulo text-[1.05rem] whitespace-nowrap text-tinta-suave">
-                  {precioTexto(plan, moneda) ?? 'Sin precio'}
-                </strong>
-                <small className="text-xs text-tinta-tenue">Precio de catálogo</small>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+        {categoria && (
+          <span className="flex items-center gap-1.5 text-[0.68rem] font-bold tracking-[0.12em] text-tinta-suave uppercase">
+            <i
+              className="size-1.5 rounded-full bg-[var(--c)] shadow-[0_0_8px_var(--c)]"
+              aria-hidden="true"
+            />
+            {categoria.nombre}
+          </span>
+        )}
+        <Link
+          href={`/catalogo/${item.servicio.slug}?plan=${plan.id}`}
+          className="font-titulo text-lg leading-tight font-bold hover:underline sm:truncate"
+          title={nombre}
+        >
+          {nombre}
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
           {item.planes.length > 1 ? (
             <label className="relative flex items-center">
               <span className="sr-only">Plan de {nombre}</span>
               <select
                 value={plan.id}
                 onChange={(ev) => alCambiar(ev.target.value)}
-                className="cursor-pointer appearance-none rounded-[0.7rem] border border-borde-fuerte bg-[rgb(10_14_32/0.9)] py-1.5 pr-8 pl-3 text-sm text-tinta hover:border-tinta-tenue"
+                className="cursor-pointer appearance-none rounded-full border border-borde-fuerte bg-[rgb(10_14_32/0.9)] py-1 pr-8 pl-3 text-sm text-tinta hover:border-tinta-tenue"
               >
                 {item.planes.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -725,17 +745,62 @@ function LineaCarrito({
               />
             </label>
           ) : (
-            <span className="text-sm text-tinta-suave">{nombreOpcion(plan, item.planes)}</span>
+            <span className="rounded-full border border-borde px-3 py-1 text-sm text-tinta-suave">
+              {nombreOpcion(plan, item.planes)}
+            </span>
           )}
-          <button
-            type="button"
-            onClick={alQuitar}
-            aria-label={`Quitar ${nombre} del carrito`}
-            className="inline-flex items-center gap-1.5 px-1 py-1.5 text-[0.8rem] text-tinta-suave hover:text-peligro"
-          >
-            <Trash2 className="size-4" aria-hidden="true" /> Quitar
-          </button>
+          {combo && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-exito/15 px-2.5 py-1 text-xs font-semibold text-exito">
+              <Sparkles className="size-3" aria-hidden="true" />
+              Combo {nombreCombo} −{formatearMonto(combo.descuentoCombo, moneda)}
+            </span>
+          )}
+          {descuento && (
+            <span className="inline-flex items-center rounded-full bg-exito/15 px-2.5 py-1 text-xs font-semibold text-exito">
+              Cupón −{formatearMonto(descuento, moneda)}
+            </span>
+          )}
         </div>
+      </div>
+
+      <div className="col-start-2 flex items-end justify-between gap-3 sm:col-start-3 sm:grid sm:justify-items-end sm:gap-2 sm:text-right">
+        <div className="grid tabular-nums sm:justify-items-end">
+          {cotizando ? (
+            <>
+              <Esqueleto ancho="w-24" />
+              <span className="sr-only">Calculando el precio</span>
+            </>
+          ) : linea ? (
+            <>
+              {rebajado && (
+                <s className="text-xs text-tinta-tenue">{formatearMonto(linea.subtotal, moneda)}</s>
+              )}
+              <strong className="font-titulo text-xl font-extrabold whitespace-nowrap">
+                {formatearMonto(linea.total, moneda)}
+              </strong>
+              {moneda !== 'USD' && (
+                <small className="text-xs text-tinta-suave">
+                  {formatearMonto(linea.totalUsd, 'USD')}
+                </small>
+              )}
+            </>
+          ) : (
+            <>
+              <strong className="font-titulo text-xl font-extrabold whitespace-nowrap text-tinta-suave">
+                {precioTexto(plan, moneda) ?? 'Sin precio'}
+              </strong>
+              <small className="text-xs text-tinta-tenue">Precio de catálogo</small>
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={alQuitar}
+          aria-label={`Quitar ${nombre} del carrito`}
+          className="inline-flex size-9 items-center justify-center rounded-full border border-borde text-tinta-suave transition-colors hover:border-peligro/50 hover:bg-peligro/10 hover:text-peligro"
+        >
+          <Trash2 className="size-4" aria-hidden="true" />
+        </button>
       </div>
     </li>
   );
