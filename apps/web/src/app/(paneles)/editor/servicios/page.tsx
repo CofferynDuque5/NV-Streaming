@@ -1,4 +1,5 @@
 import {
+  aspectoServicio,
   INFO_CATEGORIA,
   type PlanPublico,
   type ProveedorPublico,
@@ -10,6 +11,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NuevoServicio } from '@/componentes/admin/editor-vitrina';
 import { CampoBuscarServidor } from '@/componentes/admin/buscar-servicios';
+import { ArteServicio } from '@/componentes/tienda/arte';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { leerApi } from '@/lib/api-servidor';
@@ -80,6 +82,7 @@ export default async function Servicios({
               ? Math.min(...enVenta.map((p) => Number(p.precioUsd)))
               : null;
             const v = s.vitrina;
+            const aspecto = aspectoServicio(s.slug, s.categoria, null);
             return (
               <li key={s.id}>
                 <Link
@@ -90,7 +93,12 @@ export default async function Servicios({
                     !s.activo && 'opacity-60',
                   )}
                 >
-                  <div className="relative grid aspect-[16/9] place-items-center overflow-hidden bg-hundida">
+                  <div
+                    className="relative grid aspect-[16/9] place-items-center overflow-hidden bg-hundida"
+                    style={{
+                      backgroundImage: `radial-gradient(circle at 50% 120%, ${aspecto.color}55, transparent 70%)`,
+                    }}
+                  >
                     {v.portadaId && (
                       <img
                         src={`/api/v1/sitio/publico/medios/${v.portadaId}`}
@@ -108,9 +116,15 @@ export default async function Servicios({
                         )}
                       />
                     ) : (
-                      <span className="relative font-titulo text-4xl font-extrabold text-tinta-suave">
-                        {s.nombre.slice(0, 1)}
-                      </span>
+                      <div className="absolute inset-x-0 top-[8%] flex h-[84%] justify-center transition-transform duration-500 group-hover:-translate-y-1">
+                        <ArteServicio
+                          arte={aspecto.arte}
+                          nombre={s.nombre}
+                          categoria={s.categoria}
+                          color={aspecto.color}
+                          className="h-full w-auto"
+                        />
+                      </div>
                     )}
                     <span className="absolute top-2.5 left-2.5 flex gap-1.5">
                       {v.destacado && (

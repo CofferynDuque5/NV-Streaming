@@ -1,4 +1,5 @@
 import {
+  aspectoServicio,
   type ComentarioEquipo,
   INFO_CATEGORIA,
   type PlanPublico,
@@ -24,6 +25,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FormularioServicio, NuevoPlan } from '@/componentes/admin/catalogo';
+import { ArteServicio } from '@/componentes/tienda/arte';
 import { PlanesServicio } from '@/componentes/admin/editor-servicio';
 import {
   CarteleraServicio,
@@ -294,9 +296,12 @@ export default async function EditarServicio({
                   )}
                 />
               ) : (
-                <span className="grid size-16 shrink-0 place-items-center rounded-2xl border border-borde bg-hundida text-xl font-bold text-tinta-suave">
-                  {servicio.nombre.slice(0, 1)}
-                </span>
+                <ArteServicio
+                  {...aspectoServicio(servicio.slug, servicio.categoria, null)}
+                  nombre={servicio.nombre}
+                  categoria={servicio.categoria}
+                  className="h-24 w-auto shrink-0"
+                />
               )}
               <div className="grid min-w-0 gap-1">
                 <b className="truncate text-lg">{servicio.nombre}</b>
