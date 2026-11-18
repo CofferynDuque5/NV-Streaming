@@ -317,6 +317,8 @@ model Cliente {
   estado               EstadoCliente @default(activo)
   /// Vendedor responsable de la cuenta.
   asignadoAId          String?       @map("asignado_a_id") @db.Uuid
+  /// Quien trajo al cliente (revendedor o vendedor), como en el Gestor. Texto libre para agrupar y filtrar.
+  responsable          String?       @db.VarChar(60)
   origen               String        @default("equipo") @db.VarChar(30)
   /// El cliente puede dejar de recibir recordatorios (los avisos de pago y suspensión siguen llegando).
   recibirRecordatorios Boolean       @default(true) @map("recibir_recordatorios")
@@ -353,6 +355,7 @@ model Cliente {
   @@index([asignadoAId])
   @@index([revendedorId])
   @@index([correo])
+  @@index([responsable])
   @@map("clientes")
 }
 

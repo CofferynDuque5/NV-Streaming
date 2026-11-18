@@ -5,7 +5,7 @@ import { entrarEquipo, reiniciarLimiteIngreso } from './ayudas';
 /** Plataformas como en el Gestor: la grilla, la página de una plataforma y agregar desde un lugar libre. */
 test.beforeAll(() => reiniciarLimiteIngreso());
 
-test('abre una plataforma, ve sus cuentas en tarjetas y agrega un cliente a un perfil libre', async ({
+test('abre una plataforma, ve sus cuentas en tarjetas y agrega un cliente en 4 pasos con el contrato', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -41,30 +41,59 @@ test('abre una plataforma, ve sus cuentas en tarjetas y agrega un cliente a un p
     'true',
   );
 
+  // La tarjeta muestra el correo completo, como en el Gestor.
   const tarjeta = page
     .getByRole('listitem')
-    .filter({ hasText: 'pl•••@example.com' })
+    .filter({ hasText: correo })
     .filter({ hasText: '0/3' })
     .first();
   await expect(tarjeta).toBeVisible();
-  await tarjeta.getByRole('button', { name: /^Perfil 1:/ }).click();
-  await page.getByRole('button', { name: 'Agregar cliente a Perfil 1' }).click();
-  const alta = page.getByRole('dialog', { name: 'Agregar cliente a Perfil 1' });
-  await alta.getByRole('button', { name: 'Siguiente' }).click();
-  await alta.getByText('Cliente nuevo').click();
-  await alta.getByLabel('Nombre').fill(nombre);
-  await alta.getByRole('button', { name: 'Siguiente' }).click();
-  await alta.getByRole('button', { name: 'Dar de alta' }).click();
-  await expect(alta).toBeHidden();
-  await expect(page.getByRole('dialog', { name: `Mensaje para ${nombre}` })).toBeVisible();
-  await page
-    .getByRole('dialog', { name: `Mensaje para ${nombre}` })
-    .getByRole('button', { name: 'Cancelar' })
-    .click();
+  await expect(tarjeta.getByRole('button', { name: 'Ver la contraseña' })).toBeVisible();
 
-  // Aparece en la pestaña de clientes de la plataforma.
-  await page.keyboard.press('Escape');
-  await page.getByRole('tab', { name: /Clientes/ }).click();
+  // Tocar el perfil libre abre «Agregar cliente» directo en el paso 2.
+  await tarjeta.getByRole('button', { name: /^Perfil 1:/ }).click();
+  const alta = page.getByRole('dialog', { name: `Agregar cliente — ${plan.servicio.nombre}` });
+  await expect(alta.getByRole('heading', { name: 'Datos del cliente' })).toBeVisible();
+  await expect(alta.getByLabel('Así queda el contrato')).toContainText(correo);
+  await alta.getByLabel('Nombre del cliente').fill(nombre);
+  await alta.getByLabel('Responsable').fill(`Revendedor ${sufijo}`);
+  await alta.getByLabel('Número WhatsApp').fill('584121234567');
+  await alta.getByRole('button', { name: 'Siguiente' }).click();
+
+  await expect(alta.getByRole('heading', { name: 'Plazo y precio' })).toBeVisible();
+  await alta.getByRole('button', { name: '3 meses' }).click();
+  await expect(alta.getByText(/Vence el/)).toBeVisible();
+  await alta.getByRole('button', { name: 'Guardar' }).click();
+
+  await expect(alta.getByText('Cliente agregado')).toBeVisible();
+  const contrato = alta.getByRole('textbox', { name: 'Contrato' });
+  await expect(contrato).toHaveValue(/CONTRATO – FACTURA DE SERVICIO/);
+  await expect(contrato).toHaveValue(new RegExp(correo.replace(/\./g, '\\.')));
+  await expect(alta.getByRole('link', { name: 'Enviar por WhatsApp' })).toHaveAttribute(
+    'href',
+    /^https:\/\/wa\.me\/584121234567\?text=/,
+  );
+
+  // «Agregar otro» vuelve al paso 1 (dónde va el cliente).
+  await alta.getByRole('button', { name: 'Agregar otro' }).click();
+  await expect(alta.getByRole('heading', { name: '¿Dónde va el cliente?' })).toBeVisible();
+  await alta.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(alta).toBeHidden();
+
+  // La tarjeta ya muestra al cliente con su responsable.
+  const llena = page
+    .getByRole('listitem')
+    .filter({ hasText: correo })
+    .filter({ hasText: '1/3' })
+    .first();
+  await expect(llena).toContainText(nombre);
+  await expect(llena).toContainText(`Revendedor ${sufijo}`);
+
+  // Vista Clientes: grilla de plataformas arriba y la lista con responsable.
+  await page.getByRole('button', { name: 'Ver clientes' }).click();
   await page.getByRole('searchbox').fill(nombre);
-  await expect(page.getByRole('link', { name: nombre }).first()).toBeVisible();
+  const fila = page.getByRole('listitem').filter({ hasText: nombre }).first();
+  await expect(fila).toContainText(`Revendedor ${sufijo}`);
+  await expect(fila).toContainText(correo);
+  await expect(fila.getByRole('link', { name: 'Renovar' })).toBeVisible();
 });

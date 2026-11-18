@@ -74,8 +74,12 @@ export class CuentasController {
   /** Una plataforma con sus cuentas completas e individuales, como en el Gestor. */
   @Get('plataforma/:servicioId')
   @RequierePermiso('cuentas.ver')
-  verPlataforma(@Param('servicioId', idValido) servicioId: string) {
-    return this.cuentas.plataforma(servicioId);
+  verPlataforma(
+    @Auth() auth: ContextoAuth,
+    @Param('servicioId', idValido) servicioId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.plataforma(auth, servicioId, cliente);
   }
 
   /** Cuentas sin credenciales: el correo va como pista. */

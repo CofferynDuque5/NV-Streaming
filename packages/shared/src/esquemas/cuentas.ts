@@ -193,6 +193,7 @@ export const altaPerfilSchema = z
         aceptaWhatsapp: true,
         telegram: true,
         monedaPreferida: true,
+        responsable: true,
       })
       .optional(),
     planId: uuidSchema,

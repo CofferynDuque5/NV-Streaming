@@ -48,6 +48,13 @@ export class ClientesController {
     return this.clientes.crear(auth, cuerpo, cliente);
   }
 
+  /** Responsables ya usados, para autocompletar. */
+  @Get('responsables')
+  @RequierePermiso('clientes.ver')
+  responsables(@Auth() auth: ContextoAuth) {
+    return this.clientes.responsables(auth);
+  }
+
   @Get(':id')
   @RequierePermiso('clientes.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {

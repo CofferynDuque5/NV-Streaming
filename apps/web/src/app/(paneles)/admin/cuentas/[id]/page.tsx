@@ -222,7 +222,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
         {puedeGestionar && c.modo === 'completa' && <PasarAIndividuales cuentaId={c.id} />}
       </Tarjeta>
 
-      <Tarjeta>
+      <Tarjeta id="pagos" className="scroll-mt-24">
         <CabeceraTarjeta
           titulo="Pagos al proveedor"
           descripcion="Lo que pagaste por esta cuenta. Suma en los costos del balance."

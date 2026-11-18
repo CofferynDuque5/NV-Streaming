@@ -223,13 +223,22 @@ function leerDatosPerfiles(d: FormData, cantidad: number) {
 export function NuevaCuenta({
   servicios,
   enEspera = false,
+  servicioFijo,
+  modoInicial = 'perfiles',
+  etiqueta,
 }: {
   servicios: { id: string; nombre: string }[];
   /** Guardarla como «sin anotar»: en espera, sin asignar todavía. */
   enEspera?: boolean;
+  /** Desde una plataforma: el servicio ya está elegido. */
+  servicioFijo?: { id: string; nombre: string };
+  /** Por perfiles (cuenta completa del Gestor) o un solo cupo (individual). */
+  modoInicial?: ModoCuenta;
+  /** Texto del botón que abre el formulario. */
+  etiqueta?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [modo, setModo] = useState<ModoCuenta>('perfiles');
+  const [modo, setModo] = useState<ModoCuenta>(modoInicial);
   const [cantidad, setCantidad] = useState(5);
   const [verClave, setVerClave] = useState(false);
   const [creada, setCreada] = useState<string | null>(null);
@@ -252,7 +261,7 @@ export function NuevaCuenta({
     if (r) {
       setCreada(r.datos.pista);
       formulario.reset();
-      setModo('perfiles');
+      setModo(modoInicial);
       setCantidad(5);
       setVerClave(false);
     }
@@ -260,8 +269,14 @@ export function NuevaCuenta({
 
   if (!abierto) {
     return (
-      <Boton onClick={() => setAbierto(true)} icono={<Plus className="size-4" />}>
-        {enEspera ? 'Agregar cuenta sin anotar' : 'Nueva cuenta'}
+      <Boton
+        onClick={() => {
+          setModo(modoInicial);
+          setAbierto(true);
+        }}
+        icono={<Plus className="size-4" />}
+      >
+        {etiqueta ?? (enEspera ? 'Agregar cuenta sin anotar' : 'Nueva cuenta')}
       </Boton>
     );
   }
@@ -281,8 +296,14 @@ export function NuevaCuenta({
     >
       <form onSubmit={enviar} className="grid gap-5" noValidate autoComplete="off">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Selector etiqueta="Servicio" name="servicioId" required error={campos.servicioId}>
-            <option value="">Elige un servicio</option>
+          <Selector
+            etiqueta="Servicio"
+            name="servicioId"
+            required
+            error={campos.servicioId}
+            defaultValue={servicioFijo?.id}
+          >
+            {!servicioFijo && <option value="">Elige un servicio</option>}
             {servicios.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre}
@@ -698,7 +719,13 @@ function AsignarPerfil({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilC
 
 /** Acciones de un perfil: asignar, liberar, bloquear y cambiar nombre o PIN. */
 /** Arma el mensaje con los datos del perfil. Nada se envía solo: se copia o se abre la app. */
-function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCuentaPublico }) {
+export function ArmarMensaje({
+  cuentaId,
+  perfil,
+}: {
+  cuentaId: string;
+  perfil: PerfilCuentaPublico;
+}) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const ids = useId();
   const [abierto, setAbierto] = useState(() => recienAsignados.has(perfil.id));

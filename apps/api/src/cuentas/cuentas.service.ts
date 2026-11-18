@@ -20,7 +20,7 @@ import type {
   ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
-import { tipoPlataforma, urlMedio } from '@nv/shared';
+import { tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
 import { fechaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -246,8 +246,16 @@ export class CuentasService {
     return { elementos: filas.map(resumen), total, pagina: f.pagina, porPagina: f.porPagina };
   }
 
-  /** Una plataforma con todas sus cuentas y quién usa cada perfil (sin secretos). */
-  async plataforma(servicioId: string): Promise<PlataformaCuentas> {
+  /**
+   * Una plataforma con todas sus cuentas y quién usa cada perfil, como en el
+   * Gestor. Con `cuentas.revelar` trae también el correo de cada cuenta (las
+   * claves y los PIN nunca): queda una entrada en la auditoría.
+   */
+  async plataforma(
+    auth: ContextoAuth,
+    servicioId: string,
+    cliente: InfoCliente,
+  ): Promise<PlataformaCuentas> {
     const servicio = await this.prisma.servicio.findUnique({
       where: { id: servicioId },
       select: { id: true, nombre: true, imagenId: true },
@@ -258,6 +266,53 @@ export class CuentasService {
       include: INCLUIR_DETALLE,
       orderBy: [{ facturaEn: { sort: 'asc', nulls: 'last' } }, { creadoEn: 'asc' }],
     });
+    const cuentas = filas.map(detalle);
+    const ids = [
+      ...new Set(
+        cuentas.flatMap((c) =>
+          c.listaPerfiles.flatMap((p) => (p.asignacion ? [p.asignacion.cliente.id] : [])),
+        ),
+      ),
+    ];
+    const datosClientes = ids.length
+      ? await this.prisma.cliente.findMany({
+          where: { id: { in: ids } },
+          select: {
+            id: true,
+            correo: true,
+            responsable: true,
+            contactos: {
+              where: { tipo: { in: ['whatsapp', 'telegram'] } },
+              select: { tipo: true, valor: true },
+              orderBy: { creadoEn: 'desc' },
+            },
+          },
+        })
+      : [];
+    const clientes: PlataformaCuentas['clientes'] = {};
+    for (const c of datosClientes) {
+      clientes[c.id] = {
+        responsable: c.responsable,
+        whatsapp: c.contactos.find((k) => k.tipo === 'whatsapp')?.valor ?? null,
+        telegram: c.contactos.find((k) => k.tipo === 'telegram')?.valor ?? null,
+        correo: c.correo,
+      };
+    }
+    let correos: PlataformaCuentas['correos'] = null;
+    if (tienePermiso(auth.usuario.rol, 'cuentas.revelar') && filas.length > 0) {
+      correos = {};
+      for (const f of filas) {
+        correos[f.id] = this.cifrador.descifrar(f.usuarioCifrado, contextoUsuario(f.id));
+      }
+      await this.auditoria.registrar({
+        actorId: auth.usuario.id,
+        accion: 'cuenta.correos_vistos',
+        entidad: 'servicio',
+        entidadId: servicio.id,
+        despues: { cuentas: filas.length },
+        cliente,
+      });
+    }
     return {
       servicio: {
         id: servicio.id,
@@ -265,7 +320,9 @@ export class CuentasService {
         logoUrl: servicio.imagenId ? urlMedio(servicio.imagenId) : null,
       },
       tipo: tipoPlataforma(servicio.nombre),
-      cuentas: filas.map(detalle),
+      cuentas,
+      correos,
+      clientes,
       hoy: fechaCaracas(new Date()),
     };
   }

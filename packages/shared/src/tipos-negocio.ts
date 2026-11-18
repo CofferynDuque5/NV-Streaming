@@ -48,6 +48,8 @@ export interface ClienteResumen {
   monedaPreferida: Moneda;
   estado: EstadoCliente;
   asignadoA: Referencia | null;
+  /** Quien trajo al cliente (revendedor), como en el Gestor. */
+  responsable: string | null;
   tieneAcceso: boolean;
   suscripcionesActivas: number;
   creadoEn: string;
