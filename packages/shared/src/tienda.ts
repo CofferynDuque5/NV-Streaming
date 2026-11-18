@@ -56,6 +56,11 @@ export const ARTE_SERVICIOS = {
   mubi: '#93c5fd',
   dazn: '#f7ff1a',
   vpn: '#38bdf8',
+  nordvpn: '#4687ff',
+  expressvpn: '#da3940',
+  surfshark: '#1ebfbf',
+  protonvpn: '#6d4aff',
+  windscribe: '#5eead4',
 } as const;
 export type ClaveArte = keyof typeof ARTE_SERVICIOS;
 
@@ -88,10 +93,7 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   win10: 'windows',
   googlegemini: 'gemini',
   googleaipro: 'gemini',
-  nordvpn: 'vpn',
-  expressvpn: 'vpn',
-  surfshark: 'vpn',
-  protonvpn: 'vpn',
+  windcribe: 'windscribe',
   cyberghost: 'vpn',
 };
 

@@ -105,8 +105,13 @@ describe('tienda: imágenes de los servicios', () => {
     ['delta-force', 'deltaforce'],
     ['dazn-premium', 'dazn'],
     ['vpn-premium', 'vpn'],
-    ['nord-vpn', 'vpn'],
-    ['express-vpn', 'vpn'],
+    ['nord-vpn', 'nordvpn'],
+    ['express-vpn', 'expressvpn'],
+    ['surfshark-one', 'surfshark'],
+    ['proton-vpn-plus', 'protonvpn'],
+    ['windscribe-pro', 'windscribe'],
+    ['windcribe', 'windscribe'],
+    ['cyberghost', 'vpn'],
   ])('%s usa la tarjeta %s', (slug, clave) => {
     expect(claveArte(slug)).toBe(clave);
   });
