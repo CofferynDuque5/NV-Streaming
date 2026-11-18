@@ -15,10 +15,13 @@ import type {
   PaginaCuentas,
   PerfilCuentaPublico,
   PerfilPorReponer,
+  PlataformaCuentas,
   ReponerPerfilEntrada,
   ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
+import { tipoPlataforma, urlMedio } from '@nv/shared';
+import { fechaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { Cifrador } from '../comun/cripto.js';
@@ -241,6 +244,30 @@ export class CuentasService {
       }),
     ]);
     return { elementos: filas.map(resumen), total, pagina: f.pagina, porPagina: f.porPagina };
+  }
+
+  /** Una plataforma con todas sus cuentas y quién usa cada perfil (sin secretos). */
+  async plataforma(servicioId: string): Promise<PlataformaCuentas> {
+    const servicio = await this.prisma.servicio.findUnique({
+      where: { id: servicioId },
+      select: { id: true, nombre: true, imagenId: true },
+    });
+    if (!servicio) throw Errores.noEncontrado('La plataforma');
+    const filas = await this.prisma.cuentaServicio.findMany({
+      where: { servicioId, estado: { not: 'retirada' } },
+      include: INCLUIR_DETALLE,
+      orderBy: [{ facturaEn: { sort: 'asc', nulls: 'last' } }, { creadoEn: 'asc' }],
+    });
+    return {
+      servicio: {
+        id: servicio.id,
+        nombre: servicio.nombre,
+        logoUrl: servicio.imagenId ? urlMedio(servicio.imagenId) : null,
+      },
+      tipo: tipoPlataforma(servicio.nombre),
+      cuentas: filas.map(detalle),
+      hoy: fechaCaracas(new Date()),
+    };
   }
 
   async ver(id: string, tx: Tx | PrismaClient = this.prisma): Promise<CuentaServicioDetalle> {

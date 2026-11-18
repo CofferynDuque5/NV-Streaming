@@ -71,6 +71,13 @@ export class CuentasController {
     return this.inventario.ver(retiradas === 'true');
   }
 
+  /** Una plataforma con sus cuentas completas e individuales, como en el Gestor. */
+  @Get('plataforma/:servicioId')
+  @RequierePermiso('cuentas.ver')
+  verPlataforma(@Param('servicioId', idValido) servicioId: string) {
+    return this.cuentas.plataforma(servicioId);
+  }
+
   /** Cuentas sin credenciales: el correo va como pista. */
   @Get()
   @RequierePermiso('cuentas.ver')

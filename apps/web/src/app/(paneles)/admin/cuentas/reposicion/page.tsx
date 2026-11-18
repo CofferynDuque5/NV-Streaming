@@ -1,5 +1,5 @@
 import type { PerfilPorReponer } from '@nv/shared';
-import { Boxes } from 'lucide-react';
+import { Boxes, History } from 'lucide-react';
 import type { Metadata } from 'next';
 import { ColaReposicion } from '@/componentes/admin/reposicion';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -20,10 +20,16 @@ export default async function Reposicion() {
         titulo="Caídas y reposición"
         descripcion="Clientes con perfil en una cuenta caída. Pásalos a un perfil libre de otra cuenta y, si quieres, súmales los días que estuvieron sin servicio."
         acciones={
-          <BotonEnlace href="/admin/cuentas?estado=caida" variante="secundario">
-            <Boxes className="size-4" aria-hidden="true" />
-            Ver cuentas caídas
-          </BotonEnlace>
+          <div className="flex flex-wrap gap-2">
+            <BotonEnlace href="/admin/cuentas?estado=caida" variante="secundario">
+              <Boxes className="size-4" aria-hidden="true" />
+              Ver cuentas caídas
+            </BotonEnlace>
+            <BotonEnlace href="/admin/cuentas/caidas" variante="fantasma">
+              <History className="size-4" aria-hidden="true" />
+              Historial de caídas
+            </BotonEnlace>
+          </div>
         }
       />
       {!datos ? (

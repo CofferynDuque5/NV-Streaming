@@ -659,4 +659,22 @@ describe('cuentas de servicio', () => {
     const fila = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: primero.id } });
     expect(fila.estado).toBe('libre');
   });
+
+  it('muestra una plataforma con sus cuentas (sin las retiradas) y su tipo', async () => {
+    const e = await escenario();
+    const r = await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`);
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toMatchObject({ servicio: { id: e.servicioId }, tipo: 'perfiles' });
+    expect(r.cuerpo.cuentas).toHaveLength(1);
+    expect(r.cuerpo.cuentas[0].listaPerfiles).toHaveLength(3);
+    expect(JSON.stringify(r.cuerpo)).not.toContain(CLAVE);
+    await ctx.prisma.cuentaServicio.update({
+      where: { id: e.cuenta.id },
+      data: { estado: 'retirada' },
+    });
+    expect(
+      (await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`)).cuerpo.cuentas,
+    ).toHaveLength(0);
+    expect((await e.cliente.get(`/cuentas/plataforma/${e.servicioId}`)).estado).toBe(403);
+  });
 });

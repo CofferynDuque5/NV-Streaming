@@ -421,3 +421,13 @@ export interface ResultadoAltaPerfil {
   /** Factura pagada de la venta (null si no se indicó cómo pagó). */
   facturaId: string | null;
 }
+
+/** Una plataforma (servicio) con todas sus cuentas, como en el Gestor. */
+export interface PlataformaCuentas {
+  servicio: Referencia & { logoUrl: string | null };
+  tipo: TipoPlataforma;
+  /** Activas, caídas y sin anotar (las retiradas no). */
+  cuentas: CuentaServicioDetalle[];
+  /** Fecha de hoy en Venezuela (AAAA-MM-DD). */
+  hoy: string;
+}
