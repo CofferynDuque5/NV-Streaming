@@ -54,6 +54,8 @@ export const ARTE_SERVICIOS = {
   canva: '#00c4cc',
   gemini: '#818cf8',
   mubi: '#93c5fd',
+  dazn: '#f7ff1a',
+  vpn: '#38bdf8',
 } as const;
 export type ClaveArte = keyof typeof ARTE_SERVICIOS;
 
@@ -86,6 +88,11 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   win10: 'windows',
   googlegemini: 'gemini',
   googleaipro: 'gemini',
+  nordvpn: 'vpn',
+  expressvpn: 'vpn',
+  surfshark: 'vpn',
+  protonvpn: 'vpn',
+  cyberghost: 'vpn',
 };
 
 /** Color de cada universo (categoría) de la tienda. */

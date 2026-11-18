@@ -103,6 +103,10 @@ describe('tienda: imágenes de los servicios', () => {
     ['brawl-stars', 'brawlstars'],
     ['blood-strike', 'bloodstrike'],
     ['delta-force', 'deltaforce'],
+    ['dazn-premium', 'dazn'],
+    ['vpn-premium', 'vpn'],
+    ['nord-vpn', 'vpn'],
+    ['express-vpn', 'vpn'],
   ])('%s usa la tarjeta %s', (slug, clave) => {
     expect(claveArte(slug)).toBe(clave);
   });
