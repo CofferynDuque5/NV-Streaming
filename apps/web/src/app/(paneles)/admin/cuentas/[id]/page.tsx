@@ -45,6 +45,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const puedeGestionar = sesion.permisos.includes('cuentas.gestionar');
   const puedeRevelar = sesion.permisos.includes('cuentas.revelar');
+  const puedeAlta = sesion.permisos.includes('suscripciones.crear');
   const verClientes = sesion.permisos.includes('clientes.ver');
 
   const [r, rp] = await Promise.all([
@@ -193,6 +194,16 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
                         cuentaActiva={c.estado === 'activa'}
                         puedeRevelar={puedeRevelar}
                         tipo={tipo}
+                        alta={
+                          puedeAlta
+                            ? {
+                                servicioId: c.servicio.id,
+                                facturaEn: c.facturaEn,
+                                puedeCobrar: sesion.permisos.includes('pagos.gestionar'),
+                                puedeCrearCliente: sesion.permisos.includes('clientes.gestionar'),
+                              }
+                            : undefined
+                        }
                         otrosActivos={Math.max(
                           0,
                           vigentes -

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  altaPerfilSchema,
   asignarPerfilSchema,
   avisarCuentaSchema,
   liberarPerfilSchema,
@@ -39,6 +40,7 @@ import {
 } from '../comun/contexto.js';
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
+import { AltaPerfilService } from './alta-perfil.service.js';
 import { CuentasService } from './cuentas.service.js';
 import { ImportarCuentasService } from './importar-cuentas.service.js';
 import { ImportarGestorService } from './importar-gestor.service.js';
@@ -59,6 +61,7 @@ export class CuentasController {
     @Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService,
     @Inject(InventarioCuentasService) private readonly inventario: InventarioCuentasService,
     @Inject(ReporteCaidasService) private readonly caidas: ReporteCaidasService,
+    @Inject(AltaPerfilService) private readonly altas: AltaPerfilService,
   ) {}
 
   /** Todas las cuentas con sus perfiles y quién los usa (sin secretos). */
@@ -191,6 +194,20 @@ export class CuentasController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.cuentas.asignar(auth, id, perfilId, cuerpo.suscripcionId, cliente);
+  }
+
+  /** Alta en 3 pasos desde un perfil libre (como en el Gestor). */
+  @Post(':id/perfiles/:perfilId/alta')
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(altaPerfilSchema)
+  alta(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(altaPerfilSchema)) cuerpo: z.output<typeof altaPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.altas.alta(auth, id, perfilId, cuerpo, cliente);
   }
 
   @Post(':id/perfiles/:perfilId/liberar')

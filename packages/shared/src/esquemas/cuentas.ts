@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { paisSchema } from './clientes.js';
+import { clienteSchema, paisSchema } from './clientes.js';
 import { paginacionSchema, uuidSchema } from './comunes.js';
 import { MAX_FILAS_IMPORTAR } from '../importar-cuentas.js';
-import { montoOCeroSchema } from './dinero.js';
+import { monedaSchema, montoOCeroSchema } from './dinero.js';
 
 /** `en_espera`: comprada pero sin anotar (geobloqueo, liberación): todavía no se asigna. */
 export const ESTADOS_CUENTA_SERVICIO = ['activa', 'caida', 'retirada', 'en_espera'] as const;
@@ -173,6 +173,59 @@ export const editarPerfilSchema = z
 export type EditarPerfilEntrada = z.infer<typeof editarPerfilSchema>;
 
 export const asignarPerfilSchema = z.object({ suscripcionId: uuidSchema });
+
+/** Plazos rápidos del alta (como en el Gestor). */
+export const MESES_ALTA = [1, 2, 3, 6, 12] as const;
+
+/**
+ * Alta desde un perfil libre, en 3 pasos como en el Gestor: el lugar (y el
+ * correo propio del miembro en un plan familiar), el cliente (uno que ya está
+ * o uno nuevo) y el plazo con su precio. Con «Pagó con» la venta entra en Caja.
+ */
+export const altaPerfilSchema = z
+  .object({
+    clienteId: uuidSchema.optional(),
+    clienteNuevo: clienteSchema
+      .pick({
+        nombre: true,
+        correo: true,
+        whatsapp: true,
+        aceptaWhatsapp: true,
+        telegram: true,
+        monedaPreferida: true,
+      })
+      .optional(),
+    planId: uuidSchema,
+    /** Meses desde hoy, o bien `vence` con la fecha exacta. */
+    meses: z.coerce.number().int().min(1).max(MAX_CICLO_MESES).optional(),
+    vence: fechaSchema.optional(),
+    /** Por mes cuando se eligen meses; el total cuando se da una fecha. */
+    precio: montoOCeroSchema,
+    moneda: monedaSchema,
+    /** Método con el que pagó. Sin él, la venta no entra en Caja. */
+    metodoCobroId: uuidSchema.optional(),
+    referenciaExterna: z
+      .string()
+      .trim()
+      .max(80, 'La referencia es demasiado larga.')
+      .regex(/^[\w\s#./-]*$/, 'La referencia tiene caracteres no válidos.')
+      .optional(),
+    usuarioMiembro: usuarioCuentaSchema.optional(),
+    claveMiembro: claveCuentaSchema.optional(),
+  })
+  .refine((o) => (o.clienteId ? 1 : 0) + (o.clienteNuevo ? 1 : 0) === 1, {
+    message: 'Elige un cliente o escribe los datos de uno nuevo.',
+    path: ['clienteId'],
+  })
+  .refine((o) => (o.meses ? 1 : 0) + (o.vence ? 1 : 0) === 1, {
+    message: 'Elige los meses o la fecha de vencimiento.',
+    path: ['meses'],
+  })
+  .refine((o) => !o.vence || new Date(`${o.vence}T23:59:59Z`).getTime() > Date.now(), {
+    message: 'La fecha de vencimiento ya pasó.',
+    path: ['vence'],
+  });
+export type AltaPerfilEntrada = z.infer<typeof altaPerfilSchema>;
 
 /**
  * Cortar (liberar) un perfil. Con clave nueva se guarda en la cuenta (hay que

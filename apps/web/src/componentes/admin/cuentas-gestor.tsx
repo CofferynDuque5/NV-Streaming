@@ -3,10 +3,19 @@
 import {
   type AvisoCuenta,
   type AvisosCuenta,
+  type ClienteResumen,
   type DestinoMover,
+  esTitular,
+  formatearMonto,
   generarClave,
   generarPin,
+  MESES_ALTA,
+  type MetodoCobroPublico,
+  type Moneda,
+  MONEDAS,
   type PerfilCuentaPublico,
+  type PlanPublico,
+  type ResultadoAltaPerfil,
   TEXTOS_PLATAFORMA,
   type TipoPlataforma,
 } from '@nv/shared';
@@ -18,6 +27,7 @@ import {
   MessageCircle,
   Scissors,
   Send,
+  UserPlus,
   Wand2,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -27,7 +37,7 @@ import { Boton } from '@/componentes/ui/boton';
 import { Insignia } from '@/componentes/ui/insignia';
 import { useRouter } from 'next/navigation';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
-import { formatearDia } from '@/lib/formato';
+import { claveDia, formatearDia } from '@/lib/formato';
 import { useAccion } from './piezas';
 
 /** Pide abrir «Avisar datos» de una cuenta (después de cambiar la clave o de un corte). */
@@ -785,6 +795,638 @@ export function AvisarDatos({ cuentaId, asignados }: { cuentaId: string; asignad
               </div>
             </>
           )}
+        </Dialogo>
+      )}
+    </>
+  );
+}
+
+/* ──────────────────────── Agregar cliente (alta) ──────────────────────── */
+
+/** Lo que el alta necesita de la cuenta. */
+export interface DatosAlta {
+  servicioId: string;
+  /** Próximo cobro de la cuenta («AAAA-MM-DD»): avisa si vence antes que el cliente. */
+  facturaEn: string | null;
+  /** Puede registrar el pago (entra en Caja). */
+  puedeCobrar: boolean;
+  /** Puede crear clientes nuevos. */
+  puedeCrearCliente: boolean;
+}
+
+type Canal = 'whatsapp' | 'telegram' | 'correo';
+const PASOS_ALTA = ['Lugar', 'Cliente', 'Plazo y precio'] as const;
+
+/** «AAAA-MM-DD» más n meses (sin pasar del último día del mes). */
+function sumarMeses(dia: string, n: number): string {
+  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
+  const base = new Date(Date.UTC(a, m - 1 + n, 1));
+  const ultimo = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0)).getUTCDate();
+  base.setUTCDate(Math.min(d, ultimo));
+  return base.toISOString().slice(0, 10);
+}
+
+/** Precio de un mes del plan en una moneda (los planes de días se pasan a 30 días). */
+function precioMes(plan: PlanPublico, moneda: Moneda): string {
+  const p = plan.precios[moneda]?.precio ?? (moneda === 'USD' ? plan.precioUsd : null);
+  if (!p) return '';
+  const meses = plan.duracionUnidad === 'mes' ? plan.duracionCantidad : plan.duracionCantidad / 30;
+  return (Number(p) / Math.max(meses, 1 / 30)).toFixed(2);
+}
+
+/**
+ * Agregar un cliente a un lugar libre en 3 pasos, como en el Gestor: el lugar
+ * (y el correo del miembro si se une a un plan familiar), el cliente (uno que
+ * ya está o uno nuevo con su canal) y el plazo con el precio. Con «Pagó con»
+ * la venta entra en Caja; al terminar se abre el mensaje con los datos.
+ */
+export function AltaPerfil({
+  cuentaId,
+  perfil,
+  tipo,
+  datos,
+}: {
+  cuentaId: string;
+  perfil: PerfilCuentaPublico;
+  tipo: TipoPlataforma;
+  datos: DatosAlta;
+}) {
+  const textos = TEXTOS_PLATAFORMA[tipo];
+  const conMiembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero);
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const [paso, setPaso] = useState(0);
+  const [hoy, setHoy] = useState('');
+  // Paso 1
+  const [lugar, setLugar] = useState('alquiler');
+  const [usuarioMiembro, setUsuarioMiembro] = useState('');
+  const [claveMiembro, setClaveMiembro] = useState('');
+  // Paso 2
+  const [modoCliente, setModoCliente] = useState('existente');
+  const [busqueda, setBusqueda] = useState('');
+  const [clientes, setClientes] = useState<ClienteResumen[] | null>(null);
+  const [clienteElegido, setClienteElegido] = useState<ClienteResumen | null>(null);
+  const [nombre, setNombre] = useState('');
+  const [canal, setCanal] = useState<Canal>('whatsapp');
+  const [contacto, setContacto] = useState('');
+  const [aceptaWhatsapp, setAceptaWhatsapp] = useState(true);
+  // Paso 3
+  const [planes, setPlanes] = useState<PlanPublico[] | null>(null);
+  const [metodos, setMetodos] = useState<MetodoCobroPublico[]>([]);
+  const [planId, setPlanId] = useState('');
+  const [plazo, setPlazo] = useState('1');
+  const [fecha, setFecha] = useState('');
+  const [moneda, setMoneda] = useState<Moneda>('USD');
+  const [precio, setPrecio] = useState('');
+  const [metodoId, setMetodoId] = useState('');
+  const [referencia, setReferencia] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const campos = erroresPorCampo(error);
+
+  const plan = planes?.find((p) => p.id === planId) ?? null;
+  const exacta = plazo === 'fecha';
+  const meses = exacta ? 1 : Number(plazo);
+  const vence = exacta ? fecha : hoy ? sumarMeses(hoy, meses) : '';
+  const total = Number(precio || 0) * meses;
+  const metodosMoneda = metodos.filter((m) => m.moneda === moneda);
+  const monedas = plan
+    ? MONEDAS.filter((m) => plan.precios[m] || m === 'USD')
+    : (['USD'] as Moneda[]);
+  const cuentaAntes = Boolean(datos.facturaEn && vence && datos.facturaEn < vence);
+
+  function elegirPlan(p: PlanPublico | undefined, m: Moneda) {
+    setPlanId(p?.id ?? '');
+    setPrecio(p ? precioMes(p, m) : '');
+  }
+
+  async function buscarClientes(texto: string) {
+    const q = new URLSearchParams({ porPagina: '8' });
+    if (texto.trim()) q.set('busqueda', texto.trim());
+    const r = await llamarApi<{ elementos: ClienteResumen[] }>('GET', `/clientes?${q}`);
+    setClientes(r.ok ? r.datos.elementos : []);
+  }
+
+  async function abrir() {
+    setAbierto(true);
+    setPaso(0);
+    setError(null);
+    setHoy(claveDia(new Date().toISOString()));
+    void buscarClientes('');
+    const [rp, rm] = await Promise.all([
+      llamarApi<PlanPublico[]>('GET', `/catalogo/planes?servicioId=${datos.servicioId}`),
+      datos.puedeCobrar
+        ? llamarApi<MetodoCobroPublico[]>('GET', '/pagos/metodos')
+        : Promise.resolve(null),
+    ]);
+    const lista = rp.ok ? rp.datos.filter((p) => p.activo && p.tipo === 'suscripcion') : [];
+    setPlanes(lista);
+    if (rm?.ok) setMetodos(rm.datos);
+    elegirPlan(lista[0], 'USD');
+  }
+
+  function cerrar() {
+    setAbierto(false);
+    setClienteElegido(null);
+    setNombre('');
+    setContacto('');
+    setUsuarioMiembro('');
+    setClaveMiembro('');
+    setReferencia('');
+    setMetodoId('');
+  }
+
+  function puedeSeguir(): string | null {
+    if (paso === 0 && conMiembro && lugar === 'plan' && !usuarioMiembro.trim()) {
+      return 'Escribe el correo con el que el cliente se une al plan.';
+    }
+    if (paso === 1) {
+      if (modoCliente === 'existente' && !clienteElegido) return 'Elige un cliente de la lista.';
+      if (modoCliente === 'nuevo' && !nombre.trim()) return 'Escribe el nombre del cliente.';
+    }
+    return null;
+  }
+
+  async function guardar() {
+    setCargando(true);
+    setError(null);
+    const valor = contacto.trim();
+    const r = await llamarApi<ResultadoAltaPerfil>(
+      'POST',
+      `/cuentas/${cuentaId}/perfiles/${perfil.id}/alta`,
+      {
+        ...(modoCliente === 'existente'
+          ? { clienteId: clienteElegido?.id }
+          : {
+              clienteNuevo: {
+                nombre: nombre.trim(),
+                ...(valor && canal === 'whatsapp' ? { whatsapp: valor, aceptaWhatsapp } : {}),
+                ...(valor && canal === 'telegram' ? { telegram: valor } : {}),
+                ...(valor && canal === 'correo' ? { correo: valor } : {}),
+              },
+            }),
+        planId,
+        ...(exacta ? { vence: fecha } : { meses }),
+        precio: precio || '0',
+        moneda,
+        ...(metodoId ? { metodoCobroId: metodoId } : {}),
+        ...(metodoId && referencia.trim() ? { referenciaExterna: referencia.trim() } : {}),
+        ...(conMiembro && lugar === 'plan'
+          ? {
+              usuarioMiembro: usuarioMiembro.trim(),
+              ...(claveMiembro ? { claveMiembro } : {}),
+            }
+          : {}),
+      },
+    );
+    setCargando(false);
+    if (!r.ok) {
+      setError(r.error);
+      const c = Object.keys(r.error.campos ?? {});
+      if (c.some((k) => k.startsWith('clienteNuevo') || k === 'clienteId')) setPaso(1);
+      else if (c.some((k) => k.includes('Miembro'))) setPaso(0);
+      return;
+    }
+    // El mensaje con los datos se abre solo al refrescar (si hay permiso para verlo).
+    recienAsignados.add(perfil.id);
+    cerrar();
+    router.refresh();
+  }
+
+  const aviso = puedeSeguir();
+  const campoClase = 'h-10 w-full rounded-xl border border-borde bg-hundida px-3 text-sm';
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        icono={<UserPlus className="size-3.5" />}
+        onClick={() => void abrir()}
+        aria-label={`Agregar cliente a ${perfil.nombre}`}
+      >
+        Agregar cliente
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo={`Agregar cliente a ${perfil.nombre}`}
+          icono={<UserPlus className="size-5 text-marca" aria-hidden="true" />}
+          onCerrar={cerrar}
+          bloquear={cargando}
+        >
+          <ol className="flex flex-wrap gap-2 text-xs" aria-label="Pasos">
+            {PASOS_ALTA.map((t, i) => (
+              <li
+                key={t}
+                aria-current={i === paso ? 'step' : undefined}
+                className={`rounded-full border px-2.5 py-1 ${
+                  i === paso
+                    ? 'border-cian bg-cian/10 font-semibold'
+                    : i < paso
+                      ? 'border-borde text-tinta-suave'
+                      : 'border-borde text-tinta-tenue'
+                }`}
+              >
+                {i + 1}. {t}
+              </li>
+            ))}
+          </ol>
+
+          {paso === 0 && (
+            <div className="grid gap-3">
+              <p className="text-sm text-tinta-suave">{textos.descripcion}</p>
+              {conMiembro ? (
+                <fieldset className="grid gap-2">
+                  <legend className="mb-1 text-sm font-medium">¿Cómo entra el cliente?</legend>
+                  <Opcion nombre="lugar" valor="alquiler" actual={lugar} onElegir={setLugar}>
+                    Correo de alquiler: entra con los datos de la cuenta
+                  </Opcion>
+                  <Opcion nombre="lugar" valor="plan" actual={lugar} onElegir={setLugar}>
+                    Unido a un plan: entra con su propio correo
+                  </Opcion>
+                  {lugar === 'plan' && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="grid gap-1 text-sm">
+                        Correo del miembro
+                        <input
+                          value={usuarioMiembro}
+                          onChange={(e) => setUsuarioMiembro(e.currentTarget.value)}
+                          placeholder="correo.del.cliente@gmail.com"
+                          autoComplete="off"
+                          spellCheck={false}
+                          className={campoClase}
+                        />
+                      </label>
+                      <label className="grid gap-1 text-sm">
+                        Clave del miembro (opcional)
+                        <input
+                          type="password"
+                          value={claveMiembro}
+                          onChange={(e) => setClaveMiembro(e.currentTarget.value)}
+                          autoComplete="new-password"
+                          className={campoClase}
+                        />
+                      </label>
+                      {(campos.usuarioMiembro || campos.claveMiembro) && (
+                        <p className="text-xs text-peligro sm:col-span-2">
+                          {campos.usuarioMiembro ?? campos.claveMiembro}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </fieldset>
+              ) : (
+                <p className="rounded-xl border border-borde px-3 py-2 text-sm">
+                  {perfil.nombre}
+                  {esTitular(tipo, perfil.numero) ? ' · titular (correo de alquiler)' : ''}
+                  {textos.usaPin
+                    ? perfil.tienePin
+                      ? ' · con PIN guardado'
+                      : ' · sin PIN (puedes ponerlo en Editar)'
+                    : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {paso === 1 && (
+            <div className="grid gap-3">
+              {datos.puedeCrearCliente && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Opcion
+                    nombre="cliente"
+                    valor="existente"
+                    actual={modoCliente}
+                    onElegir={setModoCliente}
+                  >
+                    Ya es cliente
+                  </Opcion>
+                  <Opcion
+                    nombre="cliente"
+                    valor="nuevo"
+                    actual={modoCliente}
+                    onElegir={setModoCliente}
+                  >
+                    Cliente nuevo
+                  </Opcion>
+                </div>
+              )}
+              {modoCliente === 'existente' ? (
+                <div className="grid gap-2">
+                  <form
+                    role="search"
+                    className="flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void buscarClientes(busqueda);
+                    }}
+                  >
+                    <input
+                      aria-label="Buscar cliente"
+                      value={busqueda}
+                      onChange={(e) => setBusqueda(e.currentTarget.value)}
+                      placeholder="Nombre, correo o teléfono"
+                      className={`${campoClase} min-w-0 flex-1`}
+                    />
+                    <Boton tamano="sm" variante="secundario" type="submit">
+                      Buscar
+                    </Boton>
+                  </form>
+                  {clientes === null ? (
+                    <p className="text-xs text-tinta-tenue">Cargando…</p>
+                  ) : clientes.length === 0 ? (
+                    <p className="text-xs text-tinta-tenue">No hay clientes con ese nombre.</p>
+                  ) : (
+                    <ul className="grid max-h-56 gap-1 overflow-y-auto">
+                      {clientes.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            aria-pressed={clienteElegido?.id === c.id}
+                            onClick={() => setClienteElegido(c)}
+                            className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                              clienteElegido?.id === c.id
+                                ? 'border-cian bg-cian/10'
+                                : 'border-borde hover:border-cian'
+                            }`}
+                          >
+                            <span className="block font-medium">{c.nombre}</span>
+                            <span className="block text-xs text-tinta-tenue">
+                              {c.correo ?? 'Sin correo'} · {c.suscripcionesActivas} activas
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <label className="grid gap-1 text-sm">
+                    Nombre
+                    <input
+                      value={nombre}
+                      onChange={(e) => setNombre(e.currentTarget.value)}
+                      maxLength={120}
+                      className={campoClase}
+                    />
+                  </label>
+                  {campos['clienteNuevo.nombre'] && (
+                    <p className="text-xs text-peligro">{campos['clienteNuevo.nombre']}</p>
+                  )}
+                  <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
+                    <label className="grid gap-1 text-sm">
+                      Canal
+                      <select
+                        value={canal}
+                        onChange={(e) => setCanal(e.currentTarget.value as Canal)}
+                        className={campoClase}
+                      >
+                        <option value="whatsapp">WhatsApp</option>
+                        <option value="telegram">Telegram</option>
+                        <option value="correo">Correo</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1 text-sm">
+                      {canal === 'whatsapp'
+                        ? 'Número (con código de país)'
+                        : canal === 'telegram'
+                          ? 'Usuario de Telegram'
+                          : 'Correo'}
+                      <input
+                        value={contacto}
+                        onChange={(e) => setContacto(e.currentTarget.value)}
+                        inputMode={
+                          canal === 'whatsapp' ? 'tel' : canal === 'correo' ? 'email' : 'text'
+                        }
+                        placeholder={
+                          canal === 'whatsapp'
+                            ? '+58 414 1234567'
+                            : canal === 'telegram'
+                              ? '@usuario'
+                              : 'cliente@gmail.com'
+                        }
+                        className={campoClase}
+                      />
+                    </label>
+                  </div>
+                  {(campos['clienteNuevo.whatsapp'] ||
+                    campos['clienteNuevo.telegram'] ||
+                    campos['clienteNuevo.correo']) && (
+                    <p className="text-xs text-peligro">
+                      {campos['clienteNuevo.whatsapp'] ??
+                        campos['clienteNuevo.telegram'] ??
+                        campos['clienteNuevo.correo']}
+                    </p>
+                  )}
+                  {canal === 'whatsapp' && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={aceptaWhatsapp}
+                        onChange={(e) => setAceptaWhatsapp(e.currentTarget.checked)}
+                      />
+                      Acepta recibir avisos por WhatsApp
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {paso === 2 && (
+            <div className="grid gap-3">
+              {planes && planes.length === 0 ? (
+                <Alerta tono="aviso">
+                  Este servicio no tiene planes de suscripción activos: crea uno en el catálogo.
+                </Alerta>
+              ) : (
+                <label className="grid gap-1 text-sm">
+                  Plan
+                  <select
+                    value={planId}
+                    onChange={(e) =>
+                      elegirPlan(
+                        planes?.find((p) => p.id === e.currentTarget.value),
+                        moneda,
+                      )
+                    }
+                    className={campoClase}
+                  >
+                    {(planes ?? []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">Plazo</legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {MESES_ALTA.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={plazo === String(m)}
+                      onClick={() => setPlazo(String(m))}
+                      className={`rounded-xl border px-3 py-1.5 text-sm ${
+                        plazo === String(m)
+                          ? 'border-cian bg-cian/10 font-semibold'
+                          : 'border-borde'
+                      }`}
+                    >
+                      {m} {m === 1 ? 'mes' : 'meses'}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    aria-pressed={exacta}
+                    onClick={() => {
+                      setPlazo('fecha');
+                      if (!fecha && hoy) setFecha(sumarMeses(hoy, 1));
+                    }}
+                    className={`rounded-xl border px-3 py-1.5 text-sm ${
+                      exacta ? 'border-cian bg-cian/10 font-semibold' : 'border-borde'
+                    }`}
+                  >
+                    Fecha exacta
+                  </button>
+                </div>
+                {exacta && (
+                  <input
+                    type="date"
+                    aria-label="Vence el"
+                    value={fecha}
+                    min={hoy}
+                    onChange={(e) => setFecha(e.currentTarget.value)}
+                    className={`${campoClase} w-48`}
+                  />
+                )}
+                {(campos.vence || campos.meses) && (
+                  <p className="text-xs text-peligro">{campos.vence ?? campos.meses}</p>
+                )}
+                {vence && (
+                  <p className="text-xs text-tinta-suave">Vence el {formatearDia(vence)}.</p>
+                )}
+                {cuentaAntes && datos.facturaEn && (
+                  <Alerta tono="aviso">
+                    La cuenta se cobra el {formatearDia(datos.facturaEn)}, antes de que venza este
+                    cliente: recuerda renovarla.
+                  </Alerta>
+                )}
+              </fieldset>
+              <div className="grid gap-2 sm:grid-cols-[8rem_1fr]">
+                <label className="grid gap-1 text-sm">
+                  Moneda
+                  <select
+                    value={moneda}
+                    onChange={(e) => {
+                      const m = e.currentTarget.value as Moneda;
+                      setMoneda(m);
+                      setMetodoId('');
+                      if (plan) setPrecio(precioMes(plan, m));
+                    }}
+                    className={campoClase}
+                  >
+                    {monedas.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-sm">
+                  {exacta ? 'Precio total' : 'Precio por mes'}
+                  <input
+                    value={precio}
+                    inputMode="decimal"
+                    onChange={(e) => setPrecio(e.currentTarget.value)}
+                    className={campoClase}
+                  />
+                </label>
+              </div>
+              {campos.precio && <p className="text-xs text-peligro">{campos.precio}</p>}
+              {datos.puedeCobrar && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    Pagó con
+                    <select
+                      value={metodoId}
+                      onChange={(e) => setMetodoId(e.currentTarget.value)}
+                      className={campoClase}
+                    >
+                      <option value="">Todavía no (no entra en Caja)</option>
+                      {metodosMoneda.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {metodoId && (
+                    <label className="grid gap-1 text-sm">
+                      Referencia (opcional)
+                      <input
+                        value={referencia}
+                        onChange={(e) => setReferencia(e.currentTarget.value)}
+                        maxLength={80}
+                        className={campoClase}
+                      />
+                    </label>
+                  )}
+                  {(campos.metodoCobroId || campos.referenciaExterna) && (
+                    <p className="text-xs text-peligro sm:col-span-2">
+                      {campos.metodoCobroId ?? campos.referenciaExterna}
+                    </p>
+                  )}
+                </div>
+              )}
+              <p className="rounded-xl bg-hundida px-3 py-2 text-sm">
+                Total:{' '}
+                <strong>
+                  {Number.isFinite(total) ? formatearMonto(total.toFixed(2), moneda) : '—'}
+                </strong>
+                {!exacta && meses > 1 ? ` (${meses} meses)` : ''}
+                {metodoId ? ' · entra en Caja hoy' : ''}
+              </p>
+            </div>
+          )}
+
+          {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+          {error?.campos && paso === 2 && Object.keys(campos).length > 0 && (
+            <Alerta tono="peligro">{error.mensaje}</Alerta>
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {paso > 0 && (
+              <Boton variante="fantasma" onClick={() => setPaso(paso - 1)} disabled={cargando}>
+                Atrás
+              </Boton>
+            )}
+            <Boton variante="fantasma" onClick={cerrar} disabled={cargando}>
+              Cancelar
+            </Boton>
+            {paso < 2 ? (
+              <Boton
+                onClick={() => {
+                  if (!aviso) setPaso(paso + 1);
+                }}
+                disabled={Boolean(aviso)}
+                title={aviso ?? undefined}
+              >
+                Siguiente
+              </Boton>
+            ) : (
+              <Boton
+                cargando={cargando}
+                disabled={!planId || (exacta && !fecha)}
+                icono={<Check className="size-4" />}
+                onClick={() => void guardar()}
+              >
+                Dar de alta
+              </Boton>
+            )}
+          </div>
+          {aviso && paso < 2 && <p className="text-right text-xs text-tinta-tenue">{aviso}</p>}
         </Dialogo>
       )}
     </>

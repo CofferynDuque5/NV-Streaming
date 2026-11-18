@@ -497,57 +497,102 @@ export class CuentasService {
     cliente: InfoCliente,
   ): Promise<CuentaServicioDetalle> {
     return this.prisma.$transaction(async (tx) => {
-      const p = await this.perfil(tx, cuentaId, perfilId);
-      if (p.cuenta.estado !== 'activa') {
-        throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
-      }
-      if (p.estado !== 'libre' && p.estado !== 'respaldo') {
-        throw new ErrorApp(
-          409,
-          'PERFIL_NO_LIBRE',
-          p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
-        );
-      }
-      const s = await tx.suscripcion.findUnique({
-        where: { id: suscripcionId },
-        select: {
-          id: true,
-          estado: true,
-          plan: { select: { servicioId: true } },
-          perfilCuenta: { select: { id: true } },
-        },
-      });
-      if (!s) throw Errores.noEncontrado('La suscripción');
-      if (s.plan.servicioId !== p.cuenta.servicioId) {
-        throw new ErrorApp(409, 'OTRO_SERVICIO', 'La suscripción es de otro servicio.');
-      }
-      if (TERMINADAS.includes(s.estado)) {
-        throw new ErrorApp(409, 'SUSCRIPCION_TERMINADA', 'La suscripción ya terminó.');
-      }
-      if (s.perfilCuenta) {
-        throw new ErrorApp(409, 'SUSCRIPCION_CON_PERFIL', 'Esa suscripción ya tiene un perfil.');
-      }
-      // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
-      const r = await tx.perfilCuenta.updateMany({
-        where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
-        data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
-      });
-      if (r.count === 0) {
-        throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Este perfil ya está asignado.');
-      }
-      await this.auditoria.registrar(
-        {
-          actorId: auth.usuario.id,
-          accion: 'perfil_cuenta.asignado',
-          entidad: 'perfil_cuenta',
-          entidadId: p.id,
-          despues: { cuentaId, numero: p.numero, suscripcionId: s.id },
-          cliente,
-        },
-        tx,
-      );
+      await this.asignarEnTx(tx, auth, cuentaId, perfilId, suscripcionId, cliente);
       return this.ver(cuentaId, tx);
     });
+  }
+
+  /**
+   * Perfil libre de una cuenta activa, bloqueado para esta transacción. Lo usa
+   * el alta desde un perfil antes de crear nada.
+   */
+  async perfilLibre(tx: Tx, cuentaId: string, perfilId: string) {
+    await tx.$queryRaw`SELECT id FROM perfiles_cuenta WHERE id = ${perfilId}::uuid FOR UPDATE`;
+    const p = await this.perfil(tx, cuentaId, perfilId);
+    if (p.cuenta.estado !== 'activa') {
+      throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
+    }
+    if (p.estado !== 'libre' && p.estado !== 'respaldo') {
+      throw new ErrorApp(
+        409,
+        'PERFIL_NO_LIBRE',
+        p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
+      );
+    }
+    return p;
+  }
+
+  /** Guarda (cifrados) el correo y la clave propios del miembro de un cupo. */
+  async guardarMiembro(tx: Tx, perfilId: string, usuario: string, clave: string | null) {
+    await tx.perfilCuenta.update({
+      where: { id: perfilId },
+      data: {
+        usuarioMiembroCifrado: this.cifrador.cifrar(usuario.trim(), contextoMiembro(perfilId)),
+        claveMiembroCifrada: clave
+          ? this.cifrador.cifrar(clave, contextoClaveMiembro(perfilId))
+          : null,
+      },
+    });
+  }
+
+  /** Asigna el perfil dentro de una transacción ya abierta. */
+  async asignarEnTx(
+    tx: Tx,
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilId: string,
+    suscripcionId: string,
+    cliente: InfoCliente,
+  ): Promise<void> {
+    const p = await this.perfil(tx, cuentaId, perfilId);
+    if (p.cuenta.estado !== 'activa') {
+      throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
+    }
+    if (p.estado !== 'libre' && p.estado !== 'respaldo') {
+      throw new ErrorApp(
+        409,
+        'PERFIL_NO_LIBRE',
+        p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
+      );
+    }
+    const s = await tx.suscripcion.findUnique({
+      where: { id: suscripcionId },
+      select: {
+        id: true,
+        estado: true,
+        plan: { select: { servicioId: true } },
+        perfilCuenta: { select: { id: true } },
+      },
+    });
+    if (!s) throw Errores.noEncontrado('La suscripción');
+    if (s.plan.servicioId !== p.cuenta.servicioId) {
+      throw new ErrorApp(409, 'OTRO_SERVICIO', 'La suscripción es de otro servicio.');
+    }
+    if (TERMINADAS.includes(s.estado)) {
+      throw new ErrorApp(409, 'SUSCRIPCION_TERMINADA', 'La suscripción ya terminó.');
+    }
+    if (s.perfilCuenta) {
+      throw new ErrorApp(409, 'SUSCRIPCION_CON_PERFIL', 'Esa suscripción ya tiene un perfil.');
+    }
+    // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
+    const r = await tx.perfilCuenta.updateMany({
+      where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
+      data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
+    });
+    if (r.count === 0) {
+      throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Este perfil ya está asignado.');
+    }
+    await this.auditoria.registrar(
+      {
+        actorId: auth.usuario.id,
+        accion: 'perfil_cuenta.asignado',
+        entidad: 'perfil_cuenta',
+        entidadId: p.id,
+        despues: { cuentaId, numero: p.numero, suscripcionId: s.id },
+        cliente,
+      },
+      tx,
+    );
   }
 
   /**

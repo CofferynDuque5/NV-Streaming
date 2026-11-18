@@ -76,3 +76,45 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
   await aviso.getByRole('button', { name: 'Cerrar' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Perfil 1' })).toContainText('Libre');
 });
+
+test('agrega un cliente nuevo a un perfil libre en 3 pasos y abre el mensaje', async ({ page }) => {
+  test.setTimeout(90_000);
+  const sufijo = Date.now().toString(36);
+  const nombre = `Cliente Alta ${sufijo}`;
+  await entrarEquipo(page, 'admin@nv.test');
+  const origin = new URL(page.url()).origin;
+  const api = (ruta: string) => `/api/v1${ruta}`;
+  const catalogo = (await (await page.request.get(api('/catalogo'))).json()) as CatalogoPublico;
+  const plan = catalogo.planes.find((p) => p.tipo === 'suscripcion' && p.entrega === 'alquiler')!;
+  const r = await page.request.post(api('/cuentas'), {
+    data: {
+      servicioId: plan.servicio.id,
+      usuario: `alta.${sufijo}@example.com`,
+      clave: 'Clave-de-prueba-2',
+      perfiles: 2,
+    },
+    headers: { origin },
+  });
+  expect(r.status()).toBe(201);
+  const cuenta = (await r.json()) as { id: string };
+
+  await page.goto(`/admin/cuentas/${cuenta.id}`);
+  await page.getByRole('button', { name: 'Agregar cliente a Perfil 1' }).click();
+  const alta = page.getByRole('dialog', { name: 'Agregar cliente a Perfil 1' });
+  await alta.getByRole('button', { name: 'Siguiente' }).click();
+  await alta.getByText('Cliente nuevo').click();
+  await alta.getByLabel('Nombre').fill(nombre);
+  await alta.getByLabel('Número (con código de país)').fill('+58 414 5550101');
+  await alta.getByRole('button', { name: 'Siguiente' }).click();
+  await alta.getByRole('button', { name: '3 meses' }).click();
+  await expect(alta.getByText(/^Vence el /)).toBeVisible();
+  await expect(alta.getByLabel('Precio por mes')).not.toHaveValue('');
+  await alta.getByRole('button', { name: 'Dar de alta' }).click();
+  await expect(alta).toBeHidden();
+
+  // Queda asignado y se abre solo el mensaje con los datos.
+  const mensaje = page.getByRole('dialog', { name: `Mensaje para ${nombre}` });
+  await expect(mensaje).toBeVisible();
+  await mensaje.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Perfil 1' })).toContainText(nombre);
+});

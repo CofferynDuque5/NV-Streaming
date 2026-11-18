@@ -39,7 +39,14 @@ import { clasesEntrada } from '@/componentes/ui/clases';
 import { AreaTexto, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { CICLOS_CUENTA, formatearFecha } from '@/lib/formato';
-import { CortarPerfil, MoverPerfil, pedirAvisoCuenta, recienAsignados } from './cuentas-gestor';
+import {
+  AltaPerfil,
+  CortarPerfil,
+  type DatosAlta,
+  MoverPerfil,
+  pedirAvisoCuenta,
+  recienAsignados,
+} from './cuentas-gestor';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
 /** Campos comunes de alta y edición (sin credenciales). */
@@ -842,6 +849,7 @@ export function AccionesPerfil({
   puedeRevelar = false,
   tipo = 'perfiles',
   otrosActivos = 0,
+  alta,
 }: {
   cuentaId: string;
   perfil: PerfilCuentaPublico;
@@ -852,6 +860,8 @@ export function AccionesPerfil({
   tipo?: TipoPlataforma;
   /** Clientes vigentes en los otros perfiles de la cuenta (para avisar tras un corte). */
   otrosActivos?: number;
+  /** Con permiso de crear suscripciones: «Agregar cliente» en 3 pasos. */
+  alta?: DatosAlta | undefined;
 }) {
   const textos = TEXTOS_PLATAFORMA[tipo];
   const conMiembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero);
@@ -958,6 +968,9 @@ export function AccionesPerfil({
   return (
     <div className="grid justify-items-end gap-1">
       <div className="flex flex-wrap justify-end gap-1.5">
+        {perfil.estado === 'libre' && cuentaActiva && alta && (
+          <AltaPerfil cuentaId={cuentaId} perfil={perfil} tipo={tipo} datos={alta} />
+        )}
         {perfil.estado === 'libre' && cuentaActiva && (
           <AsignarPerfil cuentaId={cuentaId} perfil={perfil} />
         )}

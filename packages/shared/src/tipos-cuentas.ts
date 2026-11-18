@@ -412,3 +412,12 @@ export interface ReporteCaidas {
   /** Cuentas caídas en este momento. */
   sinResolver: number;
 }
+
+/** Lo que devuelve el alta desde un perfil libre. */
+export interface ResultadoAltaPerfil {
+  cuenta: CuentaServicioDetalle;
+  clienteId: string;
+  suscripcionId: string;
+  /** Factura pagada de la venta (null si no se indicó cómo pagó). */
+  facturaId: string | null;
+}

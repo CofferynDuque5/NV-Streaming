@@ -25,6 +25,7 @@ import {
   ImportarGestorController,
   MisPerfilesController,
 } from './cuentas/cuentas.controller.js';
+import { AltaPerfilService } from './cuentas/alta-perfil.service.js';
 import { CuentasService } from './cuentas/cuentas.service.js';
 import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
 import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
@@ -158,6 +159,7 @@ export class AppModule {
         PagosService,
         CuponesService,
         CuentasService,
+        AltaPerfilService,
         PerfilesClienteService,
         InventarioCuentasService,
         ReporteCaidasService,
