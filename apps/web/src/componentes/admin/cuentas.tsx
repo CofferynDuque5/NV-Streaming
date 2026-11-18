@@ -10,6 +10,9 @@ import {
   type ModoCuenta,
   type PerfilCuentaPublico,
   type SuscripcionAsignable,
+  TEXTOS_PLATAFORMA,
+  type TipoPlataforma,
+  esTitular,
 } from '@nv/shared';
 import {
   Eye,
@@ -24,7 +27,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Unlink,
   Unlock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -37,6 +39,14 @@ import { clasesEntrada } from '@/componentes/ui/clases';
 import { AreaTexto, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { CICLOS_CUENTA, formatearFecha } from '@/lib/formato';
+import {
+  AltaPerfil,
+  CortarPerfil,
+  type DatosAlta,
+  MoverPerfil,
+  pedirAvisoCuenta,
+  recienAsignados,
+} from './cuentas-gestor';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
 /** Campos comunes de alta y edición (sin credenciales). */
@@ -378,7 +388,10 @@ export function EditarCuenta({ cuenta }: { cuenta: CuentaServicioDetalle }) {
       ...(clave ? { clave } : {}),
       ...camposDatos(d),
     });
-    if (r) setAbierto(false);
+    if (!r) return;
+    setAbierto(false);
+    // Con correo o clave nuevos, se avisa a los que usan la cuenta.
+    if ((usuario || clave) && cuenta.perfiles.asignados > 0) pedirAvisoCuenta(cuenta.id);
   }
 
   if (!abierto) {
@@ -655,11 +668,14 @@ function AsignarPerfil({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilC
               <button
                 type="button"
                 disabled={cargando}
-                onClick={() =>
+                onClick={() => {
+                  recienAsignados.add(perfil.id);
                   void ejecutar('POST', `/cuentas/${cuentaId}/perfiles/${perfil.id}/asignar`, {
                     suscripcionId: s.id,
-                  })
-                }
+                  }).then((r) => {
+                    if (!r) recienAsignados.delete(perfil.id);
+                  });
+                }}
                 className="w-full rounded-lg border border-borde px-3 py-2 text-left text-sm hover:border-cian disabled:opacity-55"
               >
                 <span className="block font-medium">{s.cliente.nombre}</span>
@@ -685,7 +701,7 @@ function AsignarPerfil({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilC
 function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCuentaPublico }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const ids = useId();
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(() => recienAsignados.has(perfil.id));
   const [mensaje, setMensaje] = useState<MensajePerfil | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -694,6 +710,11 @@ function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCu
     const d = dialogo.current;
     if (abierto && d && !d.open) d.showModal();
   }, [abierto]);
+
+  // Recién asignado: se abre solo para enviarle los datos (el contrato) al cliente.
+  useEffect(() => {
+    recienAsignados.delete(perfil.id);
+  }, [perfil.id]);
 
   async function armar() {
     setCargando(true);
@@ -744,9 +765,9 @@ function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCu
             {!mensaje ? (
               <>
                 <p className="text-sm text-tinta-suave">
-                  Arma un mensaje con el correo, la clave
-                  {perfil.tienePin ? ', el perfil y su PIN' : ' y el perfil'} para enviarlo tú. Nada
-                  se envía solo. Queda registrado como ver credenciales.
+                  Arma un mensaje con los datos de acceso
+                  {perfil.tienePin ? ' (con el PIN)' : ''} para enviarlo tú. Nada se envía solo.
+                  Queda registrado como ver credenciales.
                 </p>
                 {error && <Alerta tono="peligro">{error}</Alerta>}
                 <div className="flex flex-wrap justify-end gap-2">
@@ -784,6 +805,17 @@ function ArmarMensaje({ cuentaId, perfil }: { cuentaId: string; perfil: PerfilCu
                       Abrir WhatsApp
                     </a>
                   )}
+                  {mensaje.telegram && (
+                    <a
+                      href={`https://t.me/${mensaje.telegram}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={claseEnlaceBoton}
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                      Abrir Telegram
+                    </a>
+                  )}
                   {mensaje.correo && (
                     <a href={mensaje.correo} className={claseEnlaceBoton}>
                       <Mail className="size-4" aria-hidden="true" />
@@ -815,13 +847,24 @@ export function AccionesPerfil({
   perfil,
   cuentaActiva,
   puedeRevelar = false,
+  tipo = 'perfiles',
+  otrosActivos = 0,
+  alta,
 }: {
   cuentaId: string;
   perfil: PerfilCuentaPublico;
   cuentaActiva: boolean;
   /** Con `cuentas.revelar`: puede armar el mensaje con los datos del perfil. */
   puedeRevelar?: boolean;
+  /** Por perfiles, plan familiar o correo con código. */
+  tipo?: TipoPlataforma;
+  /** Clientes vigentes en los otros perfiles de la cuenta (para avisar tras un corte). */
+  otrosActivos?: number;
+  /** Con permiso de crear suscripciones: «Agregar cliente» en 3 pasos. */
+  alta?: DatosAlta | undefined;
 }) {
+  const textos = TEXTOS_PLATAFORMA[tipo];
+  const conMiembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero);
   const [editando, setEditando] = useState(false);
   const { cargando, error, campos, ejecutar } = useAccion();
   const ruta = `/cuentas/${cuentaId}/perfiles/${perfil.id}`;
@@ -836,10 +879,18 @@ export function AccionesPerfil({
           e.preventDefault();
           const d = new FormData(e.currentTarget);
           const pin = textoDe(d, 'pin');
+          const miembro = textoDe(d, 'usuarioMiembro');
+          const claveMiembro = String(d.get('claveMiembro') ?? '');
           const r = await ejecutar('PATCH', ruta, {
             nombre: textoDe(d, 'nombre'),
             nota: String(d.get('nota') ?? '').trim() || null,
             ...(d.get('quitarPin') === 'on' ? { pin: null } : pin ? { pin } : {}),
+            ...(d.get('quitarMiembro') === 'on'
+              ? { usuarioMiembro: null, claveMiembro: null }
+              : {
+                  ...(miembro ? { usuarioMiembro: miembro } : {}),
+                  ...(claveMiembro ? { claveMiembro } : {}),
+                }),
           });
           if (r) setEditando(false);
         }}
@@ -851,18 +902,47 @@ export function AccionesPerfil({
           maxLength={40}
           error={campos.nombre}
         />
-        <Campo
-          etiqueta={perfil.tienePin ? 'Nuevo PIN' : 'PIN (opcional)'}
-          name="pin"
-          inputMode="numeric"
-          maxLength={8}
-          autoComplete="off"
-          error={campos.pin}
-        />
+        {textos.usaPin && (
+          <Campo
+            etiqueta={perfil.tienePin ? 'Nuevo PIN' : 'PIN (opcional)'}
+            name="pin"
+            inputMode="numeric"
+            maxLength={8}
+            autoComplete="off"
+            error={campos.pin}
+          />
+        )}
         {perfil.tienePin && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="quitarPin" /> Quitar el PIN
           </label>
+        )}
+        {conMiembro && (
+          <>
+            <Campo
+              etiqueta={perfil.tieneMiembro ? 'Nuevo correo del miembro' : 'Correo del miembro'}
+              name="usuarioMiembro"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="correo.del.miembro@gmail.com"
+              ayuda="Unido a un plan: el cliente entra con su propio correo y le llega la invitación."
+              error={campos.usuarioMiembro}
+            />
+            <Campo
+              etiqueta="Clave del miembro"
+              name="claveMiembro"
+              type="password"
+              autoComplete="new-password"
+              ayuda={perfil.tieneMiembro ? 'Vacía: se conserva la guardada.' : undefined}
+              error={campos.claveMiembro}
+            />
+            {perfil.tieneMiembro && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="quitarMiembro" /> Quitar el correo del miembro (pasa a
+                alquiler)
+              </label>
+            )}
+          </>
         )}
         <Campo
           etiqueta="Nota (opcional)"
@@ -888,6 +968,9 @@ export function AccionesPerfil({
   return (
     <div className="grid justify-items-end gap-1">
       <div className="flex flex-wrap justify-end gap-1.5">
+        {perfil.estado === 'libre' && cuentaActiva && alta && (
+          <AltaPerfil cuentaId={cuentaId} perfil={perfil} tipo={tipo} datos={alta} />
+        )}
         {perfil.estado === 'libre' && cuentaActiva && (
           <AsignarPerfil cuentaId={cuentaId} perfil={perfil} />
         )}
@@ -898,17 +981,16 @@ export function AccionesPerfil({
           ['activa', 'en_gracia'].includes(perfil.asignacion.estado) && (
             <ArmarMensaje cuentaId={cuentaId} perfil={perfil} />
           )}
+        {perfil.estado === 'asignado' && !perfil.asignacion?.terminada && (
+          <MoverPerfil cuentaId={cuentaId} perfil={perfil} tipo={tipo} />
+        )}
         {perfil.estado === 'asignado' && (
-          <Boton
-            tamano="sm"
-            variante={perfil.asignacion?.terminada ? 'secundario' : 'fantasma'}
-            cargando={cargando}
-            icono={<Unlink className="size-3.5" />}
-            onClick={() => void ejecutar('POST', `${ruta}/liberar`)}
-            aria-label={`Liberar ${perfil.nombre}`}
-          >
-            Liberar
-          </Boton>
+          <CortarPerfil
+            cuentaId={cuentaId}
+            perfil={perfil}
+            tipo={tipo}
+            otrosActivos={otrosActivos}
+          />
         )}
         {(perfil.estado === 'libre' || perfil.estado === 'respaldo') && (
           <Boton

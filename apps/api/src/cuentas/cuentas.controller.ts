@@ -12,7 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  altaPerfilSchema,
   asignarPerfilSchema,
+  avisarCuentaSchema,
+  liberarPerfilSchema,
+  moverPerfilSchema,
   pasarAIndividualesSchema,
   reponerPerfilSchema,
   reporteCaidasSchema,
@@ -36,6 +40,7 @@ import {
 } from '../comun/contexto.js';
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
+import { AltaPerfilService } from './alta-perfil.service.js';
 import { CuentasService } from './cuentas.service.js';
 import { ImportarCuentasService } from './importar-cuentas.service.js';
 import { ImportarGestorService } from './importar-gestor.service.js';
@@ -56,6 +61,7 @@ export class CuentasController {
     @Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService,
     @Inject(InventarioCuentasService) private readonly inventario: InventarioCuentasService,
     @Inject(ReporteCaidasService) private readonly caidas: ReporteCaidasService,
+    @Inject(AltaPerfilService) private readonly altas: AltaPerfilService,
   ) {}
 
   /** Todas las cuentas con sus perfiles y quién los usa (sin secretos). */
@@ -190,15 +196,67 @@ export class CuentasController {
     return this.cuentas.asignar(auth, id, perfilId, cuerpo.suscripcionId, cliente);
   }
 
+  /** Alta en 3 pasos desde un perfil libre (como en el Gestor). */
+  @Post(':id/perfiles/:perfilId/alta')
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(altaPerfilSchema)
+  alta(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(altaPerfilSchema)) cuerpo: z.output<typeof altaPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.altas.alta(auth, id, perfilId, cuerpo, cliente);
+  }
+
   @Post(':id/perfiles/:perfilId/liberar')
   @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(liberarPerfilSchema)
   liberar(
     @Auth() auth: ContextoAuth,
     @Param('id', idValido) id: string,
     @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(liberarPerfilSchema)) cuerpo: z.output<typeof liberarPerfilSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.cuentas.liberar(auth, id, perfilId, cliente);
+    return this.cuentas.liberar(auth, id, perfilId, cuerpo, cliente);
+  }
+
+  /** Lugares libres del mismo servicio adonde se puede mover al cliente del perfil. */
+  @Get(':id/perfiles/:perfilId/destinos')
+  @RequierePermiso('cuentas.gestionar')
+  destinos(@Param('id', idValido) id: string, @Param('perfilId', idValido) perfilId: string) {
+    return this.cuentas.destinos(id, perfilId);
+  }
+
+  @Post(':id/perfiles/:perfilId/mover')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(moverPerfilSchema)
+  mover(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(moverPerfilSchema)) cuerpo: z.output<typeof moverPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.mover(auth, id, perfilId, cuerpo.destinoPerfilId, cliente);
+  }
+
+  /** Un mensaje por cliente con los datos de la cuenta, para avisar a mano. Cuenta como ver credenciales. */
+  @Post(':id/avisos')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.revelar')
+  @DocCuerpo(avisarCuentaSchema)
+  avisos(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(avisarCuentaSchema)) cuerpo: z.output<typeof avisarCuentaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.avisos(auth, id, cuerpo, cliente);
   }
 
   /** Arma el mensaje con los datos del perfil para enviarlo a mano. Cuenta como ver credenciales. */

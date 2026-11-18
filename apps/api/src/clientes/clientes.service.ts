@@ -96,49 +96,66 @@ export class ClientesService {
     entrada: ClienteEntrada,
     cliente: InfoCliente,
   ): Promise<ClienteDetalle> {
+    return this.prisma.$transaction((tx) => this.crearEnTx(tx, auth, entrada, cliente));
+  }
+
+  /** Crea el cliente dentro de una transacción ya abierta (lo usa también el alta de un perfil). */
+  async crearEnTx(
+    tx: Tx,
+    auth: ContextoAuth,
+    entrada: ClienteEntrada,
+    cliente: InfoCliente,
+  ): Promise<ClienteDetalle> {
     const asignadoAId = limitadoACartera(auth.usuario.rol)
       ? auth.usuario.id
       : (entrada.asignadoAId ?? null);
-    return this.prisma.$transaction(async (tx) => {
-      if (asignadoAId) await this.exigirVendedor(tx, asignadoAId);
-      await this.exigirCorreoLibre(tx, entrada.correo);
-      const c = await tx.cliente.create({
-        data: {
-          nombre: entrada.nombre,
-          correo: entrada.correo ?? null,
-          documento: entrada.documento ?? null,
-          pais: entrada.pais ?? null,
-          monedaPreferida: entrada.monedaPreferida,
-          asignadoAId,
-          origen: 'equipo',
-          creadoPorId: auth.usuario.id,
-          ...(entrada.whatsapp
-            ? {
-                contactos: {
-                  create: {
-                    tipo: 'whatsapp',
-                    valor: entrada.whatsapp,
-                    consentimientoEn: entrada.aceptaWhatsapp ? new Date() : null,
-                  },
-                },
-              }
-            : {}),
-        },
-        include: INCLUIR_DETALLE,
-      });
-      await this.auditoria.registrar(
-        {
-          actorId: auth.usuario.id,
-          accion: 'cliente.creado',
-          entidad: 'cliente',
-          entidadId: c.id,
-          despues: { nombre: c.nombre, correo: c.correo, asignadoAId },
-          cliente,
-        },
-        tx,
-      );
-      return clienteDetalle(c);
+    if (asignadoAId) await this.exigirVendedor(tx, asignadoAId);
+    await this.exigirCorreoLibre(tx, entrada.correo);
+    const c = await tx.cliente.create({
+      data: {
+        nombre: entrada.nombre,
+        correo: entrada.correo ?? null,
+        documento: entrada.documento ?? null,
+        pais: entrada.pais ?? null,
+        monedaPreferida: entrada.monedaPreferida,
+        asignadoAId,
+        origen: 'equipo',
+        creadoPorId: auth.usuario.id,
+        ...(entrada.whatsapp || entrada.telegram
+          ? {
+              contactos: {
+                create: [
+                  ...(entrada.whatsapp
+                    ? [
+                        {
+                          tipo: 'whatsapp' as const,
+                          valor: entrada.whatsapp,
+                          consentimientoEn: entrada.aceptaWhatsapp ? new Date() : null,
+                        },
+                      ]
+                    : []),
+                  ...(entrada.telegram
+                    ? [{ tipo: 'telegram' as const, valor: entrada.telegram }]
+                    : []),
+                ],
+              },
+            }
+          : {}),
+      },
+      include: INCLUIR_DETALLE,
     });
+    await this.auditoria.registrar(
+      {
+        actorId: auth.usuario.id,
+        accion: 'cliente.creado',
+        entidad: 'cliente',
+        entidadId: c.id,
+        despues: { nombre: c.nombre, correo: c.correo, asignadoAId },
+        cliente,
+      },
+      tx,
+    );
+    return clienteDetalle(c);
   }
 
   async actualizar(
@@ -177,6 +194,7 @@ export class ClientesService {
         },
       });
       await this.fijarWhatsapp(tx, id, entrada.whatsapp, entrada.aceptaWhatsapp);
+      await this.fijarTelegram(tx, id, entrada.telegram);
       const c = await tx.cliente.findUniqueOrThrow({ where: { id }, include: INCLUIR_DETALLE });
       await this.auditoria.registrar(
         {
@@ -470,6 +488,15 @@ export class ClientesService {
       await tx.contactoCliente.create({
         data: { clienteId, tipo: 'whatsapp', valor, consentimientoEn },
       });
+    }
+  }
+
+  /** Usuario de Telegram: `undefined` no cambia, `null` lo quita. */
+  private async fijarTelegram(tx: Tx, clienteId: string, usuario: string | null | undefined) {
+    if (usuario === undefined) return;
+    await tx.contactoCliente.deleteMany({ where: { clienteId, tipo: 'telegram' } });
+    if (usuario) {
+      await tx.contactoCliente.create({ data: { clienteId, tipo: 'telegram', valor: usuario } });
     }
   }
 

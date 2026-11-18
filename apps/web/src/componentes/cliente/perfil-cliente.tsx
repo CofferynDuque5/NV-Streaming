@@ -156,9 +156,29 @@ export function TarjetaPerfilCliente({
     cuerpo = (
       <>
         <div className="grid gap-2">
-          <Dato etiqueta="Correo o usuario" valor={datos.usuario} copiar="el usuario" />
-          <Dato etiqueta="Clave" valor={datos.clave} copiar="la clave" />
-          {!completa && (
+          <Dato
+            etiqueta={datos.miembro ? 'Tu correo (miembro del plan)' : 'Correo o usuario'}
+            valor={datos.usuario}
+            copiar="el usuario"
+          />
+          {datos.clave && datos.tipo !== 'correo' && (
+            <Dato
+              etiqueta={datos.miembro ? 'Tu clave' : 'Clave'}
+              valor={datos.clave}
+              copiar="la clave"
+            />
+          )}
+          {datos.miembro && (
+            <p className="px-1 text-sm text-tinta-suave">
+              Entras con tu propio correo: acepta la invitación al plan familiar que llega ahí.
+            </p>
+          )}
+          {datos.tipo === 'correo' && (
+            <p className="px-1 text-sm text-tinta-suave">
+              Al entrar te piden un código que llega al correo: pídelo aquí abajo o escríbenos.
+            </p>
+          )}
+          {!completa && datos.tipo === 'perfiles' && (
             <p className="px-1 text-sm text-tinta-suave">
               Entra en el perfil <b className="text-tinta">{datos.perfil}</b>
               {datos.pin ? '.' : ' (no tiene PIN).'}
@@ -229,7 +249,9 @@ export function TarjetaPerfilCliente({
           Mostrar los datos
         </Boton>
         <span className="text-[0.8rem] text-tinta-tenue">
-          {completa ? 'Correo y clave de tu cuenta' : 'Correo, clave y PIN de tu perfil'}
+          {completa || perfil.tipo !== 'perfiles'
+            ? 'Correo y clave de tu cuenta'
+            : 'Correo, clave y PIN de tu perfil'}
         </span>
       </div>
     );
@@ -248,7 +270,15 @@ export function TarjetaPerfilCliente({
           </h2>
         </div>
         <PildoraEstado
-          texto={perfil.disponible ? (completa ? 'Cuenta' : 'Perfil') : 'En espera'}
+          texto={
+            perfil.disponible
+              ? completa
+                ? 'Cuenta'
+                : perfil.tipo === 'perfiles'
+                  ? 'Perfil'
+                  : 'Cupo'
+              : 'En espera'
+          }
           tono={perfil.disponible ? 'exito' : 'cian'}
         />
       </div>

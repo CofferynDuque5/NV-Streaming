@@ -300,6 +300,8 @@ enum TipoContacto {
   correo
   whatsapp
   telefono
+  /// Usuario de Telegram, sin la @.
+  telegram
 }
 
 model Cliente {
@@ -2254,19 +2256,23 @@ model PagoCuentaServicio {
 
 /// Perfil (cupo) de una cuenta. Asignado ⇔ tiene suscripción.
 model PerfilCuenta {
-  id            String       @id @default(uuid()) @db.Uuid
-  cuentaId      String       @map("cuenta_id") @db.Uuid
-  numero        Int
-  nombre        String       @db.VarChar(40)
+  id                    String       @id @default(uuid()) @db.Uuid
+  cuentaId              String       @map("cuenta_id") @db.Uuid
+  numero                Int
+  nombre                String       @db.VarChar(40)
   /// Cifrado (contexto "perfil:<id>:pin").
-  pinCifrado    String?      @map("pin_cifrado") @db.VarChar(500)
-  estado        EstadoPerfil @default(libre)
+  pinCifrado            String?      @map("pin_cifrado") @db.VarChar(500)
+  estado                EstadoPerfil @default(libre)
   /// Nota corta del perfil («TV de la sala»). Sin claves.
-  nota          String?      @db.VarChar(120)
-  suscripcionId String?      @unique @map("suscripcion_id") @db.Uuid
-  asignadoEn    DateTime?    @map("asignado_en") @db.Timestamptz(3)
-  creadoEn      DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
-  actualizadoEn DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  nota                  String?      @db.VarChar(120)
+  /// Plan familiar: correo propio del miembro del cupo, cifrado (contexto "perfil:<id>:miembro").
+  usuarioMiembroCifrado String?      @map("usuario_miembro_cifrado") @db.VarChar(1000)
+  /// Clave propia del miembro, cifrada (contexto "perfil:<id>:clave_miembro").
+  claveMiembroCifrada   String?      @map("clave_miembro_cifrada") @db.VarChar(1000)
+  suscripcionId         String?      @unique @map("suscripcion_id") @db.Uuid
+  asignadoEn            DateTime?    @map("asignado_en") @db.Timestamptz(3)
+  creadoEn              DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn         DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   cuenta      CuentaServicio @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
   suscripcion Suscripcion?   @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)

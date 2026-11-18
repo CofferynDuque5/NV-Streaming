@@ -47,10 +47,13 @@ export class FacturacionService {
       descuentoCombo?: Dec | null;
       /** Periodos del plan que cubre (1 por defecto). */
       periodos?: number;
+      /** Precio de un periodo en `moneda` que fija el equipo (venta del Gestor). */
+      precioUnitario?: Dec | null;
     },
   ): Promise<CalculoFactura> {
-    const precio = precioEn(e.plan, e.moneda, await this.tasas.mapa(tx));
-    if (!precio) throw sinTasa(e.moneda);
+    const lista = precioEn(e.plan, e.moneda, await this.tasas.mapa(tx));
+    if (!lista) throw sinTasa(e.moneda);
+    const precio = e.precioUnitario ? { ...lista, precio: e.precioUnitario } : lista;
     const subtotal = precio.precio.mul(e.periodos ?? 1);
     const cupon = e.cupon
       ? await this.validarCupon(tx, e.cupon, e.plan.id, e.concepto, e.clienteId, e.cuponYaCanjeado)
@@ -123,6 +126,7 @@ export class FacturacionService {
       periodos?: number;
       /** La renovación cuenta desde el pago y no desde el vencimiento. */
       desdeHoy?: boolean;
+      precioUnitario?: Dec | null;
     },
   ): Promise<Factura> {
     const c = await this.calcular(tx, { ...e, clienteId: e.clienteId });

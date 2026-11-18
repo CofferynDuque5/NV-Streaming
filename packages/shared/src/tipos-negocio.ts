@@ -55,7 +55,7 @@ export interface ClienteResumen {
 
 export interface ContactoPublico {
   id: string;
-  tipo: 'correo' | 'whatsapp' | 'telefono';
+  tipo: 'correo' | 'whatsapp' | 'telefono' | 'telegram';
   valor: string;
   consentimientoEn: string | null;
 }

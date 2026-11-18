@@ -381,6 +381,71 @@ export class PagosService {
     return tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
   }
 
+  /**
+   * Venta cobrada en el momento (alta del Gestor desde un perfil): deja el pago
+   * confirmado y la factura pagada, para que entre en Caja y Balance. No aplica
+   * el periodo: quien llama ya activó la suscripción con su vencimiento.
+   */
+  async registrarCobrado(
+    tx: Tx,
+    actorId: string,
+    factura: Factura,
+    e: { metodoCobroId: string; referenciaExterna?: string | undefined },
+    cliente: InfoCliente,
+  ): Promise<Pago> {
+    const metodo = await tx.metodoCobro.findUnique({ where: { id: e.metodoCobroId } });
+    if (!metodo || !metodo.activo || metodo.tipo === 'pasarela') {
+      throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Elige un método de pago manual disponible.', {
+        metodoCobroId: ['Elige un método de pago manual disponible.'],
+      });
+    }
+    if (metodo.moneda !== factura.moneda) {
+      throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Ese método no cobra en esa moneda.', {
+        metodoCobroId: [`Elige un método que cobre en ${factura.moneda}.`],
+      });
+    }
+    const referenciaExterna = e.referenciaExterna?.trim() || null;
+    if (referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, referenciaExterna);
+    const ahora = new Date();
+    const pago = await this.insertarConReferencia(tx, {
+      facturaId: factura.id,
+      clienteId: factura.clienteId,
+      metodoCobroId: metodo.id,
+      moneda: factura.moneda,
+      montoDeclarado: factura.total,
+      montoRecibido: factura.total,
+      referenciaExterna,
+      fechaPago: ahora,
+      estado: 'confirmado',
+      revisadoPorId: actorId,
+      revisadoEn: ahora,
+      creadoPorId: actorId,
+    });
+    await tx.factura.update({
+      where: { id: factura.id },
+      data: { estado: 'pagada', pagadaEn: ahora },
+    });
+    await this.auditoria.registrar(
+      {
+        actorId,
+        accion: 'pago.registrado',
+        entidad: 'pago',
+        entidadId: pago.id,
+        despues: {
+          referencia: pago.referencia,
+          facturaId: factura.id,
+          monto: factura.total.toFixed(2),
+          moneda: factura.moneda,
+          metodo: metodo.nombre,
+          origen: 'alta_perfil',
+        },
+        cliente,
+      },
+      tx,
+    );
+    return pago;
+  }
+
   /** Confirma el pago, marca la factura pagada y aplica el pago a la suscripción. */
   private async cerrarFactura(
     tx: Tx,

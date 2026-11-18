@@ -6,9 +6,11 @@ import type {
   CrearCuentaEntrada,
   CuentaServicioDetalle,
   CuentaServicioResumen,
+  DestinoMover,
   EditarCuentaEntrada,
   EditarPerfilEntrada,
   EstadoSuscripcion,
+  LiberarPerfilEntrada,
   ListarCuentasEntrada,
   PaginaCuentas,
   PerfilCuentaPublico,
@@ -42,6 +44,8 @@ const CONTEXTO_HUELLA_USUARIO = 'cuenta:usuario';
 export const contextoUsuario = (id: string) => `cuenta:${id}:usuario`;
 export const contextoClave = (id: string) => `cuenta:${id}:clave`;
 export const contextoPin = (perfilId: string) => `perfil:${perfilId}:pin`;
+export const contextoMiembro = (perfilId: string) => `perfil:${perfilId}:miembro`;
+export const contextoClaveMiembro = (perfilId: string) => `perfil:${perfilId}:clave_miembro`;
 
 /** Correo o usuario tal como se compara: sin espacios y en minúsculas. */
 const normalizarUsuario = (u: string) => u.trim().toLowerCase();
@@ -123,6 +127,7 @@ function detalle(c: FilaDetalle): CuentaServicioDetalle {
       nombre: p.nombre,
       estado: p.estado,
       tienePin: Boolean(p.pinCifrado),
+      tieneMiembro: Boolean(p.usuarioMiembroCifrado),
       nota: p.nota,
       asignacion: p.suscripcion
         ? {
@@ -404,7 +409,7 @@ export class CuentasService {
     await tx.perfilCuenta.deleteMany({ where: { id: { in: sobran.map((p) => p.id) } } });
   }
 
-  private async perfil(tx: Tx, cuentaId: string, perfilId: string) {
+  private async perfil(tx: Tx | PrismaClient, cuentaId: string, perfilId: string) {
     const p = await tx.perfilCuenta.findFirst({
       where: { id: perfilId, cuentaId },
       include: { cuenta: { select: { servicioId: true, estado: true } } },
@@ -435,6 +440,20 @@ export class CuentasService {
       if (e.pin !== undefined) {
         data.pinCifrado = e.pin === null ? null : this.cifrador.cifrar(e.pin, contextoPin(p.id));
         cambios.push(e.pin === null ? 'pin_quitado' : 'pin');
+      }
+      if (e.usuarioMiembro !== undefined) {
+        data.usuarioMiembroCifrado =
+          e.usuarioMiembro === null
+            ? null
+            : this.cifrador.cifrar(e.usuarioMiembro.trim(), contextoMiembro(p.id));
+        cambios.push(e.usuarioMiembro === null ? 'miembro_quitado' : 'miembro');
+      }
+      if (e.claveMiembro !== undefined) {
+        data.claveMiembroCifrada =
+          e.claveMiembro === null
+            ? null
+            : this.cifrador.cifrar(e.claveMiembro, contextoClaveMiembro(p.id));
+        cambios.push(e.claveMiembro === null ? 'clave_miembro_quitada' : 'clave_miembro');
       }
       if (e.respaldo !== undefined && e.respaldo !== (p.estado === 'respaldo')) {
         if (p.estado === 'asignado' || p.estado === 'bloqueado') {
@@ -478,63 +497,114 @@ export class CuentasService {
     cliente: InfoCliente,
   ): Promise<CuentaServicioDetalle> {
     return this.prisma.$transaction(async (tx) => {
-      const p = await this.perfil(tx, cuentaId, perfilId);
-      if (p.cuenta.estado !== 'activa') {
-        throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
-      }
-      if (p.estado !== 'libre' && p.estado !== 'respaldo') {
-        throw new ErrorApp(
-          409,
-          'PERFIL_NO_LIBRE',
-          p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
-        );
-      }
-      const s = await tx.suscripcion.findUnique({
-        where: { id: suscripcionId },
-        select: {
-          id: true,
-          estado: true,
-          plan: { select: { servicioId: true } },
-          perfilCuenta: { select: { id: true } },
-        },
-      });
-      if (!s) throw Errores.noEncontrado('La suscripción');
-      if (s.plan.servicioId !== p.cuenta.servicioId) {
-        throw new ErrorApp(409, 'OTRO_SERVICIO', 'La suscripción es de otro servicio.');
-      }
-      if (TERMINADAS.includes(s.estado)) {
-        throw new ErrorApp(409, 'SUSCRIPCION_TERMINADA', 'La suscripción ya terminó.');
-      }
-      if (s.perfilCuenta) {
-        throw new ErrorApp(409, 'SUSCRIPCION_CON_PERFIL', 'Esa suscripción ya tiene un perfil.');
-      }
-      // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
-      const r = await tx.perfilCuenta.updateMany({
-        where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
-        data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
-      });
-      if (r.count === 0) {
-        throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Este perfil ya está asignado.');
-      }
-      await this.auditoria.registrar(
-        {
-          actorId: auth.usuario.id,
-          accion: 'perfil_cuenta.asignado',
-          entidad: 'perfil_cuenta',
-          entidadId: p.id,
-          despues: { cuentaId, numero: p.numero, suscripcionId: s.id },
-          cliente,
-        },
-        tx,
-      );
+      await this.asignarEnTx(tx, auth, cuentaId, perfilId, suscripcionId, cliente);
       return this.ver(cuentaId, tx);
     });
   }
 
+  /**
+   * Perfil libre de una cuenta activa, bloqueado para esta transacción. Lo usa
+   * el alta desde un perfil antes de crear nada.
+   */
+  async perfilLibre(tx: Tx, cuentaId: string, perfilId: string) {
+    await tx.$queryRaw`SELECT id FROM perfiles_cuenta WHERE id = ${perfilId}::uuid FOR UPDATE`;
+    const p = await this.perfil(tx, cuentaId, perfilId);
+    if (p.cuenta.estado !== 'activa') {
+      throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
+    }
+    if (p.estado !== 'libre' && p.estado !== 'respaldo') {
+      throw new ErrorApp(
+        409,
+        'PERFIL_NO_LIBRE',
+        p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
+      );
+    }
+    return p;
+  }
+
+  /** Guarda (cifrados) el correo y la clave propios del miembro de un cupo. */
+  async guardarMiembro(tx: Tx, perfilId: string, usuario: string, clave: string | null) {
+    await tx.perfilCuenta.update({
+      where: { id: perfilId },
+      data: {
+        usuarioMiembroCifrado: this.cifrador.cifrar(usuario.trim(), contextoMiembro(perfilId)),
+        claveMiembroCifrada: clave
+          ? this.cifrador.cifrar(clave, contextoClaveMiembro(perfilId))
+          : null,
+      },
+    });
+  }
+
+  /** Asigna el perfil dentro de una transacción ya abierta. */
+  async asignarEnTx(
+    tx: Tx,
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilId: string,
+    suscripcionId: string,
+    cliente: InfoCliente,
+  ): Promise<void> {
+    const p = await this.perfil(tx, cuentaId, perfilId);
+    if (p.cuenta.estado !== 'activa') {
+      throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'Solo se asignan perfiles de cuentas activas.');
+    }
+    if (p.estado !== 'libre' && p.estado !== 'respaldo') {
+      throw new ErrorApp(
+        409,
+        'PERFIL_NO_LIBRE',
+        p.estado === 'asignado' ? 'Este perfil ya está asignado.' : 'Este perfil está bloqueado.',
+      );
+    }
+    const s = await tx.suscripcion.findUnique({
+      where: { id: suscripcionId },
+      select: {
+        id: true,
+        estado: true,
+        plan: { select: { servicioId: true } },
+        perfilCuenta: { select: { id: true } },
+      },
+    });
+    if (!s) throw Errores.noEncontrado('La suscripción');
+    if (s.plan.servicioId !== p.cuenta.servicioId) {
+      throw new ErrorApp(409, 'OTRO_SERVICIO', 'La suscripción es de otro servicio.');
+    }
+    if (TERMINADAS.includes(s.estado)) {
+      throw new ErrorApp(409, 'SUSCRIPCION_TERMINADA', 'La suscripción ya terminó.');
+    }
+    if (s.perfilCuenta) {
+      throw new ErrorApp(409, 'SUSCRIPCION_CON_PERFIL', 'Esa suscripción ya tiene un perfil.');
+    }
+    // La condición sobre el estado evita que dos personas asignen el mismo perfil a la vez.
+    const r = await tx.perfilCuenta.updateMany({
+      where: { id: p.id, estado: { in: ['libre', 'respaldo'] } },
+      data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: new Date() },
+    });
+    if (r.count === 0) {
+      throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Este perfil ya está asignado.');
+    }
+    await this.auditoria.registrar(
+      {
+        actorId: auth.usuario.id,
+        accion: 'perfil_cuenta.asignado',
+        entidad: 'perfil_cuenta',
+        entidadId: p.id,
+        despues: { cuentaId, numero: p.numero, suscripcionId: s.id },
+        cliente,
+      },
+      tx,
+    );
+  }
+
+  /**
+   * Cortar: libera el perfil. Con clave nueva se guarda en la cuenta (para que
+   * el cliente cortado no siga entrando) y con PIN nuevo, en el perfil. El
+   * correo y la clave propios de un miembro (plan familiar) se borran del cupo.
+   */
   async liberar(
     auth: ContextoAuth,
     cuentaId: string,
     perfilId: string,
+    e: LiberarPerfilEntrada,
     cliente: InfoCliente,
   ): Promise<CuentaServicioDetalle> {
     return this.prisma.$transaction(async (tx) => {
@@ -544,20 +614,168 @@ export class CuentasService {
       }
       await tx.perfilCuenta.update({
         where: { id: p.id },
-        data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+        data: {
+          estado: 'libre',
+          suscripcionId: null,
+          asignadoEn: null,
+          usuarioMiembroCifrado: null,
+          claveMiembroCifrada: null,
+          ...(e.nuevoPin
+            ? { pinCifrado: this.cifrador.cifrar(e.nuevoPin, contextoPin(p.id)) }
+            : {}),
+        },
       });
+      if (e.nuevaClave) {
+        await tx.cuentaServicio.update({
+          where: { id: cuentaId },
+          data: { claveCifrada: this.cifrador.cifrar(e.nuevaClave, contextoClave(cuentaId)) },
+        });
+      }
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
           accion: 'perfil_cuenta.liberado',
           entidad: 'perfil_cuenta',
           entidadId: p.id,
-          despues: { cuentaId, numero: p.numero, suscripcionId: p.suscripcionId },
+          // Solo qué cambió, nunca la clave ni el PIN.
+          despues: {
+            cuentaId,
+            numero: p.numero,
+            suscripcionId: p.suscripcionId,
+            claveNueva: Boolean(e.nuevaClave),
+            pinNuevo: Boolean(e.nuevoPin),
+          },
           cliente,
         },
         tx,
       );
       return this.ver(cuentaId, tx);
+    });
+  }
+
+  /** Lugares libres del mismo servicio donde se puede mover al cliente de un perfil. */
+  async destinos(cuentaId: string, perfilId: string): Promise<DestinoMover[]> {
+    const p = await this.perfil(this.prisma, cuentaId, perfilId);
+    const cuentas = await this.prisma.cuentaServicio.findMany({
+      where: {
+        servicioId: p.cuenta.servicioId,
+        estado: 'activa',
+        perfiles: { some: { estado: { in: ['libre', 'respaldo'] }, id: { not: p.id } } },
+      },
+      select: {
+        id: true,
+        pista: true,
+        plan: true,
+        facturaEn: true,
+        modo: true,
+        perfiles: {
+          where: { estado: { in: ['libre', 'respaldo'] }, id: { not: p.id } },
+          orderBy: { numero: 'asc' },
+          select: { id: true, numero: true, nombre: true, estado: true },
+        },
+      },
+      // La que vence más tarde primero: así el cliente no se queda sin servicio.
+      orderBy: [{ facturaEn: { sort: 'desc', nulls: 'last' } }, { creadoEn: 'asc' }],
+      take: 50,
+    });
+    return cuentas.map((c) => ({
+      cuentaId: c.id,
+      pista: c.pista,
+      plan: c.plan,
+      facturaEn: dia(c.facturaEn),
+      modo: c.modo,
+      perfiles: c.perfiles.map((x) => ({
+        id: x.id,
+        numero: x.numero,
+        nombre: x.nombre,
+        respaldo: x.estado === 'respaldo',
+      })),
+    }));
+  }
+
+  /**
+   * Mover: el cliente pasa a otro perfil libre (de esta u otra cuenta del mismo
+   * servicio) con su suscripción y fechas; el lugar viejo queda libre. Cada
+   * perfil conserva su PIN.
+   */
+  async mover(
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilId: string,
+    destinoPerfilId: string,
+    cliente: InfoCliente,
+  ): Promise<CuentaServicioDetalle> {
+    return this.prisma.$transaction(async (tx) => {
+      const viejo = await this.perfil(tx, cuentaId, perfilId);
+      if (viejo.estado !== 'asignado' || !viejo.suscripcionId) {
+        throw new ErrorApp(409, 'PERFIL_NO_ASIGNADO', 'Este perfil no tiene un cliente.');
+      }
+      if (destinoPerfilId === viejo.id) {
+        throw new ErrorApp(409, 'MISMO_PERFIL', 'Elige otro perfil.');
+      }
+      const destino = await tx.perfilCuenta.findUnique({
+        where: { id: destinoPerfilId },
+        include: { cuenta: { select: { id: true, servicioId: true, estado: true } } },
+      });
+      if (!destino) throw Errores.noEncontrado('El perfil de destino');
+      if (destino.cuenta.servicioId !== viejo.cuenta.servicioId) {
+        throw new ErrorApp(409, 'OTRO_SERVICIO', 'El destino es de otro servicio.');
+      }
+      if (destino.cuenta.estado !== 'activa') {
+        throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'La cuenta de destino no está activa.');
+      }
+      const suscripcionId = viejo.suscripcionId;
+      // Primero se suelta el viejo (la suscripción solo puede tener un perfil).
+      await tx.perfilCuenta.update({
+        where: { id: viejo.id },
+        data: {
+          estado: 'libre',
+          suscripcionId: null,
+          asignadoEn: null,
+          usuarioMiembroCifrado: null,
+          claveMiembroCifrada: null,
+        },
+      });
+      const r = await tx.perfilCuenta.updateMany({
+        where: { id: destino.id, estado: { in: ['libre', 'respaldo'] } },
+        data: { estado: 'asignado', suscripcionId, asignadoEn: new Date() },
+      });
+      if (r.count === 0) {
+        throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Ese perfil ya no está libre. Elige otro.');
+      }
+      // El correo propio del miembro (plan familiar) viaja con él.
+      if (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada) {
+        const miembro = viejo.usuarioMiembroCifrado
+          ? this.cifrador.descifrar(viejo.usuarioMiembroCifrado, contextoMiembro(viejo.id))
+          : null;
+        const claveMiembro = viejo.claveMiembroCifrada
+          ? this.cifrador.descifrar(viejo.claveMiembroCifrada, contextoClaveMiembro(viejo.id))
+          : null;
+        await tx.perfilCuenta.update({
+          where: { id: destino.id },
+          data: {
+            usuarioMiembroCifrado: miembro
+              ? this.cifrador.cifrar(miembro, contextoMiembro(destino.id))
+              : null,
+            claveMiembroCifrada: claveMiembro
+              ? this.cifrador.cifrar(claveMiembro, contextoClaveMiembro(destino.id))
+              : null,
+          },
+        });
+      }
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'perfil_cuenta.movido',
+          entidad: 'perfil_cuenta',
+          entidadId: destino.id,
+          antes: { cuentaId, numero: viejo.numero },
+          despues: { cuentaId: destino.cuenta.id, numero: destino.numero, suscripcionId },
+          cliente,
+        },
+        tx,
+      );
+      return this.ver(destino.cuenta.id, tx);
     });
   }
 
@@ -836,7 +1054,14 @@ export class CuentasService {
         claveCifrada: true,
         perfiles: {
           orderBy: { numero: 'asc' },
-          select: { id: true, numero: true, nombre: true, pinCifrado: true },
+          select: {
+            id: true,
+            numero: true,
+            nombre: true,
+            pinCifrado: true,
+            usuarioMiembroCifrado: true,
+            claveMiembroCifrada: true,
+          },
         },
       },
     });
@@ -848,6 +1073,12 @@ export class CuentasService {
         numero: p.numero,
         nombre: p.nombre,
         pin: p.pinCifrado ? this.cifrador.descifrar(p.pinCifrado, contextoPin(p.id)) : null,
+        usuarioMiembro: p.usuarioMiembroCifrado
+          ? this.cifrador.descifrar(p.usuarioMiembroCifrado, contextoMiembro(p.id))
+          : null,
+        claveMiembro: p.claveMiembroCifrada
+          ? this.cifrador.descifrar(p.claveMiembroCifrada, contextoClaveMiembro(p.id))
+          : null,
       })),
     };
     await this.auditoria.registrar({
