@@ -627,10 +627,13 @@ describe('cuentas de servicio', () => {
 
     // Cliente que ya está, fecha exacta y sin pago: no se emite factura.
     const tercero = e.cuenta.listaPerfiles[2] as { id: string };
-    const sinPago = await e.operador.n.post(
-      `/cuentas/${e.cuenta.id}/perfiles/${tercero.id}/alta`,
-      { clienteId: s.clienteId, planId: e.planId, vence: '2099-01-31', precio: '7', moneda: 'USD' },
-    );
+    const sinPago = await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${tercero.id}/alta`, {
+      clienteId: s.clienteId,
+      planId: e.planId,
+      vence: '2099-01-31',
+      precio: '7',
+      moneda: 'USD',
+    });
     expect(sinPago.estado).toBe(201);
     expect(sinPago.cuerpo.facturaId).toBeNull();
     const s2 = await ctx.prisma.suscripcion.findUniqueOrThrow({
