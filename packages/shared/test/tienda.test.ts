@@ -83,7 +83,6 @@ describe('tienda: imágenes de los servicios', () => {
     ['hbo-max', 'hbomax'],
     ['microsoft-365', 'office'],
     ['google-one', 'googleone'],
-    ['apple-tv-plus', 'appletv'],
     ['free-fire', 'freefire'],
     ['call-of-duty-mobile', 'callofduty'],
     ['pubg-mobile', 'pubg'],
@@ -97,13 +96,18 @@ describe('tienda: imágenes de los servicios', () => {
     ['duolingo-super', 'duolingo'],
     ['canva-pro', 'canva'],
     ['google-gemini', 'gemini'],
-    ['apple-music', 'applemusic'],
-    ['directv-go', 'directv'],
+    ['clash-of-clans', 'clashofclans'],
+    ['arena-breakout', 'arenabreakout'],
+    ['mobile-legends', 'mobilelegends'],
+    ['genshin-impact', 'genshin'],
+    ['brawl-stars', 'brawlstars'],
+    ['blood-strike', 'bloodstrike'],
+    ['delta-force', 'deltaforce'],
   ])('%s usa la tarjeta %s', (slug, clave) => {
     expect(claveArte(slug)).toBe(clave);
   });
 
-  it.each(['nv-cine', 'maxima-tv', 'clash-of-clans', 'codigos', ''])(
+  it.each(['nv-cine', 'maxima-tv', 'apple-tv-plus', 'directv-go', 'apple-music', 'codigos', ''])(
     '%s no tiene tarjeta (se muestra un orbe)',
     (slug) => {
       expect(claveArte(slug)).toBeNull();

@@ -19,7 +19,6 @@ export const ARTE_SERVICIOS = {
   disney: '#2f6bff',
   hbomax: '#9b5cff',
   paramount: '#38bdf8',
-  appletv: '#cbd5e1',
   vix: '#f97316',
   crunchyroll: '#f97316',
   youtube: '#ef4444',
@@ -41,6 +40,13 @@ export const ARTE_SERVICIOS = {
   clashroyale: '#3b82f6',
   roblox: '#cbd5e1',
   farlight: '#a855f7',
+  clashofclans: '#f59e0b',
+  arenabreakout: '#d9cf8a',
+  mobilelegends: '#6366f1',
+  genshin: '#60a5fa',
+  brawlstars: '#d946ef',
+  bloodstrike: '#ef4444',
+  deltaforce: '#34d399',
   xbox: '#22c55e',
   playstation: '#2563eb',
   windows: '#0ea5e9',
@@ -48,8 +54,6 @@ export const ARTE_SERVICIOS = {
   canva: '#00c4cc',
   gemini: '#818cf8',
   mubi: '#93c5fd',
-  applemusic: '#f43f5e',
-  directv: '#3b82f6',
 } as const;
 export type ClaveArte = keyof typeof ARTE_SERVICIOS;
 
@@ -59,7 +63,6 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   hbo: 'hbomax',
   max: 'hbomax',
   paramountplus: 'paramount',
-  apple: 'appletv',
   youtubepremium: 'youtube',
   microsoft: 'office',
   m365: 'office',
@@ -72,6 +75,8 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   garena: 'freefire',
   codmobile: 'callofduty',
   pubgmobile: 'pubg',
+  mlbb: 'mobilelegends',
+  genshinimpact: 'genshin',
   robux: 'roblox',
   gamepass: 'xbox',
   psn: 'playstation',
@@ -81,7 +86,6 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   win10: 'windows',
   googlegemini: 'gemini',
   googleaipro: 'gemini',
-  directtv: 'directv',
 };
 
 /** Color de cada universo (categoría) de la tienda. */
