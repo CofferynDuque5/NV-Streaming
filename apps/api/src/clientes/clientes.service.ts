@@ -112,14 +112,23 @@ export class ClientesService {
           asignadoAId,
           origen: 'equipo',
           creadoPorId: auth.usuario.id,
-          ...(entrada.whatsapp
+          ...(entrada.whatsapp || entrada.telegram
             ? {
                 contactos: {
-                  create: {
-                    tipo: 'whatsapp',
-                    valor: entrada.whatsapp,
-                    consentimientoEn: entrada.aceptaWhatsapp ? new Date() : null,
-                  },
+                  create: [
+                    ...(entrada.whatsapp
+                      ? [
+                          {
+                            tipo: 'whatsapp' as const,
+                            valor: entrada.whatsapp,
+                            consentimientoEn: entrada.aceptaWhatsapp ? new Date() : null,
+                          },
+                        ]
+                      : []),
+                    ...(entrada.telegram
+                      ? [{ tipo: 'telegram' as const, valor: entrada.telegram }]
+                      : []),
+                  ],
                 },
               }
             : {}),
@@ -177,6 +186,7 @@ export class ClientesService {
         },
       });
       await this.fijarWhatsapp(tx, id, entrada.whatsapp, entrada.aceptaWhatsapp);
+      await this.fijarTelegram(tx, id, entrada.telegram);
       const c = await tx.cliente.findUniqueOrThrow({ where: { id }, include: INCLUIR_DETALLE });
       await this.auditoria.registrar(
         {
@@ -470,6 +480,15 @@ export class ClientesService {
       await tx.contactoCliente.create({
         data: { clienteId, tipo: 'whatsapp', valor, consentimientoEn },
       });
+    }
+  }
+
+  /** Usuario de Telegram: `undefined` no cambia, `null` lo quita. */
+  private async fijarTelegram(tx: Tx, clienteId: string, usuario: string | null | undefined) {
+    if (usuario === undefined) return;
+    await tx.contactoCliente.deleteMany({ where: { clienteId, tipo: 'telegram' } });
+    if (usuario) {
+      await tx.contactoCliente.create({ data: { clienteId, tipo: 'telegram', valor: usuario } });
     }
   }
 

@@ -164,11 +164,50 @@ export const editarPerfilSchema = z
     bloqueado: z.boolean().optional(),
     /** Guardarlo para reponer caídas. */
     respaldo: z.boolean().optional(),
+    /** Plan familiar: correo con el que entra el miembro de este cupo. null lo quita. */
+    usuarioMiembro: usuarioCuentaSchema.nullable().optional(),
+    /** Clave propia del miembro del cupo. null la quita. */
+    claveMiembro: claveCuentaSchema.nullable().optional(),
   })
   .refine((o) => Object.values(o).some((v) => v !== undefined), 'No hay cambios.');
 export type EditarPerfilEntrada = z.infer<typeof editarPerfilSchema>;
 
 export const asignarPerfilSchema = z.object({ suscripcionId: uuidSchema });
+
+/**
+ * Cortar (liberar) un perfil. Con clave nueva se guarda en la cuenta (hay que
+ * cambiarla también en la plataforma) y con PIN nuevo, en el perfil liberado.
+ */
+export const liberarPerfilSchema = z.preprocess(
+  (v) => v ?? {},
+  z.object({
+    nuevaClave: claveCuentaSchema.optional(),
+    nuevoPin: pinSchema.optional(),
+  }),
+);
+export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
+
+/** Mover al cliente de un perfil a otro libre (de esta u otra cuenta del mismo servicio). */
+export const moverPerfilSchema = z.object({ destinoPerfilId: uuidSchema });
+export type MoverPerfilEntrada = z.infer<typeof moverPerfilSchema>;
+
+/** Avisar los datos de la cuenta a quienes la usan. */
+export const avisarCuentaSchema = z.preprocess(
+  (v) => v ?? {},
+  z.object({
+    /** Solo suscripciones vigentes, o también las vencidas o en pausa. */
+    incluir: z.enum(['activos', 'todos']).default('activos'),
+    /** Nota para todos («si ve un aviso de dispositivo nuevo, acéptelo»). */
+    nota: z
+      .string()
+      .trim()
+      .max(300, 'Máximo 300 caracteres.')
+      .transform((v) => v || null)
+      .nullable()
+      .optional(),
+  }),
+);
+export type AvisarCuentaEntrada = z.infer<typeof avisarCuentaSchema>;
 
 /** Pasar una cuenta completa a perfiles individuales (el cliente que tenga queda en el perfil 1). */
 export const pasarAIndividualesSchema = z.object({

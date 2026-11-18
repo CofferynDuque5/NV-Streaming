@@ -148,6 +148,20 @@ function CamposWhatsapp({
   );
 }
 
+function CampoTelegram({ defaultValue, error }: { defaultValue?: string; error?: string }) {
+  return (
+    <Campo
+      etiqueta="Telegram (opcional)"
+      name="telegram"
+      autoComplete="off"
+      placeholder="@usuario"
+      defaultValue={defaultValue}
+      ayuda="Para clientes que escriben por Telegram."
+      error={error}
+    />
+  );
+}
+
 /* ───────────────────────────── Alta de cliente ───────────────────────────── */
 
 /** Formulario de alta. Al crear, lleva al detalle del cliente. */
@@ -176,6 +190,7 @@ export function NuevoCliente({
       monedaPreferida: texto(d, 'monedaPreferida'),
       whatsapp: texto(d, 'whatsapp'),
       aceptaWhatsapp: d.get('aceptaWhatsapp') === 'on',
+      telegram: texto(d, 'telegram'),
       ...(responsables ? { asignadoAId: texto(d, 'asignadoAId') } : {}),
     });
     if (!r.ok) {
@@ -214,6 +229,7 @@ export function NuevoCliente({
         <CampoPais error={campos.pais} />
         <SelectorMoneda name="monedaPreferida" defaultValue="USD" error={campos.monedaPreferida} />
         <CamposWhatsapp error={campos.whatsapp} />
+        <CampoTelegram error={campos.telegram} />
         {responsables ? (
           <SelectorResponsable
             responsables={responsables}
@@ -260,6 +276,7 @@ export function DatosCliente({
   const [cargando, setCargando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const whatsapp = cliente.contactos.find((c) => c.tipo === 'whatsapp') ?? null;
+  const telegram = cliente.contactos.find((c) => c.tipo === 'telegram') ?? null;
 
   async function guardar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -279,6 +296,8 @@ export function DatosCliente({
       cuerpo.whatsapp = numero;
       cuerpo.aceptaWhatsapp = acepta;
     }
+    const tg = texto(d, 'telegram');
+    if (tg !== (telegram?.valor ?? '')) cuerpo.telegram = tg;
     if (responsables) cuerpo.asignadoAId = texto(d, 'asignadoAId');
 
     setCargando(true);
@@ -354,6 +373,7 @@ export function DatosCliente({
             consentimiento={Boolean(whatsapp?.consentimientoEn)}
             error={campos.whatsapp}
           />
+          <CampoTelegram defaultValue={telegram?.valor ?? ''} error={campos.telegram} />
           {responsables && (
             <SelectorResponsable
               responsables={responsables}
@@ -384,6 +404,7 @@ export function DatosCliente({
             datos={[
               ['Correo', cliente.correo ?? <Vacio>Sin correo</Vacio>],
               ['Documento', cliente.documento ?? <Vacio>Sin documento</Vacio>],
+              ...(telegram ? [['Telegram', `@${telegram.valor}`] as [string, ReactNode]] : []),
               ['País', pais ? `${pais} (${cliente.pais})` : <Vacio>Sin indicar</Vacio>],
               [
                 'Moneda preferida',

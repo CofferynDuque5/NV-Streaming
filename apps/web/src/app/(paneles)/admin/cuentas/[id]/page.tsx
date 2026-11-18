@@ -1,4 +1,11 @@
-import { type CuentaServicioDetalle, formatearMonto, type PagoCuentaPublico } from '@nv/shared';
+import {
+  type CuentaServicioDetalle,
+  esTitular,
+  formatearMonto,
+  type PagoCuentaPublico,
+  TEXTOS_PLATAFORMA,
+  tipoPlataforma,
+} from '@nv/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +16,7 @@ import {
   PasarAIndividuales,
   VerCredenciales,
 } from '@/componentes/admin/cuentas';
+import { AvisarDatos } from '@/componentes/admin/cuentas-gestor';
 import { AnularPagoCuenta, RegistrarPagoCuenta } from '@/componentes/admin/pagos-cuenta';
 import { Volver } from '@/componentes/admin/piezas-crm';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -51,6 +59,11 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
   }
   const estado = ESTADO_CUENTA_SERVICIO[c.estado];
   const terminadas = c.listaPerfiles.filter((p) => p.asignacion?.terminada).length;
+  const tipo = tipoPlataforma(c.servicio.nombre);
+  const textos = TEXTOS_PLATAFORMA[tipo];
+  const vigentes = c.listaPerfiles.filter(
+    (p) => p.asignacion && ['activa', 'en_gracia'].includes(p.asignacion.estado),
+  ).length;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
@@ -65,6 +78,9 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {puedeRevelar && c.estado === 'activa' && (
+            <AvisarDatos cuentaId={c.id} asignados={c.perfiles.asignados} />
+          )}
           {puedeRevelar && <VerCredenciales cuentaId={c.id} />}
           {puedeGestionar && <EditarCuenta cuenta={c} />}
         </div>
@@ -113,13 +129,14 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
 
       <Tarjeta>
         <CabeceraTarjeta
-          titulo={c.modo === 'completa' ? 'Cupo' : 'Perfiles'}
+          titulo={c.modo === 'completa' ? 'Cupo' : textos.lugares}
           descripcion={`${c.perfiles.libres} libres · ${c.perfiles.asignados} asignados · ${c.perfiles.bloqueados} bloqueados${c.perfiles.respaldos ? ` · ${c.perfiles.respaldos} de respaldo` : ''}`}
         />
+        <p className="px-5 pb-3 text-xs text-tinta-tenue sm:px-6">{textos.descripcion}</p>
         <Tabla minimo="48rem">
           <Encabezados
             columnas={[
-              'Perfil',
+              textos.lugar,
               'Estado',
               'Cliente',
               ...(puedeGestionar
@@ -137,7 +154,9 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
                     <span className="block font-medium">{p.nombre}</span>
                     <span className="block text-xs text-tinta-tenue">
                       N.º {p.numero}
-                      {p.tienePin ? ' · con PIN' : ''}
+                      {esTitular(tipo, p.numero) ? ' · titular' : ''}
+                      {p.tienePin && textos.usaPin ? ' · con PIN' : ''}
+                      {p.tieneMiembro ? ' · correo propio' : ''}
                     </span>
                   </Celda>
                   <Celda>
@@ -173,6 +192,14 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
                         perfil={p}
                         cuentaActiva={c.estado === 'activa'}
                         puedeRevelar={puedeRevelar}
+                        tipo={tipo}
+                        otrosActivos={Math.max(
+                          0,
+                          vigentes -
+                            (p.asignacion && ['activa', 'en_gracia'].includes(p.asignacion.estado)
+                              ? 1
+                              : 0),
+                        )}
                       />
                     </Celda>
                   )}

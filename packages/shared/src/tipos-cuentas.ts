@@ -1,5 +1,6 @@
 import type { EstadoCuentaServicio, EstadoPerfil, ModoCuenta } from './esquemas/cuentas.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
+import type { TipoPlataforma } from './plataformas.js';
 import type { Pagina } from './tipos.js';
 import type { Referencia } from './tipos-negocio.js';
 
@@ -49,6 +50,8 @@ export interface PerfilCuentaPublico {
   nombre: string;
   estado: EstadoPerfil;
   tienePin: boolean;
+  /** Plan familiar: el cupo tiene correo propio del miembro. */
+  tieneMiembro: boolean;
   nota: string | null;
   asignacion: AsignacionPerfil | null;
 }
@@ -63,7 +66,44 @@ export interface CuentaServicioDetalle extends CuentaServicioResumen {
 export interface CredencialesCuenta {
   usuario: string;
   clave: string;
-  perfiles: { numero: number; nombre: string; pin: string | null }[];
+  perfiles: {
+    numero: number;
+    nombre: string;
+    pin: string | null;
+    /** Plan familiar: correo y clave propios del miembro del cupo. */
+    usuarioMiembro: string | null;
+    claveMiembro: string | null;
+  }[];
+}
+
+/** Mensaje con los datos de la cuenta para cada cliente que la usa (se envía a mano). */
+export interface AvisoCuenta {
+  perfilId: string;
+  numero: number;
+  perfil: string;
+  cliente: Referencia;
+  estado: EstadoSuscripcion;
+  texto: string;
+  whatsapp: string | null;
+  correo: string | null;
+  /** Usuario de Telegram (sin @): el texto se copia y se abre el chat. */
+  telegram: string | null;
+}
+
+export interface AvisosCuenta {
+  servicio: string;
+  pista: string;
+  avisos: AvisoCuenta[];
+}
+
+/** Lugar libre donde se puede mover a un cliente. */
+export interface DestinoMover {
+  cuentaId: string;
+  pista: string;
+  plan: string | null;
+  facturaEn: string | null;
+  modo: ModoCuenta;
+  perfiles: { id: string; numero: number; nombre: string; respaldo: boolean }[];
 }
 
 /** Suscripción del mismo servicio que puede recibir un perfil. */
@@ -175,6 +215,8 @@ export interface PerfilDelCliente {
   estado: EstadoSuscripcion;
   venceEn: string | null;
   perfil: { numero: number; nombre: string; tienePin: boolean };
+  /** Por perfiles, plan familiar o correo con código (según el servicio). */
+  tipo: TipoPlataforma;
   /** «perfiles» o la cuenta entera. */
   modo: ModoCuenta;
   /** La cuenta está activa: se pueden ver los datos. Si está caída, el equipo la está revisando. */
@@ -186,9 +228,14 @@ export interface PerfilDelCliente {
 /** Datos para entrar al perfil. Solo los ve su dueño mientras la suscripción está vigente. */
 export interface PerfilRevelado {
   usuario: string;
+  /** Vacía si el miembro de un plan familiar no dejó su clave guardada. */
   clave: string;
   perfil: string;
   pin: string | null;
+  /** Por perfiles, plan familiar o correo con código (según el servicio). */
+  tipo: TipoPlataforma;
+  /** Plan familiar: entra con su propio correo (miembro del plan), no con el de la cuenta. */
+  miembro: boolean;
 }
 
 /** Mensaje que arma el equipo para enviar a mano. Nunca se envía solo. */
@@ -198,6 +245,8 @@ export interface MensajePerfil {
   whatsapp: string | null;
   /** Enlace «mailto:» si el cliente tiene correo. */
   correo: string | null;
+  /** Usuario de Telegram (sin @), si lo dio. */
+  telegram: string | null;
 }
 
 // ── Verificar e importar la lista del proveedor ──────────────────────────────

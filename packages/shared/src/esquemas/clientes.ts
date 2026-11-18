@@ -25,6 +25,17 @@ export const telefonoSchema = z
   .transform((v) => v.replace(/[\s().-]/g, ''))
   .pipe(z.string().regex(/^\+\d{7,15}$/, 'Escribe el número con el código de país (+58...).'));
 
+/** Usuario de Telegram, sin la @ (5 a 32 letras, números o _). */
+export const telegramSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/^@/, '').replace(/^https?:\/\/t\.me\//i, ''))
+  .pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z][A-Za-z0-9_]{4,31}$/, 'Escribe el usuario de Telegram (p. ej. @maria_p).'),
+  );
+
 export const ESTADOS_CLIENTE = ['activo', 'archivado'] as const;
 export type EstadoCliente = (typeof ESTADOS_CLIENTE)[number];
 
@@ -45,6 +56,8 @@ export const clienteSchema = z.object({
   whatsapp: opcional(telefonoSchema),
   /** Consentimiento del cliente para recibir mensajes por WhatsApp. */
   aceptaWhatsapp: z.boolean().default(false),
+  /** Usuario de Telegram, para clientes que escriben por ahí. */
+  telegram: opcional(telegramSchema),
   asignadoAId: opcional(uuidSchema),
 });
 export type ClienteEntrada = z.infer<typeof clienteSchema>;
@@ -54,6 +67,7 @@ export const actualizarClienteSchema = parcialSinDefectos(clienteSchema).extend(
   documento: borrable(z.string().trim().max(40, 'El documento es demasiado largo.')),
   pais: borrable(paisSchema),
   whatsapp: borrable(telefonoSchema),
+  telegram: borrable(telegramSchema),
   asignadoAId: borrable(uuidSchema),
 });
 export type ActualizarClienteEntrada = z.infer<typeof actualizarClienteSchema>;

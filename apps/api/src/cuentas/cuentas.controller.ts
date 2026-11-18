@@ -13,6 +13,9 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import {
   asignarPerfilSchema,
+  avisarCuentaSchema,
+  liberarPerfilSchema,
+  moverPerfilSchema,
   pasarAIndividualesSchema,
   reponerPerfilSchema,
   reporteCaidasSchema,
@@ -192,13 +195,51 @@ export class CuentasController {
 
   @Post(':id/perfiles/:perfilId/liberar')
   @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(liberarPerfilSchema)
   liberar(
     @Auth() auth: ContextoAuth,
     @Param('id', idValido) id: string,
     @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(liberarPerfilSchema)) cuerpo: z.output<typeof liberarPerfilSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.cuentas.liberar(auth, id, perfilId, cliente);
+    return this.cuentas.liberar(auth, id, perfilId, cuerpo, cliente);
+  }
+
+  /** Lugares libres del mismo servicio adonde se puede mover al cliente del perfil. */
+  @Get(':id/perfiles/:perfilId/destinos')
+  @RequierePermiso('cuentas.gestionar')
+  destinos(@Param('id', idValido) id: string, @Param('perfilId', idValido) perfilId: string) {
+    return this.cuentas.destinos(id, perfilId);
+  }
+
+  @Post(':id/perfiles/:perfilId/mover')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(moverPerfilSchema)
+  mover(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Body(validar(moverPerfilSchema)) cuerpo: z.output<typeof moverPerfilSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.mover(auth, id, perfilId, cuerpo.destinoPerfilId, cliente);
+  }
+
+  /** Un mensaje por cliente con los datos de la cuenta, para avisar a mano. Cuenta como ver credenciales. */
+  @Post(':id/avisos')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.revelar')
+  @DocCuerpo(avisarCuentaSchema)
+  avisos(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(avisarCuentaSchema)) cuerpo: z.output<typeof avisarCuentaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.avisos(auth, id, cuerpo, cliente);
   }
 
   /** Arma el mensaje con los datos del perfil para enviarlo a mano. Cuenta como ver credenciales. */

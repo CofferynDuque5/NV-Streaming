@@ -17,6 +17,7 @@ import {
   Phone,
   Plus,
   ShieldCheck,
+  Send,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -57,8 +58,13 @@ import { requerirSesion } from '@/lib/sesion';
 
 export const metadata: Metadata = { title: 'Ficha del cliente' };
 
-const ETIQUETA_CONTACTO = { correo: 'Correo', whatsapp: 'WhatsApp', telefono: 'Teléfono' };
-const ICONO_CONTACTO = { correo: Mail, whatsapp: MessageCircle, telefono: Phone };
+const ETIQUETA_CONTACTO = {
+  correo: 'Correo',
+  whatsapp: 'WhatsApp',
+  telefono: 'Teléfono',
+  telegram: 'Telegram',
+};
+const ICONO_CONTACTO = { correo: Mail, whatsapp: MessageCircle, telefono: Phone, telegram: Send };
 
 /** Fila de una lista compacta dentro de una tarjeta, enlazada a su detalle. */
 function FilaEnlace({

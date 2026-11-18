@@ -59,7 +59,7 @@ describe('cuentas: PIN al crear, nota del perfil e inventario', () => {
       ['Cuarto', false],
     ]);
     const revelado = await e.operador.post(`/cuentas/${e.cuenta.id}/revelar`);
-    expect(revelado.cuerpo.perfiles[0]).toEqual({ numero: 1, nombre: 'Sala', pin: '1357' });
+    expect(revelado.cuerpo.perfiles[0]).toMatchObject({ numero: 1, nombre: 'Sala', pin: '1357' });
     const fila = await ctx.prisma.perfilCuenta.findFirstOrThrow({
       where: { cuentaId: e.cuenta.id, numero: 1 },
     });
