@@ -24,13 +24,17 @@ export const ARTE_SERVICIOS = {
   crunchyroll: '#f97316',
   youtube: '#ef4444',
   flujo: '#fb923c',
-  tvmagico: '#38bdf8',
   spotify: '#84cc16',
   deezer: '#a855f7',
   tidal: '#a5f3fc',
   chatgpt: '#10b981',
   office: '#3b82f6',
   googleone: '#22c55e',
+  primevideo: '#38bdf8',
+  plex: '#eab308',
+  capcut: '#e5e7eb',
+  telelatino: '#ec4899',
+  viki: '#3b9eea',
 } as const;
 export type ClaveArte = keyof typeof ARTE_SERVICIOS;
 
@@ -47,6 +51,9 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   office365: 'office',
   google: 'googleone',
   openai: 'chatgpt',
+  prime: 'primevideo',
+  amazon: 'primevideo',
+  rakuten: 'viki',
 };
 
 /** Color de cada universo (categoría) de la tienda. */
@@ -172,7 +179,7 @@ export function aspectoServicio(
 ): { arte: string | null; color: string } {
   const clave = claveArte(slug);
   return {
-    arte: imagen ?? (clave ? `/servicios/${clave}.webp?v=2` : null),
+    arte: imagen ?? (clave ? `/servicios/${clave}.webp?v=3` : null),
     color: clave
       ? ARTE_SERVICIOS[clave]
       : (colorMarca(slug) ?? (categoria ? COLOR_CATEGORIA[categoria] : COLOR_SIN_CATEGORIA)),
