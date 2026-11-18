@@ -41,7 +41,7 @@ test('una cuenta sin anotar espera fuera del inventario hasta que se anota', asy
   await page.getByRole('link', { name: 'Sin anotar' }).first().click();
   await expect(page).toHaveURL(/\/admin\/cuentas\/sin-anotar$/);
   await page.getByRole('button', { name: 'Agregar cuenta sin anotar' }).click();
-  await page.getByLabel('Servicio').selectOption({ index: 1 });
+  await page.getByLabel('Servicio', { exact: true }).selectOption({ index: 1 });
   await page.getByLabel('Correo o usuario').fill(usuario);
   await page.getByLabel('Clave', { exact: true }).fill('Clave-de-prueba-1');
   await page.getByLabel('Fecha de liberación').fill(ayer());

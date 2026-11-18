@@ -49,7 +49,7 @@ export function pedirAvisoCuenta(cuentaId: string) {
 /** Perfiles recién asignados: su botón «Mensaje» se abre solo para enviar los datos. */
 export const recienAsignados = new Set<string>();
 
-function Dialogo({
+export function Dialogo({
   titulo,
   icono,
   onCerrar,

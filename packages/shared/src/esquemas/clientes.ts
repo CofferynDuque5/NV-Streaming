@@ -23,6 +23,8 @@ export const telefonoSchema = z
   .string()
   .trim()
   .transform((v) => v.replace(/[\s().-]/g, ''))
+  // Como en el Gestor se acepta «584121234567» (con código de país, sin +).
+  .transform((v) => (/^[1-9]\d{9,14}$/.test(v) ? `+${v}` : v))
   .pipe(z.string().regex(/^\+\d{7,15}$/, 'Escribe el número con el código de país (+58...).'));
 
 /** Usuario de Telegram, sin la @ (5 a 32 letras, números o _). */
@@ -35,6 +37,12 @@ export const telegramSchema = z
       .string()
       .regex(/^[A-Za-z][A-Za-z0-9_]{4,31}$/, 'Escribe el usuario de Telegram (p. ej. @maria_p).'),
   );
+
+export const responsableSchema = z
+  .string()
+  .trim()
+  .max(60, 'El responsable es demasiado largo.')
+  .transform((v) => v.replace(/\s+/g, ' '));
 
 export const ESTADOS_CLIENTE = ['activo', 'archivado'] as const;
 export type EstadoCliente = (typeof ESTADOS_CLIENTE)[number];
@@ -59,6 +67,8 @@ export const clienteSchema = z.object({
   /** Usuario de Telegram, para clientes que escriben por ahí. */
   telegram: opcional(telegramSchema),
   asignadoAId: opcional(uuidSchema),
+  /** Quien trajo al cliente (revendedor), como en el Gestor. */
+  responsable: opcional(responsableSchema),
 });
 export type ClienteEntrada = z.infer<typeof clienteSchema>;
 
@@ -69,6 +79,7 @@ export const actualizarClienteSchema = parcialSinDefectos(clienteSchema).extend(
   whatsapp: borrable(telefonoSchema),
   telegram: borrable(telegramSchema),
   asignadoAId: borrable(uuidSchema),
+  responsable: borrable(responsableSchema),
 });
 export type ActualizarClienteEntrada = z.infer<typeof actualizarClienteSchema>;
 
@@ -77,6 +88,7 @@ export const listarClientesSchema = paginacionSchema.extend({
   /** Sin estado: solo activos. "todos" incluye los archivados. */
   estado: z.enum([...ESTADOS_CLIENTE, 'todos']).optional(),
   asignadoAId: uuidSchema.optional(),
+  responsable: z.string().trim().max(60).optional(),
 });
 export type ListarClientesEntrada = z.infer<typeof listarClientesSchema>;
 

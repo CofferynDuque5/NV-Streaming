@@ -27,6 +27,7 @@ export function clienteResumen(c: ClienteConRelaciones): ClienteResumen {
     monedaPreferida: c.monedaPreferida,
     estado: c.estado,
     asignadoA: c.asignadoA,
+    responsable: c.responsable,
     tieneAcceso: c.usuarioId !== null,
     suscripcionesActivas: c._count.suscripciones,
     creadoEn: iso(c.creadoEn)!,

@@ -39,18 +39,34 @@ export class ClientesService {
     @Inject(CorreoService) private readonly correo: CorreoService,
   ) {}
 
+  /** Responsables ya usados, para autocompletar (como en el Gestor). */
+  async responsables(auth: ContextoAuth): Promise<string[]> {
+    const filas = await this.prisma.cliente.groupBy({
+      by: ['responsable'],
+      where: { AND: [alcanceClientes(auth), { responsable: { not: null } }] },
+      _count: { _all: true },
+      orderBy: { _count: { responsable: 'desc' } },
+      take: 200,
+    });
+    return filas.map((f) => f.responsable).filter((r): r is string => Boolean(r));
+  }
+
   async listar(auth: ContextoAuth, filtro: ListarClientesEntrada): Promise<Pagina<ClienteResumen>> {
     const where: Prisma.ClienteWhereInput = {
       AND: [
         alcanceClientes(auth),
         filtro.estado === 'todos' ? {} : { estado: filtro.estado ?? 'activo' },
         filtro.asignadoAId ? { asignadoAId: filtro.asignadoAId } : {},
+        filtro.responsable
+          ? { responsable: { equals: filtro.responsable, mode: 'insensitive' } }
+          : {},
         filtro.busqueda
           ? {
               OR: [
                 { nombre: { contains: filtro.busqueda, mode: 'insensitive' } },
                 { correo: { contains: filtro.busqueda.toLowerCase() } },
                 { documento: { contains: filtro.busqueda, mode: 'insensitive' } },
+                { responsable: { contains: filtro.busqueda, mode: 'insensitive' } },
                 { contactos: { some: { valor: { contains: filtro.busqueda } } } },
               ],
             }
@@ -119,6 +135,7 @@ export class ClientesService {
         pais: entrada.pais ?? null,
         monedaPreferida: entrada.monedaPreferida,
         asignadoAId,
+        responsable: entrada.responsable || null,
         origen: 'equipo',
         creadoPorId: auth.usuario.id,
         ...(entrada.whatsapp || entrada.telegram
@@ -191,6 +208,9 @@ export class ClientesService {
             ? { monedaPreferida: entrada.monedaPreferida }
             : {}),
           ...(entrada.asignadoAId !== undefined ? { asignadoAId: entrada.asignadoAId } : {}),
+          ...(entrada.responsable !== undefined
+            ? { responsable: entrada.responsable || null }
+            : {}),
         },
       });
       await this.fijarWhatsapp(tx, id, entrada.whatsapp, entrada.aceptaWhatsapp);

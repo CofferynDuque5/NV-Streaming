@@ -659,4 +659,59 @@ describe('cuentas de servicio', () => {
     const fila = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: primero.id } });
     expect(fila.estado).toBe('libre');
   });
+
+  it('muestra una plataforma con sus cuentas (sin las retiradas) y su tipo', async () => {
+    const e = await escenario();
+    const r = await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`);
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toMatchObject({ servicio: { id: e.servicioId }, tipo: 'perfiles' });
+    expect(r.cuerpo.cuentas).toHaveLength(1);
+    expect(r.cuerpo.cuentas[0].listaPerfiles).toHaveLength(3);
+    expect(JSON.stringify(r.cuerpo)).not.toContain(CLAVE);
+    await ctx.prisma.cuentaServicio.update({
+      where: { id: e.cuenta.id },
+      data: { estado: 'retirada' },
+    });
+    expect(
+      (await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`)).cuerpo.cuentas,
+    ).toHaveLength(0);
+    expect((await e.cliente.get(`/cuentas/plataforma/${e.servicioId}`)).estado).toBe(403);
+  });
+  it('la plataforma trae el correo completo (con permiso, auditado), el responsable y el contacto', async () => {
+    const e = await escenario();
+    const libre = e.cuenta.listaPerfiles[0] as { id: string };
+    const alta = await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${libre.id}/alta`, {
+      clienteNuevo: {
+        nombre: 'Lucía Gestor',
+        responsable: '  Pedro   Reventa ',
+        whatsapp: '584121234567',
+        aceptaWhatsapp: true,
+      },
+      planId: e.planId,
+      meses: 1,
+      precio: '4',
+      moneda: 'USD',
+    });
+    expect(alta.estado).toBe(201);
+
+    const r = await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`);
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.correos).toEqual({ [e.cuenta.id]: 'Maria.Cine@Example.com' });
+    expect(JSON.stringify(r.cuerpo)).not.toContain(CLAVE);
+    const asignado = r.cuerpo.cuentas[0].listaPerfiles[0].asignacion;
+    expect(r.cuerpo.clientes[asignado.cliente.id]).toMatchObject({
+      responsable: 'Pedro Reventa',
+      whatsapp: '+584121234567',
+    });
+    expect(
+      await ctx.prisma.auditoria.count({ where: { accion: 'cuenta.correos_vistos' } }),
+    ).toBeGreaterThan(0);
+
+    expect((await e.operador.n.get('/clientes/responsables')).cuerpo).toContain('Pedro Reventa');
+    const filtrado = await e.operador.n.get('/clientes?responsable=pedro%20reventa');
+    expect(filtrado.cuerpo.elementos.map((c: { nombre: string }) => c.nombre)).toEqual([
+      'Lucía Gestor',
+    ]);
+    expect(filtrado.cuerpo.elementos[0].responsable).toBe('Pedro Reventa');
+  });
 });

@@ -85,3 +85,82 @@ export function generarClave(largo = 12): string {
 export function generarPin(): string {
   return Array.from(aleatorios(4), (x) => String(x % 10)).join('');
 }
+
+/* ─────────────────────── Contrato (igual que el Gestor) ─────────────────────── */
+
+export interface DatosContrato {
+  servicio: string;
+  /** Correo o usuario con el que entra el cliente. */
+  correo: string;
+  clave: string;
+  /** En una cuenta compartida, el nombre del cliente; vacío en individuales. */
+  perfil: string;
+  /** Vacío si la plataforma no usa PIN (se escribe «NO APLICA» si se pide). */
+  pin: string;
+  /** «dd/mm/aaaa». */
+  vence: string;
+}
+
+export const CONDICIONES_CONTRATO = [
+  '*El servicio es válido únicamente para 1 dispositivo.*',
+  '*Las descargas deben realizarse solo en un mismo dispositivo*',
+  '*No modificar perfiles, nombres ni configuraciones.*',
+  '*No abrir la cuenta en más de un dispositivo.*',
+  '*No compartir credenciales con terceros.*',
+  '*El cliente debe reportar fallas de inmediato. Si no se informa a tiempo, no se repondrán días perdidos.*',
+  '*No se realizan reembolsos ni cambios de suscripcion, excepto en casos de falla técnica sin solución.*',
+  '*El incumplimiento de las condiciones resultara en la suspensión inmediata del servicio sin derecho a reclamo.*',
+];
+
+/** El texto «CONTRATO – FACTURA DE SERVICIO» que recibe el cliente al subirlo (formato del Gestor). */
+export function contratoServicio(d: DatosContrato): string {
+  const v = (x: string) => x.trim() || '—';
+  return [
+    'CONTRATO – FACTURA DE SERVICIO',
+    '',
+    `Servicio: ${v(d.servicio)}`,
+    `Correo: ${v(d.correo)}`,
+    `Contraseña: ${v(d.clave)}`,
+    ...(d.perfil.trim() ? [`Perfil: ${d.perfil.trim()}`] : []),
+    `Pin: ${d.pin.trim() || 'NO APLICA'}`,
+    `Fecha vencimiento: ${v(d.vence)}`,
+    '',
+    'CONDICIONES DE USO DEL SERVICIO',
+    '',
+    ...CONDICIONES_CONTRATO,
+    '',
+    'ATENCIÓN AL CLIENTE',
+    '',
+    'Horario: 11:00 AM a 11:30 PM.',
+    '',
+    'Al recibir el servicio, el cliente acepta todas las condiciones.',
+  ].join('\n');
+}
+
+/** «AAAA-MM-DD» → «dd/mm/aaaa». */
+export function fechaContrato(dia: string): string {
+  const [a, m, d] = dia.slice(0, 10).split('-');
+  return a && m && d ? `${d}/${m}/${a}` : '—';
+}
+
+export interface CandidatoLugar {
+  cuentaId: string;
+  perfilId: string;
+  /** Próximo pago al proveedor («AAAA-MM-DD»), o null si no se le paga a nadie. */
+  facturaEn: string | null;
+}
+
+/**
+ * El lugar que mejor conviene, como en el Gestor: el de la cuenta que vence
+ * más tarde (la que menos deja al cliente sin servicio). `cubre` dice si esa
+ * cuenta alcanza para todo el plazo del cliente.
+ */
+export function recomendarLugar<T extends CandidatoLugar>(
+  libres: T[],
+  venceCliente: string,
+): { lugar: T; cubre: boolean } | null {
+  if (libres.length === 0) return null;
+  const fecha = (c: T) => c.facturaEn ?? '9999-12-31';
+  const lugar = [...libres].sort((a, b) => fecha(b).localeCompare(fecha(a)))[0]!;
+  return { lugar, cubre: fecha(lugar) >= venceCliente };
+}

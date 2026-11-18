@@ -288,7 +288,7 @@ export function estadoModulo(
     case 'cuentas':
       return ok('Correos, claves y pagos al proveedor');
     case 'existencias':
-      return ok('Perfiles libres, ocupados y por vencer');
+      return ok('Cuentas y clientes por plataforma');
     case 'codigos':
       return ok('Último código de cada cuenta');
     case 'balance':
@@ -345,6 +345,6 @@ export function estadoModulo(
     case 'por-pagar':
       return ok('Cobros de proveedores');
     case 'caidas':
-      return ok('Por plataforma y proveedor');
+      return ok('Reponer clientes e historial');
   }
 }
