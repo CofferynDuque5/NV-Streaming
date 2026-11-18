@@ -221,7 +221,8 @@ export class CuentasService {
     const busqueda = f.busqueda?.trim();
     const where: Prisma.CuentaServicioWhereInput = {
       ...(f.servicioId ? { servicioId: f.servicioId } : {}),
-      ...(f.estado ? { estado: f.estado } : {}),
+      // Las borradas (retiradas) solo salen si se piden: viven en la Papelera.
+      estado: f.estado ?? { not: 'retirada' },
       ...(f.conLibres ? { perfiles: { some: { estado: 'libre' } } } : {}),
       ...(busqueda
         ? {

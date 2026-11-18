@@ -15,6 +15,13 @@ test('crea una plataforma desde Plataformas y queda lista para agregarle cuentas
   await page.getByRole('button', { name: 'Crear plataforma' }).click();
   const dialogo = page.getByRole('dialog', { name: 'Crear plataforma' });
   await dialogo.getByLabel('Nombre de la plataforma').fill(nombre);
+  if (process.env.CAPTURAS) {
+    await dialogo.getByLabel('Nombre de la plataforma').fill('Crunchyroll');
+    await dialogo.getByLabel('Precio para el cliente (USD)').fill('4.00');
+    await page.screenshot({ path: `${process.env.CAPTURAS}/crear-plataforma.png` });
+    await dialogo.getByLabel('Precio para el cliente (USD)').fill('');
+    await dialogo.getByLabel('Nombre de la plataforma').fill(nombre);
+  }
   // Sin precio el plan queda oculto en la tienda (y no se cruza con las otras pruebas).
   await dialogo.getByRole('button', { name: 'Crear plataforma' }).click();
   await expect(page).toHaveURL(/\/admin\/plataformas\/[0-9a-f-]{36}$/);
@@ -39,6 +46,25 @@ test('crea una plataforma desde Plataformas y queda lista para agregarle cuentas
     .getByRole('button', { name: 'Crear plataforma' })
     .click();
   await expect(page.getByRole('dialog', { name: 'Crear plataforma' })).toContainText('Ya existe');
+  await page
+    .getByRole('dialog', { name: 'Crear plataforma' })
+    .getByRole('button', { name: 'Cancelar' })
+    .click();
+
+  // Sin cuentas se puede quitar de la lista.
+  await page
+    .locator('#contenido')
+    .getByRole('link', { name: new RegExp(nombre) })
+    .click();
+  await page.getByRole('button', { name: 'Quitar plataforma' }).click();
+  await page
+    .getByRole('dialog', { name: 'Quitar plataforma' })
+    .getByRole('button', { name: 'Quitar plataforma' })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/plataformas$/);
+  await expect(
+    page.locator('#contenido').getByRole('link', { name: new RegExp(nombre) }),
+  ).toHaveCount(0);
 });
 
 test('importa del Gestor una plataforma que no existía, con cuentas completas e individuales', async ({

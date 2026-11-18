@@ -6,7 +6,7 @@ import {
   INFO_CATEGORIA,
   type PlataformaCreada,
 } from '@nv/shared';
-import { LayoutGrid, Plus } from 'lucide-react';
+import { LayoutGrid, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
@@ -162,6 +162,64 @@ export function CrearPlataforma({
               </Boton>
             </div>
           </form>
+        </Dialogo>
+      )}
+    </>
+  );
+}
+
+/**
+ * Quita de la lista una plataforma que ya no tiene cuentas. No borra nada:
+ * el servicio queda inactivo y se vuelve a activar desde el Catálogo.
+ */
+export function QuitarPlataforma({ servicioId, nombre }: { servicioId: string; nombre: string }) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const quitar = useAccion();
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="fantasma"
+        icono={<Trash2 className="size-4" aria-hidden />}
+        onClick={() => {
+          quitar.limpiar();
+          setAbierto(true);
+        }}
+      >
+        Quitar plataforma
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo="Quitar plataforma"
+          icono={<Trash2 className="size-5 text-peligro" aria-hidden />}
+          onCerrar={() => setAbierto(false)}
+          bloquear={quitar.cargando}
+        >
+          <p className="text-sm">
+            «<span className="font-semibold">{nombre}</span>» deja de salir en Plataformas y en la
+            tienda. No se borra el historial: puedes volver a activarla desde el Catálogo.
+          </p>
+          <ErrorGeneral error={quitar.error} />
+          <div className="flex justify-end gap-2">
+            <Boton variante="secundario" onClick={() => setAbierto(false)}>
+              Cancelar
+            </Boton>
+            <Boton
+              variante="peligro"
+              cargando={quitar.cargando}
+              onClick={async () => {
+                const r = await quitar.ejecutar('PATCH', `/catalogo/servicios/${servicioId}`, {
+                  activo: false,
+                });
+                if (!r) return;
+                router.push('/admin/plataformas');
+                router.refresh();
+              }}
+            >
+              Quitar plataforma
+            </Boton>
+          </div>
         </Dialogo>
       )}
     </>

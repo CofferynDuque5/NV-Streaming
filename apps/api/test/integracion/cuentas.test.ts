@@ -675,6 +675,11 @@ describe('cuentas de servicio', () => {
     expect(
       (await e.operador.n.get(`/cuentas/plataforma/${e.servicioId}`)).cuerpo.cuentas,
     ).toHaveLength(0);
+    // «Todas las cuentas» tampoco la muestra: las borradas solo salen si se piden.
+    const todas = await e.operador.n.get(`/cuentas?servicioId=${e.servicioId}`);
+    expect(todas.cuerpo.total).toBe(0);
+    const borradas = await e.operador.n.get(`/cuentas?servicioId=${e.servicioId}&estado=retirada`);
+    expect(borradas.cuerpo.total).toBe(1);
     expect((await e.cliente.get(`/cuentas/plataforma/${e.servicioId}`)).estado).toBe(403);
   });
   it('la plataforma trae el correo completo (con permiso, auditado), el responsable y el contacto', async () => {
