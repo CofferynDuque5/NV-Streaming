@@ -15,7 +15,7 @@ test('crea una plataforma desde Plataformas y queda lista para agregarle cuentas
   await page.getByRole('button', { name: 'Crear plataforma' }).click();
   const dialogo = page.getByRole('dialog', { name: 'Crear plataforma' });
   await dialogo.getByLabel('Nombre de la plataforma').fill(nombre);
-  await dialogo.getByLabel('Precio para el cliente (USD)').fill('4.50');
+  // Sin precio el plan queda oculto en la tienda (y no se cruza con las otras pruebas).
   await dialogo.getByRole('button', { name: 'Crear plataforma' }).click();
   await expect(page).toHaveURL(/\/admin\/plataformas\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: nombre })).toBeVisible();
@@ -106,6 +106,8 @@ test('importa del Gestor una plataforma que no existía, con cuentas completas e
   await fila.getByRole('button', { name: `Crear «${plat}»` }).click();
   const dialogo = page.getByRole('dialog', { name: 'Crear plataforma' });
   await expect(dialogo.getByLabel('Precio para el cliente (USD)')).toHaveValue('3.00');
+  // Oculto en la tienda: las demás pruebas toman el primer plan de alquiler del catálogo.
+  await dialogo.getByLabel('Precio para el cliente (USD)').fill('');
   await dialogo.getByRole('button', { name: 'Crear plataforma' }).click();
   await expect(dialogo).toBeHidden();
 
