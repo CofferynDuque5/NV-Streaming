@@ -99,7 +99,7 @@ describe('tienda: servicios y universos', () => {
   it('agrupa por servicio, ordena por duración y omite servicios sin planes', () => {
     expect(servicios.map((s) => s.servicio.id)).toEqual(['s1', 's2', 's3']);
     expect(servicios[0]?.planes.map((p) => p.id)).toEqual(['c1', 'c3', 'c12']);
-    expect(servicios[1]?.arte).toBe('/servicios/spotify.webp');
+    expect(servicios[1]?.arte).toBe('/servicios/spotify.webp?v=2');
     expect(servicios[1]?.ranking).toBe(0);
     expect(servicios[0]?.ranking).toBeNull();
   });

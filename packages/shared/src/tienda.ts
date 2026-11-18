@@ -27,8 +27,8 @@ export const ARTE_SERVICIOS = {
   tvmagico: '#38bdf8',
   spotify: '#84cc16',
   deezer: '#a855f7',
-  tidal: '#a3e635',
-  chatgpt: '#ef4444',
+  tidal: '#a5f3fc',
+  chatgpt: '#10b981',
   office: '#3b82f6',
   googleone: '#22c55e',
 } as const;
@@ -172,7 +172,7 @@ export function aspectoServicio(
 ): { arte: string | null; color: string } {
   const clave = claveArte(slug);
   return {
-    arte: imagen ?? (clave ? `/servicios/${clave}.webp` : null),
+    arte: imagen ?? (clave ? `/servicios/${clave}.webp?v=2` : null),
     color: clave
       ? ARTE_SERVICIOS[clave]
       : (colorMarca(slug) ?? (categoria ? COLOR_CATEGORIA[categoria] : COLOR_SIN_CATEGORIA)),
