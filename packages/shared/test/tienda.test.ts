@@ -84,13 +84,31 @@ describe('tienda: imágenes de los servicios', () => {
     ['microsoft-365', 'office'],
     ['google-one', 'googleone'],
     ['apple-tv-plus', 'appletv'],
+    ['free-fire', 'freefire'],
+    ['call-of-duty-mobile', 'callofduty'],
+    ['pubg-mobile', 'pubg'],
+    ['clash-royale', 'clashroyale'],
+    ['roblox', 'roblox'],
+    ['farlight-84', 'farlight'],
+    ['xbox-game-pass', 'xbox'],
+    ['playstation-plus', 'playstation'],
+    ['microsoft-windows', 'windows'],
+    ['windows-11-pro', 'windows'],
+    ['duolingo-super', 'duolingo'],
+    ['canva-pro', 'canva'],
+    ['google-gemini', 'gemini'],
+    ['apple-music', 'applemusic'],
+    ['directv-go', 'directv'],
   ])('%s usa la tarjeta %s', (slug, clave) => {
     expect(claveArte(slug)).toBe(clave);
   });
 
-  it.each(['nv-cine', 'maxima-tv', ''])('%s no tiene tarjeta (se muestra un orbe)', (slug) => {
-    expect(claveArte(slug)).toBeNull();
-  });
+  it.each(['nv-cine', 'maxima-tv', 'clash-of-clans', 'codigos', ''])(
+    '%s no tiene tarjeta (se muestra un orbe)',
+    (slug) => {
+      expect(claveArte(slug)).toBeNull();
+    },
+  );
 });
 
 describe('tienda: servicios y universos', () => {

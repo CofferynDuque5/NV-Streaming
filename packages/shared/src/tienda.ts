@@ -35,6 +35,21 @@ export const ARTE_SERVICIOS = {
   capcut: '#e5e7eb',
   telelatino: '#ec4899',
   viki: '#3b9eea',
+  freefire: '#f97316',
+  callofduty: '#a3e635',
+  pubg: '#eab308',
+  clashroyale: '#3b82f6',
+  roblox: '#cbd5e1',
+  farlight: '#a855f7',
+  xbox: '#22c55e',
+  playstation: '#2563eb',
+  windows: '#0ea5e9',
+  duolingo: '#58cc02',
+  canva: '#00c4cc',
+  gemini: '#818cf8',
+  mubi: '#93c5fd',
+  applemusic: '#f43f5e',
+  directv: '#3b82f6',
 } as const;
 export type ClaveArte = keyof typeof ARTE_SERVICIOS;
 
@@ -54,6 +69,19 @@ const ALIAS_ARTE: Record<string, ClaveArte> = {
   prime: 'primevideo',
   amazon: 'primevideo',
   rakuten: 'viki',
+  garena: 'freefire',
+  codmobile: 'callofduty',
+  pubgmobile: 'pubg',
+  robux: 'roblox',
+  gamepass: 'xbox',
+  psn: 'playstation',
+  psplus: 'playstation',
+  microsoftwindows: 'windows',
+  win11: 'windows',
+  win10: 'windows',
+  googlegemini: 'gemini',
+  googleaipro: 'gemini',
+  directtv: 'directv',
 };
 
 /** Color de cada universo (categoría) de la tienda. */
