@@ -3,6 +3,12 @@ import type { Plan, PrecioFijo, Prisma, PrismaClient, Proveedor, Servicio } from
 import {
   type ActualizarPlanEntrada,
   type CatalogoPublico,
+  type CrearPlataformaEntrada,
+  type PlataformaCreada,
+  planSchema,
+  proveedorSchema,
+  servicioSchema,
+  slugDeNombre,
   MONEDAS,
   type PlanEntrada,
   type PlanPublico,
@@ -513,6 +519,83 @@ export class CatalogoService {
         creadoEn: h.creadoEn.toISOString(),
       })),
     };
+  }
+
+  /**
+   * «Crear plataforma» del Gestor: el servicio y su primer plan de un solo paso.
+   * Usa el primer proveedor propio (o lo crea) y arma el identificador solo.
+   * Si ya hay un servicio con ese nombre y no tiene planes, solo le agrega el plan.
+   */
+  async crearPlataforma(
+    auth: ContextoAuth,
+    e: CrearPlataformaEntrada,
+    cliente: InfoCliente,
+  ): Promise<PlataformaCreada> {
+    const nombre = e.nombre.trim();
+    const existente = await this.prisma.servicio.findFirst({
+      where: { nombre: { equals: nombre, mode: 'insensitive' } },
+      select: { id: true, nombre: true, _count: { select: { planes: true } } },
+    });
+    if (existente && existente._count.planes > 0) {
+      throw new ErrorApp(409, 'DUPLICADO', `Ya existe la plataforma «${existente.nombre}».`, {
+        nombre: ['Ya existe una plataforma con ese nombre.'],
+      });
+    }
+    let servicioId = existente?.id;
+    if (!servicioId) {
+      const proveedor =
+        (await this.prisma.proveedor.findFirst({
+          where: { activo: true, tipo: 'propio' },
+          orderBy: { creadoEn: 'asc' },
+          select: { id: true },
+        })) ??
+        (await this.prisma.proveedor.findFirst({
+          where: { activo: true },
+          orderBy: { creadoEn: 'asc' },
+          select: { id: true },
+        })) ??
+        (await this.crearProveedor(
+          auth,
+          proveedorSchema.parse({ nombre: 'NV Streaming', tipo: 'propio', permiteReventa: true }),
+          cliente,
+        ));
+      const base = slugDeNombre(nombre);
+      const usados = new Set(
+        (
+          await this.prisma.servicio.findMany({
+            where: { slug: { startsWith: base } },
+            select: { slug: true },
+          })
+        ).map((x) => x.slug),
+      );
+      let slug = base;
+      for (let i = 2; usados.has(slug); i++) slug = `${base}-${i}`;
+      const s = await this.crearServicio(
+        auth,
+        servicioSchema.parse({
+          proveedorId: proveedor.id,
+          nombre,
+          slug,
+          categoria: e.categoria ?? null,
+        }),
+        cliente,
+      );
+      servicioId = s.id;
+    }
+    const plan = await this.crearPlan(
+      auth,
+      planSchema.parse({
+        servicioId,
+        nombre: e.meses === 1 ? '1 mes' : `${e.meses} meses`,
+        precioUsd: e.precioUsd,
+        duracionCantidad: e.meses,
+        duracionUnidad: 'mes',
+        // Sin precio no se muestra en la tienda hasta que se lo pongan.
+        visible: Number(e.precioUsd) > 0,
+      }),
+      cliente,
+    );
+    return { servicioId, planId: plan.id, nombre, nueva: !existente };
   }
 
   async crearPlan(auth: ContextoAuth, e: PlanEntrada, cliente: InfoCliente): Promise<PlanPublico> {

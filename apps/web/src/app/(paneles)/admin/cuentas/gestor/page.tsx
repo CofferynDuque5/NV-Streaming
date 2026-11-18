@@ -24,11 +24,11 @@ export default async function ImportarDelGestor() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <Link
-        href="/admin/cuentas"
+        href="/admin/plataformas"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-tinta-suave hover:text-tinta"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Cuentas
+        Plataformas
       </Link>
       <CabeceraPagina
         titulo="Importar del Gestor"
@@ -36,13 +36,9 @@ export default async function ImportarDelGestor() {
       />
       {!admin ? (
         <Alerta tono="aviso">Solo la administración puede importar el Gestor.</Alerta>
-      ) : (servicios?.datos ?? []).length === 0 ? (
-        <Alerta tono="aviso">
-          Primero crea en el catálogo los servicios y planes a los que pasarán las plataformas.
-        </Alerta>
       ) : (
         <ImportarGestor
-          servicios={servicios!.datos!.map((s) => ({ id: s.id, nombre: s.nombre }))}
+          servicios={(servicios?.datos ?? []).map((s) => ({ id: s.id, nombre: s.nombre }))}
           planes={planes?.datos ?? []}
           lotes={lotes?.datos ?? []}
         />

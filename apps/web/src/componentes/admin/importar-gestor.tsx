@@ -24,6 +24,7 @@ import { Selector } from '@/componentes/ui/selector';
 import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { formatearFechaHora, formatearMonto } from '@/lib/formato';
+import { CrearPlataforma } from './crear-plataforma';
 import { ErrorGeneral, useAccion } from './piezas';
 
 const plural = (n: number, uno: string, varios: string) =>
@@ -65,6 +66,20 @@ function Cuadre({ c }: { c: CuadreGestor }) {
   );
 }
 
+/** Lo que más pagan los clientes de la plataforma, para el precio del plan nuevo. */
+function precioMasComun(p: PlataformaGestor): string {
+  const cuenta = new Map<string, number>();
+  for (const c of p.cuentas)
+    for (const x of c.perfiles) {
+      const v = x.cliente?.precioUsd;
+      if (v && Number(v) > 0) cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
+    }
+  let mejor = '';
+  let n = 0;
+  for (const [v, k] of cuenta) if (k > n) [mejor, n] = [v, k];
+  return mejor;
+}
+
 function Plataforma({
   p,
   servicios,
@@ -77,6 +92,7 @@ function Plataforma({
   moneda: Moneda;
 }) {
   const r = resumenPlataforma(p);
+  const precioSugerido = precioMasComun(p);
   const parecido = servicios.find((s) =>
     s.nombre.toLowerCase().includes(p.nombre.toLowerCase().split(' ')[0] ?? ''),
   );
@@ -155,6 +171,25 @@ function Plataforma({
               ))}
             </Selector>
           </div>
+          {(!servicioId || delServicio.length === 0) && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-borde p-3 text-sm">
+              <span className="min-w-0 flex-1 text-tinta-suave">
+                {servicioId
+                  ? 'Ese servicio no tiene planes todavía.'
+                  : `¿«${p.nombre}» no está en la lista? Créala aquí y queda elegida.`}
+              </span>
+              <CrearPlataforma
+                variante="secundario"
+                etiqueta={`Crear «${p.nombre}»`}
+                nombreInicial={p.nombre}
+                precioInicial={precioSugerido}
+                onCreada={(c) => {
+                  setServicioId(c.servicioId);
+                  setPlanId(c.planId);
+                }}
+              />
+            </div>
+          )}
           {simulado?.clave === clave && <Cuadre c={simulado.cuadre} />}
           <ErrorGeneral error={simular.error ?? importar.error} />
           <div className="flex flex-wrap gap-2">
