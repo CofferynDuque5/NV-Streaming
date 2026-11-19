@@ -1,406 +1,406 @@
 {
- "manifiesto": {
-  "formato": "nv-gestor-migracion",
-  "version": "2.0.0",
-  "creadoEn": "2026-11-19T20:16:37.675Z",
-  "origen": {
-   "sistema": "NV Gestor de Cuentas",
-   "capa": "8.5.0",
-   "url": "https://gestor.ejemplo"
-  },
-  "destino": "NV Streaming · Cuentas → Importar del Gestor",
-  "conteos": {
-   "plataformas": 2,
-   "cuentas": 3,
-   "cuentasCompartidas": 2,
-   "cuentasIndividuales": 1,
-   "perfiles": 4,
-   "perfilesAsignados": 3,
-   "perfilesLibres": 1,
-   "perfilesSinCuenta": 0,
-   "pines": 2,
-   "clientesDistintos": 3,
-   "contactos": 4,
-   "responsables": 1,
-   "proveedores": 1,
-   "metodosCobro": 0,
-   "cobros": 0,
-   "notas": 0,
-   "sinAnotar": 0,
-   "eventos": 0,
-   "papelera": 0,
-   "equipo": 0,
-   "iconos": 0
+  "manifiesto": {
+    "formato": "nv-gestor-migracion",
+    "version": "2.0.0",
+    "creadoEn": "2026-11-19T20:16:37.675Z",
+    "origen": {
+      "sistema": "NV Gestor de Cuentas",
+      "capa": "8.5.0",
+      "url": "https://gestor.ejemplo"
+    },
+    "destino": "NV Streaming · Cuentas → Importar del Gestor",
+    "conteos": {
+      "plataformas": 2,
+      "cuentas": 3,
+      "cuentasCompartidas": 2,
+      "cuentasIndividuales": 1,
+      "perfiles": 4,
+      "perfilesAsignados": 3,
+      "perfilesLibres": 1,
+      "perfilesSinCuenta": 0,
+      "pines": 2,
+      "clientesDistintos": 3,
+      "contactos": 4,
+      "responsables": 1,
+      "proveedores": 1,
+      "metodosCobro": 0,
+      "cobros": 0,
+      "notas": 0,
+      "sinAnotar": 0,
+      "eventos": 0,
+      "papelera": 0,
+      "equipo": 0,
+      "iconos": 0
+    },
+    "secciones": {
+      "plataformas": {
+        "registros": 2,
+        "sha256": "300d76438d386296db7c9c97d2b1c303ecd848ede09d2f5626f9f60bb01d9c14"
+      },
+      "iconos": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "cuentas": {
+        "registros": 3,
+        "sha256": "0dc5265ea1436e0e21bd50733a71ca4b7e70ead6e3c77f57aee6a5ed2859df19"
+      },
+      "perfiles": {
+        "registros": 4,
+        "sha256": "045c2dba8fa35596113df076c1fc3a5299579af49bb4d39a79b7c7cd83fd97da"
+      },
+      "notas": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "sinAnotar": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "eventos": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "papelera": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "configuracion": {
+        "registros": 0,
+        "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      },
+      "metodosCobro": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "precios": {
+        "registros": 2,
+        "sha256": "716215f9eb4403c21abdcf6e614397867f77b136a25a5665da25ba73553833df"
+      },
+      "tasa": {
+        "registros": 0,
+        "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      },
+      "equipo": {
+        "registros": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "avisos": [
+      "No se pudo leer la base completa: notas eliminadas, historial completo, equipo y papelera no van en la copia."
+    ],
+    "recursosPendientes": [],
+    "credenciales": {
+      "alg": "AES-256-GCM",
+      "kdf": "PBKDF2-SHA256",
+      "iteraciones": 1000,
+      "sal": "kMkpwDHWNOEFNiZLOTHlPQ==",
+      "iv": "fDSaLfThTt5zp/py",
+      "sha256": "8c49bfcc5b912151e3adfbf9330a432f18997f9f822ed4605defc3405f37cb2e",
+      "cuentas": 3,
+      "perfiles": 3,
+      "sinAnotar": 0,
+      "incluyeCopiaCompleta": false
+    },
+    "sha256": "3e530c2fbcb1d3e4f7d08949e049a5c6da6ac737fab7d2555d0577df19ae65c8"
   },
   "secciones": {
-   "plataformas": {
-    "registros": 2,
-    "sha256": "300d76438d386296db7c9c97d2b1c303ecd848ede09d2f5626f9f60bb01d9c14"
-   },
-   "iconos": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "cuentas": {
-    "registros": 3,
-    "sha256": "0dc5265ea1436e0e21bd50733a71ca4b7e70ead6e3c77f57aee6a5ed2859df19"
-   },
-   "perfiles": {
-    "registros": 4,
-    "sha256": "045c2dba8fa35596113df076c1fc3a5299579af49bb4d39a79b7c7cd83fd97da"
-   },
-   "notas": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "sinAnotar": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "eventos": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "papelera": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "configuracion": {
-    "registros": 0,
-    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-   },
-   "metodosCobro": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   },
-   "precios": {
-    "registros": 2,
-    "sha256": "716215f9eb4403c21abdcf6e614397867f77b136a25a5665da25ba73553833df"
-   },
-   "tasa": {
-    "registros": 0,
-    "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
-   },
-   "equipo": {
-    "registros": 0,
-    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
-   }
-  },
-  "avisos": [
-   "No se pudo leer la base completa: notas eliminadas, historial completo, equipo y papelera no van en la copia."
-  ],
-  "recursosPendientes": [],
-  "credenciales": {
-   "alg": "AES-256-GCM",
-   "kdf": "PBKDF2-SHA256",
-   "iteraciones": 1000,
-   "sal": "kMkpwDHWNOEFNiZLOTHlPQ==",
-   "iv": "fDSaLfThTt5zp/py",
-   "sha256": "8c49bfcc5b912151e3adfbf9330a432f18997f9f822ed4605defc3405f37cb2e",
-   "cuentas": 3,
-   "perfiles": 3,
-   "sinAnotar": 0,
-   "incluyeCopiaCompleta": false
-  },
-  "sha256": "3e530c2fbcb1d3e4f7d08949e049a5c6da6ac737fab7d2555d0577df19ae65c8"
- },
- "secciones": {
-  "plataformas": [
-   {
-    "id": "p2",
-    "orden": 0,
-    "ordenOriginal": 0,
-    "nombre": "Netflix",
-    "emoji": "🎬",
-    "color": "#e50914",
-    "oculta": false,
-    "original": {
-     "id": "p2",
-     "name": "Netflix",
-     "emoji": "🎬",
-     "color": "#e50914",
-     "orden": 0
-    }
-   },
-   {
-    "id": "p1",
-    "orden": 1,
-    "ordenOriginal": 1,
-    "nombre": "Spotify",
-    "emoji": "🎵",
-    "color": "",
-    "oculta": false,
-    "original": {
-     "id": "p1",
-     "name": "Spotify",
-     "emoji": "🎵",
-     "orden": 1
-    }
-   }
-  ],
-  "iconos": [],
-  "cuentas": [
-   {
-    "id": "a1",
-    "plataformaId": "p2",
-    "orden": 0,
-    "tipo": "perfiles",
-    "pista": "ma•••@gmail.com",
-    "tieneUsuario": true,
-    "tieneClave": true,
-    "numPerfiles": 5,
-    "perfilesRegistrados": 2,
-    "proximoCobro": "2026-12-01",
-    "costo": 8,
-    "plan": "Premium",
-    "pais": "ve",
-    "proveedor": "Pedro",
-    "metodoPago": {
-     "metodo": "tarjeta",
-     "tarjetaUltimos4": "1234",
-     "otro": "",
-     "texto": "Tarjeta ···· 1234"
-    },
-    "caida": false,
-    "original": {
-     "id": "a1",
-     "numProfiles": 5,
-     "costoCuenta": 8,
-     "facturacion": "2026-12-01",
-     "plan": "Premium",
-     "proveedor": "Pedro",
-     "metodoPago": "tarjeta",
-     "tarjetaDigitos": "1234",
-     "pais": "ve"
-    }
-   },
-   {
-    "id": "a2",
-    "plataformaId": "p2",
-    "orden": 1,
-    "tipo": "perfiles",
-    "pista": "lu•••@gmail.com",
-    "tieneUsuario": true,
-    "tieneClave": true,
-    "numPerfiles": 2,
-    "perfilesRegistrados": 1,
-    "proximoCobro": "",
-    "costo": 4,
-    "plan": "",
-    "pais": "",
-    "proveedor": "",
-    "metodoPago": {
-     "metodo": "",
-     "tarjetaUltimos4": "",
-     "otro": "",
-     "texto": ""
-    },
-    "caida": true,
-    "original": {
-     "id": "a2",
-     "numProfiles": 2,
-     "costoCuenta": 4,
-     "caidaReportada": true
-    }
-   },
-   {
-    "id": "ind:c9",
-    "plataformaId": "p1",
-    "orden": 0,
-    "tipo": "individual",
-    "pista": "jo•••@hotmail.com",
-    "tieneUsuario": true,
-    "tieneClave": true,
-    "numPerfiles": 1,
-    "perfilesRegistrados": 1,
-    "proximoCobro": "2026-12-10",
-    "costo": null,
-    "plan": "",
-    "pais": "",
-    "proveedor": "",
-    "metodoPago": {
-     "metodo": "",
-     "tarjetaUltimos4": "",
-     "otro": "",
-     "texto": ""
-    },
-    "caida": false,
-    "original": null
-   }
-  ],
-  "perfiles": [
-   {
-    "id": "c1",
-    "plataformaId": "p2",
-    "cuentaId": "a1",
-    "posicion": 1,
-    "slotIndex": 0,
-    "etiqueta": "Perfil 1",
-    "pistaUsuario": "",
-    "tienePin": false,
-    "pinValido": false,
-    "tieneClave": false,
-    "libre": true,
-    "cliente": null,
-    "vence": "",
-    "precioVenta": null,
-    "individual": false,
-    "cobros": [],
-    "ultimoPago": null,
-    "original": {
-     "id": "c1",
-     "accountId": "a1",
-     "slotIndex": 0,
-     "email": "Perfil 1",
-     "nombre": "Sin asignar"
-    }
-   },
-   {
-    "id": "c2",
-    "plataformaId": "p2",
-    "cuentaId": "a1",
-    "posicion": 2,
-    "slotIndex": 1,
-    "etiqueta": "Ana TV",
-    "pistaUsuario": "",
-    "tienePin": true,
-    "pinValido": true,
-    "tieneClave": false,
-    "libre": false,
-    "cliente": {
-     "nombre": "Ana",
-     "apellido": "Pérez",
-     "contactos": [
+    "plataformas": [
       {
-       "posicion": 1,
-       "tipo": "whatsapp",
-       "tipoOriginal": "whatsapp",
-       "valor": "04141234567"
+        "id": "p2",
+        "orden": 0,
+        "ordenOriginal": 0,
+        "nombre": "Netflix",
+        "emoji": "🎬",
+        "color": "#e50914",
+        "oculta": false,
+        "original": {
+          "id": "p2",
+          "name": "Netflix",
+          "emoji": "🎬",
+          "color": "#e50914",
+          "orden": 0
+        }
       },
       {
-       "posicion": 2,
-       "tipo": "telegram",
-       "tipoOriginal": "telegram",
-       "valor": "@ana_perez"
+        "id": "p1",
+        "orden": 1,
+        "ordenOriginal": 1,
+        "nombre": "Spotify",
+        "emoji": "🎵",
+        "color": "",
+        "oculta": false,
+        "original": {
+          "id": "p1",
+          "name": "Spotify",
+          "emoji": "🎵",
+          "orden": 1
+        }
       }
-     ],
-     "responsable": "Valeryn"
-    },
-    "vence": "2026-12-05",
-    "precioVenta": 3.5,
-    "individual": false,
-    "cobros": [],
-    "ultimoPago": null,
-    "original": {
-     "id": "c2",
-     "accountId": "a1",
-     "slotIndex": 1,
-     "email": "Ana TV",
-     "nombre": "Ana",
-     "apellido": "Pérez",
-     "contacto": "04141234567",
-     "tipoContacto": "whatsapp",
-     "contacto2": "@ana_perez",
-     "tipoContacto2": "telegram",
-     "responsable": "Valeryn",
-     "vencimientoCliente": "2026-12-05",
-     "precioVenta": 3.5
-    }
-   },
-   {
-    "id": "c3",
-    "plataformaId": "p2",
-    "cuentaId": "a2",
-    "posicion": 1,
-    "slotIndex": 0,
-    "etiqueta": "Perfil 1",
-    "pistaUsuario": "",
-    "tienePin": true,
-    "pinValido": true,
-    "tieneClave": false,
-    "libre": false,
-    "cliente": {
-     "nombre": "Juan",
-     "apellido": "",
-     "contactos": [
+    ],
+    "iconos": [],
+    "cuentas": [
       {
-       "posicion": 1,
-       "tipo": "correo",
-       "tipoOriginal": "email",
-       "valor": "juan@x.com"
-      }
-     ],
-     "responsable": ""
-    },
-    "vence": "",
-    "precioVenta": 2,
-    "individual": false,
-    "cobros": [],
-    "ultimoPago": null,
-    "original": {
-     "id": "c3",
-     "accountId": "a2",
-     "slotIndex": 0,
-     "email": "Perfil 1",
-     "nombre": "Juan",
-     "contacto": "juan@x.com",
-     "tipoContacto": "email",
-     "precioVenta": 2
-    }
-   },
-   {
-    "id": "c9",
-    "plataformaId": "p1",
-    "cuentaId": "ind:c9",
-    "posicion": 1,
-    "slotIndex": null,
-    "etiqueta": "",
-    "pistaUsuario": "jo•••@hotmail.com",
-    "tienePin": false,
-    "pinValido": false,
-    "tieneClave": true,
-    "libre": false,
-    "cliente": {
-     "nombre": "José",
-     "apellido": "",
-     "contactos": [
+        "id": "a1",
+        "plataformaId": "p2",
+        "orden": 0,
+        "tipo": "perfiles",
+        "pista": "ma•••@gmail.com",
+        "tieneUsuario": true,
+        "tieneClave": true,
+        "numPerfiles": 5,
+        "perfilesRegistrados": 2,
+        "proximoCobro": "2026-12-01",
+        "costo": 8,
+        "plan": "Premium",
+        "pais": "ve",
+        "proveedor": "Pedro",
+        "metodoPago": {
+          "metodo": "tarjeta",
+          "tarjetaUltimos4": "1234",
+          "otro": "",
+          "texto": "Tarjeta ···· 1234"
+        },
+        "caida": false,
+        "original": {
+          "id": "a1",
+          "numProfiles": 5,
+          "costoCuenta": 8,
+          "facturacion": "2026-12-01",
+          "plan": "Premium",
+          "proveedor": "Pedro",
+          "metodoPago": "tarjeta",
+          "tarjetaDigitos": "1234",
+          "pais": "ve"
+        }
+      },
       {
-       "posicion": 1,
-       "tipo": "whatsapp",
-       "tipoOriginal": "",
-       "valor": "04121112233"
+        "id": "a2",
+        "plataformaId": "p2",
+        "orden": 1,
+        "tipo": "perfiles",
+        "pista": "lu•••@gmail.com",
+        "tieneUsuario": true,
+        "tieneClave": true,
+        "numPerfiles": 2,
+        "perfilesRegistrados": 1,
+        "proximoCobro": "",
+        "costo": 4,
+        "plan": "",
+        "pais": "",
+        "proveedor": "",
+        "metodoPago": {
+          "metodo": "",
+          "tarjetaUltimos4": "",
+          "otro": "",
+          "texto": ""
+        },
+        "caida": true,
+        "original": {
+          "id": "a2",
+          "numProfiles": 2,
+          "costoCuenta": 4,
+          "caidaReportada": true
+        }
+      },
+      {
+        "id": "ind:c9",
+        "plataformaId": "p1",
+        "orden": 0,
+        "tipo": "individual",
+        "pista": "jo•••@hotmail.com",
+        "tieneUsuario": true,
+        "tieneClave": true,
+        "numPerfiles": 1,
+        "perfilesRegistrados": 1,
+        "proximoCobro": "2026-12-10",
+        "costo": null,
+        "plan": "",
+        "pais": "",
+        "proveedor": "",
+        "metodoPago": {
+          "metodo": "",
+          "tarjetaUltimos4": "",
+          "otro": "",
+          "texto": ""
+        },
+        "caida": false,
+        "original": null
       }
-     ],
-     "responsable": ""
+    ],
+    "perfiles": [
+      {
+        "id": "c1",
+        "plataformaId": "p2",
+        "cuentaId": "a1",
+        "posicion": 1,
+        "slotIndex": 0,
+        "etiqueta": "Perfil 1",
+        "pistaUsuario": "",
+        "tienePin": false,
+        "pinValido": false,
+        "tieneClave": false,
+        "libre": true,
+        "cliente": null,
+        "vence": "",
+        "precioVenta": null,
+        "individual": false,
+        "cobros": [],
+        "ultimoPago": null,
+        "original": {
+          "id": "c1",
+          "accountId": "a1",
+          "slotIndex": 0,
+          "email": "Perfil 1",
+          "nombre": "Sin asignar"
+        }
+      },
+      {
+        "id": "c2",
+        "plataformaId": "p2",
+        "cuentaId": "a1",
+        "posicion": 2,
+        "slotIndex": 1,
+        "etiqueta": "Ana TV",
+        "pistaUsuario": "",
+        "tienePin": true,
+        "pinValido": true,
+        "tieneClave": false,
+        "libre": false,
+        "cliente": {
+          "nombre": "Ana",
+          "apellido": "Pérez",
+          "contactos": [
+            {
+              "posicion": 1,
+              "tipo": "whatsapp",
+              "tipoOriginal": "whatsapp",
+              "valor": "04141234567"
+            },
+            {
+              "posicion": 2,
+              "tipo": "telegram",
+              "tipoOriginal": "telegram",
+              "valor": "@ana_perez"
+            }
+          ],
+          "responsable": "Valeryn"
+        },
+        "vence": "2026-12-05",
+        "precioVenta": 3.5,
+        "individual": false,
+        "cobros": [],
+        "ultimoPago": null,
+        "original": {
+          "id": "c2",
+          "accountId": "a1",
+          "slotIndex": 1,
+          "email": "Ana TV",
+          "nombre": "Ana",
+          "apellido": "Pérez",
+          "contacto": "04141234567",
+          "tipoContacto": "whatsapp",
+          "contacto2": "@ana_perez",
+          "tipoContacto2": "telegram",
+          "responsable": "Valeryn",
+          "vencimientoCliente": "2026-12-05",
+          "precioVenta": 3.5
+        }
+      },
+      {
+        "id": "c3",
+        "plataformaId": "p2",
+        "cuentaId": "a2",
+        "posicion": 1,
+        "slotIndex": 0,
+        "etiqueta": "Perfil 1",
+        "pistaUsuario": "",
+        "tienePin": true,
+        "pinValido": true,
+        "tieneClave": false,
+        "libre": false,
+        "cliente": {
+          "nombre": "Juan",
+          "apellido": "",
+          "contactos": [
+            {
+              "posicion": 1,
+              "tipo": "correo",
+              "tipoOriginal": "email",
+              "valor": "juan@x.com"
+            }
+          ],
+          "responsable": ""
+        },
+        "vence": "",
+        "precioVenta": 2,
+        "individual": false,
+        "cobros": [],
+        "ultimoPago": null,
+        "original": {
+          "id": "c3",
+          "accountId": "a2",
+          "slotIndex": 0,
+          "email": "Perfil 1",
+          "nombre": "Juan",
+          "contacto": "juan@x.com",
+          "tipoContacto": "email",
+          "precioVenta": 2
+        }
+      },
+      {
+        "id": "c9",
+        "plataformaId": "p1",
+        "cuentaId": "ind:c9",
+        "posicion": 1,
+        "slotIndex": null,
+        "etiqueta": "",
+        "pistaUsuario": "jo•••@hotmail.com",
+        "tienePin": false,
+        "pinValido": false,
+        "tieneClave": true,
+        "libre": false,
+        "cliente": {
+          "nombre": "José",
+          "apellido": "",
+          "contactos": [
+            {
+              "posicion": 1,
+              "tipo": "whatsapp",
+              "tipoOriginal": "",
+              "valor": "04121112233"
+            }
+          ],
+          "responsable": ""
+        },
+        "vence": "",
+        "precioVenta": 2,
+        "individual": true,
+        "cobros": [],
+        "ultimoPago": null,
+        "original": {
+          "id": "c9",
+          "accountId": "",
+          "isClientAccount": true,
+          "nombre": "José",
+          "contacto": "04121112233",
+          "precioVenta": 2,
+          "facturacion": "2026-12-10"
+        }
+      }
+    ],
+    "notas": [],
+    "sinAnotar": [],
+    "eventos": [],
+    "papelera": [],
+    "configuracion": {},
+    "metodosCobro": [],
+    "precios": {
+      "porPlataforma": {},
+      "reglasPorCuenta": []
     },
-    "vence": "",
-    "precioVenta": 2,
-    "individual": true,
-    "cobros": [],
-    "ultimoPago": null,
-    "original": {
-     "id": "c9",
-     "accountId": "",
-     "isClientAccount": true,
-     "nombre": "José",
-     "contacto": "04121112233",
-     "precioVenta": 2,
-     "facturacion": "2026-12-10"
-    }
-   }
-  ],
-  "notas": [],
-  "sinAnotar": [],
-  "eventos": [],
-  "papelera": [],
-  "configuracion": {},
-  "metodosCobro": [],
-  "precios": {
-   "porPlataforma": {},
-   "reglasPorCuenta": []
+    "tasa": {},
+    "equipo": []
   },
-  "tasa": {},
-  "equipo": []
- },
- "credenciales": "pm2S3mGdnm3TwHT6dseQvw1XQjMG/8eqwVVd/BTK+wHm2nGJ2XJ7lVfpHQIRTDFZrqH9A1JR1whKFVeyTab3YsCMbldYOaVeP7DMJpfgzSVEmeVorc/0NcWOeEtTEa1R7HDtRlRavFikYMc+7JRXM9NybRxfyYEnpPAV9+SuiO0WVyamq9Vo+JDFzVS6ELiwhcZABrK0tB0uSt4Vy3Jv4Vq9gTTgnX1CJOE0x5KzhuUXooOKGlHVqrU7ytJ59B9BezdB7L4zJnXxTrMoQBVExmmZa8Rex34HXs29preZbSCoR7Sl+lzD7pI0HHBbGGs8nsSESdDoZme1/ze/L0NZXzOlJVLy2l/tOrrgPGw5c/IpDxR5ujLAiPyfgYeWVlx7pi9XEc8lhR88zZuxxtUTHBZNUP7BNLwgMJeWKFhoTGFELEr1QSlZ+H04OxDRZ4/dC28f47p4UAYdZ9orrnNdyg80rHvy87aDa2G+JAIpV9Fz/f8KrAre0CJLUc8NELWeiAE="
+  "credenciales": "pm2S3mGdnm3TwHT6dseQvw1XQjMG/8eqwVVd/BTK+wHm2nGJ2XJ7lVfpHQIRTDFZrqH9A1JR1whKFVeyTab3YsCMbldYOaVeP7DMJpfgzSVEmeVorc/0NcWOeEtTEa1R7HDtRlRavFikYMc+7JRXM9NybRxfyYEnpPAV9+SuiO0WVyamq9Vo+JDFzVS6ELiwhcZABrK0tB0uSt4Vy3Jv4Vq9gTTgnX1CJOE0x5KzhuUXooOKGlHVqrU7ytJ59B9BezdB7L4zJnXxTrMoQBVExmmZa8Rex34HXs29preZbSCoR7Sl+lzD7pI0HHBbGGs8nsSESdDoZme1/ze/L0NZXzOlJVLy2l/tOrrgPGw5c/IpDxR5ujLAiPyfgYeWVlx7pi9XEc8lhR88zZuxxtUTHBZNUP7BNLwgMJeWKFhoTGFELEr1QSlZ+H04OxDRZ4/dC28f47p4UAYdZ9orrnNdyg80rHvy87aDa2G+JAIpV9Fz/f8KrAre0CJLUc8NELWeiAE="
 }

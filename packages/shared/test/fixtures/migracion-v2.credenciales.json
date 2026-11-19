@@ -1,32 +1,32 @@
 {
- "cuentas": {
-  "a1": {
-   "usuario": "maria@gmail.com",
-   "clave": "Secreta123",
-   "tarjetaDigitos": "4111111111111234"
+  "cuentas": {
+    "a1": {
+      "usuario": "maria@gmail.com",
+      "clave": "Secreta123",
+      "tarjetaDigitos": "4111111111111234"
+    },
+    "a2": {
+      "usuario": "luis@gmail.com",
+      "clave": "Otra456"
+    },
+    "ind:c9": {
+      "usuario": "jose@hotmail.com",
+      "clave": "clave9"
+    }
   },
-  "a2": {
-   "usuario": "luis@gmail.com",
-   "clave": "Otra456"
+  "perfiles": {
+    "c2": {
+      "pin": "0042"
+    },
+    "c3": {
+      "pin": "5678"
+    },
+    "c9": {
+      "usuario": "jose@hotmail.com",
+      "clave": "clave9"
+    }
   },
-  "ind:c9": {
-   "usuario": "jose@hotmail.com",
-   "clave": "clave9"
-  }
- },
- "perfiles": {
-  "c2": {
-   "pin": "0042"
-  },
-  "c3": {
-   "pin": "5678"
-  },
-  "c9": {
-   "usuario": "jose@hotmail.com",
-   "clave": "clave9"
-  }
- },
- "sinAnotar": {},
- "papelera": {},
- "copiaCompleta": null
+  "sinAnotar": {},
+  "papelera": {},
+  "copiaCompleta": null
 }
