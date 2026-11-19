@@ -1,7 +1,11 @@
 'use client';
 
 import {
+  type ArchivoMigracionGestor,
+  type ComparacionMigracion,
+  compararMigracion,
   type CuadreGestor,
+  esMigracionGestor,
   type ImportarGestorEntrada,
   leerRespaldoGestor,
   type LoteGestorPublico,
@@ -11,6 +15,7 @@ import {
   MONEDAS,
   type PlanPublico,
   type PlataformaGestor,
+  reconstruirMigracionGestor,
   type RespaldoGestor,
   resumenPlataforma,
 } from '@nv/shared';
@@ -24,6 +29,13 @@ import { Selector } from '@/componentes/ui/selector';
 import { Celda, Cuerpo, Encabezados, Tabla } from '@/componentes/ui/tabla';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { formatearFechaHora, formatearMonto } from '@/lib/formato';
+import { llamarApi } from '@/lib/api-cliente';
+import {
+  descifrarMigracion,
+  type IconoMigracion,
+  iconoComoPng,
+  verificarMigracion,
+} from '@/lib/migracion-gestor';
 import { ErrorGeneral, useAccion } from './piezas';
 
 const plural = (n: number, uno: string, varios: string) =>
@@ -65,16 +77,78 @@ function Cuadre({ c }: { c: CuadreGestor }) {
   );
 }
 
+interface ServicioImportar {
+  id: string;
+  nombre: string;
+  conLogo: boolean;
+}
+
+/** Sube el icono del Gestor a la biblioteca y lo pone como logo del servicio. */
+async function ponerIcono(icono: IconoMigracion, servicio: ServicioImportar): Promise<string> {
+  try {
+    const datos = new FormData();
+    datos.append('archivo', await iconoComoPng(icono), 'icono-gestor.png');
+    datos.append('textoAlternativo', `Logo de ${servicio.nombre}`);
+    const medio = await llamarApi<{ id: string }>('POST', '/sitio/medios', datos);
+    if (!medio.ok) return `El icono del Gestor no se pudo subir: ${medio.error.mensaje}`;
+    const r = await llamarApi('PATCH', `/catalogo/servicios/${servicio.id}`, {
+      imagenId: medio.datos.id,
+    });
+    if (!r.ok) return `El icono del Gestor no se pudo poner: ${r.error.mensaje}`;
+    servicio.conLogo = true;
+    return `${servicio.nombre} ahora usa el icono que tenía en el Gestor.`;
+  } catch (e) {
+    return `El icono del Gestor no se pudo poner: ${(e as Error).message}`;
+  }
+}
+
+/** Cuadre origen contra destino de la «Migración a NV Streaming». */
+function Comparacion({ filas }: { filas: ComparacionMigracion[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-tinta-suave">
+            <th className="py-1 pr-4 font-medium">Dato</th>
+            <th className="py-1 pr-4 font-medium">En el Gestor</th>
+            <th className="py-1 pr-4 font-medium">En el archivo</th>
+            <th className="py-1 font-medium">Se importa</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f) => {
+            const cuadra = f.enArchivo === f.enGestor && f.seImporta === f.enGestor;
+            return (
+              <tr key={f.concepto} className="border-t border-borde/60">
+                <td className="py-1.5 pr-4">{f.concepto}</td>
+                <td className="py-1.5 pr-4 tabular-nums">{f.enGestor}</td>
+                <td className="py-1.5 pr-4 tabular-nums">{f.enArchivo}</td>
+                <td className="py-1.5 tabular-nums">
+                  <span className={cuadra ? 'text-exito' : 'font-semibold text-aviso'}>
+                    {f.seImporta} {cuadra ? '✓' : '≠'}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function Plataforma({
   p,
   servicios,
   planes,
   moneda,
+  icono,
 }: {
   p: PlataformaGestor;
-  servicios: { id: string; nombre: string }[];
+  servicios: ServicioImportar[];
   planes: PlanPublico[];
   moneda: Moneda;
+  icono?: IconoMigracion;
 }) {
   const r = resumenPlataforma(p);
   const parecido = servicios.find((s) =>
@@ -85,6 +159,7 @@ function Plataforma({
   const [planId, setPlanId] = useState(delServicio[0]?.id ?? '');
   const [simulado, setSimulado] = useState<{ clave: string; cuadre: CuadreGestor } | null>(null);
   const [hecho, setHecho] = useState<CuadreGestor | null>(null);
+  const [avisoIcono, setAvisoIcono] = useState('');
   const simular = useAccion();
   const importar = useAccion();
   const clave = `${servicioId}|${planId}|${moneda}`;
@@ -121,7 +196,10 @@ function Plataforma({
           límite.
         </Alerta>
       ) : hecho ? (
-        <Cuadre c={hecho} />
+        <>
+          <Cuadre c={hecho} />
+          {avisoIcono && <p className="text-sm text-tinta-suave">{avisoIcono}</p>}
+        </>
       ) : (
         <>
           <div className="grid items-start gap-3 sm:grid-cols-2">
@@ -183,7 +261,13 @@ function Plataforma({
                   '/cuentas/gestor/importar',
                   cuerpo(),
                 );
-                if (res) setHecho(res.datos.cuadre);
+                if (!res) return;
+                setHecho(res.datos.cuadre);
+                // El icono del Gestor pasa a la plataforma solo si todavía no tiene logo.
+                const servicio = servicios.find((s) => s.id === servicioId);
+                if (icono && servicio && !servicio.conLogo) {
+                  setAvisoIcono(await ponerIcono(icono, servicio));
+                }
               }}
             >
               {simulado?.clave === clave
@@ -276,7 +360,7 @@ export function ImportarGestor({
   planes,
   lotes,
 }: {
-  servicios: { id: string; nombre: string }[];
+  servicios: ServicioImportar[];
   planes: PlanPublico[];
   lotes: LoteGestorPublico[];
 }) {
@@ -285,6 +369,9 @@ export function ImportarGestor({
   const [moneda, setMoneda] = useState<Moneda>('USD');
   const [error, setError] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
+  const [migracion, setMigracion] = useState<ArchivoMigracionGestor | null>(null);
+  const [frase, setFrase] = useState('');
+  const [abriendo, setAbriendo] = useState(false);
 
   let respaldo: RespaldoGestor | null = null;
   let errorLectura: string | null = null;
@@ -295,22 +382,63 @@ export function ImportarGestor({
       errorLectura = (e as Error).message;
     }
   }
+  const iconos = new Map<string, IconoMigracion>(
+    (Array.isArray(migracion?.secciones.iconos)
+      ? (migracion.secciones.iconos as IconoMigracion[])
+      : []
+    ).map((i) => [i.plataformaId, i]),
+  );
+  const comparacion = respaldo && migracion ? compararMigracion(migracion, respaldo) : null;
+
+  async function abrirMigracion() {
+    if (!migracion) return;
+    setAbriendo(true);
+    setError(null);
+    try {
+      const cred = await descifrarMigracion(migracion, frase);
+      setJson(reconstruirMigracionGestor(migracion, cred));
+      setFrase('');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAbriendo(false);
+    }
+  }
 
   async function cargar(e: ChangeEvent<HTMLInputElement>) {
     const archivo = e.currentTarget.files?.[0];
     e.currentTarget.value = '';
     setError(null);
     setJson(null);
+    setMigracion(null);
     if (!archivo) return;
     if (archivo.size > MAX_BYTES_RESPALDO_GESTOR) {
       setError('El archivo es demasiado grande para ser una copia del Gestor.');
       return;
     }
+    let leido: unknown;
     try {
-      setJson(JSON.parse(await archivo.text()));
-      setNombre(archivo.name);
+      leido = JSON.parse(await archivo.text());
     } catch {
       setError('No se pudo leer: el archivo no es un JSON válido.');
+      return;
+    }
+    setNombre(archivo.name);
+    try {
+      if (!esMigracionGestor(leido)) {
+        setJson(leido);
+        return;
+      }
+      const malas = await verificarMigracion(leido);
+      if (malas.length) {
+        setError(
+          `El archivo está dañado o fue modificado (no cuadra: ${malas.join(', ')}). Descarga la migración otra vez en el Gestor.`,
+        );
+        return;
+      }
+      setMigracion(leido);
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
@@ -319,7 +447,7 @@ export function ImportarGestor({
       <Tarjeta>
         <CabeceraTarjeta
           titulo="1. Sube la copia del Gestor"
-          descripcion="En el Gestor: Copias de seguridad → «Copia para NV Streaming» (también sirve la copia completa). El archivo se lee en este navegador; al panel solo llega lo que importes."
+          descripcion="En el Gestor: Copias de seguridad → «Migración a NV Streaming (cifrada)» (también sirven la «Copia para NV Streaming» y la copia completa). El archivo se lee en este navegador; al panel solo llega lo que importes."
         />
         <div className="grid gap-4 p-5 sm:p-6">
           <div className="flex flex-wrap items-start gap-3">
@@ -358,7 +486,36 @@ export function ImportarGestor({
             Las claves y los PIN se guardan cifrados. Los clientes importados no reciben mensajes
             hasta que acepten. Cada plataforma queda en un lote que puedes deshacer.
           </p>
+          {migracion && !json && (
+            <form
+              className="grid gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void abrirMigracion();
+              }}
+            >
+              <Alerta tono="exito">
+                «{nombre}»: migración del Gestor verificada (sin cambios desde que se descargó el{' '}
+                {formatearFechaHora(migracion.manifiesto.creadoEn)}).
+              </Alerta>
+              <div className="flex flex-wrap items-end gap-3">
+                <Campo
+                  etiqueta="Frase de la migración"
+                  type="password"
+                  autoComplete="off"
+                  value={frase}
+                  onChange={(e) => setFrase(e.currentTarget.value)}
+                  className="w-72"
+                  ayuda="La que escribiste en el Gestor al descargarla."
+                />
+                <Boton type="submit" cargando={abriendo} disabled={frase.length < 10}>
+                  Abrir migración
+                </Boton>
+              </div>
+            </form>
+          )}
           {(error ?? errorLectura) && <Alerta tono="peligro">{error ?? errorLectura}</Alerta>}
+          {comparacion && <Comparacion filas={comparacion} />}
           {respaldo && (
             <Alerta tono="exito">
               «{nombre}»: {plural(respaldo.plataformas.length, 'plataforma', 'plataformas')} con{' '}
@@ -399,6 +556,7 @@ export function ImportarGestor({
                 servicios={servicios}
                 planes={planes}
                 moneda={moneda}
+                icono={iconos.get(p.origenId)}
               />
             ))}
           </ul>

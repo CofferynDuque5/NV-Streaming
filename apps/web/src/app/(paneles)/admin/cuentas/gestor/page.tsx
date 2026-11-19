@@ -42,7 +42,11 @@ export default async function ImportarDelGestor() {
         </Alerta>
       ) : (
         <ImportarGestor
-          servicios={servicios!.datos!.map((s) => ({ id: s.id, nombre: s.nombre }))}
+          servicios={servicios!.datos!.map((s) => ({
+            id: s.id,
+            nombre: s.nombre,
+            conLogo: !!s.imagen,
+          }))}
           planes={planes?.datos ?? []}
           lotes={lotes?.datos ?? []}
         />
