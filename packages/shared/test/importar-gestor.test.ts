@@ -234,6 +234,34 @@ describe('leerRespaldoGestor', () => {
     expect(sp!.clientesSueltos).toEqual([]);
   });
 
+  it('Office 365 también va por unión de cupos', () => {
+    const [o] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'o', name: 'Office 365' }],
+        accounts: { o: [{ id: 'f', email: 'admin@example.com', password: 'O-1', numProfiles: 2 }] },
+        clients: {
+          o: [
+            {
+              id: 'o1',
+              accountId: 'f',
+              slotIndex: 2,
+              email: 'ana@example.com',
+              nombre: 'Ana',
+              contacto: '+584141112233',
+            },
+            { id: 'o2', email: 'luis@example.com', nombre: 'Luis', contacto: '+584141112234' },
+          ],
+        },
+      },
+    }).plataformas;
+    expect(o!.cuentas[0]!.perfiles.map((p) => [p.nombre, p.usuarioMiembro])).toEqual([
+      ['Principal', 'ana@example.com'],
+      ['Miembro 1', null],
+    ]);
+    expect(o!.cuentas[1]).toMatchObject({ usuario: 'luis@example.com', modo: 'completa' });
+    expect(o!.clientesSueltos).toEqual([]);
+  });
+
   it('acepta el formato viejo y rechaza lo que no es del Gestor', () => {
     const viejo = {
       plataformas: RESPALDO_EJEMPLO.db.platforms,

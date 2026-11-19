@@ -93,7 +93,8 @@ export interface PlataformaGestor {
 export const CLAVE_VACIA_GESTOR = '(sin clave en el Gestor)';
 
 /** Plataformas que se venden por unión de cupos (principal + miembros a su correo), no por perfiles. */
-export const PLATAFORMA_CUPOS = /spotify|youtube|google\s*one|gemini|deezer|apple\s*music|tidal/i;
+export const PLATAFORMA_CUPOS =
+  /spotify|youtube|google\s*one|gemini|deezer|apple\s*music|tidal|office|microsoft\s*365|m365/i;
 
 /** Dominio del correo provisional de una cuenta que en el Gestor no tenía correo. */
 export const DOMINIO_SIN_CORREO_GESTOR = 'sin-correo.gestor.invalid';
@@ -400,7 +401,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         soltar(s, 'cuenta_borrada');
         continue;
       }
-      // En las plataformas de unión de cupos (Spotify, YouTube, Google One, Gemini…)
+      // En las plataformas de unión de cupos (Spotify, YouTube, Google One, Gemini, Office 365…)
       // un cliente sin cuenta pero con correo propio es una cuenta a su correo.
       const aSuCorreo = porCupos && usuarioValido(texto(s.email)) && texto(s.email).includes('@');
       if (s.isClientAccount !== true && !aSuCorreo) {
