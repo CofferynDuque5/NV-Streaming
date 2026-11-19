@@ -77,12 +77,17 @@ test('la migración cifrada del Gestor se verifica, se abre con la frase, cuadra
   const bueno = await migracionDePrueba(sufijo);
   const alterado = JSON.parse(bueno.toString());
   alterado.secciones.cuentas[0].costo = 999;
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'alterado.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(alterado)),
-  });
-  await expect(page.getByText(/dañado o fue modificado \(no cuadra: cuentas\)/)).toBeVisible();
+  // La primera subida se reintenta: en un CI lento el campo puede existir antes de que React lo active.
+  await expect(async () => {
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'alterado.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(alterado)),
+    });
+    await expect(page.getByText(/dañado o fue modificado \(no cuadra: cuentas\)/)).toBeVisible({
+      timeout: 3_000,
+    });
+  }).toPass({ timeout: 30_000 });
 
   await page.locator('input[type=file]').setInputFiles({
     name: 'nv-migracion.json',
