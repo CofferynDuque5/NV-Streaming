@@ -183,6 +183,112 @@ describe('importar el Gestor viejo', () => {
     expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
   });
 
+  it('Spotify: miembros a su correo, cuentas a correo sin clave ni fecha y clientes sin cuenta', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [sp] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [
+            {
+              id: 'fam',
+              email: 'familia@example.com',
+              password: 'F-1',
+              numProfiles: 3,
+              caidaReportada: true,
+            },
+            { id: 'nada', email: '', password: '', numProfiles: 2 },
+          ],
+        },
+        clients: {
+          sp: [
+            {
+              id: 's1',
+              accountId: 'fam',
+              slotIndex: 1,
+              email: 'familia@example.com',
+              nombre: 'Sin asignar',
+            },
+            {
+              id: 's2',
+              accountId: 'fam',
+              slotIndex: 2,
+              email: 'rosa@example.com',
+              password: 'Rosa-1',
+              nombre: 'Rosa',
+              contacto: '+584141112244',
+            },
+            { id: 's3', email: 'juan@example.com', nombre: 'Juan', contacto: '+584141112255' },
+            {
+              id: 's4',
+              nombre: 'Pedro',
+              contacto: '+584141112266',
+              vencimientoCliente: '2099-01-01',
+              precioVenta: 2,
+            },
+            { id: 's5', accountId: 'borrada', nombre: 'Marta', contacto: '+584141112277' },
+          ],
+        },
+      },
+    }).plataformas;
+    const cuerpo = {
+      plataforma: { origenId: sp!.origenId, nombre: sp!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: sp!.cuentas,
+      clientesSueltos: sp!.clientesSueltos,
+    };
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo).toMatchObject({
+      cuentas: { nuevas: 3 },
+      clientes: { nuevos: 4, sinPerfil: 2 },
+      suscripciones: { activas: 2, vencidas: 0 },
+    });
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+
+    const fam = await ctx.prisma.cuentaServicio.findFirstOrThrow({
+      where: { estado: 'caida' },
+      include: { perfiles: { orderBy: { numero: 'asc' } } },
+    });
+    expect(fam.perfiles.map((p) => [p.nombre, p.estado])).toEqual([
+      ['Principal', 'libre'],
+      ['Miembro 1', 'asignado'],
+      ['Miembro 2', 'libre'],
+    ]);
+    expect(fam.perfiles[1]!.usuarioMiembroCifrado).not.toBeNull();
+    expect(fam.perfiles[1]!.usuarioMiembroCifrado).not.toContain('rosa@');
+    expect(fam.perfiles[1]!.claveMiembroCifrada).not.toBeNull();
+    expect(await ctx.prisma.cuentaServicio.count({ where: { modo: 'completa' } })).toBe(1);
+    expect(
+      await ctx.prisma.cuentaServicio.count({ where: { notas: { contains: 'no tenía correo' } } }),
+    ).toBe(1);
+    // Juan (a su correo) queda activo y sin fecha, como en el Gestor.
+    const juan = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Juan' },
+      include: { suscripciones: true },
+    });
+    expect(juan.suscripciones).toMatchObject([{ estado: 'activa', venceEn: null }]);
+    // Pedro y Marta entran sin perfil, con su nota.
+    const notas = await ctx.prisma.notaInterna.findMany({ include: { cliente: true } });
+    expect(notas.map((n) => n.cliente!.nombre).sort()).toEqual(['Marta', 'Pedro']);
+    expect(notas.find((n) => n.cliente!.nombre === 'Pedro')!.texto).toMatch(
+      /no tenía cuenta asignada.*2099-01-01.*2\.00 USD/,
+    );
+
+    // Repetir no duplica las notas.
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).cuerpo.error.codigo).toBe(
+      'NADA_QUE_IMPORTAR',
+    );
+    expect(
+      (await admin.n.post(`/cuentas/gestor/lotes/${imp.cuerpo.loteId}/deshacer`, {})).estado,
+    ).toBe(204);
+    expect(await ctx.prisma.notaInterna.count()).toBe(0);
+    expect(await ctx.prisma.cliente.count({ where: { origen: 'gestor' } })).toBe(0);
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(0);
+  });
+
   it('no deshace un lote que ya tiene movimientos', async () => {
     const { admin, catalogo, cuerpo } = await escenario();
     const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);

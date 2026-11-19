@@ -55,6 +55,7 @@ function Cuadre({ c }: { c: CuadreGestor }) {
           ['Suscripciones activas', c.suscripciones.activas],
           ['Suscripciones vencidas', c.suscripciones.vencidas],
           ['Clientes sin contacto', c.clientes.sinContacto],
+          ['Clientes sin perfil', c.clientes.sinPerfil ?? 0],
         ].map(([t, v]) => (
           <div key={t} className="flex justify-between gap-2 border-b border-borde/60 py-1">
             <dt className="text-tinta-suave">{t}</dt>
@@ -169,12 +170,14 @@ function Plataforma({
     planId,
     moneda,
     cuentas: p.cuentas,
+    clientesSueltos: p.clientesSueltos ?? [],
   });
+  const hayAlgo = (c: CuadreGestor) => c.cuentas.nuevas + (c.clientes.sinPerfil ?? 0) > 0;
 
-  if (!p.cuentas.length) {
+  if (!p.cuentas.length && !r.sinPerfil) {
     return (
       <li className="rounded-xl border border-borde p-4 text-sm text-tinta-suave">
-        <b className="text-tinta">{p.nombre}</b>: no tiene cuentas para importar.
+        <b className="text-tinta">{p.nombre}</b>: no tiene cuentas ni clientes para importar.
       </li>
     );
   }
@@ -186,6 +189,7 @@ function Plataforma({
           <span className="text-sm text-tinta-suave">
             {plural(r.cuentas, 'cuenta', 'cuentas')} · {plural(r.perfiles, 'perfil', 'perfiles')} ·{' '}
             {plural(r.asignados, 'cliente', 'clientes')}
+            {r.sinPerfil > 0 && <> · {plural(r.sinPerfil, 'cliente', 'clientes')} sin perfil</>}
           </span>
         </div>
         {hecho && <Insignia tono="exito">Importada</Insignia>}
@@ -254,7 +258,7 @@ function Plataforma({
             </Boton>
             <Boton
               cargando={importar.cargando}
-              disabled={simulado?.clave !== clave || !simulado.cuadre.cuentas.nuevas}
+              disabled={simulado?.clave !== clave || !hayAlgo(simulado.cuadre)}
               onClick={async () => {
                 const res = await importar.ejecutar<{ cuadre: CuadreGestor }>(
                   'POST',
@@ -271,7 +275,9 @@ function Plataforma({
               }}
             >
               {simulado?.clave === clave
-                ? `Importar ${plural(simulado.cuadre.cuentas.nuevas, 'cuenta', 'cuentas')}`
+                ? simulado.cuadre.cuentas.nuevas
+                  ? `Importar ${plural(simulado.cuadre.cuentas.nuevas, 'cuenta', 'cuentas')}`
+                  : `Importar ${plural(simulado.cuadre.clientes.sinPerfil ?? 0, 'cliente', 'clientes')}`
                 : 'Importar'}
             </Boton>
           </div>

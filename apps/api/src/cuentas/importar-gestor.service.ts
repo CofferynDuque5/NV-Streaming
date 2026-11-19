@@ -2,12 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import type {
+  ClienteGestor,
+  ClienteSueltoGestor,
   CuadreGestor,
   CuentaGestor,
   ImportarGestorEntrada,
   LoteGestorPublico,
   PerfilGestor,
 } from '@nv/shared';
+import { esCorreoProvisionalGestor } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { Cifrador } from '../comun/cripto.js';
@@ -16,6 +19,8 @@ import { PRISMA } from '../comun/tokens.js';
 import { LimitesService } from '../limites/limites.service.js';
 import {
   contextoClave,
+  contextoClaveMiembro,
+  contextoMiembro,
   contextoPin,
   contextoUsuario,
   CuentasService,
@@ -29,8 +34,27 @@ export const LIMITE_IMPORTAR_GESTOR = { maximo: 30, ventanaSegundos: 3600 };
 type Tx = Prisma.TransactionClient;
 
 /** Cliente del Gestor: por su contacto o, si no tiene, por su nombre. */
-const claveCliente = (p: PerfilGestor) =>
-  p.cliente!.contacto ? p.cliente!.contacto.valor : `nombre:${p.cliente!.nombre.toLowerCase()}`;
+const claveDe = (c: ClienteGestor) =>
+  c.contacto ? c.contacto.valor : `nombre:${c.nombre.toLowerCase()}`;
+const claveCliente = (p: PerfilGestor) => claveDe(p.cliente!);
+
+const MOTIVO_SUELTO: Record<ClienteSueltoGestor['motivo'], string> = {
+  sin_cuenta: 'en el Gestor no tenía cuenta asignada',
+  cuenta_borrada: 'su cuenta del Gestor ya no existía',
+  cuenta_sin_correo: 'su cuenta del Gestor no tenía correo',
+  repetida: 'su cuenta tenía el mismo correo que otra plataforma',
+};
+
+/** Nota que acompaña a un cliente que entra sin perfil: por qué y lo que tenía. */
+export function notaClienteSuelto(plataforma: string, s: ClienteSueltoGestor): string {
+  const partes = [
+    `Importado del Gestor (${plataforma}) sin perfil: ${MOTIVO_SUELTO[s.motivo]}.`,
+    s.venceEn ? `Vencía el ${s.venceEn}.` : 'Sin fecha de vencimiento.',
+    Number(s.precioUsd) > 0 ? `Pagaba ${Number(s.precioUsd).toFixed(2)} USD.` : '',
+    'Asígnale un perfil cuando lo revises.',
+  ];
+  return partes.filter(Boolean).join(' ').slice(0, 2000);
+}
 
 const hoyUtc = () => new Date().toISOString().slice(0, 10);
 
@@ -39,8 +63,10 @@ interface Plan {
   nuevas: CuentaGestor[];
   /** Clave del cliente → id del cliente que ya existe en el panel. */
   existentes: Map<string, string>;
-  /** Clave del cliente → datos del primer perfil que lo nombra. */
-  porCrear: Map<string, PerfilGestor>;
+  /** Clave del cliente → datos del primer perfil (o cliente sin perfil) que lo nombra. */
+  porCrear: Map<string, ClienteGestor>;
+  /** Clientes que entran sin perfil y aún no se importaron. */
+  sueltos: ClienteSueltoGestor[];
 }
 
 /**
@@ -111,7 +137,24 @@ export class ImportarGestorService {
 
     const perfiles = nuevas.flatMap((c) => c.perfiles);
     const conCliente = perfiles.filter((p) => p.cliente);
-    const claves = [...new Set(conCliente.map(claveCliente))];
+    const vistosSuelto = new Set<string>();
+    const todosSueltos = (e.clientesSueltos ?? []).filter(
+      (x) => !vistosSuelto.has(x.origenId) && vistosSuelto.add(x.origenId),
+    );
+    const sueltosYa = new Set(
+      (
+        await db.registroGestor.findMany({
+          where: {
+            tipo: 'suelto',
+            entidad: 'nota_interna',
+            origenId: { in: todosSueltos.map((x) => x.origenId) },
+          },
+          select: { origenId: true },
+        })
+      ).map((r) => r.origenId),
+    );
+    const sueltos = todosSueltos.filter((x) => !sueltosYa.has(x.origenId));
+    const claves = [...new Set([...conCliente.map(claveCliente), ...sueltos.map(claveDe)])];
     const contactos = claves.filter((k) => !k.startsWith('nombre:'));
     const existentes = new Map<string, string>();
     for (const r of await db.registroGestor.findMany({
@@ -133,27 +176,33 @@ export class ImportarGestorService {
       const k = c.correo!.toLowerCase();
       if (!existentes.has(k)) existentes.set(k, c.id);
     }
-    const porCrear = new Map<string, PerfilGestor>();
-    for (const p of conCliente) {
-      const k = claveCliente(p);
-      if (!existentes.has(k) && !porCrear.has(k)) porCrear.set(k, p);
+    const porCrear = new Map<string, ClienteGestor>();
+    for (const c of [...conCliente.map((p) => p.cliente!), ...sueltos]) {
+      const k = claveDe(c);
+      if (!existentes.has(k) && !porCrear.has(k)) porCrear.set(k, c);
+    }
+    if (sueltos.length) {
+      avisos.push(
+        `${sueltos.length} ${sueltos.length === 1 ? 'cliente entra' : 'clientes entran'} sin perfil, con una nota de su vencimiento y lo que pagaba.`,
+      );
     }
 
     const hoy = hoyUtc();
     const sinFecha = conCliente.filter((p) => !p.cliente!.venceEn).length;
     if (sinFecha) {
       avisos.push(
-        `${sinFecha} ${sinFecha === 1 ? 'cliente no tiene' : 'clientes no tienen'} fecha de vencimiento: su suscripción queda vencida para que la revises.`,
+        `${sinFecha} ${sinFecha === 1 ? 'cliente no tiene' : 'clientes no tienen'} fecha de vencimiento en el Gestor: ${sinFecha === 1 ? 'entra activo' : 'entran activos'} y sin fecha, como allá.`,
       );
     }
     const activas = conCliente.filter(
-      (p) => p.cliente!.venceEn && p.cliente!.venceEn >= hoy,
+      (p) => !p.cliente!.venceEn || p.cliente!.venceEn >= hoy,
     ).length;
     const suma = (xs: string[]) => xs.reduce((s, x) => s + Number(x), 0).toFixed(2);
     return {
       nuevas,
       existentes,
       porCrear,
+      sueltos,
       cuadre: {
         cuentas: {
           enArchivo: e.cuentas.length,
@@ -170,6 +219,7 @@ export class ImportarGestorService {
           nuevos: porCrear.size,
           existentes: claves.length - porCrear.size,
           sinContacto: [...porCrear.keys()].filter((k) => k.startsWith('nombre:')).length,
+          sinPerfil: sueltos.length,
         },
         suscripciones: { activas, vencidas: conCliente.length - activas },
         costoUsd: suma(nuevas.map((c) => c.costoUsd)),
@@ -198,8 +248,12 @@ export class ImportarGestorService {
     return this.prisma.$transaction(
       async (tx) => {
         const plan = await this.planear(tx, e);
-        if (!plan.nuevas.length) {
-          throw new ErrorApp(409, 'NADA_QUE_IMPORTAR', 'Todas las cuentas ya están en el panel.');
+        if (!plan.nuevas.length && !plan.sueltos.length) {
+          throw new ErrorApp(
+            409,
+            'NADA_QUE_IMPORTAR',
+            'Todas las cuentas y clientes ya están en el panel.',
+          );
         }
         const actor = auth.usuario.id;
         const lote = await tx.loteGestor.create({
@@ -221,9 +275,8 @@ export class ImportarGestorService {
         const clienteDe = new Map(plan.existentes);
         const clientes: Prisma.ClienteCreateManyInput[] = [];
         const contactos: Prisma.ContactoClienteCreateManyInput[] = [];
-        for (const [k, p] of plan.porCrear) {
+        for (const [k, c] of plan.porCrear) {
           const id = randomUUID();
-          const c = p.cliente!;
           clienteDe.set(k, id);
           // Todos sus contactos; el primer correo va también al campo correo del cliente.
           const todos = c.contactos.length ? c.contactos : c.contacto ? [c.contacto] : [];
@@ -250,6 +303,21 @@ export class ImportarGestorService {
         await tx.cliente.createMany({ data: clientes });
         await tx.contactoCliente.createMany({ data: contactos });
 
+        // Clientes sin perfil: una nota con su vencimiento, lo que pagaba y por qué.
+        const notas: Prisma.NotaInternaCreateManyInput[] = [];
+        for (const x of plan.sueltos) {
+          const nid = randomUUID();
+          notas.push({
+            id: nid,
+            clienteId: clienteDe.get(claveDe(x))!,
+            autorId: actor,
+            tipo: 'otro',
+            texto: notaClienteSuelto(e.plataforma.nombre, x),
+          });
+          registrar('suelto', x.origenId, 'nota_interna', nid);
+        }
+        await tx.notaInterna.createMany({ data: notas });
+
         const hoy = hoyUtc();
         const suscripciones: Prisma.SuscripcionCreateManyInput[] = [];
         const perfiles: Prisma.PerfilCuentaCreateManyInput[] = [];
@@ -275,7 +343,9 @@ export class ImportarGestorService {
               facturaEn: fechaODb(c.facturaEn) ?? null,
               metodoPago: c.metodoPago,
               proveedor: c.proveedor,
-              notas: `Importada del Gestor (${e.plataforma.nombre}).`,
+              notas: esCorreoProvisionalGestor(c.usuario)
+                ? `Importada del Gestor (${e.plataforma.nombre}). En el Gestor no tenía correo: pon el correo real.`
+                : `Importada del Gestor (${e.plataforma.nombre}).`,
               creadoPorId: actor,
               creadoEn: new Date(base - i * 1000),
             },
@@ -292,7 +362,8 @@ export class ImportarGestorService {
                 id: suscripcionId,
                 clienteId: clienteDe.get(claveCliente(p))!,
                 planId: e.planId,
-                estado: vence && vence >= hoy ? 'activa' : 'vencida',
+                // Sin fecha en el Gestor: activa y sin fecha, como allá.
+                estado: !vence || vence >= hoy ? 'activa' : 'vencida',
                 moneda: e.moneda,
                 venceEn: vence ? new Date(`${vence}T23:59:59Z`) : null,
                 creadoPorId: actor,
@@ -305,6 +376,12 @@ export class ImportarGestorService {
               numero: p.numero,
               nombre: p.nombre,
               pinCifrado: p.pin ? this.cifrador.cifrar(p.pin, contextoPin(pid)) : null,
+              usuarioMiembroCifrado: p.usuarioMiembro
+                ? this.cifrador.cifrar(p.usuarioMiembro.trim(), contextoMiembro(pid))
+                : null,
+              claveMiembroCifrada: p.claveMiembro
+                ? this.cifrador.cifrar(p.claveMiembro, contextoClaveMiembro(pid))
+                : null,
               estado: suscripcionId ? 'asignado' : 'libre',
               suscripcionId,
               asignadoEn: suscripcionId ? new Date() : null,
@@ -383,12 +460,13 @@ export class ImportarGestorService {
         });
         const de = (entidad: string) =>
           regs.filter((r) => r.entidad === entidad).map((r) => r.entidadId);
-        const [cuentas, perfiles, suscripciones, clientes, contactos] = [
+        const [cuentas, perfiles, suscripciones, clientes, contactos, notas] = [
           de('cuenta_servicio'),
           de('perfil_cuenta'),
           de('suscripcion'),
           de('cliente'),
           de('contacto_cliente'),
+          de('nota_interna'),
         ];
         const usado = (
           await Promise.all([
@@ -423,6 +501,7 @@ export class ImportarGestorService {
           await tx.perfilCuenta.deleteMany({ where: { id: { in: perfiles } } });
           await tx.suscripcion.deleteMany({ where: { id: { in: suscripciones } } });
           await tx.contactoCliente.deleteMany({ where: { id: { in: contactos } } });
+          await tx.notaInterna.deleteMany({ where: { id: { in: notas } } });
           await tx.cliente.deleteMany({ where: { id: { in: clientes } } });
           await tx.cuentaServicio.deleteMany({ where: { id: { in: cuentas } } });
         } catch (err) {

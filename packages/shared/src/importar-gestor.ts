@@ -45,6 +45,10 @@ export interface PerfilGestor {
   nombre: string;
   pin: string | null;
   cliente: ClienteGestor | null;
+  /** Plan familiar (Spotify, YouTube, Google One…): correo propio del miembro unido al cupo. */
+  usuarioMiembro: string | null;
+  /** Clave propia del miembro, si el Gestor la tenía. */
+  claveMiembro: string | null;
 }
 
 export interface CuentaGestor {
@@ -64,11 +68,39 @@ export interface CuentaGestor {
   perfiles: PerfilGestor[];
 }
 
+/** Por qué un cliente del Gestor entra sin perfil. */
+export type MotivoSueltoGestor = 'sin_cuenta' | 'cuenta_borrada' | 'cuenta_sin_correo' | 'repetida';
+
+/**
+ * Cliente del Gestor que no queda en ningún perfil (no tenía cuenta, su cuenta
+ * se borró, no tenía correo o era de una cuenta repetida). Entra como cliente,
+ * con sus contactos, y una nota con su vencimiento y lo que paga.
+ */
+export interface ClienteSueltoGestor extends ClienteGestor {
+  origenId: string;
+  motivo: MotivoSueltoGestor;
+}
+
 export interface PlataformaGestor {
   origenId: string;
   nombre: string;
   cuentas: CuentaGestor[];
+  /** Clientes que entran sin perfil (ver `ClienteSueltoGestor`). */
+  clientesSueltos: ClienteSueltoGestor[];
 }
+
+/** Lo que se guarda como clave cuando el Gestor no la tenía (p. ej. invitaciones por correo). */
+export const CLAVE_VACIA_GESTOR = '(sin clave en el Gestor)';
+
+/** Plataformas que se venden por unión de cupos (principal + miembros a su correo), no por perfiles. */
+export const PLATAFORMA_CUPOS = /spotify|youtube|google\s*one|gemini|deezer|apple\s*music|tidal/i;
+
+/** Dominio del correo provisional de una cuenta que en el Gestor no tenía correo. */
+export const DOMINIO_SIN_CORREO_GESTOR = 'sin-correo.gestor.invalid';
+const correoProvisional = (id: string) =>
+  `${id.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60) || 'cuenta'}@${DOMINIO_SIN_CORREO_GESTOR}`;
+export const esCorreoProvisionalGestor = (u: string) =>
+  u.toLowerCase().endsWith(`@${DOMINIO_SIN_CORREO_GESTOR}`);
 
 /** Número escrito sin código de país en el Gestor al que se le puso el código elegido. */
 export interface NumeroSupuestoGestor {
@@ -217,14 +249,14 @@ function numerosLocales(s: Obj, prefijo: string): { escrito: string; guardado: s
 function cliente(
   s: Obj,
   prefijo: string,
-  malos?: () => void,
+  malos?: (quien: string) => void,
   supuesto?: (cliente: string, n: { escrito: string; guardado: string }) => void,
 ): ClienteGestor | null {
   const nombre = [texto(s.nombre), texto(s.apellido)].filter(Boolean).join(' ').slice(0, 120);
   if (LIBRE.test(texto(s.nombre))) return null;
   const contactos = contactosGestor(s, prefijo);
   for (const n of numerosLocales(s, prefijo)) supuesto?.(nombre, n);
-  if (contactos.length < Math.min(contactosEscritos(s), MAX_CONTACTOS_GESTOR)) malos?.();
+  if (contactos.length < Math.min(contactosEscritos(s), MAX_CONTACTOS_GESTOR)) malos?.(nombre);
   const responsable = texto(s.responsable).replace(/\s+/g, ' ').slice(0, 60);
   return {
     nombre,
@@ -270,23 +302,37 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     if (!pid) continue;
     const slots = lista(clientesPor[pid]);
     const cuentas: CuentaGestor[] = [];
-    let malos = 0;
-    const contactoMalo = () => {
-      malos += 1;
+    const sueltos: ClienteSueltoGestor[] = [];
+    const malos: string[] = [];
+    let sinClave = 0;
+    let sinCorreo = 0;
+    const contactoMalo = (quien: string) => {
+      malos.push(quien);
+    };
+    const soltar = (s: Obj, motivo: MotivoSueltoGestor) => {
+      const c = cliente(s, prefijo, contactoMalo, supuesto);
+      if (c) sueltos.push({ ...c, origenId: texto(s.id) || `${pid}:${sueltos.length}`, motivo });
+      return c !== null;
     };
     const supuesto = (cli: string, n: { escrito: string; guardado: string }) =>
       numerosSupuestos.push({ plataforma: nombrePlat, cliente: cli, ...n });
 
     for (const [orden, a] of lista(cuentasPor[pid]).entries()) {
-      const usuario = texto(a.email);
-      const clave = typeof a.password === 'string' ? a.password : '';
-      if (!usuarioValido(usuario) || !clave) {
-        avisos.push(`${nombrePlat}: una cuenta sin correo o sin clave no se importa.`);
-        continue;
-      }
+      let usuario = texto(a.email);
+      let clave = typeof a.password === 'string' ? a.password : '';
       const propios = slots
         .filter((s) => texto(s.accountId) === texto(a.id))
         .sort((x, y) => posicionPerfil(x) - posicionPerfil(y));
+      if (!usuarioValido(usuario)) {
+        usuario = correoProvisional(texto(a.id) || `${pid}-${orden}`);
+        sinCorreo += 1;
+      }
+      // Plan familiar: el cupo 1 es la Principal y los demás, miembros.
+      const conCupos = PLATAFORMA_CUPOS.test(nombrePlat);
+      if (!clave) {
+        clave = CLAVE_VACIA_GESTOR;
+        sinClave += 1;
+      }
       if (propios.length > MAX_PERFILES_GESTOR) {
         avisos.push(
           `${nombrePlat}: una cuenta tiene ${propios.length} perfiles; se importan los primeros ${MAX_PERFILES_GESTOR}.`,
@@ -299,15 +345,30 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       const perfiles: PerfilGestor[] = Array.from({ length: declarados }, (_, i) => {
         const s = propios[i];
         const etiqueta = s ? texto(s.email) : '';
+        // Correo propio del miembro (unido al plan con su correo), distinto al de la cuenta.
+        const propio =
+          s &&
+          etiqueta.includes('@') &&
+          usuarioValido(etiqueta) &&
+          etiqueta.toLowerCase() !== usuario.toLowerCase()
+            ? etiqueta
+            : null;
+        const claveS = s && typeof s.password === 'string' ? s.password : '';
         return {
           origenId: s ? texto(s.id) || `${texto(a.id)}#${i + 1}` : `${texto(a.id)}#${i + 1}`,
           numero: i + 1,
           nombre: (/^perfil\s*\d*$/i.test(etiqueta) || !etiqueta || etiqueta.includes('@')
-            ? `Perfil ${i + 1}`
+            ? conCupos
+              ? i === 0
+                ? 'Principal'
+                : `Miembro ${i}`
+              : `Perfil ${i + 1}`
             : etiqueta
           ).slice(0, 40),
           pin: s && PIN.test(texto(s.pin)) ? texto(s.pin) : null,
           cliente: s ? cliente(s, prefijo, contactoMalo, supuesto) : null,
+          usuarioMiembro: propio,
+          claveMiembro: propio && claveS && claveS !== clave ? claveS.slice(0, 200) : null,
         };
       });
       cuentas.push({
@@ -330,27 +391,31 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
 
     // Cuentas individuales: la cuenta entera es de un cliente y vive en la lista de clientes.
     const idsCuenta = new Set(lista(cuentasPor[pid]).map((a) => texto(a.id)));
+    const porCupos = PLATAFORMA_CUPOS.test(nombrePlat);
     let ordenInd = lista(cuentasPor[pid]).length;
     for (const s of slots) {
       const conCuenta = texto(s.accountId) && idsCuenta.has(texto(s.accountId));
       if (conCuenta) continue;
       if (texto(s.accountId)) {
-        avisos.push(
-          `${nombrePlat}: un perfil apunta a una cuenta que ya no existe y no se importa.`,
-        );
+        soltar(s, 'cuenta_borrada');
         continue;
       }
-      if (s.isClientAccount !== true) {
-        if (!LIBRE.test(texto(s.nombre))) {
-          avisos.push(`${nombrePlat}: un cliente sin cuenta asignada no se importa.`);
-        }
+      // En las plataformas de unión de cupos (Spotify, YouTube, Google One, Gemini…)
+      // un cliente sin cuenta pero con correo propio es una cuenta a su correo.
+      const aSuCorreo = porCupos && usuarioValido(texto(s.email)) && texto(s.email).includes('@');
+      if (s.isClientAccount !== true && !aSuCorreo) {
+        soltar(s, 'sin_cuenta');
         continue;
       }
-      const usuario = texto(s.email);
-      const clave = typeof s.password === 'string' ? s.password : '';
-      if (!usuarioValido(usuario) || !clave) {
-        avisos.push(`${nombrePlat}: una cuenta individual sin correo o sin clave no se importa.`);
-        continue;
+      let usuario = texto(s.email);
+      let clave = typeof s.password === 'string' ? s.password : '';
+      if (!usuarioValido(usuario)) {
+        usuario = correoProvisional(`ind-${texto(s.id)}`);
+        sinCorreo += 1;
+      }
+      if (!clave) {
+        clave = CLAVE_VACIA_GESTOR;
+        sinClave += 1;
       }
       ordenInd += 1;
       cuentas.push({
@@ -373,16 +438,47 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             nombre: 'Cuenta completa',
             pin: PIN.test(texto(s.pin)) ? texto(s.pin) : null,
             cliente: cliente(s, prefijo, contactoMalo, supuesto),
+            usuarioMiembro: null,
+            claveMiembro: null,
           },
         ],
       });
     }
-    if (malos) {
+    if (sinCorreo) {
       avisos.push(
-        `${nombrePlat}: ${malos === 1 ? 'un cliente tiene' : `${malos} clientes tienen`} un contacto que no se entiende (número sin código o usuario de Telegram muy corto); se importa sin ese contacto.`,
+        `${nombrePlat}: ${sinCorreo === 1 ? 'una cuenta no tiene' : `${sinCorreo} cuentas no tienen`} correo en el Gestor; ${sinCorreo === 1 ? 'entra' : 'entran'} con un correo provisional (…@${DOMINIO_SIN_CORREO_GESTOR}) y sus clientes y cupos, para que le pongas el correo real.`,
       );
     }
-    plataformas.push({ origenId: pid, nombre: nombrePlat.slice(0, 80), cuentas });
+    if (sinClave) {
+      avisos.push(
+        `${nombrePlat}: ${sinClave === 1 ? 'una cuenta no tiene' : `${sinClave} cuentas no tienen`} clave en el Gestor; ${sinClave === 1 ? 'entra' : 'entran'} con la clave «${CLAVE_VACIA_GESTOR}» para que la completes.`,
+      );
+    }
+    const porMotivo = (m: MotivoSueltoGestor) => sueltos.filter((x) => x.motivo === m).length;
+    const nSin = porMotivo('sin_cuenta');
+    const nBorr = porMotivo('cuenta_borrada');
+    if (nSin) {
+      avisos.push(
+        `${nombrePlat}: ${nSin === 1 ? 'un cliente no tiene' : `${nSin} clientes no tienen`} cuenta asignada; ${nSin === 1 ? 'entra' : 'entran'} como cliente sin perfil, con una nota de su vencimiento.`,
+      );
+    }
+    if (nBorr) {
+      avisos.push(
+        `${nombrePlat}: ${nBorr === 1 ? 'un cliente estaba' : `${nBorr} clientes estaban`} en una cuenta que ya no existe; ${nBorr === 1 ? 'entra' : 'entran'} como cliente sin perfil.`,
+      );
+    }
+    if (malos.length) {
+      const nombres = [...new Set(malos.filter(Boolean))];
+      avisos.push(
+        `${nombrePlat}: ${malos.length === 1 ? 'un cliente tiene' : `${malos.length} clientes tienen`} un contacto que no se entiende (número sin código o usuario de Telegram muy corto); se importa sin ese contacto${nombres.length ? `: ${nombres.slice(0, 20).join(', ')}${nombres.length > 20 ? '…' : ''}` : ''}.`,
+      );
+    }
+    plataformas.push({
+      origenId: pid,
+      nombre: nombrePlat.slice(0, 80),
+      cuentas,
+      clientesSueltos: sueltos,
+    });
   }
 
   // Un mismo correo dos veces (en la misma u otra plataforma) se importa una sola vez.
@@ -391,7 +487,14 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     p.cuentas = p.cuentas.filter((c) => {
       const k = c.usuario.toLowerCase();
       if (vistos.has(k)) {
-        avisos.push(`${p.nombre}: una cuenta repetida se importa una sola vez.`);
+        // Sus clientes no se pierden: entran sin perfil en esta plataforma.
+        const suyos = c.perfiles.filter((x) => x.cliente);
+        for (const x of suyos) {
+          p.clientesSueltos.push({ ...x.cliente!, origenId: x.origenId, motivo: 'repetida' });
+        }
+        avisos.push(
+          `${p.nombre}: una cuenta con un correo que ya está en otra plataforma se importa una sola vez${suyos.length ? `; ${suyos.length === 1 ? 'su cliente entra' : `sus ${suyos.length} clientes entran`} sin perfil` : ''}.`,
+        );
         return false;
       }
       vistos.add(k);
@@ -411,6 +514,7 @@ export function resumenPlataforma(p: PlataformaGestor) {
     asignados: conCliente.length,
     costoUsd: p.cuentas.reduce((s, c) => s + Number(c.costoUsd), 0).toFixed(2),
     ventaUsd: conCliente.reduce((s, x) => s + Number(x.cliente!.precioUsd), 0).toFixed(2),
+    sinPerfil: (p.clientesSueltos ?? []).length,
   };
 }
 
@@ -447,6 +551,8 @@ const perfilGestorSchema = z.object({
     .regex(/^\d{4,8}$/)
     .nullable(),
   cliente: clienteGestorSchema.nullable(),
+  usuarioMiembro: z.string().trim().min(3).max(254).nullable().default(null),
+  claveMiembro: z.string().min(1).max(200).nullable().default(null),
 });
 
 const cuentaGestorSchema = z.object({
@@ -473,28 +579,41 @@ const cuentaGestorSchema = z.object({
   perfiles: z.array(perfilGestorSchema).min(1).max(MAX_PERFILES_GESTOR),
 });
 
-export const importarGestorSchema = z.object({
-  plataforma: z.object({
-    origenId: z.string().min(1).max(120),
-    nombre: z.string().trim().min(1).max(80),
-  }),
-  /** Servicio del catálogo al que pasa la plataforma. */
-  servicioId: uuidSchema,
-  /** Plan con el que quedan las suscripciones de sus clientes. */
-  planId: uuidSchema,
-  moneda: z.enum(MONEDAS).default('USD'),
-  cuentas: z
-    .array(cuentaGestorSchema)
-    .min(1, 'La plataforma no tiene cuentas para importar.')
-    .max(MAX_CUENTAS_LOTE_GESTOR, `Máximo ${MAX_CUENTAS_LOTE_GESTOR} cuentas por envío.`),
+const clienteSueltoGestorSchema = clienteGestorSchema.extend({
+  origenId: z.string().min(1).max(120),
+  motivo: z.enum(['sin_cuenta', 'cuenta_borrada', 'cuenta_sin_correo', 'repetida']),
 });
+
+/** Clientes sin perfil que se importan de una vez. */
+export const MAX_SUELTOS_LOTE_GESTOR = 2000;
+
+export const importarGestorSchema = z
+  .object({
+    plataforma: z.object({
+      origenId: z.string().min(1).max(120),
+      nombre: z.string().trim().min(1).max(80),
+    }),
+    /** Servicio del catálogo al que pasa la plataforma. */
+    servicioId: uuidSchema,
+    /** Plan con el que quedan las suscripciones de sus clientes. */
+    planId: uuidSchema,
+    moneda: z.enum(MONEDAS).default('USD'),
+    cuentas: z
+      .array(cuentaGestorSchema)
+      .max(MAX_CUENTAS_LOTE_GESTOR, `Máximo ${MAX_CUENTAS_LOTE_GESTOR} cuentas por envío.`),
+    clientesSueltos: z.array(clienteSueltoGestorSchema).max(MAX_SUELTOS_LOTE_GESTOR).default([]),
+  })
+  .refine((e) => e.cuentas.length + e.clientesSueltos.length > 0, {
+    message: 'La plataforma no tiene cuentas ni clientes para importar.',
+    path: ['cuentas'],
+  });
 export type ImportarGestorEntrada = z.infer<typeof importarGestorSchema>;
 
 /** Cuadre de una simulación o de una importación hecha. */
 export interface CuadreGestor {
   cuentas: { enArchivo: number; nuevas: number; yaEstaban: number; yaImportadas: number };
   perfiles: { nuevos: number; libres: number; asignados: number };
-  clientes: { nuevos: number; existentes: number; sinContacto: number };
+  clientes: { nuevos: number; existentes: number; sinContacto: number; sinPerfil?: number };
   suscripciones: { activas: number; vencidas: number };
   /** Suma de lo que cobra el proveedor por las cuentas nuevas (USD). */
   costoUsd: string;

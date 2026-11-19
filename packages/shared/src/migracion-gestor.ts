@@ -177,7 +177,12 @@ export interface ComparacionMigracion {
  */
 export function compararMigracion(
   archivo: ArchivoMigracionGestor,
-  leido: { plataformas: { cuentas: { perfiles: { pin: string | null; cliente: unknown }[] }[] }[] },
+  leido: {
+    plataformas: {
+      cuentas: { perfiles: { pin: string | null; cliente: unknown }[] }[];
+      clientesSueltos?: unknown[];
+    }[];
+  },
 ): ComparacionMigracion[] {
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const c = archivo.manifiesto.conteos;
@@ -203,6 +208,13 @@ export function compararMigracion(
       enGestor: n(c.perfilesAsignados),
       enArchivo: perfilesArchivo.filter((p) => p.libre !== true).length,
       seImporta: perfiles.filter((p) => p.cliente).length,
+    },
+    {
+      // Clientes que el Gestor tenía sin cuenta (o en una cuenta sin datos): entran sin perfil.
+      concepto: 'Clientes sin perfil',
+      enGestor: 0,
+      enArchivo: 0,
+      seImporta: leido.plataformas.reduce((s, p) => s + (p.clientesSueltos?.length ?? 0), 0),
     },
     {
       concepto: 'PIN',
