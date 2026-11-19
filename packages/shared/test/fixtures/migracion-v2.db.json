@@ -1,0 +1,97 @@
+{
+  "db": {
+    "platforms": [
+      {
+        "id": "p2",
+        "name": "Netflix",
+        "emoji": "🎬",
+        "color": "#e50914",
+        "orden": 0
+      },
+      {
+        "id": "p1",
+        "name": "Spotify",
+        "emoji": "🎵",
+        "orden": 1
+      }
+    ],
+    "accounts": {
+      "p2": [
+        {
+          "id": "a1",
+          "email": "maria@gmail.com",
+          "password": "Secreta123",
+          "numProfiles": 5,
+          "costoCuenta": 8,
+          "facturacion": "2026-12-01",
+          "plan": "Premium",
+          "proveedor": "Pedro",
+          "metodoPago": "tarjeta",
+          "tarjetaDigitos": "4111111111111234",
+          "pais": "ve"
+        },
+        {
+          "id": "a2",
+          "email": "luis@gmail.com",
+          "password": "Otra456",
+          "numProfiles": 2,
+          "costoCuenta": 4,
+          "caidaReportada": true
+        }
+      ],
+      "p1": []
+    },
+    "clients": {
+      "p2": [
+        {
+          "id": "c2",
+          "accountId": "a1",
+          "slotIndex": 1,
+          "email": "Ana TV",
+          "pin": "0042",
+          "nombre": "Ana",
+          "apellido": "Pérez",
+          "contacto": "04141234567",
+          "tipoContacto": "whatsapp",
+          "contacto2": "@ana_perez",
+          "tipoContacto2": "telegram",
+          "responsable": "Valeryn",
+          "vencimientoCliente": "2026-12-05",
+          "precioVenta": 3.5
+        },
+        {
+          "id": "c1",
+          "accountId": "a1",
+          "slotIndex": 0,
+          "email": "Perfil 1",
+          "pin": "",
+          "nombre": "Sin asignar"
+        },
+        {
+          "id": "c3",
+          "accountId": "a2",
+          "slotIndex": 0,
+          "email": "Perfil 1",
+          "pin": "5678",
+          "nombre": "Juan",
+          "contacto": "juan@x.com",
+          "tipoContacto": "email",
+          "precioVenta": 2
+        }
+      ],
+      "p1": [
+        {
+          "id": "c9",
+          "accountId": "",
+          "isClientAccount": true,
+          "email": "jose@hotmail.com",
+          "password": "clave9",
+          "nombre": "José",
+          "contacto": "04121112233",
+          "precioVenta": 2,
+          "facturacion": "2026-12-10"
+        }
+      ]
+    }
+  }
+}
