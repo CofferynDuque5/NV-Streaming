@@ -249,6 +249,10 @@ export function compararMigracion(
   const cuentas = leido.plataformas.flatMap((p) => p.cuentas).filter((x) => !x.papelera);
   const perfiles = cuentas.flatMap((x) => x.perfiles);
   const perfilesArchivo = lista(S.perfiles);
+  const sinPerfil = leido.plataformas.reduce(
+    (s, p) => s + (p.clientesSueltos ?? []).filter((x) => x.motivo !== 'papelera').length,
+    0,
+  );
   return [
     {
       concepto: 'Plataformas',
@@ -270,13 +274,11 @@ export function compararMigracion(
     },
     {
       // Clientes que el Gestor tenía sin cuenta (o en una cuenta sin datos): entran sin perfil.
+      // Salen del mismo archivo que se lee: se muestran para que se vean, no para cuadrar.
       concepto: 'Clientes sin perfil',
-      enGestor: 0,
-      enArchivo: 0,
-      seImporta: leido.plataformas.reduce(
-        (s, p) => s + (p.clientesSueltos ?? []).filter((x) => x.motivo !== 'papelera').length,
-        0,
-      ),
+      enGestor: sinPerfil,
+      enArchivo: sinPerfil,
+      seImporta: sinPerfil,
     },
     {
       concepto: 'Papelera',
