@@ -118,6 +118,8 @@ describe('leerRespaldoGestor', () => {
     expect(c.perfiles[0]!.cliente).toEqual({
       nombre: 'Ana Pérez',
       contacto: { tipo: 'whatsapp', valor: '+584125551234' },
+      contactos: [{ tipo: 'whatsapp', valor: '+584125551234' }],
+      responsable: null,
       venceEn: '2026-12-01',
       precioUsd: '3.00',
     });
@@ -184,7 +186,171 @@ describe('piezas', () => {
       tipo: 'whatsapp',
       valor: '+574241234567',
     });
-    expect(contactoGestor('@ana_ig')).toBeNull();
+    expect(contactoGestor('@Ana_TG')).toEqual({ tipo: 'telegram', valor: 'ana_tg' });
+    expect(contactoGestor('ana_tg', '+58', 'telegram')).toEqual({
+      tipo: 'telegram',
+      valor: 'ana_tg',
+    });
+    expect(contactoGestor('04145550000', '+58', 'telegram')).toEqual({
+      tipo: 'telefono',
+      valor: '+584145550000',
+    });
+    expect(contactoGestor('@ana')).toBeNull();
+    expect(contactoGestor('ana_ig')).toBeNull();
     expect(contactoGestor('123')).toBeNull();
+  });
+});
+
+/** «Copia para NV Streaming» del Gestor 8.4 (datos inventados). */
+const COPIA_NVS = {
+  formato: 'nv-gestor-a-nvstreaming',
+  version: 1,
+  db: {
+    platforms: [{ id: 'plat_1', name: 'Cine', orden: 0 }],
+    accounts: {
+      plat_1: [
+        {
+          id: 'a_b',
+          orden: 0,
+          email: 'segunda@example.com',
+          password: 'Clave-2',
+          numProfiles: 3,
+          tipoCuenta: 'perfiles',
+          metodoPago: 'paypal',
+          metodoPagoTexto: 'PayPal',
+          plan: 'Premium',
+          proveedor: 'Tienda A',
+        },
+        {
+          id: 'a_a',
+          orden: 1,
+          email: 'unica@example.com',
+          password: 'Clave-1',
+          numProfiles: 1,
+          tipoCuenta: 'completa',
+          metodoPago: 'otro',
+          otroMetodo: 'Binance USDT',
+        },
+      ],
+    },
+    clients: {
+      plat_1: [
+        {
+          id: 'c_3',
+          accountId: 'a_b',
+          slotIndex: 7,
+          ordenPerfil: 3,
+          nombre: 'Sin asignar',
+          pin: 'NO APLICA',
+        },
+        {
+          id: 'c_1',
+          accountId: 'a_b',
+          slotIndex: 1,
+          ordenPerfil: 1,
+          email: 'Sala',
+          pin: '1234',
+          nombre: 'Ana',
+          responsable: '  Revendedor   Juan ',
+          contactos: [
+            { tipo: 'telegram', valor: 'ana_tg' },
+            { tipo: 'whatsapp', valor: '0412-555.12.34' },
+            { tipo: 'correo', valor: 'Ana@Example.com' },
+          ],
+          vencimientoCliente: '2026-12-01',
+          precioVenta: 3,
+        },
+        {
+          id: 'c_2',
+          accountId: 'a_b',
+          slotIndex: null,
+          ordenPerfil: 2,
+          nombre: 'Luis',
+          contacto: '04145550000',
+          tipoContacto: 'telegram',
+          vencimientoCliente: '2026-12-05',
+          precioVenta: 2,
+        },
+        {
+          id: 'c_4',
+          accountId: 'a_a',
+          slotIndex: 1,
+          ordenPerfil: 1,
+          nombre: 'Rosa',
+          contacto: '@rosa_r',
+        },
+        {
+          id: 'i_1',
+          isClientAccount: true,
+          ordenCuenta: 2,
+          email: 'individual@example.com',
+          password: 'Ind-1',
+          nombre: 'Carla',
+          responsable: 'Yo',
+          contacto: '@carla_c',
+          tipoContacto: 'telegram',
+          metodoPago: 'tarjeta',
+          tarjetaDigitos: '9999',
+        },
+      ],
+    },
+  },
+};
+
+describe('copia para NV Streaming', () => {
+  const [cine] = leerRespaldoGestor(COPIA_NVS).plataformas;
+
+  it('respeta el orden de cuentas y perfiles y el tipo de cuenta', () => {
+    expect(cine!.cuentas.map((c) => [c.usuario, c.orden, c.modo])).toEqual([
+      ['segunda@example.com', 0, 'perfiles'],
+      ['unica@example.com', 1, 'completa'],
+      ['individual@example.com', 2, 'completa'],
+    ]);
+    const [b] = cine!.cuentas;
+    expect(
+      b!.perfiles.map((p) => [p.numero, p.origenId, p.pin, p.cliente?.nombre ?? null]),
+    ).toEqual([
+      [1, 'c_1', '1234', 'Ana'],
+      [2, 'c_2', null, 'Luis'],
+      [3, 'c_3', null, null],
+    ]);
+  });
+
+  it('lleva responsable, todos los contactos y el método de pago', () => {
+    const [b, a, ind] = cine!.cuentas;
+    expect(b!.perfiles[0]!.cliente).toMatchObject({
+      responsable: 'Revendedor Juan',
+      contacto: { tipo: 'telegram', valor: 'ana_tg' },
+      contactos: [
+        { tipo: 'telegram', valor: 'ana_tg' },
+        { tipo: 'whatsapp', valor: '+584125551234' },
+        { tipo: 'correo', valor: 'ana@example.com' },
+      ],
+    });
+    expect(b!.perfiles[1]!.cliente!.contactos).toEqual([
+      { tipo: 'telefono', valor: '+584145550000' },
+    ]);
+    expect(a!.perfiles[0]!.cliente!.contacto).toEqual({ tipo: 'telegram', valor: 'rosa_r' });
+    expect([b!.metodoPago, a!.metodoPago, ind!.metodoPago]).toEqual([
+      'PayPal',
+      'Binance USDT',
+      'Tarjeta ···· 9999',
+    ]);
+    expect(b!.plan).toBe('Premium');
+    expect(b!.proveedor).toBe('Tienda A');
+    expect(ind!.perfiles[0]!.cliente).toMatchObject({
+      responsable: 'Yo',
+      contacto: { tipo: 'telegram' },
+    });
+  });
+
+  it('pasa la validación del panel', () => {
+    const r = importarGestorSchema.safeParse({
+      plataforma: { origenId: cine!.origenId, nombre: cine!.nombre },
+      servicioId: '00000000-0000-4000-8000-000000000001',
+      planId: '00000000-0000-4000-8000-000000000002',
+      cuentas: cine!.cuentas,
+    });
+    expect(r.success).toBe(true);
   });
 });

@@ -319,7 +319,7 @@ export function ImportarGestor({
       <Tarjeta>
         <CabeceraTarjeta
           titulo="1. Sube la copia del Gestor"
-          descripcion="En el Gestor: Copias → «Guardar copia completa». El archivo se lee en este navegador; al panel solo llega lo que importes."
+          descripcion="En el Gestor: Copias de seguridad → «Copia para NV Streaming» (también sirve la copia completa). El archivo se lee en este navegador; al panel solo llega lo que importes."
         />
         <div className="grid gap-4 p-5 sm:p-6">
           <div className="flex flex-wrap items-start gap-3">

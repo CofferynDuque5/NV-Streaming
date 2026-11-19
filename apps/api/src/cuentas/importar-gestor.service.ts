@@ -225,19 +225,26 @@ export class ImportarGestorService {
           const id = randomUUID();
           const c = p.cliente!;
           clienteDe.set(k, id);
+          // Todos sus contactos; el primer correo va también al campo correo del cliente.
+          const todos = c.contactos.length ? c.contactos : c.contacto ? [c.contacto] : [];
           clientes.push({
             id,
             nombre: c.nombre,
-            correo: c.contacto?.tipo === 'correo' ? c.contacto.valor : null,
+            correo: todos.find((x) => x.tipo === 'correo')?.valor ?? null,
+            responsable: c.responsable,
             monedaPreferida: e.moneda,
             origen: 'gestor',
             creadoPorId: actor,
           });
           registrar('cliente', k, 'cliente', id);
-          if (c.contacto?.tipo === 'whatsapp') {
+          let n = 0;
+          for (const x of todos) {
+            if (x.tipo === 'correo') continue;
             const cid = randomUUID();
-            contactos.push({ id: cid, clienteId: id, tipo: 'whatsapp', valor: c.contacto.valor });
-            registrar('cliente', k, 'contacto_cliente', cid);
+            contactos.push({ id: cid, clienteId: id, tipo: x.tipo, valor: x.valor });
+            // Un registro por contacto: el primero con la clave del cliente, como antes.
+            registrar('cliente', n ? `c${n}:${k}`.slice(0, 260) : k, 'contacto_cliente', cid);
+            n += 1;
           }
         }
         await tx.cliente.createMany({ data: clientes });
@@ -246,7 +253,11 @@ export class ImportarGestorService {
         const hoy = hoyUtc();
         const suscripciones: Prisma.SuscripcionCreateManyInput[] = [];
         const perfiles: Prisma.PerfilCuentaCreateManyInput[] = [];
-        for (const c of plan.nuevas) {
+        // La lista de cuentas va de la más nueva a la más vieja: la primera del Gestor
+        // queda con la fecha de alta más reciente para que salga arriba, como allá.
+        const ordenadas = [...plan.nuevas].sort((a, b) => a.orden - b.orden);
+        const base = Date.now();
+        for (const [i, c] of ordenadas.entries()) {
           const id = randomUUID();
           await tx.cuentaServicio.create({
             data: {
@@ -266,6 +277,7 @@ export class ImportarGestorService {
               proveedor: c.proveedor,
               notas: `Importada del Gestor (${e.plataforma.nombre}).`,
               creadoPorId: actor,
+              creadoEn: new Date(base - i * 1000),
             },
             select: { id: true },
           });

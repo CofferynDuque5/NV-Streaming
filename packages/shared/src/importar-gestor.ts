@@ -3,8 +3,8 @@ import { uuidSchema } from './esquemas/comunes.js';
 import { MONEDAS } from './monedas.js';
 
 /**
- * Importación del Gestor viejo (fase G6). Se parte de la «Copia completa»
- * (JSON) que el Gestor ya permite descargar: el archivo se lee en el
+ * Importación del Gestor viejo (fase G6). Se parte de la «Copia para NV
+ * Streaming» o de la «Copia completa» (JSON) del Gestor: el archivo se lee en el
  * navegador y al panel solo llegan, plataforma por plataforma, las cuentas,
  * perfiles y clientes que se van a importar. Nada se escribe hasta confirmar
  * la simulación, y cada importación queda en un lote que se puede deshacer.
@@ -17,11 +17,22 @@ export const MAX_CUENTAS_LOTE_GESTOR = 400;
 /** El panel admite hasta 20 perfiles por cuenta. */
 export const MAX_PERFILES_GESTOR = 20;
 
-export type TipoContactoGestor = 'whatsapp' | 'correo';
+export type TipoContactoGestor = 'whatsapp' | 'correo' | 'telegram' | 'telefono';
+export interface ContactoGestor {
+  tipo: TipoContactoGestor;
+  valor: string;
+}
+/** El Gestor guarda hasta 3 contactos por cliente. */
+export const MAX_CONTACTOS_GESTOR = 3;
 
 export interface ClienteGestor {
   nombre: string;
-  contacto: { tipo: TipoContactoGestor; valor: string } | null;
+  /** El contacto principal: identifica al cliente entre cuentas y lotes. */
+  contacto: ContactoGestor | null;
+  /** Todos sus contactos (el principal primero), sin repetir. */
+  contactos: ContactoGestor[];
+  /** Quién trajo al cliente (revendedor, vendedor), como en el Gestor. */
+  responsable: string | null;
   /** «AAAA-MM-DD»: hasta cuándo pagó el cliente. */
   venceEn: string | null;
   /** Lo que paga el cliente, en USD (informativo para el cuadre). */
@@ -41,6 +52,8 @@ export interface CuentaGestor {
   usuario: string;
   clave: string;
   modo: 'perfiles' | 'completa';
+  /** Posición de la cuenta en su plataforma del Gestor (0 = la primera). */
+  orden: number;
   facturaEn: string | null;
   costoUsd: string;
   plan: string | null;
@@ -90,24 +103,68 @@ export function montoGestor(v: unknown): string {
 }
 
 const RX_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** Igual que el panel: usuario de Telegram sin la @. */
+const RX_TELEGRAM = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
 
-/**
- * Contacto del cliente: correo, o número de WhatsApp con código de país.
- * Un número local («0412…») toma el prefijo indicado (+58 por defecto).
- */
-export function contactoGestor(
-  v: unknown,
-  prefijo = '+58',
-): { tipo: TipoContactoGestor; valor: string } | null {
-  const t = texto(v);
-  if (!t) return null;
-  if (RX_CORREO.test(t)) return { tipo: 'correo', valor: t.toLowerCase() };
-  if (/[a-z]/i.test(t.replace(/^wa\.me\//i, ''))) return null;
+function numeroGestor(t: string, prefijo: string): string | null {
   let n = t.replace(/[^\d+]/g, '');
   if (n.startsWith('00')) n = `+${n.slice(2)}`;
   else if (n.startsWith('0')) n = `${prefijo}${n.slice(1)}`;
   else if (!n.startsWith('+')) n = `+${n}`;
-  return /^\+\d{7,15}$/.test(n) ? { tipo: 'whatsapp', valor: n } : null;
+  return /^\+\d{7,15}$/.test(n) ? n : null;
+}
+
+/**
+ * Contacto del cliente: correo, número de WhatsApp con código de país o
+ * usuario de Telegram. Un número local («0412…») toma el prefijo indicado
+ * (+58 por defecto). `canal` es el tipo que eligió el Gestor (whatsapp,
+ * telegram, email); sin él, «@usuario» es Telegram como en el Gestor.
+ * Un número marcado como Telegram queda como teléfono: Telegram solo se
+ * guarda por usuario.
+ */
+export function contactoGestor(
+  v: unknown,
+  prefijo = '+58',
+  canal?: unknown,
+): ContactoGestor | null {
+  const t = texto(v);
+  if (!t) return null;
+  const c = texto(canal).toLowerCase();
+  if (RX_CORREO.test(t)) return { tipo: 'correo', valor: t.toLowerCase() };
+  const usuarioTg = t.replace(/^@+/, '').replace(/^https?:\/\/t\.me\//i, '');
+  if (c === 'telegram' || c === 'tg' || t.startsWith('@') || /^https?:\/\/t\.me\//i.test(t)) {
+    if (RX_TELEGRAM.test(usuarioTg)) return { tipo: 'telegram', valor: usuarioTg.toLowerCase() };
+    if (/[a-z]/i.test(usuarioTg)) return null;
+    const n = numeroGestor(t, prefijo);
+    return n ? { tipo: 'telefono', valor: n } : null;
+  }
+  if (/[a-z]/i.test(t.replace(/^wa\.me\//i, ''))) return null;
+  const n = numeroGestor(t, prefijo);
+  return n ? { tipo: 'whatsapp', valor: n } : null;
+}
+
+/**
+ * Los contactos del cliente: la lista `contactos` de la «Copia para NV
+ * Streaming» o, en la copia de siempre, contacto/contacto2/contacto3 con
+ * su tipoContacto. Sin repetir y el principal primero.
+ */
+export function contactosGestor(s: Record<string, unknown>, prefijo = '+58'): ContactoGestor[] {
+  const crudos: [unknown, unknown][] = Array.isArray(s.contactos)
+    ? (s.contactos as unknown[])
+        .filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
+        .map((x) => [x.valor, x.tipo])
+    : [
+        [s.contacto, s.tipoContacto],
+        [s.contacto2, s.tipoContacto2],
+        [s.contacto3, s.tipoContacto3],
+      ];
+  const out: ContactoGestor[] = [];
+  for (const [v, canal] of crudos) {
+    const c = contactoGestor(v, prefijo, canal);
+    if (c && !out.some((x) => x.tipo === c.tipo && x.valor === c.valor)) out.push(c);
+    if (out.length === MAX_CONTACTOS_GESTOR) break;
+  }
+  return out;
 }
 
 const PIN = /^\d{4,8}$/;
@@ -118,20 +175,42 @@ function metodoPago(o: Obj): string | null {
   const m = texto(o.metodoPago).toLowerCase();
   const digitos = texto(o.tarjetaDigitos).replace(/\D/g, '').slice(-4);
   if (m === 'tarjeta') return digitos ? `Tarjeta ···· ${digitos}` : 'Tarjeta';
-  const otro = m === 'otro' ? texto(o.otroMetodo) : texto(o.metodoPago);
+  if (m === 'paypal') return 'PayPal';
+  const otro = m === 'otro' ? texto(o.otroMetodo) || 'Otro' : texto(o.metodoPago);
   if (!otro || /\d{9,}/.test(otro.replace(/[\s-]/g, ''))) return null;
   return otro.slice(0, 60);
 }
 
-function cliente(s: Obj, prefijo: string): ClienteGestor | null {
+/** Cuántos contactos escritos trae el cliente en el Gestor (válidos o no). */
+function contactosEscritos(s: Obj): number {
+  if (Array.isArray(s.contactos))
+    return s.contactos.filter((x) => esObj(x) && texto(x.valor)).length;
+  return [s.contacto, s.contacto2, s.contacto3].filter((v) => texto(v)).length;
+}
+
+function cliente(s: Obj, prefijo: string, malos?: () => void): ClienteGestor | null {
   const nombre = [texto(s.nombre), texto(s.apellido)].filter(Boolean).join(' ').slice(0, 120);
   if (LIBRE.test(texto(s.nombre))) return null;
+  const contactos = contactosGestor(s, prefijo);
+  if (contactos.length < Math.min(contactosEscritos(s), MAX_CONTACTOS_GESTOR)) malos?.();
+  const responsable = texto(s.responsable).replace(/\s+/g, ' ').slice(0, 60);
   return {
     nombre,
-    contacto: contactoGestor(s.contacto, prefijo),
+    contacto: contactos[0] ?? null,
+    contactos,
+    responsable: responsable || null,
     venceEn: fechaGestor(s.vencimientoCliente),
     precioUsd: montoGestor(s.precioVenta),
   };
+}
+
+/** Orden del perfil en su cuenta: `ordenPerfil` de la copia nueva o `slotIndex`. */
+function posicionPerfil(s: Obj): number {
+  for (const k of ['ordenPerfil', 'slotIndex']) {
+    const v = s[k];
+    if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) return Number(v);
+  }
+  return Number.MAX_SAFE_INTEGER;
 }
 
 const usuarioValido = (u: string) => u.length >= 3 && u.length <= 254 && !/\s/.test(u);
@@ -158,8 +237,12 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     if (!pid) continue;
     const slots = lista(clientesPor[pid]);
     const cuentas: CuentaGestor[] = [];
+    let malos = 0;
+    const contactoMalo = () => {
+      malos += 1;
+    };
 
-    for (const a of lista(cuentasPor[pid])) {
+    for (const [orden, a] of lista(cuentasPor[pid]).entries()) {
       const usuario = texto(a.email);
       const clave = typeof a.password === 'string' ? a.password : '';
       if (!usuarioValido(usuario) || !clave) {
@@ -168,7 +251,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       }
       const propios = slots
         .filter((s) => texto(s.accountId) === texto(a.id))
-        .sort((x, y) => Number(x.slotIndex ?? 0) - Number(y.slotIndex ?? 0));
+        .sort((x, y) => posicionPerfil(x) - posicionPerfil(y));
       if (propios.length > MAX_PERFILES_GESTOR) {
         avisos.push(
           `${nombrePlat}: una cuenta tiene ${propios.length} perfiles; se importan los primeros ${MAX_PERFILES_GESTOR}.`,
@@ -189,14 +272,16 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             : etiqueta
           ).slice(0, 40),
           pin: s && PIN.test(texto(s.pin)) ? texto(s.pin) : null,
-          cliente: s ? cliente(s, prefijo) : null,
+          cliente: s ? cliente(s, prefijo, contactoMalo) : null,
         };
       });
       cuentas.push({
         origenId: texto(a.id),
         usuario,
         clave,
-        modo: 'perfiles',
+        // La copia nueva marca «completa» la cuenta de un solo perfil que tiene un cliente.
+        modo: texto(a.tipoCuenta) === 'completa' ? 'completa' : 'perfiles',
+        orden: Number.isInteger(a.orden) ? (a.orden as number) : orden,
         facturaEn: fechaGestor(a.facturacion ?? a.expiry),
         costoUsd: montoGestor(a.costoCuenta ?? a.cost),
         plan: texto(a.plan).slice(0, 60) || null,
@@ -210,6 +295,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
 
     // Cuentas individuales: la cuenta entera es de un cliente y vive en la lista de clientes.
     const idsCuenta = new Set(lista(cuentasPor[pid]).map((a) => texto(a.id)));
+    let ordenInd = lista(cuentasPor[pid]).length;
     for (const s of slots) {
       const conCuenta = texto(s.accountId) && idsCuenta.has(texto(s.accountId));
       if (conCuenta) continue;
@@ -231,11 +317,13 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         avisos.push(`${nombrePlat}: una cuenta individual sin correo o sin clave no se importa.`);
         continue;
       }
+      ordenInd += 1;
       cuentas.push({
         origenId: `ind:${texto(s.id)}`,
         usuario,
         clave,
         modo: 'completa',
+        orden: Number.isInteger(s.ordenCuenta) ? (s.ordenCuenta as number) : ordenInd,
         facturaEn: fechaGestor(s.facturacion),
         costoUsd: montoGestor(s.costoCuenta ?? s.cost),
         plan: texto(s.plan).slice(0, 60) || null,
@@ -249,10 +337,15 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             numero: 1,
             nombre: 'Cuenta completa',
             pin: PIN.test(texto(s.pin)) ? texto(s.pin) : null,
-            cliente: cliente(s, prefijo),
+            cliente: cliente(s, prefijo, contactoMalo),
           },
         ],
       });
+    }
+    if (malos) {
+      avisos.push(
+        `${nombrePlat}: ${malos === 1 ? 'un cliente tiene' : `${malos} clientes tienen`} un contacto que no se entiende (número sin código o usuario de Telegram muy corto); se importa sin ese contacto.`,
+      );
     }
     plataformas.push({ origenId: pid, nombre: nombrePlat.slice(0, 80), cuentas });
   }
@@ -296,14 +389,16 @@ const fecha = z
 const monto = z.string().regex(/^\d{1,9}(\.\d{1,2})?$/);
 const opcional = (max: number) => z.string().trim().max(max).nullable();
 
+const contactoGestorSchema = z.object({
+  tipo: z.enum(['whatsapp', 'correo', 'telegram', 'telefono']),
+  valor: z.string().trim().min(3).max(254),
+});
+
 const clienteGestorSchema = z.object({
   nombre: z.string().trim().min(1).max(120),
-  contacto: z
-    .object({
-      tipo: z.enum(['whatsapp', 'correo']),
-      valor: z.string().trim().min(3).max(254),
-    })
-    .nullable(),
+  contacto: contactoGestorSchema.nullable(),
+  contactos: z.array(contactoGestorSchema).max(MAX_CONTACTOS_GESTOR).default([]),
+  responsable: z.string().trim().max(60).nullable().default(null),
   venceEn: fecha,
   precioUsd: monto,
 });
@@ -329,6 +424,7 @@ const cuentaGestorSchema = z.object({
     .refine((v) => !/\s/.test(v)),
   clave: z.string().min(1).max(200),
   modo: z.enum(['perfiles', 'completa']),
+  orden: z.number().int().min(0).max(100_000).default(0),
   facturaEn: fecha,
   costoUsd: monto,
   plan: opcional(60),
