@@ -8,7 +8,9 @@ import type {
   PedidoPublico,
   RecargaBilleteraPublica,
 } from '@nv/shared';
+import { ArrowRight, CircleDollarSign, Receipt, ShoppingBag, Zap } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { VistaBilletera } from '@/componentes/cliente/billetera';
 import { Alerta } from '@/componentes/ui/alerta';
 import { leerApi } from '@/lib/api-servidor';
@@ -16,7 +18,7 @@ import { faltaDelEnlace } from '@/lib/recarga';
 import { requerirSesion } from '@/lib/sesion';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
-export const metadata: Metadata = { title: 'Mi billetera' };
+export const metadata: Metadata = { title: 'Billetera digital' };
 
 const MAX_MB = Number(process.env.COMPROBANTE_MAX_MB ?? 5);
 type Crudo = Record<string, string | string[] | undefined>;
@@ -55,12 +57,74 @@ function Titulo() {
   return (
     <div className="grid gap-1.5">
       <h1 className="text-[clamp(1.9rem,4.5vw,2.9rem)]">
-        Tu <span className="texto-degradado">billetera</span>
+        Tu <span className="texto-degradado">billetera digital</span>
       </h1>
       <p className="text-tinta-suave">
         Recarga una vez y paga tus pedidos y renovaciones en un toque.
       </p>
     </div>
+  );
+}
+
+const PASOS = [
+  {
+    icono: CircleDollarSign,
+    titulo: 'Recarga',
+    texto: 'En bolívares, dólares u otra moneda. Tu saldo queda en dólares y no pierde valor.',
+  },
+  {
+    icono: Receipt,
+    titulo: 'Te confirmamos',
+    texto: 'El equipo revisa tu comprobante y el saldo aparece en tu tarjeta.',
+  },
+  {
+    icono: ShoppingBag,
+    titulo: 'Compras al instante',
+    texto: 'Pagas pedidos, facturas y renovaciones sin enviar comprobante cada vez.',
+  },
+];
+
+/** Cómo funciona la billetera, en tres pasos. */
+function ComoFunciona() {
+  return (
+    <section
+      aria-labelledby="titulo-como-funciona"
+      className="relative grid gap-5 overflow-hidden rounded-[1.5rem] border border-borde bg-[radial-gradient(80%_120%_at_100%_0%,rgb(139_92_246/0.18),transparent_60%),radial-gradient(60%_100%_at_0%_100%,rgb(34_211_238/0.12),transparent_60%),rgb(8_11_26/0.85)] p-5 sm:p-6"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid gap-1">
+          <span className="flex items-center gap-1.5 text-[0.7rem] font-bold tracking-[0.16em] text-cian uppercase">
+            <Zap className="size-3.5" aria-hidden="true" /> Billetera NV
+          </span>
+          <h2 id="titulo-como-funciona" className="text-[clamp(1.25rem,2.6vw,1.6rem)]">
+            Así funciona tu billetera
+          </h2>
+        </div>
+        <Link
+          href="/catalogo"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-cian hover:underline"
+        >
+          Usar mi saldo en la tienda <ArrowRight className="size-4" aria-hidden="true" />
+        </Link>
+      </div>
+      <ol className="grid gap-3 md:grid-cols-3">
+        {PASOS.map(({ icono: Icono, titulo, texto }, i) => (
+          <li
+            key={titulo}
+            className="relative grid content-start gap-2 rounded-2xl border border-white/10 bg-black/25 p-4"
+          >
+            <span className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-[linear-gradient(135deg,#22d3ee,#8b5cf6)] text-white shadow-[0_8px_24px_-8px_rgb(139_92_246/0.8)]">
+                <Icono className="size-5" aria-hidden="true" />
+              </span>
+              <span className="font-titulo text-3xl font-extrabold text-white/15">{i + 1}</span>
+            </span>
+            <b>{titulo}</b>
+            <p className="text-sm text-tinta-suave">{texto}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -157,6 +221,7 @@ export default async function Billetera({ searchParams }: { searchParams: Promis
           maxMb: MAX_MB,
         }}
       />
+      <ComoFunciona />
       <Preguntas />
     </>
   );

@@ -18,6 +18,7 @@
     "@fastify/helmet": "^13.1.1",
     "@fastify/multipart": "^10.1.2",
     "@fastify/static": "^10.1.4",
+    "@ip-location-db/geo-whois-asn-country": "2.3.2026061719",
     "@nestjs/common": "^12.1.0",
     "@nestjs/core": "^12.1.0",
     "@nestjs/platform-fastify": "^12.1.0",

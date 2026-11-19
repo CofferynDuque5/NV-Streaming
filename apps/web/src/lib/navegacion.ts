@@ -17,7 +17,8 @@ export type IconoCuenta =
   | 'revendedor'
   | 'vender'
   | 'renovaciones'
-  | 'clientes';
+  | 'clientes'
+  | 'niveles';
 
 export interface ElementoCuenta {
   etiqueta: string;
@@ -46,19 +47,12 @@ const CUENTA: ElementoCuenta[][] = [
   ],
   [
     {
-      etiqueta: 'Métodos guardados',
+      etiqueta: 'Métodos de pago',
       href: '/cuenta/metodos-pago',
       icono: 'metodos',
       soloDirecto: true,
     },
     { etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil' },
-    {
-      etiqueta: 'Ser revendedor',
-      href: '/cuenta/revendedor',
-      icono: 'revendedor',
-      soloDirecto: true,
-      permiso: 'revendedor.solicitar',
-    },
   ],
 ];
 
@@ -67,7 +61,10 @@ const CUENTA: ElementoCuenta[][] = [
  * resumen, lo de vender, el dinero, las entregas y, aparte, el perfil.
  */
 export const MENU_REVENDEDOR: ElementoCuenta[][] = [
-  [{ etiqueta: 'Resumen', href: '/revendedor', icono: 'servicios' }],
+  [
+    { etiqueta: 'Resumen', href: '/revendedor', icono: 'servicios' },
+    { etiqueta: 'Niveles y beneficios', href: '/revendedor/niveles', icono: 'niveles' },
+  ],
   [
     { etiqueta: 'Nueva venta', href: '/revendedor/catalogo', icono: 'vender' },
     {
@@ -102,7 +99,7 @@ export const TITULOS_MENU_REVENDEDOR = [null, 'Vender', 'Dinero', 'Entregas', nu
 
 /**
  * Grupos del menú de la cuenta del cliente. El cliente de un revendedor tiene
- * billetera y carrito como todos, pero no métodos guardados ni «Ser revendedor».
+ * billetera y carrito como todos, pero no métodos guardados.
  */
 export function navegacionCuenta(
   permisos: readonly Permiso[],

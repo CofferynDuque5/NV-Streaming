@@ -8,6 +8,7 @@ import {
   ChevronDown,
   House,
   LayoutGrid,
+  LocateFixed,
   Menu,
   Search,
   ShoppingCart,
@@ -262,6 +263,15 @@ function MiniArte({ servicio }: { servicio: ServicioMenu }) {
 
 /* ------------------------------------------------------------------- monedas */
 
+/** Nombre del país en español («VE» → «Venezuela»). */
+function nombrePais(codigo: string): string {
+  try {
+    return new Intl.DisplayNames(['es'], { type: 'region' }).of(codigo) ?? codigo;
+  } catch {
+    return codigo;
+  }
+}
+
 function hrefMoneda(ruta: string, params: URLSearchParams, moneda: string) {
   const p = new URLSearchParams(params);
   p.set('moneda', moneda);
@@ -275,10 +285,13 @@ function hrefMoneda(ruta: string, params: URLSearchParams, moneda: string) {
 export function MenuMonedas({
   monedas,
   actual,
+  deteccion,
   compacto,
 }: {
   monedas: OpcionMoneda[];
   actual: OpcionMoneda;
+  /** País de la conexión y si la moneda sigue siendo la automática. */
+  deteccion?: { pais: string | null; automatica: boolean };
   compacto?: boolean;
 }) {
   const ruta = usePathname();
@@ -322,6 +335,26 @@ export function MenuMonedas({
           Ver precios en
         </p>
         <nav aria-label="Moneda" className="grid gap-0.5">
+          {deteccion && (
+            <a
+              href={hrefMoneda(ruta, params, 'auto')}
+              aria-current={deteccion.automatica ? 'true' : undefined}
+              className="mb-1 flex items-center gap-3 rounded-xl border border-borde px-2 py-2 hover:bg-white/[0.05] aria-[current=true]:border-cian/40 aria-[current=true]:bg-marca-suave"
+            >
+              <span className="grid size-8 place-items-center rounded-full bg-cian/15 text-cian">
+                <LocateFixed className="size-4" aria-hidden="true" />
+              </span>
+              <span className="grid min-w-0 flex-1">
+                <b className="text-sm">Automática</b>
+                <span className="text-xs text-tinta-tenue">
+                  {deteccion.pais
+                    ? `Según tu conexión: ${nombrePais(deteccion.pais)}`
+                    : 'No pudimos saber tu país; elige abajo'}
+                </span>
+              </span>
+              {deteccion.automatica && <Check className="size-4 text-cian" aria-hidden="true" />}
+            </a>
+          )}
           {monedas.map((m) => (
             <a
               key={m.codigo}
