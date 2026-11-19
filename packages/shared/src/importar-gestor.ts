@@ -65,11 +65,14 @@ export interface CuentaGestor {
   metodoPago: string | null;
   proveedor: string | null;
   caida: boolean;
+  /** Estaba en la papelera del Gestor: entra «retirada». Fecha en que se borró, si se sabe. */
+  papelera: { borradaEn: string | null; clientes: string[] } | null;
   perfiles: PerfilGestor[];
 }
 
 /** Por qué un cliente del Gestor entra sin perfil. */
-export type MotivoSueltoGestor = 'sin_cuenta' | 'cuenta_borrada' | 'cuenta_sin_correo' | 'repetida';
+export type MotivoSueltoGestor =
+  'sin_cuenta' | 'cuenta_borrada' | 'cuenta_sin_correo' | 'repetida' | 'papelera';
 
 /**
  * Cliente del Gestor que no queda en ningún perfil (no tenía cuenta, su cuenta
@@ -79,6 +82,8 @@ export type MotivoSueltoGestor = 'sin_cuenta' | 'cuenta_borrada' | 'cuenta_sin_c
 export interface ClienteSueltoGestor extends ClienteGestor {
   origenId: string;
   motivo: MotivoSueltoGestor;
+  /** Si estaba en la papelera: cuándo se borró. */
+  borradoEn?: string | null;
 }
 
 export interface PlataformaGestor {
@@ -278,6 +283,32 @@ function posicionPerfil(s: Obj): number {
   return Number.MAX_SAFE_INTEGER;
 }
 
+/** La papelera del Gestor: `{ clientes, cuentas }` o una lista con `tipo`. */
+function papeleraGestor(v: unknown): { cuentas: Obj[]; clientes: Obj[] } {
+  if (Array.isArray(v)) {
+    const l = lista(v);
+    return {
+      cuentas: l.filter((x) => x.tipo === 'cuenta'),
+      clientes: l.filter((x) => x.tipo === 'cliente'),
+    };
+  }
+  if (!esObj(v)) return { cuentas: [], clientes: [] };
+  return { cuentas: lista(v.cuentas), clientes: lista(v.clientes) };
+}
+
+/** Los cupos que tenía una cuenta borrada (`_clients` o el texto `_clientsJson`). */
+function hijosPapelera(a: Obj): Obj[] {
+  if (Array.isArray(a._clients)) return lista(a._clients);
+  if (typeof a._clientsJson === 'string') {
+    try {
+      return lista(JSON.parse(a._clientsJson));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 const usuarioValido = (u: string) => u.length >= 3 && u.length <= 254 && !/\s/.test(u);
 
 /**
@@ -297,6 +328,16 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
   const avisos: string[] = [];
   const numerosSupuestos: NumeroSupuestoGestor[] = [];
   const plataformas: PlataformaGestor[] = [];
+  const pap = papeleraGestor(db.papelera);
+  const idsPlat = new Set(plats.map((p) => texto(p.id)));
+  const sinPlat = [...pap.cuentas, ...pap.clientes].filter(
+    (x) => !idsPlat.has(texto(x._platId ?? x.platId)),
+  ).length;
+  if (sinPlat) {
+    avisos.push(
+      `Papelera: ${sinPlat === 1 ? 'un elemento es' : `${sinPlat} elementos son`} de una plataforma que ya no existe y no se ${sinPlat === 1 ? 'importa' : 'importan'}.`,
+    );
+  }
   for (const p of plats) {
     const pid = texto(p.id);
     const nombrePlat = texto(p.name ?? p.nombre) || pid;
@@ -386,6 +427,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         metodoPago: metodoPago(a),
         proveedor: texto(a.proveedor).slice(0, 120) || null,
         caida: a.caidaReportada === true,
+        papelera: null,
         perfiles,
       });
     }
@@ -436,6 +478,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         metodoPago: metodoPago(s),
         proveedor: texto(s.proveedor).slice(0, 120) || null,
         caida: s.caidaReportada === true,
+        papelera: null,
         perfiles: [
           {
             origenId: texto(s.id),
@@ -448,6 +491,82 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           },
         ],
       });
+    }
+    // Papelera: las cuentas borradas entran «retiradas» (con sus cupos libres) y los
+    // clientes borrados, como clientes sin perfil con una nota.
+    const dePlat = (x: Obj) => texto(x._platId ?? x.platId) === pid;
+    let nPapCuentas = 0;
+    for (const a of pap.cuentas.filter(dePlat)) {
+      let usuario = texto(a.email);
+      if (!usuarioValido(usuario) || !usuario.includes('@'))
+        usuario = correoProvisional(`pap-${texto(a.id)}`);
+      const clave = typeof a.password === 'string' && a.password ? a.password : CLAVE_VACIA_GESTOR;
+      const hijos = hijosPapelera(a).sort((x, y) => posicionPerfil(x) - posicionPerfil(y));
+      const n = Math.min(
+        MAX_PERFILES_GESTOR,
+        Math.max(1, Number(a.numProfiles ?? a.profiles) || 0, hijos.length),
+      );
+      const conCupos = PLATAFORMA_CUPOS.test(nombrePlat);
+      nPapCuentas += 1;
+      cuentas.push({
+        origenId: `pap:${texto(a.id)}`,
+        usuario,
+        clave,
+        modo: texto(a.tipoCuenta) === 'completa' ? 'completa' : 'perfiles',
+        orden: 100_000 - nPapCuentas,
+        facturaEn: fechaGestor(a.facturacion ?? a.expiry),
+        costoUsd: montoGestor(a.costoCuenta ?? a.cost),
+        plan: texto(a.plan).slice(0, 60) || null,
+        pais: /^[A-Za-z]{2}$/.test(texto(a.pais)) ? texto(a.pais).toUpperCase() : null,
+        metodoPago: metodoPago(a),
+        proveedor: texto(a.proveedor).slice(0, 120) || null,
+        caida: a.caidaReportada === true,
+        papelera: {
+          borradaEn: fechaGestor(texto(a._deletedAt).slice(0, 10)),
+          clientes: hijos
+            .filter((h) => !LIBRE.test(texto(h.nombre)))
+            .map((h) => `${texto(h.nombre)} ${texto(h.apellido)}`.trim().slice(0, 80))
+            .slice(0, 50),
+        },
+        perfiles: Array.from({ length: n }, (_, i) => {
+          const h = hijos[i];
+          return {
+            origenId: `pap:${texto(a.id)}#${i + 1}`,
+            numero: i + 1,
+            nombre: conCupos ? (i === 0 ? 'Principal' : `Miembro ${i}`) : `Perfil ${i + 1}`,
+            pin: h && PIN.test(texto(h.pin)) ? texto(h.pin) : null,
+            cliente: null,
+            usuarioMiembro: null,
+            claveMiembro: null,
+          };
+        }),
+      });
+    }
+    let nPapClientes = 0;
+    for (const c of pap.clientes.filter(dePlat)) {
+      const cl = cliente(c, prefijo, contactoMalo, supuesto);
+      if (!cl) continue;
+      nPapClientes += 1;
+      sueltos.push({
+        ...cl,
+        origenId: `pap:${texto(c.id) || `${pid}:${nPapClientes}`}`,
+        motivo: 'papelera',
+        borradoEn: fechaGestor(texto(c._deletedAt).slice(0, 10)),
+      });
+    }
+    if (nPapCuentas || nPapClientes) {
+      avisos.push(
+        `${nombrePlat}: de la papelera entran ${[
+          nPapCuentas
+            ? `${nPapCuentas} ${nPapCuentas === 1 ? 'cuenta retirada' : 'cuentas retiradas'}`
+            : '',
+          nPapClientes
+            ? `${nPapClientes} ${nPapClientes === 1 ? 'cliente borrado' : 'clientes borrados'} (sin perfil, con nota)`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' y ')}.`,
+      );
     }
     if (sinCorreo) {
       avisos.push(
@@ -488,8 +607,10 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
 
   // Un mismo correo dos veces (en la misma u otra plataforma) se importa una sola vez.
   const vistos = new Set<string>();
+  let papRepetidas = 0;
   for (const p of plataformas) {
     p.cuentas = p.cuentas.filter((c) => {
+      if (c.papelera) return true;
       const k = c.usuario.toLowerCase();
       if (vistos.has(k)) {
         // Sus clientes no se pierden: entran sin perfil en esta plataforma.
@@ -505,6 +626,24 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       vistos.add(k);
       return true;
     });
+  }
+  // Una cuenta de la papelera con el correo de una que sigue activa no se duplica.
+  for (const p of plataformas) {
+    p.cuentas = p.cuentas.filter((c) => {
+      if (!c.papelera) return true;
+      const k = c.usuario.toLowerCase();
+      if (vistos.has(k)) {
+        papRepetidas += 1;
+        return false;
+      }
+      vistos.add(k);
+      return true;
+    });
+  }
+  if (papRepetidas) {
+    avisos.push(
+      `Papelera: ${papRepetidas === 1 ? 'una cuenta borrada tiene' : `${papRepetidas} cuentas borradas tienen`} el correo de una cuenta que sigue activa; no se ${papRepetidas === 1 ? 'duplica' : 'duplican'}.`,
+    );
   }
   return { plataformas, avisos, numerosSupuestos };
 }
@@ -581,12 +720,20 @@ const cuentaGestorSchema = z.object({
   metodoPago: opcional(60),
   proveedor: opcional(120),
   caida: z.boolean(),
+  papelera: z
+    .object({
+      borradaEn: fecha,
+      clientes: z.array(z.string().max(80)).max(50),
+    })
+    .nullable()
+    .default(null),
   perfiles: z.array(perfilGestorSchema).min(1).max(MAX_PERFILES_GESTOR),
 });
 
 const clienteSueltoGestorSchema = clienteGestorSchema.extend({
   origenId: z.string().min(1).max(120),
-  motivo: z.enum(['sin_cuenta', 'cuenta_borrada', 'cuenta_sin_correo', 'repetida']),
+  motivo: z.enum(['sin_cuenta', 'cuenta_borrada', 'cuenta_sin_correo', 'repetida', 'papelera']),
+  borradoEn: fecha.optional(),
 });
 
 /** Clientes sin perfil que se importan de una vez. */

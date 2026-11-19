@@ -43,12 +43,27 @@ const MOTIVO_SUELTO: Record<ClienteSueltoGestor['motivo'], string> = {
   cuenta_borrada: 'su cuenta del Gestor ya no existía',
   cuenta_sin_correo: 'su cuenta del Gestor no tenía correo',
   repetida: 'su cuenta tenía el mismo correo que otra plataforma',
+  papelera: 'estaba en la papelera del Gestor',
 };
+
+/** Notas de una cuenta importada: de dónde viene y lo que hay que revisar. */
+export function notaCuenta(plataforma: string, c: CuentaGestor): string {
+  const partes = [`Importada del Gestor (${plataforma}).`];
+  if (esCorreoProvisionalGestor(c.usuario))
+    partes.push('En el Gestor no tenía correo: pon el correo real.');
+  if (c.papelera) {
+    partes.push(
+      `Estaba en la papelera del Gestor${c.papelera.borradaEn ? ` (borrada el ${c.papelera.borradaEn})` : ''}.`,
+    );
+    if (c.papelera.clientes.length) partes.push(`Tenía a: ${c.papelera.clientes.join(', ')}.`);
+  }
+  return partes.join(' ').slice(0, 1000);
+}
 
 /** Nota que acompaña a un cliente que entra sin perfil: por qué y lo que tenía. */
 export function notaClienteSuelto(plataforma: string, s: ClienteSueltoGestor): string {
   const partes = [
-    `Importado del Gestor (${plataforma}) sin perfil: ${MOTIVO_SUELTO[s.motivo]}.`,
+    `Importado del Gestor (${plataforma}) sin perfil: ${MOTIVO_SUELTO[s.motivo]}${s.borradoEn ? ` (borrado el ${s.borradoEn})` : ''}.`,
     s.venceEn ? `Vencía el ${s.venceEn}.` : 'Sin fecha de vencimiento.',
     Number(s.precioUsd) > 0 ? `Pagaba ${Number(s.precioUsd).toFixed(2)} USD.` : '',
     'Asígnale un perfil cuando lo revises.',
@@ -336,16 +351,15 @@ export class ImportarGestorService {
               pista: pistaUsuario(c.usuario),
               claveCifrada: this.cifrador.cifrar(c.clave, contextoClave(id)),
               modo: c.modo,
-              estado: c.caida ? 'caida' : 'activa',
+              // De la papelera: retirada (se conserva para el historial y se puede reactivar).
+              estado: c.papelera ? 'retirada' : c.caida ? 'caida' : 'activa',
               plan: c.plan,
               pais: c.pais,
               costoUsd: c.costoUsd,
               facturaEn: fechaODb(c.facturaEn) ?? null,
               metodoPago: c.metodoPago,
               proveedor: c.proveedor,
-              notas: esCorreoProvisionalGestor(c.usuario)
-                ? `Importada del Gestor (${e.plataforma.nombre}). En el Gestor no tenía correo: pon el correo real.`
-                : `Importada del Gestor (${e.plataforma.nombre}).`,
+              notas: notaCuenta(e.plataforma.nombre, c),
               creadoPorId: actor,
               creadoEn: new Date(base - i * 1000),
             },

@@ -289,6 +289,55 @@ describe('importar el Gestor viejo', () => {
     expect(await ctx.prisma.cuentaServicio.count()).toBe(0);
   });
 
+  it('papelera: cuentas retiradas y clientes borrados con nota', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [n] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'n', name: 'Netflix' }],
+        accounts: { n: [] },
+        clients: { n: [] },
+        papelera: {
+          cuentas: [
+            {
+              id: 'pa',
+              _platId: 'n',
+              email: 'vieja@example.com',
+              password: 'V-1',
+              numProfiles: 2,
+              _deletedAt: '2026-10-01T00:00:00Z',
+              _clientsJson: JSON.stringify([{ id: 'h', nombre: 'Rosa', pin: '1111' }]),
+            },
+          ],
+          clientes: [
+            {
+              id: 'pc',
+              _platId: 'n',
+              nombre: 'Luis',
+              contacto: '+584141112233',
+              _deletedAt: '2026-10-02T00:00:00Z',
+            },
+          ],
+        },
+      },
+    }).plataformas;
+    const imp = await admin.n.post('/cuentas/gestor/importar', {
+      plataforma: { origenId: n!.origenId, nombre: n!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: n!.cuentas,
+      clientesSueltos: n!.clientesSueltos,
+    });
+    expect(imp.estado).toBe(201);
+    const c = await ctx.prisma.cuentaServicio.findFirstOrThrow({ include: { perfiles: true } });
+    expect(c.estado).toBe('retirada');
+    expect(c.notas).toMatch(/papelera del Gestor \(borrada el 2026-10-01\)\. Tenía a: Rosa/);
+    expect(c.perfiles.every((p) => p.estado === 'libre')).toBe(true);
+    const nota = await ctx.prisma.notaInterna.findFirstOrThrow({ include: { cliente: true } });
+    expect(nota.cliente!.nombre).toBe('Luis');
+    expect(nota.texto).toMatch(/papelera del Gestor \(borrado el 2026-10-02\)/);
+  });
+
   it('no deshace un lote que ya tiene movimientos', async () => {
     const { admin, catalogo, cuerpo } = await escenario();
     const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);

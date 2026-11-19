@@ -58,6 +58,49 @@ export interface CredencialesMigracion {
     { usuario?: string; clave?: string; pin?: string; tarjetaDigitos?: string }
   >;
   sinAnotar?: Record<string, { usuario?: string; clave?: string }>;
+  /**
+   * Secretos de la papelera. 8.5.1: por ruta (`password`, `_clientsJson/2/pin`).
+   * 8.5.0: por clave, en listas (solo los del primer nivel quedaban fuera del texto).
+   */
+  papelera?: Record<string, Record<string, unknown>>;
+}
+
+const esJsonTexto = (v: unknown): v is string => typeof v === 'string' && /^\s*[[{]/.test(v);
+
+/** Pone `v` en la ruta `a/b/0/c`, entrando también en textos JSON (como `_clientsJson`). */
+function ponerEnRuta(o: unknown, segs: string[], v: unknown): unknown {
+  if (!segs.length) return v;
+  const [k, ...resto] = segs as [string, ...string[]];
+  if (esJsonTexto(o)) {
+    try {
+      return JSON.stringify(ponerEnRuta(JSON.parse(o), segs, v));
+    } catch {
+      return o;
+    }
+  }
+  if (Array.isArray(o)) {
+    const i = Number(k);
+    if (!Number.isInteger(i) || i < 0 || i >= o.length) return o;
+    const c = [...o];
+    c[i] = ponerEnRuta(c[i], resto, v);
+    return c;
+  }
+  if (!esObj(o)) return o;
+  if (k === '__proto__' || k === 'constructor' || k === 'prototype') return o;
+  return { ...o, [k]: resto.length ? ponerEnRuta(o[k], resto, v) : v };
+}
+
+/** Devuelve a un elemento de la papelera sus correos, claves y PIN. */
+function restaurarPapelera(item: Obj, sec: Record<string, unknown> | undefined): Obj {
+  let o: Obj = { ...item };
+  for (const [ruta, v] of Object.entries(sec ?? {})) {
+    if (Array.isArray(v)) {
+      if (!ruta.includes('/') && v.length) o = ponerEnRuta(o, [ruta], v[0]) as Obj;
+      continue;
+    }
+    o = ponerEnRuta(o, ruta.split('/').filter(Boolean), v) as Obj;
+  }
+  return o;
 }
 
 /** ¿Es una «Migración a NV Streaming»? Lanza si es de una versión que no se entiende. */
@@ -100,7 +143,14 @@ export function canonicoGestor(v: unknown): string {
 export function reconstruirMigracionGestor(
   archivo: ArchivoMigracionGestor,
   cred: CredencialesMigracion,
-): { db: { platforms: Obj[]; accounts: Record<string, Obj[]>; clients: Record<string, Obj[]> } } {
+): {
+  db: {
+    platforms: Obj[];
+    accounts: Record<string, Obj[]>;
+    clients: Record<string, Obj[]>;
+    papelera: { cuentas: Obj[]; clientes: Obj[] };
+  };
+} {
   const S = archivo.secciones;
   const cc = esObj(cred.cuentas) ? cred.cuentas : {};
   const cp = esObj(cred.perfiles) ? cred.perfiles : {};
@@ -161,7 +211,16 @@ export function reconstruirMigracionGestor(
     }
     clients[pid].push(perfil);
   }
-  return { db: { platforms, accounts, clients } };
+
+  // Papelera (las «Cuentas sin anotar» no se importan).
+  const cpap = esObj(cred.papelera) ? cred.papelera : {};
+  const papelera = { cuentas: [] as Obj[], clientes: [] as Obj[] };
+  for (const x of lista(S.papelera)) {
+    const r = restaurarPapelera(x, cpap[texto(x.id)]);
+    if (r.tipo === 'cuenta') papelera.cuentas.push(r);
+    else if (r.tipo === 'cliente') papelera.clientes.push(r);
+  }
+  return { db: { platforms, accounts, clients, papelera } };
 }
 
 export interface ComparacionMigracion {
@@ -179,15 +238,15 @@ export function compararMigracion(
   archivo: ArchivoMigracionGestor,
   leido: {
     plataformas: {
-      cuentas: { perfiles: { pin: string | null; cliente: unknown }[] }[];
-      clientesSueltos?: unknown[];
+      cuentas: { perfiles: { pin: string | null; cliente: unknown }[]; papelera?: unknown }[];
+      clientesSueltos?: { motivo: string }[];
     }[];
   },
 ): ComparacionMigracion[] {
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
   const c = archivo.manifiesto.conteos;
   const S = archivo.secciones;
-  const cuentas = leido.plataformas.flatMap((p) => p.cuentas);
+  const cuentas = leido.plataformas.flatMap((p) => p.cuentas).filter((x) => !x.papelera);
   const perfiles = cuentas.flatMap((x) => x.perfiles);
   const perfilesArchivo = lista(S.perfiles);
   return [
@@ -214,7 +273,22 @@ export function compararMigracion(
       concepto: 'Clientes sin perfil',
       enGestor: 0,
       enArchivo: 0,
-      seImporta: leido.plataformas.reduce((s, p) => s + (p.clientesSueltos?.length ?? 0), 0),
+      seImporta: leido.plataformas.reduce(
+        (s, p) => s + (p.clientesSueltos ?? []).filter((x) => x.motivo !== 'papelera').length,
+        0,
+      ),
+    },
+    {
+      concepto: 'Papelera',
+      enGestor: n(c.papelera),
+      enArchivo: lista(S.papelera).length,
+      seImporta: leido.plataformas.reduce(
+        (s, p) =>
+          s +
+          (p.clientesSueltos ?? []).filter((x) => x.motivo === 'papelera').length +
+          p.cuentas.filter((x) => x.papelera).length,
+        0,
+      ),
     },
     {
       concepto: 'PIN',
