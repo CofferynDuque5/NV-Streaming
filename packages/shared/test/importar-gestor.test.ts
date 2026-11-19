@@ -244,6 +244,68 @@ describe('leerRespaldoGestor', () => {
     expect(sp!.clientesSueltos).toEqual([]);
   });
 
+  it('unión de cupos: descarta correos unidos sin cliente y marca los repetidos', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [
+            { id: 'a19', email: 'fam19@example.com', password: 'F', numProfiles: 3 },
+            { id: 'a20', email: 'fam20@example.com', password: 'F', numProfiles: 2 },
+          ],
+        },
+        clients: {
+          sp: [
+            {
+              id: 'v',
+              accountId: 'a19',
+              slotIndex: 2,
+              email: 'valde@example.com',
+              nombre: 'Valde',
+              contacto: '+584141110001',
+            },
+            {
+              id: 'x',
+              accountId: 'a19',
+              slotIndex: 3,
+              email: 'viejo@example.com',
+              nombre: 'Sin asignar',
+            },
+            {
+              id: 'j',
+              isClientAccount: true,
+              email: 'valde@example.com',
+              nombre: 'Jose',
+              contacto: '+584141110002',
+            },
+          ],
+        },
+      },
+    });
+    const [sp] = r.plataformas;
+    const a19 = sp!.cuentas[0]!;
+    expect(a19.perfiles.map((p) => p.usuarioMiembro)).toEqual([null, 'valde@example.com', null]);
+    expect(r.avisos).toContain(
+      'Spotify: un correo unido no tiene cliente y se descarta (los cupos quedan libres).',
+    );
+    expect(r.pendientes).toEqual([
+      {
+        correo: 'valde@example.com',
+        lugares: [
+          'Spotify · miembro de la cuenta 1: Valde',
+          'Spotify · a correo del cliente: Jose',
+        ],
+      },
+    ]);
+    expect(a19.revisar).toMatch(
+      /^Pendiente por revisar: el correo valde@example.com también está en Spotify · a correo del cliente: Jose/,
+    );
+    expect(sp!.cuentas.find((c) => c.origenId === 'ind:j')!.revisar).toMatch(
+      /miembro de la cuenta 1: Valde/,
+    );
+    expect(sp!.cuentas[1]!.revisar).toBeNull();
+  });
+
   it('Office 365 también va por unión de cupos', () => {
     const [o] = leerRespaldoGestor({
       db: {
@@ -265,8 +327,8 @@ describe('leerRespaldoGestor', () => {
       },
     }).plataformas;
     expect(o!.cuentas[0]!.perfiles.map((p) => [p.nombre, p.usuarioMiembro])).toEqual([
-      ['Principal', 'ana@example.com'],
-      ['Miembro 1', null],
+      ['Principal', null],
+      ['Miembro 1', 'ana@example.com'],
     ]);
     expect(o!.cuentas[1]).toMatchObject({ usuario: 'luis@example.com', modo: 'completa' });
     expect(o!.clientesSueltos).toEqual([]);

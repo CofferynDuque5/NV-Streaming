@@ -49,6 +49,7 @@ const MOTIVO_SUELTO: Record<ClienteSueltoGestor['motivo'], string> = {
 /** Notas de una cuenta importada: de dónde viene y lo que hay que revisar. */
 export function notaCuenta(plataforma: string, c: CuentaGestor): string {
   const partes = [`Importada del Gestor (${plataforma}).`];
+  if (c.revisar) partes.push(c.revisar.endsWith('.') ? c.revisar : `${c.revisar}.`);
   if (esCorreoProvisionalGestor(c.usuario))
     partes.push('En el Gestor no tenía correo: pon el correo real.');
   if (c.papelera) {
