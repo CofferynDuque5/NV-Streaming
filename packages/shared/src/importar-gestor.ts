@@ -403,7 +403,11 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       }
       // En las plataformas de unión de cupos (Spotify, YouTube, Google One, Gemini, Office 365…)
       // un cliente sin cuenta pero con correo propio es una cuenta a su correo.
-      const aSuCorreo = porCupos && usuarioValido(texto(s.email)) && texto(s.email).includes('@');
+      const aSuCorreo =
+        porCupos &&
+        !LIBRE.test(texto(s.nombre)) &&
+        usuarioValido(texto(s.email)) &&
+        texto(s.email).includes('@');
       if (s.isClientAccount !== true && !aSuCorreo) {
         soltar(s, 'sin_cuenta');
         continue;

@@ -204,6 +204,8 @@ describe('leerRespaldoGestor', () => {
             { id: 's3', accountId: 'fam', slotIndex: 3, email: 'Perfil 3', nombre: 'Sin asignar' },
             // Cliente «sin cuenta» con su propio correo: es una cuenta a su correo, sin clave ni fecha.
             { id: 's4', email: 'propio@example.com', nombre: 'Juan', contacto: '+584141112255' },
+            // Cupo sobrante «Sin asignar» con el correo de un miembro: no se crea una cuenta.
+            { id: 's5', email: 'miembro@example.com', nombre: 'Sin asignar' },
           ],
         },
       },
