@@ -89,3 +89,121 @@ describe('migración del Gestor v2', () => {
     );
   });
 });
+
+describe('papelera de la migración', () => {
+  const base = {
+    manifiesto: { ...archivo.manifiesto, conteos: { ...archivo.manifiesto.conteos, papelera: 2 } },
+    credenciales: archivo.credenciales,
+  };
+  const cuenta = {
+    id: 'pap_a',
+    tipo: 'cuenta',
+    _platId: 'p_spotify',
+    email: 'bo***@gmail.com',
+    numProfiles: 2,
+    costoCuenta: 3,
+    _deletedAt: '2026-10-01T10:00:00Z',
+    _clientsJson: JSON.stringify([
+      { id: 'h1', nombre: 'Rosa', slotIndex: 1, email: 'ro***@gmail.com' },
+      { id: 'h2', nombre: 'Sin asignar', slotIndex: 2 },
+    ]),
+  };
+  const cli = {
+    id: 'pap_c',
+    tipo: 'cliente',
+    _platId: 'p_spotify',
+    nombre: 'Luis',
+    contacto: '+584141112233',
+    vencimientoCliente: '2026-09-30',
+    _deletedAt: '2026-10-02T10:00:00Z',
+  };
+
+  it('8.5.1: devuelve cada secreto a su ruta, también dentro de _clientsJson', () => {
+    const a = {
+      ...base,
+      secciones: {
+        ...archivo.secciones,
+        plataformas: [{ id: 'p_spotify', nombre: 'Spotify', orden: 0 }],
+        cuentas: [],
+        perfiles: [],
+        papelera: [cuenta, cli],
+      },
+    };
+    const r = reconstruirMigracionGestor(a, {
+      cuentas: {},
+      perfiles: {},
+      papelera: {
+        pap_a: {
+          email: 'borrada@gmail.com',
+          password: 'B-1',
+          '_clientsJson/0/email': 'rosa@gmail.com',
+          '_clientsJson/0/pin': '1234',
+        },
+      },
+    });
+    const c = r.db.papelera.cuentas[0]!;
+    expect(c).toMatchObject({ email: 'borrada@gmail.com', password: 'B-1' });
+    expect(JSON.parse(c._clientsJson as string)[0]).toMatchObject({
+      email: 'rosa@gmail.com',
+      pin: '1234',
+    });
+    const leido = leerRespaldoGestor(r);
+    const [sp] = leido.plataformas;
+    expect(sp!.cuentas).toHaveLength(1);
+    expect(sp!.cuentas[0]).toMatchObject({
+      usuario: 'borrada@gmail.com',
+      clave: 'B-1',
+      papelera: { borradaEn: '2026-10-01', clientes: ['Rosa'] },
+    });
+    expect(sp!.cuentas[0]!.perfiles.map((p) => [p.nombre, p.pin, p.cliente])).toEqual([
+      ['Principal', '1234', null],
+      ['Miembro 1', null, null],
+    ]);
+    expect(sp!.clientesSueltos).toMatchObject([
+      { nombre: 'Luis', motivo: 'papelera', borradoEn: '2026-10-02', venceEn: '2026-09-30' },
+    ]);
+    expect(compararMigracion(a, leido).find((f) => f.concepto === 'Papelera')).toEqual({
+      concepto: 'Papelera',
+      enGestor: 2,
+      enArchivo: 2,
+      seImporta: 2,
+    });
+  });
+
+  it('8.5.0: los secretos del primer nivel venían en listas', () => {
+    const a = {
+      ...base,
+      secciones: {
+        ...archivo.secciones,
+        plataformas: [{ id: 'p_spotify', nombre: 'Spotify', orden: 0 }],
+        cuentas: [],
+        perfiles: [],
+        papelera: [{ ...cuenta, email: 'borrada@gmail.com' }],
+      },
+    };
+    const r = reconstruirMigracionGestor(a, {
+      cuentas: {},
+      perfiles: {},
+      papelera: { pap_a: { password: ['B-1'] } },
+    });
+    expect(r.db.papelera.cuentas[0]).toMatchObject({ password: 'B-1' });
+  });
+
+  it('una cuenta borrada con el correo de una activa también entra, por revisar', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'n', name: 'Netflix' }],
+        accounts: { n: [{ id: 'a', email: 'x@example.com', password: 'X', numProfiles: 1 }] },
+        clients: { n: [] },
+        papelera: {
+          cuentas: [{ id: 'b', _platId: 'n', email: 'X@example.com', password: 'Y' }],
+          clientes: [],
+        },
+      },
+    });
+    const cuentas = r.plataformas[0]!.cuentas;
+    expect(cuentas.map((c) => c.origenId)).toEqual(['a', 'pap:b']);
+    expect(cuentas.every((c) => c.correoRepetido)).toBe(true);
+    expect(r.pendientes.map((p) => p.correo)).toEqual(['x@example.com']);
+  });
+});

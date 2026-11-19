@@ -98,7 +98,23 @@ describe('leerRespaldoGestor', () => {
     const r = leerRespaldoGestor(RESPALDO_EJEMPLO);
     expect(r.plataformas.map((p) => p.nombre)).toEqual(['Cine Plus', 'Música']);
     const [cine, musica] = r.plataformas;
-    expect(cine!.cuentas).toHaveLength(1);
+    // La cuenta sin correo entra con un correo provisional; la repetida también entra, por revisar.
+    expect(cine!.cuentas.map((x) => x.usuario)).toEqual([
+      'cine1@example.com',
+      'a_2@sin-correo.gestor.invalid',
+      'CINE1@example.com',
+    ]);
+    expect(cine!.cuentas.map((x) => x.correoRepetido ?? false)).toEqual([true, false, true]);
+    expect(r.pendientes).toEqual([
+      {
+        correo: 'cine1@example.com',
+        lugares: ['Cine Plus · cuenta 1: Ana Pérez, Luis', 'Cine Plus · cuenta 3 sin clientes'],
+      },
+    ]);
+    expect(cine!.clientesSueltos.map((x) => [x.origenId, x.nombre, x.motivo])).toEqual([
+      ['c_4', 'Huérfano', 'cuenta_borrada'],
+      ['c_5', 'Sin cuenta', 'sin_cuenta'],
+    ]);
     const c = cine!.cuentas[0]!;
     expect(c).toMatchObject({
       usuario: 'cine1@example.com',
@@ -136,23 +152,199 @@ describe('leerRespaldoGestor', () => {
       perfiles: [{ numero: 1, cliente: { nombre: 'Pedro', venceEn: '2026-11-30' } }],
     });
     expect(resumenPlataforma(cine!)).toEqual({
-      cuentas: 1,
-      perfiles: 4,
+      cuentas: 3,
+      perfiles: 6,
       asignados: 2,
       costoUsd: '6.50',
       ventaUsd: '5.50',
+      sinPerfil: 2,
     });
   });
 
-  it('avisa lo que no importa sin mostrar claves', () => {
+  it('avisa lo que cambia sin mostrar claves', () => {
     const r = leerRespaldoGestor(RESPALDO_EJEMPLO);
     expect(r.avisos).toEqual([
-      'Cine Plus: una cuenta sin correo o sin clave no se importa.',
-      'Cine Plus: un perfil apunta a una cuenta que ya no existe y no se importa.',
-      'Cine Plus: un cliente sin cuenta asignada no se importa.',
-      'Cine Plus: una cuenta repetida se importa una sola vez.',
+      'Cine Plus: una cuenta no tiene correo en el Gestor; entra con un correo provisional (…@sin-correo.gestor.invalid) y sus clientes y cupos, para que le pongas el correo real.',
+      'Cine Plus: una cuenta no tiene clave en el Gestor; entra con la clave «(sin clave en el Gestor)» para que la completes.',
+      'Cine Plus: un cliente no tiene cuenta asignada; entra como cliente sin perfil, con una nota de su vencimiento.',
+      'Cine Plus: un cliente estaba en una cuenta que ya no existe; entra como cliente sin perfil.',
+      '2 cuentas comparten correo con otra; se importan todas y quedan pendientes por revisar.',
     ]);
-    expect(JSON.stringify(r.avisos)).not.toMatch(/Clave-1|otra/);
+    expect(JSON.stringify(r.avisos)).not.toMatch(/Clave-1|"otra"|M-1/);
+  });
+
+  it('Spotify y similares: Principal, miembros a su correo, vacías, caídas y sin fecha', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [
+            {
+              id: 'fam',
+              email: 'familia@example.com',
+              password: 'F-1',
+              numProfiles: 6,
+              caidaReportada: true,
+            },
+            { id: 'vacia', email: 'vacia@example.com', password: 'V-1', numProfiles: 6 },
+          ],
+        },
+        clients: {
+          sp: [
+            {
+              id: 's1',
+              accountId: 'fam',
+              slotIndex: 1,
+              email: 'familia@example.com',
+              nombre: 'Titular',
+              contacto: '+584141112233',
+            },
+            {
+              id: 's2',
+              accountId: 'fam',
+              slotIndex: 2,
+              email: 'miembro@example.com',
+              password: 'Mi-1',
+              nombre: 'Rosa',
+              contacto: '+584141112244',
+              vencimientoCliente: '',
+            },
+            { id: 's3', accountId: 'fam', slotIndex: 3, email: 'Perfil 3', nombre: 'Sin asignar' },
+            // Cliente «sin cuenta» con su propio correo: es una cuenta a su correo, sin clave ni fecha.
+            { id: 's4', email: 'propio@example.com', nombre: 'Juan', contacto: '+584141112255' },
+            // «Sin asignar» suelto con correo y costo: cuenta disponible para vender.
+            {
+              id: 's5',
+              email: 'libre@example.com',
+              password: 'L-1',
+              cost: 1.5,
+              nombre: 'Sin asignar',
+            },
+          ],
+        },
+      },
+    });
+    const [sp] = r.plataformas;
+    expect(sp!.cuentas.map((c) => [c.usuario, c.modo, c.caida])).toEqual([
+      ['familia@example.com', 'perfiles', true],
+      ['vacia@example.com', 'perfiles', false],
+      ['propio@example.com', 'completa', false],
+      ['libre@example.com', 'completa', false],
+    ]);
+    expect(sp!.cuentas[3]!.perfiles[0]!.cliente).toBeNull();
+    const fam = sp!.cuentas[0]!;
+    expect(fam.perfiles.map((p) => p.nombre)).toEqual([
+      'Principal',
+      'Miembro 1',
+      'Miembro 2',
+      'Miembro 3',
+      'Miembro 4',
+      'Miembro 5',
+    ]);
+    expect(fam.perfiles[0]).toMatchObject({ usuarioMiembro: null, claveMiembro: null });
+    expect(fam.perfiles[1]).toMatchObject({
+      usuarioMiembro: 'miembro@example.com',
+      claveMiembro: 'Mi-1',
+      cliente: { nombre: 'Rosa', venceEn: null },
+    });
+    expect(sp!.cuentas[1]!.perfiles.every((p) => p.cliente === null)).toBe(true);
+    expect(sp!.cuentas[2]).toMatchObject({ clave: '(sin clave en el Gestor)', facturaEn: null });
+    expect(sp!.clientesSueltos).toEqual([]);
+  });
+
+  it('unión de cupos: guarda correos unidos sin cliente en su cupo libre y marca los repetidos', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [
+            { id: 'a19', email: 'fam19@example.com', password: 'F', numProfiles: 3 },
+            { id: 'a20', email: 'fam20@example.com', password: 'F', numProfiles: 2 },
+          ],
+        },
+        clients: {
+          sp: [
+            {
+              id: 'v',
+              accountId: 'a19',
+              slotIndex: 2,
+              email: 'valde@example.com',
+              nombre: 'Valde',
+              contacto: '+584141110001',
+            },
+            {
+              id: 'x',
+              accountId: 'a19',
+              slotIndex: 3,
+              email: 'viejo@example.com',
+              nombre: 'Sin asignar',
+            },
+            {
+              id: 'j',
+              isClientAccount: true,
+              email: 'valde@example.com',
+              nombre: 'Jose',
+              contacto: '+584141110002',
+            },
+          ],
+        },
+      },
+    });
+    const [sp] = r.plataformas;
+    const a19 = sp!.cuentas[0]!;
+    expect(a19.perfiles.map((p) => p.usuarioMiembro)).toEqual([
+      null,
+      'valde@example.com',
+      'viejo@example.com',
+    ]);
+    expect(a19.perfiles[2]!.cliente).toBeNull();
+    expect(r.avisos).toContain(
+      'Spotify: un correo unido no tiene cliente; su cupo entra libre con el correo guardado.',
+    );
+    expect(r.pendientes).toEqual([
+      {
+        correo: 'valde@example.com',
+        lugares: [
+          'Spotify · miembro de la cuenta 1: Valde',
+          'Spotify · a correo del cliente: Jose',
+        ],
+      },
+    ]);
+    expect(a19.revisar).toMatch(
+      /^Pendiente por revisar: el correo valde@example.com también está en Spotify · a correo del cliente: Jose/,
+    );
+    expect(sp!.cuentas.find((c) => c.origenId === 'ind:j')!.revisar).toMatch(
+      /miembro de la cuenta 1: Valde/,
+    );
+    expect(sp!.cuentas[1]!.revisar).toBeNull();
+  });
+
+  it('Office 365 también va por unión de cupos', () => {
+    const [o] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'o', name: 'Office 365' }],
+        accounts: { o: [{ id: 'f', email: 'admin@example.com', password: 'O-1', numProfiles: 2 }] },
+        clients: {
+          o: [
+            {
+              id: 'o1',
+              accountId: 'f',
+              slotIndex: 2,
+              email: 'ana@example.com',
+              nombre: 'Ana',
+              contacto: '+584141112233',
+            },
+            { id: 'o2', email: 'luis@example.com', nombre: 'Luis', contacto: '+584141112234' },
+          ],
+        },
+      },
+    }).plataformas;
+    expect(o!.cuentas[0]!.perfiles.map((p) => [p.nombre, p.usuarioMiembro])).toEqual([
+      ['Principal', null],
+      ['Miembro 1', 'ana@example.com'],
+    ]);
+    expect(o!.cuentas[1]).toMatchObject({ usuario: 'luis@example.com', modo: 'completa' });
+    expect(o!.clientesSueltos).toEqual([]);
   });
 
   it('acepta el formato viejo y rechaza lo que no es del Gestor', () => {
