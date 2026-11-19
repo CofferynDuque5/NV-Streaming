@@ -199,6 +199,106 @@ describe('importar el Gestor viejo', () => {
     expect(await ctx.prisma.cuentaServicio.count()).toBe(2);
   });
 
+  it('con la «Copia para NV Streaming» guarda responsable, todos los contactos y el orden', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const copia = {
+      formato: 'nv-gestor-a-nvstreaming',
+      db: {
+        platforms: [{ id: 'plat_9', name: 'Cine nuevo', orden: 0 }],
+        accounts: {
+          plat_9: [
+            {
+              id: 'z_1',
+              orden: 0,
+              email: 'primera@example.com',
+              password: 'P-1',
+              numProfiles: 2,
+              tipoCuenta: 'perfiles',
+              metodoPago: 'paypal',
+            },
+            {
+              id: 'z_2',
+              orden: 1,
+              email: 'segunda@example.com',
+              password: 'P-2',
+              numProfiles: 1,
+              tipoCuenta: 'completa',
+            },
+            { id: 'z_3', orden: 2, email: 'tercera@example.com', password: 'P-3', numProfiles: 1 },
+          ],
+        },
+        clients: {
+          plat_9: [
+            {
+              id: 'k_1',
+              accountId: 'z_1',
+              slotIndex: 1,
+              ordenPerfil: 1,
+              nombre: 'Marta',
+              responsable: 'Revendedor Juan',
+              contactos: [
+                { tipo: 'telegram', valor: 'marta_tg' },
+                { tipo: 'whatsapp', valor: '+584125550001' },
+                { tipo: 'correo', valor: 'marta@example.com' },
+              ],
+              vencimientoCliente: '2099-01-01',
+              precioVenta: 3,
+            },
+            {
+              id: 'k_2',
+              accountId: 'z_2',
+              slotIndex: 1,
+              nombre: 'Rosa',
+              contacto: '@rosa_r',
+              vencimientoCliente: '2099-01-01',
+            },
+          ],
+        },
+      },
+    };
+    const [plat] = leerRespaldoGestor(copia).plataformas;
+    const imp = await admin.n.post('/cuentas/gestor/importar', {
+      plataforma: { origenId: plat!.origenId, nombre: plat!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: plat!.cuentas,
+    });
+
+    expect(imp.estado).toBe(201);
+    const marta = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Marta' },
+      include: { contactos: { orderBy: { tipo: 'asc' } } },
+    });
+    expect(marta).toMatchObject({ responsable: 'Revendedor Juan', correo: 'marta@example.com' });
+    expect(marta.contactos.map((c) => [c.tipo, c.valor]).sort()).toEqual([
+      ['telegram', 'marta_tg'],
+      ['whatsapp', '+584125550001'],
+    ]);
+    const rosa = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Rosa' },
+      include: { contactos: true },
+    });
+    expect(rosa.contactos.map((c) => [c.tipo, c.valor])).toEqual([['telegram', 'rosa_r']]);
+    // La lista de cuentas (más nuevas arriba) queda en el orden del Gestor.
+    const cuentas = await admin.n.get('/cuentas');
+    const pistas = cuentas.cuerpo.elementos.map((c: { pista: string }) => c.pista);
+    expect(pistas.slice(0, 3)).toEqual([
+      'pr•••@example.com',
+      'se•••@example.com',
+      'te•••@example.com',
+    ]);
+    const modos = await ctx.prisma.cuentaServicio.findMany({
+      orderBy: { creadoEn: 'desc' },
+      select: { modo: true, metodoPago: true },
+    });
+    expect(modos).toEqual([
+      { modo: 'perfiles', metodoPago: 'PayPal' },
+      { modo: 'completa', metodoPago: null },
+      { modo: 'perfiles', metodoPago: null },
+    ]);
+  });
+
   it('rechaza un plan de otro servicio', async () => {
     const { admin, cuerpo } = await escenario();
     const otro = await admin.n.post('/catalogo/servicios', {
