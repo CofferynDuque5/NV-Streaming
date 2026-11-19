@@ -83,14 +83,45 @@ describe('tienda: imágenes de los servicios', () => {
     ['hbo-max', 'hbomax'],
     ['microsoft-365', 'office'],
     ['google-one', 'googleone'],
-    ['apple-tv-plus', 'appletv'],
+    ['free-fire', 'freefire'],
+    ['call-of-duty-mobile', 'callofduty'],
+    ['pubg-mobile', 'pubg'],
+    ['clash-royale', 'clashroyale'],
+    ['roblox', 'roblox'],
+    ['farlight-84', 'farlight'],
+    ['xbox-game-pass', 'xbox'],
+    ['playstation-plus', 'playstation'],
+    ['microsoft-windows', 'windows'],
+    ['windows-11-pro', 'windows'],
+    ['duolingo-super', 'duolingo'],
+    ['canva-pro', 'canva'],
+    ['google-gemini', 'gemini'],
+    ['clash-of-clans', 'clashofclans'],
+    ['arena-breakout', 'arenabreakout'],
+    ['mobile-legends', 'mobilelegends'],
+    ['genshin-impact', 'genshin'],
+    ['brawl-stars', 'brawlstars'],
+    ['blood-strike', 'bloodstrike'],
+    ['delta-force', 'deltaforce'],
+    ['dazn-premium', 'dazn'],
+    ['vpn-premium', 'vpn'],
+    ['nord-vpn', 'nordvpn'],
+    ['express-vpn', 'expressvpn'],
+    ['surfshark-one', 'surfshark'],
+    ['proton-vpn-plus', 'protonvpn'],
+    ['windscribe-pro', 'windscribe'],
+    ['windcribe', 'windscribe'],
+    ['cyberghost', 'vpn'],
   ])('%s usa la tarjeta %s', (slug, clave) => {
     expect(claveArte(slug)).toBe(clave);
   });
 
-  it.each(['nv-cine', 'maxima-tv', ''])('%s no tiene tarjeta (se muestra un orbe)', (slug) => {
-    expect(claveArte(slug)).toBeNull();
-  });
+  it.each(['nv-cine', 'maxima-tv', 'apple-tv-plus', 'directv-go', 'apple-music', 'codigos', ''])(
+    '%s no tiene tarjeta (se muestra un orbe)',
+    (slug) => {
+      expect(claveArte(slug)).toBeNull();
+    },
+  );
 });
 
 describe('tienda: servicios y universos', () => {
@@ -99,7 +130,7 @@ describe('tienda: servicios y universos', () => {
   it('agrupa por servicio, ordena por duración y omite servicios sin planes', () => {
     expect(servicios.map((s) => s.servicio.id)).toEqual(['s1', 's2', 's3']);
     expect(servicios[0]?.planes.map((p) => p.id)).toEqual(['c1', 'c3', 'c12']);
-    expect(servicios[1]?.arte).toBe('/servicios/spotify.webp');
+    expect(servicios[1]?.arte).toBe('/servicios/spotify.webp?v=3');
     expect(servicios[1]?.ranking).toBe(0);
     expect(servicios[0]?.ranking).toBeNull();
   });
