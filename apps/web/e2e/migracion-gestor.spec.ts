@@ -103,7 +103,7 @@ test('la migración cifrada del Gestor se verifica, se abre con la frase, cuadra
   await page.getByRole('button', { name: 'Abrir migración' }).click();
 
   // Cuadre contra el Gestor: todo coincide.
-  const tabla = page.getByRole('table').filter({ hasText: 'En el Gestor' });
+  const tabla = page.getByRole('table').filter({ hasText: 'Perfiles con cliente' });
   await expect(tabla.getByRole('row')).toHaveCount(5);
   await expect(tabla.getByText('≠')).toHaveCount(0);
   await expect(tabla.getByRole('row', { name: /Cuentas 3 3 3/ })).toBeVisible();

@@ -70,8 +70,18 @@ export interface PlataformaGestor {
   cuentas: CuentaGestor[];
 }
 
+/** Número escrito sin código de país en el Gestor al que se le puso el código elegido. */
+export interface NumeroSupuestoGestor {
+  plataforma: string;
+  cliente: string;
+  escrito: string;
+  guardado: string;
+}
+
 export interface RespaldoGestor {
   plataformas: PlataformaGestor[];
+  /** Números locales («0414…») que tomaron el código de país elegido: para revisar. */
+  numerosSupuestos: NumeroSupuestoGestor[];
   /** Lo que no se puede importar, con el motivo. Nunca lleva claves. */
   avisos: string[];
 }
@@ -188,10 +198,32 @@ function contactosEscritos(s: Obj): number {
   return [s.contacto, s.contacto2, s.contacto3].filter((v) => texto(v)).length;
 }
 
-function cliente(s: Obj, prefijo: string, malos?: () => void): ClienteGestor | null {
+/** Los números escritos sin código («0414…»): toman el prefijo elegido. */
+function numerosLocales(s: Obj, prefijo: string): { escrito: string; guardado: string }[] {
+  const crudos: unknown[] = Array.isArray(s.contactos)
+    ? (s.contactos as unknown[]).filter(esObj).map((x) => x.valor)
+    : [s.contacto, s.contacto2, s.contacto3];
+  const out: { escrito: string; guardado: string }[] = [];
+  for (const v of crudos) {
+    const t = texto(v);
+    const n = t.replace(/[^\d+]/g, '');
+    if (/[a-z@]/i.test(t) || !/^0[1-9]/.test(n)) continue;
+    const guardado = numeroGestor(n, prefijo);
+    if (guardado) out.push({ escrito: t, guardado });
+  }
+  return out;
+}
+
+function cliente(
+  s: Obj,
+  prefijo: string,
+  malos?: () => void,
+  supuesto?: (cliente: string, n: { escrito: string; guardado: string }) => void,
+): ClienteGestor | null {
   const nombre = [texto(s.nombre), texto(s.apellido)].filter(Boolean).join(' ').slice(0, 120);
   if (LIBRE.test(texto(s.nombre))) return null;
   const contactos = contactosGestor(s, prefijo);
+  for (const n of numerosLocales(s, prefijo)) supuesto?.(nombre, n);
   if (contactos.length < Math.min(contactosEscritos(s), MAX_CONTACTOS_GESTOR)) malos?.();
   const responsable = texto(s.responsable).replace(/\s+/g, ' ').slice(0, 60);
   return {
@@ -230,6 +262,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     throw new Error('El archivo no parece una copia del Gestor: no trae plataformas.');
 
   const avisos: string[] = [];
+  const numerosSupuestos: NumeroSupuestoGestor[] = [];
   const plataformas: PlataformaGestor[] = [];
   for (const p of plats) {
     const pid = texto(p.id);
@@ -241,6 +274,8 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     const contactoMalo = () => {
       malos += 1;
     };
+    const supuesto = (cli: string, n: { escrito: string; guardado: string }) =>
+      numerosSupuestos.push({ plataforma: nombrePlat, cliente: cli, ...n });
 
     for (const [orden, a] of lista(cuentasPor[pid]).entries()) {
       const usuario = texto(a.email);
@@ -272,7 +307,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             : etiqueta
           ).slice(0, 40),
           pin: s && PIN.test(texto(s.pin)) ? texto(s.pin) : null,
-          cliente: s ? cliente(s, prefijo, contactoMalo) : null,
+          cliente: s ? cliente(s, prefijo, contactoMalo, supuesto) : null,
         };
       });
       cuentas.push({
@@ -337,7 +372,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             numero: 1,
             nombre: 'Cuenta completa',
             pin: PIN.test(texto(s.pin)) ? texto(s.pin) : null,
-            cliente: cliente(s, prefijo, contactoMalo),
+            cliente: cliente(s, prefijo, contactoMalo, supuesto),
           },
         ],
       });
@@ -363,7 +398,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       return true;
     });
   }
-  return { plataformas, avisos };
+  return { plataformas, avisos, numerosSupuestos };
 }
 
 /** Totales de una plataforma para mostrar antes de enviar. */

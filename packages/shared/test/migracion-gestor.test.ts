@@ -59,6 +59,22 @@ describe('migración del Gestor v2', () => {
     });
   });
 
+  it('lista los números escritos sin código para revisarlos', () => {
+    const { numerosSupuestos } = leerRespaldoGestor(
+      reconstruirMigracionGestor(archivo, cred),
+      '+58',
+    );
+    expect(numerosSupuestos).toEqual([
+      {
+        plataforma: 'Netflix',
+        cliente: 'Ana Pérez',
+        escrito: '04141234567',
+        guardado: '+584141234567',
+      },
+      { plataforma: 'Spotify', cliente: 'José', escrito: '04121112233', guardado: '+584121112233' },
+    ]);
+  });
+
   it('cuadra lo del Gestor, lo del archivo y lo que se importa', () => {
     const leido = leerRespaldoGestor(reconstruirMigracionGestor(archivo, cred));
     for (const fila of compararMigracion(archivo, leido)) {

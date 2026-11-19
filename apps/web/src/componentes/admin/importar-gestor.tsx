@@ -542,6 +542,37 @@ export function ImportarGestor({
         </div>
       </Tarjeta>
 
+      {respaldo && respaldo.numerosSupuestos.length > 0 && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo={`Revisa ${plural(respaldo.numerosSupuestos.length, 'número', 'números')} sin código de país`}
+            descripcion={`En el Gestor están escritos sin código y se van a guardar con ${prefijo}. Si alguno es de otro país, corrígelo en el Gestor y descarga la migración otra vez, o cámbialo después en Clientes.`}
+          />
+          <div className="max-h-80 overflow-y-auto px-5 pb-5 sm:px-6">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-tinta-suave">
+                  <th className="py-1 pr-4 font-medium">Plataforma</th>
+                  <th className="py-1 pr-4 font-medium">Cliente</th>
+                  <th className="py-1 pr-4 font-medium">En el Gestor</th>
+                  <th className="py-1 font-medium">Se guarda como</th>
+                </tr>
+              </thead>
+              <tbody>
+                {respaldo.numerosSupuestos.map((n, i) => (
+                  <tr key={i} className="border-t border-borde/60">
+                    <td className="py-1.5 pr-4">{n.plataforma}</td>
+                    <td className="py-1.5 pr-4">{n.cliente}</td>
+                    <td className="py-1.5 pr-4 tabular-nums">{n.escrito}</td>
+                    <td className="py-1.5 tabular-nums">{n.guardado}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Tarjeta>
+      )}
+
       {respaldo && (
         <Tarjeta>
           <CabeceraTarjeta
