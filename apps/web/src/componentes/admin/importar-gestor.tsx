@@ -413,7 +413,9 @@ export function ImportarGestor({
     setMigracion(null);
     if (!archivo) return;
     if (archivo.size > MAX_BYTES_RESPALDO_GESTOR) {
-      setError('El archivo es demasiado grande para ser una copia del Gestor.');
+      setError(
+        `El archivo pesa ${Math.round(archivo.size / 1048576)} MB y el máximo es ${Math.round(MAX_BYTES_RESPALDO_GESTOR / 1048576)} MB. Revisa que sea la copia del Gestor.`,
+      );
       return;
     }
     let leido: unknown;
