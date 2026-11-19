@@ -67,6 +67,8 @@ export interface CuentaGestor {
   caida: boolean;
   /** Pendiente por revisar (p. ej. su correo también está en otro lugar con cliente). */
   revisar: string | null;
+  /** Otra cuenta (de esta u otra plataforma, o de la papelera) tiene el mismo correo. */
+  correoRepetido?: boolean;
   /** Estaba en la papelera del Gestor: entra «retirada». Fecha en que se borró, si se sabe. */
   papelera: { borradaEn: string | null; clientes: string[] } | null;
   perfiles: PerfilGestor[];
@@ -358,7 +360,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     const malos: string[] = [];
     let sinClave = 0;
     let sinCorreo = 0;
-    let descartados = 0;
+    let libresConCorreo = 0;
     const contactoMalo = (quien: string) => {
       malos.push(quien);
     };
@@ -424,7 +426,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
             ? etiqueta
             : null;
         const cli = s ? cliente(s, prefijo, contactoMalo, supuesto) : null;
-        if (conCupos && !cli && propio) descartados += 1;
+        if (conCupos && !cli && propio) libresConCorreo += 1;
         const claveS = s && typeof s.password === 'string' ? s.password : '';
         return {
           origenId: s ? texto(s.id) || `${texto(a.id)}#${i + 1}` : `${texto(a.id)}#${i + 1}`,
@@ -439,12 +441,9 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           ).slice(0, 40),
           pin: s && PIN.test(texto(s.pin)) ? texto(s.pin) : null,
           cliente: cli,
-          // Unión de cupos: un correo unido sin cliente se descarta (el cupo queda libre).
-          usuarioMiembro: conCupos && !cli ? null : propio,
-          claveMiembro:
-            (conCupos && !cli) || !propio || !claveS || claveS === clave
-              ? null
-              : claveS.slice(0, 200),
+          // Unión de cupos: un correo unido sin cliente se guarda en el cupo libre.
+          usuarioMiembro: propio,
+          claveMiembro: !propio || !claveS || claveS === clave ? null : claveS.slice(0, 200),
         };
       });
       cuentas.push({
@@ -605,9 +604,9 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           .join(' y ')}.`,
       );
     }
-    if (descartados) {
+    if (libresConCorreo) {
       avisos.push(
-        `${nombrePlat}: ${descartados === 1 ? 'un correo unido no tiene' : `${descartados} correos unidos no tienen`} cliente y se ${descartados === 1 ? 'descarta' : 'descartan'} (los cupos quedan libres).`,
+        `${nombrePlat}: ${libresConCorreo === 1 ? 'un correo unido no tiene' : `${libresConCorreo} correos unidos no tienen`} cliente; ${libresConCorreo === 1 ? 'su cupo entra libre' : 'sus cupos entran libres'} con el correo guardado.`,
       );
     }
     if (sinCorreo) {
@@ -647,63 +646,36 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     });
   }
 
-  // Un mismo correo dos veces (en la misma u otra plataforma) se importa una sola vez.
-  const vistos = new Set<string>();
-  const repetidas: { correo: string; lugar: string }[] = [];
-  let papRepetidas = 0;
-  for (const p of plataformas) {
-    p.cuentas = p.cuentas.filter((c) => {
-      if (c.papelera) return true;
+  // Un mismo correo dos veces (en la misma u otra plataforma, o en la papelera): se importan
+  // todas y quedan «pendientes por revisar».
+  const veces = new Map<string, number>();
+  for (const p of plataformas)
+    for (const c of p.cuentas) {
       const k = c.usuario.toLowerCase();
-      if (vistos.has(k)) {
-        // Sus clientes no se pierden: entran sin perfil en esta plataforma.
-        const suyos = c.perfiles.filter((x) => x.cliente);
-        repetidas.push({
-          correo: k,
-          lugar: `${p.nombre} · cuenta repetida${suyos.length ? `: ${suyos.map((x) => x.cliente!.nombre).join(', ')} (entran sin perfil)` : ' sin clientes'}`,
-        });
-        for (const x of suyos) {
-          p.clientesSueltos.push({ ...x.cliente!, origenId: x.origenId, motivo: 'repetida' });
-        }
-        avisos.push(
-          `${p.nombre}: una cuenta con un correo que ya está en otra plataforma se importa una sola vez${suyos.length ? `; ${suyos.length === 1 ? 'su cliente entra' : `sus ${suyos.length} clientes entran`} sin perfil` : ''}.`,
-        );
-        return false;
+      if (!esCorreoProvisionalGestor(k)) veces.set(k, (veces.get(k) ?? 0) + 1);
+    }
+  let nRepetidas = 0;
+  for (const p of plataformas)
+    for (const c of p.cuentas)
+      if ((veces.get(c.usuario.toLowerCase()) ?? 0) > 1) {
+        c.correoRepetido = true;
+        nRepetidas += 1;
       }
-      vistos.add(k);
-      return true;
-    });
-  }
-  // Una cuenta de la papelera con el correo de una que sigue activa no se duplica.
-  for (const p of plataformas) {
-    p.cuentas = p.cuentas.filter((c) => {
-      if (!c.papelera) return true;
-      const k = c.usuario.toLowerCase();
-      if (vistos.has(k)) {
-        papRepetidas += 1;
-        return false;
-      }
-      vistos.add(k);
-      return true;
-    });
-  }
-  if (papRepetidas) {
+  if (nRepetidas) {
     avisos.push(
-      `Papelera: ${papRepetidas === 1 ? 'una cuenta borrada tiene' : `${papRepetidas} cuentas borradas tienen`} el correo de una cuenta que sigue activa; no se ${papRepetidas === 1 ? 'duplica' : 'duplican'}.`,
+      `${nRepetidas} cuentas comparten correo con otra; se importan todas y quedan pendientes por revisar.`,
     );
   }
-  const pendientes = pendientesGestor(plataformas, repetidas);
+  const pendientes = pendientesGestor(plataformas);
   return { plataformas, avisos, numerosSupuestos, pendientes };
 }
 
 /**
- * Correos que aparecen en más de un lugar con cliente (cuenta, cuenta a correo del
- * cliente o miembro de un cupo). Marca esas cuentas «pendiente por revisar».
+ * Correos que aparecen en más de un lugar: dos cuentas con el mismo correo (aunque estén
+ * vacías o en la papelera), o una cuenta cuyo correo es el de un miembro con cliente en otro
+ * cupo. Todas se importan y quedan marcadas «pendiente por revisar».
  */
-function pendientesGestor(
-  plataformas: PlataformaGestor[],
-  repetidas: { correo: string; lugar: string }[],
-): PendienteGestor[] {
+function pendientesGestor(plataformas: PlataformaGestor[]): PendienteGestor[] {
   const lugares = new Map<string, { lugar: string; cuenta: CuentaGestor }[]>();
   const poner = (correo: string, lugar: string, cuenta: CuentaGestor) => {
     const k = correo.toLowerCase();
@@ -711,10 +683,18 @@ function pendientesGestor(
     lugares.set(k, [...(lugares.get(k) ?? []), { lugar, cuenta }]);
   };
   for (const p of plataformas) {
-    for (const [i, c] of p.cuentas.filter((x) => !x.papelera).entries()) {
+    for (const [i, c] of p.cuentas.entries()) {
       const nombres = c.perfiles.filter((x) => x.cliente).map((x) => x.cliente!.nombre);
-      const etiqueta = c.origenId.startsWith('ind:') ? 'a correo del cliente' : `cuenta ${i + 1}`;
-      if (nombres.length) poner(c.usuario, `${p.nombre} · ${etiqueta}: ${nombres.join(', ')}`, c);
+      const etiqueta = c.papelera
+        ? 'cuenta en la papelera'
+        : c.origenId.startsWith('ind:')
+          ? 'a correo del cliente'
+          : `cuenta ${i + 1}`;
+      poner(
+        c.usuario,
+        `${p.nombre} · ${etiqueta}${nombres.length ? `: ${nombres.join(', ')}` : ' sin clientes'}`,
+        c,
+      );
       for (const x of c.perfiles) {
         if (x.usuarioMiembro && x.cliente)
           poner(
@@ -727,18 +707,17 @@ function pendientesGestor(
   }
   const out: PendienteGestor[] = [];
   for (const [correo, l] of lugares) {
-    const extra = repetidas.filter((r) => r.correo === correo).map((r) => r.lugar);
-    if (l.length + extra.length < 2) continue;
-    const todos = [...l.map((x) => x.lugar), ...extra];
+    if (l.length < 2) continue;
+    const todos = l.map((x) => x.lugar);
     for (const x of l) {
-      x.cuenta.revisar = `Pendiente por revisar: el correo ${correo} también está en ${todos
-        .filter((t) => t !== x.lugar)
-        .join(' | ')}`.slice(0, 300);
+      const otros = todos.filter((t) => t !== x.lugar);
+      const ya = x.cuenta.revisar ? `${x.cuenta.revisar} | ` : 'Pendiente por revisar: ';
+      x.cuenta.revisar = `${ya}el correo ${correo} también está en ${otros.join(' | ')}`.slice(
+        0,
+        300,
+      );
     }
     out.push({ correo, lugares: todos });
-  }
-  for (const r of repetidas) {
-    if (!lugares.has(r.correo)) out.push({ correo: r.correo, lugares: [r.lugar] });
   }
   return out.sort((a, b) => a.correo.localeCompare(b.correo));
 }
@@ -816,6 +795,7 @@ const cuentaGestorSchema = z.object({
   proveedor: opcional(120),
   caida: z.boolean(),
   revisar: z.string().max(300).nullable().default(null),
+  correoRepetido: z.boolean().optional(),
   papelera: z
     .object({
       borradaEn: fecha,

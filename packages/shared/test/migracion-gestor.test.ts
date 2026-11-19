@@ -189,7 +189,7 @@ describe('papelera de la migración', () => {
     expect(r.db.papelera.cuentas[0]).toMatchObject({ password: 'B-1' });
   });
 
-  it('una cuenta borrada con el correo de una activa no se duplica', () => {
+  it('una cuenta borrada con el correo de una activa también entra, por revisar', () => {
     const r = leerRespaldoGestor({
       db: {
         platforms: [{ id: 'n', name: 'Netflix' }],
@@ -201,6 +201,9 @@ describe('papelera de la migración', () => {
         },
       },
     });
-    expect(r.plataformas[0]!.cuentas.map((c) => c.origenId)).toEqual(['a']);
+    const cuentas = r.plataformas[0]!.cuentas;
+    expect(cuentas.map((c) => c.origenId)).toEqual(['a', 'pap:b']);
+    expect(cuentas.every((c) => c.correoRepetido)).toBe(true);
+    expect(r.pendientes.map((p) => p.correo)).toEqual(['x@example.com']);
   });
 });

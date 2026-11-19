@@ -338,6 +338,45 @@ describe('importar el Gestor viejo', () => {
     expect(nota.texto).toMatch(/papelera del Gestor \(borrado el 2026-10-02\)/);
   });
 
+  it('correos repetidos: entran todas las cuentas, aunque el correo ya esté en el panel', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const leer = (id: string, nombre: string) =>
+      leerRespaldoGestor({
+        db: {
+          platforms: [{ id, name: nombre }],
+          accounts: {
+            [id]: [
+              { id: `${id}1`, email: 'misma@example.com', password: 'M-1', numProfiles: 1 },
+              { id: `${id}2`, email: 'Misma@example.com', password: 'M-2', numProfiles: 1 },
+            ],
+          },
+          clients: { [id]: [] },
+        },
+      }).plataformas[0]!;
+    const importar = async (p: ReturnType<typeof leer>) =>
+      admin.n.post('/cuentas/gestor/importar', {
+        plataforma: { origenId: p.origenId, nombre: p.nombre },
+        servicioId: catalogo.servicioId,
+        planId: catalogo.planId,
+        cuentas: p.cuentas,
+      });
+    expect((await importar(leer('a', 'Uno'))).estado).toBe(201);
+    // Otra plataforma con el mismo correo: también entra, no se pierde.
+    const otra = await importar(leer('b', 'Dos'));
+    expect(otra.estado).toBe(201);
+    const cuentas = await ctx.prisma.cuentaServicio.findMany({ orderBy: { creadoEn: 'asc' } });
+    expect(cuentas).toHaveLength(4);
+    expect(new Set(cuentas.map((c) => c.usuarioHuella)).size).toBe(4);
+    expect(cuentas.every((c) => /Pendiente por revisar/.test(c.notas ?? ''))).toBe(true);
+    expect(
+      cuentas.filter((c) => /ya había otra cuenta con este correo/.test(c.notas ?? '')),
+    ).toHaveLength(3);
+    // Volver a importar no duplica nada.
+    expect((await importar(leer('b', 'Dos'))).cuerpo.error.codigo).toBe('NADA_QUE_IMPORTAR');
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(4);
+  });
+
   it('no deshace un lote que ya tiene movimientos', async () => {
     const { admin, catalogo, cuerpo } = await escenario();
     const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);

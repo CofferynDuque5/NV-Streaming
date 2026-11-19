@@ -98,10 +98,18 @@ describe('leerRespaldoGestor', () => {
     const r = leerRespaldoGestor(RESPALDO_EJEMPLO);
     expect(r.plataformas.map((p) => p.nombre)).toEqual(['Cine Plus', 'Música']);
     const [cine, musica] = r.plataformas;
-    // La cuenta sin correo entra con un correo provisional; la repetida, una sola vez.
+    // La cuenta sin correo entra con un correo provisional; la repetida también entra, por revisar.
     expect(cine!.cuentas.map((x) => x.usuario)).toEqual([
       'cine1@example.com',
       'a_2@sin-correo.gestor.invalid',
+      'CINE1@example.com',
+    ]);
+    expect(cine!.cuentas.map((x) => x.correoRepetido ?? false)).toEqual([true, false, true]);
+    expect(r.pendientes).toEqual([
+      {
+        correo: 'cine1@example.com',
+        lugares: ['Cine Plus · cuenta 1: Ana Pérez, Luis', 'Cine Plus · cuenta 3 sin clientes'],
+      },
     ]);
     expect(cine!.clientesSueltos.map((x) => [x.origenId, x.nombre, x.motivo])).toEqual([
       ['c_4', 'Huérfano', 'cuenta_borrada'],
@@ -144,8 +152,8 @@ describe('leerRespaldoGestor', () => {
       perfiles: [{ numero: 1, cliente: { nombre: 'Pedro', venceEn: '2026-11-30' } }],
     });
     expect(resumenPlataforma(cine!)).toEqual({
-      cuentas: 2,
-      perfiles: 5,
+      cuentas: 3,
+      perfiles: 6,
       asignados: 2,
       costoUsd: '6.50',
       ventaUsd: '5.50',
@@ -160,7 +168,7 @@ describe('leerRespaldoGestor', () => {
       'Cine Plus: una cuenta no tiene clave en el Gestor; entra con la clave «(sin clave en el Gestor)» para que la completes.',
       'Cine Plus: un cliente no tiene cuenta asignada; entra como cliente sin perfil, con una nota de su vencimiento.',
       'Cine Plus: un cliente estaba en una cuenta que ya no existe; entra como cliente sin perfil.',
-      'Cine Plus: una cuenta con un correo que ya está en otra plataforma se importa una sola vez.',
+      '2 cuentas comparten correo con otra; se importan todas y quedan pendientes por revisar.',
     ]);
     expect(JSON.stringify(r.avisos)).not.toMatch(/Clave-1|"otra"|M-1/);
   });
@@ -244,7 +252,7 @@ describe('leerRespaldoGestor', () => {
     expect(sp!.clientesSueltos).toEqual([]);
   });
 
-  it('unión de cupos: descarta correos unidos sin cliente y marca los repetidos', () => {
+  it('unión de cupos: guarda correos unidos sin cliente en su cupo libre y marca los repetidos', () => {
     const r = leerRespaldoGestor({
       db: {
         platforms: [{ id: 'sp', name: 'Spotify' }],
@@ -284,9 +292,14 @@ describe('leerRespaldoGestor', () => {
     });
     const [sp] = r.plataformas;
     const a19 = sp!.cuentas[0]!;
-    expect(a19.perfiles.map((p) => p.usuarioMiembro)).toEqual([null, 'valde@example.com', null]);
+    expect(a19.perfiles.map((p) => p.usuarioMiembro)).toEqual([
+      null,
+      'valde@example.com',
+      'viejo@example.com',
+    ]);
+    expect(a19.perfiles[2]!.cliente).toBeNull();
     expect(r.avisos).toContain(
-      'Spotify: un correo unido no tiene cliente y se descarta (los cupos quedan libres).',
+      'Spotify: un correo unido no tiene cliente; su cupo entra libre con el correo guardado.',
     );
     expect(r.pendientes).toEqual([
       {

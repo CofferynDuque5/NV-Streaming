@@ -47,9 +47,13 @@ const MOTIVO_SUELTO: Record<ClienteSueltoGestor['motivo'], string> = {
 };
 
 /** Notas de una cuenta importada: de dónde viene y lo que hay que revisar. */
-export function notaCuenta(plataforma: string, c: CuentaGestor): string {
+export function notaCuenta(plataforma: string, c: CuentaGestor, enPanel = false): string {
   const partes = [`Importada del Gestor (${plataforma}).`];
   if (c.revisar) partes.push(c.revisar.endsWith('.') ? c.revisar : `${c.revisar}.`);
+  if (enPanel)
+    partes.push('Pendiente por revisar: ya había otra cuenta con este correo en el panel.');
+  else if (c.correoRepetido && !c.revisar)
+    partes.push('Pendiente por revisar: otra cuenta del Gestor tiene este mismo correo.');
   if (esCorreoProvisionalGestor(c.usuario))
     partes.push('En el Gestor no tenía correo: pon el correo real.');
   if (c.papelera) {
@@ -77,6 +81,10 @@ const hoyUtc = () => new Date().toISOString().slice(0, 10);
 interface Plan {
   cuadre: CuadreGestor;
   nuevas: CuentaGestor[];
+  /** origenId → huella con la que se guarda (otra, propia, si el correo ya está en el panel o se repite). */
+  huellas: Map<string, string>;
+  /** origenId de las cuentas cuyo correo ya estaba en el panel o se repite en el lote. */
+  repetidasEnPanel: Set<string>;
   /** Clave del cliente → id del cliente que ya existe en el panel. */
   existentes: Map<string, string>;
   /** Clave del cliente → datos del primer perfil (o cliente sin perfil) que lo nombra. */
@@ -116,8 +124,8 @@ export class ImportarGestorService {
         planId: ['Elige un plan del servicio.'],
       });
     }
-    const usuarios = e.cuentas.map((c) => c.usuario.toLowerCase());
-    if (new Set(usuarios).size !== usuarios.length) {
+    const origenes = e.cuentas.map((c) => c.origenId);
+    if (new Set(origenes).size !== origenes.length) {
       throw new ErrorApp(400, 'FILAS_REPETIDAS', 'Hay cuentas repetidas en el envío.');
     }
   }
@@ -144,10 +152,25 @@ export class ImportarGestorService {
         })
       ).map((c) => c.usuarioHuella),
     );
-    const nuevas = pendientes.filter((_, i) => !guardadas.has(huellas[i]!));
-    if (guardadas.size) {
+    // Nada se pierde: una cuenta cuyo correo ya está en el panel (o se repite en el lote)
+    // entra igual, con una huella propia, y queda pendiente por revisar.
+    const nuevas = pendientes;
+    const usadas = new Set(guardadas);
+    const huellasPorOrigen = new Map<string, string>();
+    const repetidasEnPanel = new Set<string>();
+    for (const [i, c] of pendientes.entries()) {
+      let h = huellas[i]!;
+      if (usadas.has(h)) {
+        repetidasEnPanel.add(c.origenId);
+        h = this.cuentas.huella(`${c.usuario}\u0000gestor:${c.origenId}`);
+      }
+      usadas.add(h);
+      huellasPorOrigen.set(c.origenId, h);
+    }
+    const yaEnPanel = pendientes.filter((_, i) => guardadas.has(huellas[i]!)).length;
+    if (yaEnPanel) {
       avisos.push(
-        `${guardadas.size} ${guardadas.size === 1 ? 'cuenta ya estaba' : 'cuentas ya estaban'} en el panel y no se tocan.`,
+        `${yaEnPanel} ${yaEnPanel === 1 ? 'cuenta tiene un correo que ya estaba' : 'cuentas tienen un correo que ya estaba'} en el panel; ${yaEnPanel === 1 ? 'entra igual y queda' : 'entran igual y quedan'} pendiente por revisar.`,
       );
     }
 
@@ -216,6 +239,8 @@ export class ImportarGestorService {
     const suma = (xs: string[]) => xs.reduce((s, x) => s + Number(x), 0).toFixed(2);
     return {
       nuevas,
+      huellas: huellasPorOrigen,
+      repetidasEnPanel,
       existentes,
       porCrear,
       sueltos,
@@ -348,7 +373,7 @@ export class ImportarGestorService {
               id,
               servicioId: e.servicioId,
               usuarioCifrado: this.cifrador.cifrar(c.usuario.trim(), contextoUsuario(id)),
-              usuarioHuella: this.cuentas.huella(c.usuario),
+              usuarioHuella: plan.huellas.get(c.origenId)!,
               pista: pistaUsuario(c.usuario),
               claveCifrada: this.cifrador.cifrar(c.clave, contextoClave(id)),
               modo: c.modo,
@@ -360,7 +385,7 @@ export class ImportarGestorService {
               facturaEn: fechaODb(c.facturaEn) ?? null,
               metodoPago: c.metodoPago,
               proveedor: c.proveedor,
-              notas: notaCuenta(e.plataforma.nombre, c),
+              notas: notaCuenta(e.plataforma.nombre, c, plan.repetidasEnPanel.has(c.origenId)),
               creadoPorId: actor,
               creadoEn: new Date(base - i * 1000),
             },
