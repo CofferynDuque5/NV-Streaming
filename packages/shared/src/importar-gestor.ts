@@ -449,7 +449,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
       const aSuCorreo =
         usuarioValido(texto(s.email)) &&
         texto(s.email).includes('@') &&
-        (porCupos || (s.costoCuenta ?? s.cost) != null);
+        (porCupos || (s.costoCuenta ?? s.cost ?? null) !== null);
       if (s.isClientAccount !== true && !aSuCorreo) {
         soltar(s, 'sin_cuenta');
         continue;
