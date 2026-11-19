@@ -10,8 +10,12 @@ import { MONEDAS } from './monedas.js';
  * la simulación, y cada importación queda en un lote que se puede deshacer.
  */
 
-/** Tamaño máximo del archivo de respaldo (los íconos en base64 lo engordan). */
-export const MAX_BYTES_RESPALDO_GESTOR = 40 * 1024 * 1024;
+/**
+ * Tamaño máximo del archivo de respaldo. Se lee solo en el navegador (al servidor
+ * llega una plataforma por envío), y la migración completa trae íconos en base64,
+ * eventos y papelera, así que puede pasar con holgura de 40 MB.
+ */
+export const MAX_BYTES_RESPALDO_GESTOR = 300 * 1024 * 1024;
 /** Cuentas que se importan de una vez (una plataforma por envío). */
 export const MAX_CUENTAS_LOTE_GESTOR = 400;
 /** El panel admite hasta 20 perfiles por cuenta. */
