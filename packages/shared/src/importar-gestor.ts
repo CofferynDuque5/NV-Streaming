@@ -402,12 +402,12 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         continue;
       }
       // En las plataformas de unión de cupos (Spotify, YouTube, Google One, Gemini, Office 365…)
-      // un cliente sin cuenta pero con correo propio es una cuenta a su correo.
+      // un cliente sin cuenta pero con correo propio es una cuenta a su correo; si está
+      // «Sin asignar», es una cuenta disponible para vender (con su correo y costo).
       const aSuCorreo =
-        porCupos &&
-        !LIBRE.test(texto(s.nombre)) &&
         usuarioValido(texto(s.email)) &&
-        texto(s.email).includes('@');
+        texto(s.email).includes('@') &&
+        (porCupos || (s.costoCuenta ?? s.cost) != null);
       if (s.isClientAccount !== true && !aSuCorreo) {
         soltar(s, 'sin_cuenta');
         continue;
