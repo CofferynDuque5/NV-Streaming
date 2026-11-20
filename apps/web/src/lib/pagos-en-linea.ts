@@ -84,6 +84,11 @@ export const AYUDA_PASARELA: Record<Pasarela, { variables: string[]; pasos: stri
     pasos:
       'No usa variables del servidor: se configura abajo, en «Binance Pay por correo». NV lee los avisos «Pago recibido correctamente» que Binance manda a tu Gmail, comprueba la firma de binance.com y tu código anti-phishing, y confirma el pago cuando el usuario y el monto que escribió el cliente coinciden.',
   },
+  paypal_correo: {
+    variables: [],
+    pasos:
+      'Para cuentas PayPal personales (sin API ni cuenta Business). Se configura abajo, en «PayPal personal por correo». NV lee los avisos «Ha recibido un pago» que PayPal manda a tu Gmail y comprueba la firma de paypal.com. Confirma el pago si la nota trae la referencia del pago o si el nombre del pagador y el monto exacto coinciden; si no, queda para revisión con la captura del cliente.',
+  },
   sandbox: {
     variables: ['PASARELA_SANDBOX_HABILITADA'],
     pasos:

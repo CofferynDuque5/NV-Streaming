@@ -8,6 +8,7 @@ import { esPasarela, pasarelaAdmiteMoneda } from './pasarelas.js';
 import { AdaptadorBinance } from './binance/binance.adaptador.js';
 import { AdaptadorMercadoPago } from './mercadopago/mercadopago.adaptador.js';
 import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
+import { AdaptadorPaypalCorreo } from './paypal-correo/paypal-correo.adaptador.js';
 import { AdaptadorSandbox } from './sandbox/sandbox.adaptador.js';
 
 /**
@@ -24,11 +25,13 @@ export class RegistroPasarelas {
     @Inject(AdaptadorPaypal) paypal: AdaptadorPaypal,
     @Inject(AdaptadorMercadoPago) mercadopago: AdaptadorMercadoPago,
     @Inject(AdaptadorBinance) binance: AdaptadorBinance,
+    @Inject(AdaptadorPaypalCorreo) paypalCorreo: AdaptadorPaypalCorreo,
   ) {
     this.adaptadores = {
       paypal,
       mercadopago,
       binance,
+      paypal_correo: paypalCorreo,
       sandbox: entorno.PASARELA_SANDBOX_HABILITADA ? sandbox : new AdaptadorNoDisponible('sandbox'),
     };
   }

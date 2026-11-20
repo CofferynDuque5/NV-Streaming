@@ -10,7 +10,10 @@ const privada = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
 const publica = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
 
 export const resolverPruebas: DNSResolver = async (dominio, tipo) => {
-  if (tipo === 'TXT' && dominio === 'nv._domainkey.binance.com') {
+  if (
+    tipo === 'TXT' &&
+    (dominio === 'nv._domainkey.binance.com' || dominio === 'nv._domainkey.paypal.com')
+  ) {
     return [[`v=DKIM1; k=rsa; p=${publica}`]];
   }
   const e = new Error(`sin registro ${tipo} ${dominio}`) as Error & { code: string };
@@ -56,6 +59,57 @@ export async function correoBinance(d: DatosCorreoPrueba = {}): Promise<Buffer> 
   const firma = await dkimSign(crudo, {
     signatureData: [
       { signingDomain: d.firmaDominio ?? 'binance.com', selector: 'nv', privateKey: privada },
+    ],
+  } as never);
+  return Buffer.from(`${firma.signatures}${crudo}`);
+}
+
+export interface DatosCorreoPaypalPrueba {
+  pagador?: string;
+  monto?: string;
+  moneda?: string;
+  idTransaccion?: string;
+  nota?: string | null;
+  fecha?: Date;
+  de?: string;
+  asunto?: string;
+  idMensaje?: string;
+  /** Dominio que firma; con uno distinto de paypal.com la firma no valida. */
+  firmaDominio?: string | null;
+}
+
+/** Un aviso «Ha recibido un pago» de PayPal (como el real), firmado con la llave de prueba. */
+export async function correoPaypal(d: DatosCorreoPaypalPrueba = {}): Promise<Buffer> {
+  const fecha = d.fecha ?? new Date();
+  const monto = d.monto ?? '3.17';
+  const moneda = d.moneda ?? 'USD';
+  const nota =
+    d.nota === null || d.nota === undefined
+      ? ''
+      : `<tr><td>Nota de ${d.pagador ?? 'Samuel Amador'}</td></tr><tr><td>${d.nota}</td></tr>`;
+  const html = `<html><body><p>Hola, Tienda NV:</p>
+<h1>${d.pagador ?? 'Samuel Amador'} le ha enviado $ ${monto} ${moneda}</h1>
+<table>${nota}<tr><td>Detalles de la transacción</td></tr>
+<tr><td>Id. de transacción</td><td>Fecha de la transacción</td></tr>
+<tr><td><a href="#">${d.idTransaccion ?? '2K597821EB315561L'}</a></td><td>14 de noviembre de 2026</td></tr>
+<tr><td>Importe recibido</td><td>$ ${monto} ${moneda}</td></tr>
+<tr><td>Comisión</td><td>$ 0.47 ${moneda}</td></tr>
+<tr><td>Total</td><td>$ 2.70 ${moneda}</td></tr></table></body></html>`;
+  const crudo = [
+    `From: PayPal <${d.de ?? 'service@intl.paypal.com'}>`,
+    'To: tienda@example.com',
+    `Subject: ${d.asunto ?? 'Ha recibido un pago'}`,
+    `Date: ${fecha.toUTCString()}`,
+    `Message-ID: <${d.idMensaje ?? `${Math.random().toString(36).slice(2)}@paypal.com`}>`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    html,
+  ].join('\r\n');
+  if (d.firmaDominio === null) return Buffer.from(crudo);
+  const firma = await dkimSign(crudo, {
+    signatureData: [
+      { signingDomain: d.firmaDominio ?? 'paypal.com', selector: 'nv', privateKey: privada },
     ],
   } as never);
   return Buffer.from(`${firma.signatures}${crudo}`);

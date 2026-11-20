@@ -16,6 +16,12 @@ import {
   ReembolsosController,
 } from './pagos-en-linea.controller.js';
 import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
+import { CorreosPaypalService } from './paypal-correo/correos-paypal.service.js';
+import { AdaptadorPaypalCorreo } from './paypal-correo/paypal-correo.adaptador.js';
+import {
+  PaypalCorreoAdminController,
+  PaypalCorreoClienteController,
+} from './paypal-correo/paypal-correo.controller.js';
 import { ReembolsosService } from './reembolsos.service.js';
 import { RegistroPasarelas } from './registro.service.js';
 import { AdaptadorSandbox } from './sandbox/sandbox.adaptador.js';
@@ -33,18 +39,22 @@ export const CONTROLADORES_PAGOS_EN_LINEA: Type[] = [
   MetodosAutorizadosClienteController,
   BinanceClienteController,
   BinanceAdminController,
+  PaypalCorreoClienteController,
+  PaypalCorreoAdminController,
 ];
 export const PROVEEDORES_PAGOS_EN_LINEA: Provider[] = [
   AdaptadorSandbox,
   AdaptadorPaypal,
   AdaptadorMercadoPago,
   AdaptadorBinance,
+  AdaptadorPaypalCorreo,
   RegistroPasarelas,
   AvisosEquipoPagosService,
   MetodosAutorizadosService,
   IntentosPagoService,
   CobrosAutomaticosService,
   CorreosBinanceService,
+  CorreosPaypalService,
   ReembolsosService,
   WebhooksService,
 ];

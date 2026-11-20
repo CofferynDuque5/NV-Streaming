@@ -39,7 +39,7 @@ export interface MetodoCobroPublico {
   qrId: string | null;
   /** "manual" (con comprobante) o "pasarela" (pago en línea). */
   tipo?: 'manual' | 'pasarela';
-  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'sandbox' | null;
+  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'paypal_correo' | 'sandbox' | null;
   activo: boolean;
   orden: number;
 }
@@ -361,7 +361,7 @@ export interface PagoPublico {
   creadoEn: string;
   /** "manual", "pasarela" (fase 4) o "billetera" (pagado con saldo). */
   origen?: 'manual' | 'pasarela' | 'billetera';
-  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'sandbox' | null;
+  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'paypal_correo' | 'sandbox' | null;
   montoReembolsado?: Decimal;
   /** Solo para el equipo. */
   notasConciliacion?: string | null;

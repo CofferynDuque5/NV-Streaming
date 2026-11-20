@@ -33,6 +33,7 @@ import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { formatearFechaHora } from '@/lib/formato';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
+import { recortarQr } from '@/lib/recortar-qr';
 import { formatearTasa, origenAutomatico } from './formato-admin';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -195,6 +196,9 @@ function FormularioMetodo({
   const enLinea = tipo === 'pasarela';
   // Binance: el cliente paga desde su app, así que necesita los datos (Pay ID, usuario) y el QR.
   const esBinance = enLinea && pasarela === 'binance';
+  // PayPal personal: igual que Binance, el cliente paga desde su app con los datos y el QR.
+  const esPaypalCorreo = enLinea && pasarela === 'paypal_correo';
+  const pagaDesdeSuApp = esBinance || esPaypalCorreo;
   // Con pasarela solo se ofrecen las monedas en las que esa pasarela cobra (nunca bolívares).
   const monedas: readonly Moneda[] = enLinea ? INFO_PASARELA[pasarela].monedas : MONEDAS;
   const monedaValida = monedas.includes(moneda) ? moneda : (monedas[0] ?? 'USD');
@@ -228,7 +232,7 @@ function FormularioMetodo({
     // El QR va aparte (multipart) una vez que el método existe.
     if (qr instanceof File && qr.size > 0) {
       const datos = new FormData();
-      datos.append('archivo', qr);
+      datos.append('archivo', (await recortarQr(qr)).archivo);
       const subido = await ejecutar('POST', `/finanzas/metodos-cobro/${r.datos.id}/qr`, datos);
       if (!subido) return;
     }
@@ -332,23 +336,25 @@ function FormularioMetodo({
       </div>
       <AreaTexto
         etiqueta={
-          enLinea && !esBinance
+          enLinea && !pagaDesdeSuApp
             ? 'Nota para el cliente (opcional)'
             : 'Instrucciones para el cliente'
         }
         name="instrucciones"
-        rows={enLinea && !esBinance ? 2 : 5}
-        required={!enLinea || esBinance}
+        rows={enLinea && !pagaDesdeSuApp ? 2 : 5}
+        required={!enLinea || pagaDesdeSuApp}
         defaultValue={metodo?.instrucciones}
         placeholder={
           esBinance
             ? 'Binance Pay ID: …\nUsuario: …\nEnvía USDT por Binance Pay (sin comisión).'
-            : enLinea
-              ? 'Ej. Aceptamos tarjetas de crédito y débito.'
-              : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
+            : esPaypalCorreo
+              ? 'Envía el pago a: tu-correo@gmail.com\nO usa el enlace: paypal.me/…'
+              : enLinea
+                ? 'Ej. Aceptamos tarjetas de crédito y débito.'
+                : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
         }
         ayuda={
-          esBinance
+          pagaDesdeSuApp
             ? 'Se muestran debajo del QR. El buzón que confirma los pagos se configura en Pagos en línea.'
             : enLinea
               ? 'Las credenciales de la pasarela nunca se escriben aquí: van en el entorno del servidor.'
@@ -367,7 +373,8 @@ function FormularioMetodo({
           className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-hundida file:px-3 file:py-1.5 file:text-sm file:font-medium"
         />
         <span className="text-xs text-tinta-tenue">
-          JPG, PNG o WebP, hasta 3 MB. El cliente ve el QR primero y debajo las instrucciones.
+          JPG, PNG o WebP, hasta 3 MB. Puedes subir la captura completa: se recorta solo el QR. El
+          cliente lo ve primero y debajo las instrucciones.
         </span>
         {campos.archivo && (
           <span className="text-xs font-medium text-peligro">{campos.archivo}</span>
@@ -420,7 +427,7 @@ function QrMetodo({ metodo }: { metodo: MetodoCobroPublico }) {
     e.currentTarget.value = '';
     if (!f) return;
     const datos = new FormData();
-    datos.append('archivo', f);
+    datos.append('archivo', (await recortarQr(f)).archivo);
     await ejecutar('POST', `/finanzas/metodos-cobro/${metodo.id}/qr`, datos);
   }
 

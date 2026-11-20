@@ -904,6 +904,7 @@ model Archivo {
   recargas          RecargaSaldo[]
   recargasBilletera RecargaBilletera[]
   medio             Medio?
+  intentosPago      IntentoPago[]
 
   @@map("archivos")
 }
@@ -1589,6 +1590,10 @@ model IntentoPago {
   metodoCobro   MetodoCobro    @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
   pago          Pago?          @relation(fields: [pagoId], references: [id], onDelete: Restrict)
   correoBinance CorreoBinance?
+  correoPaypal  CorreoPaypal?
+  /// PayPal (cuenta personal): captura del pago que subió el cliente.
+  comprobanteId String?        @map("comprobante_id") @db.Uuid
+  comprobante   Archivo?       @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
 
   @@unique([pasarela, idExterno])
   @@index([facturaId, estado])
@@ -2442,4 +2447,56 @@ model CorreoBinance {
   @@index([estado, remitente, monto])
   @@index([recibidoEn(sort: Desc)])
   @@map("correos_binance")
+}
+
+// ── PayPal (cuenta personal) confirmado por correo ───────────────────────────
+
+/// Buzón donde llegan los avisos «Ha recibido un pago» de PayPal (una sola fila, id = 1).
+model ConfigPaypalCorreo {
+  id             Int       @id @default(1)
+  host           String    @default("imap.gmail.com") @db.VarChar(120)
+  puerto         Int       @default(993)
+  /// Cifrado (contexto "paypal-correo:usuario").
+  usuarioCifrado String    @map("usuario_cifrado") @db.VarChar(1000)
+  pista          String    @db.VarChar(120)
+  /// Contraseña de aplicación, cifrada (contexto "paypal-correo:clave").
+  claveCifrada   String    @map("clave_cifrada") @db.VarChar(1000)
+  carpeta        String    @default("NV-PayPal") @db.VarChar(120)
+  activo         Boolean   @default(true)
+  ultimoUid      BigInt?   @map("ultimo_uid")
+  uidValidez     BigInt?   @map("uid_validez")
+  probadoEn      DateTime? @map("probado_en") @db.Timestamptz(3)
+  ultimaLectura  DateTime? @map("ultima_lectura") @db.Timestamptz(3)
+  ultimoError    String?   @map("ultimo_error") @db.VarChar(300)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@map("config_paypal_correo")
+}
+
+/// Aviso de PayPal leído. Solo se usan los que pasan la firma DKIM de paypal.com.
+model CorreoPaypal {
+  id            String    @id @default(uuid()) @db.Uuid
+  /// sha256 del Message-ID: el mismo correo nunca se guarda dos veces.
+  huella        String    @unique @db.Char(64)
+  pagador       String?   @db.VarChar(120)
+  monto         Decimal?  @db.Decimal(14, 2)
+  moneda        String?   @db.VarChar(10)
+  /// Id. de transacción del lado de la tienda (el del cliente es otro).
+  idTransaccion String?   @map("id_transaccion") @db.VarChar(20)
+  /// Referencia de NV escrita por el cliente en la nota (L-XXXXXXXX), si la trae.
+  referencia    String?   @db.VarChar(20)
+  pagadoEn      DateTime? @map("pagado_en") @db.Timestamptz(3)
+  recibidoEn    DateTime  @default(now()) @map("recibido_en") @db.Timestamptz(3)
+  /// "libre", "usado" o "descartado".
+  estado        String    @default("libre") @db.VarChar(20)
+  motivo        String?   @db.VarChar(200)
+  intentoId     String?   @unique @map("intento_id") @db.Uuid
+
+  intento IntentoPago? @relation(fields: [intentoId], references: [id], onDelete: Restrict)
+
+  @@index([estado, monto])
+  @@index([referencia])
+  @@index([recibidoEn(sort: Desc)])
+  @@map("correos_paypal")
 }

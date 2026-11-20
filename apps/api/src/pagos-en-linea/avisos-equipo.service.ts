@@ -86,4 +86,39 @@ export class AvisosEquipoPagosService {
       );
     }
   }
+
+  /** El cliente dijo que pagó por PayPal y no llegó el aviso que lo confirme. Nunca lanza. */
+  async paypalSinConfirmar(intentoId: string): Promise<void> {
+    try {
+      const i = await this.prisma.intentoPago.findUniqueOrThrow({
+        where: { id: intentoId },
+        include: { factura: { select: { numero: true } }, cliente: { select: { nombre: true } } },
+      });
+      const url = this.correo.urlWeb('/admin/pagos-en-linea');
+      const numero = numeroFactura(i.factura.numero);
+      for (const u of await equipoConPermiso(this.prisma, 'pagos.gestionar')) {
+        await this.avisos.avisar({
+          plantilla: 'paypalSinConfirmar',
+          destinatario: { usuarioId: u.id },
+          claveUnica: `paypal_sin_confirmar:${intentoId}:${u.id}`,
+          automatizacion: null,
+          entidad: { tipo: 'intento_pago', id: intentoId },
+          contenido: (nombre) => ({
+            correo: Plantillas.paypalSinConfirmar(
+              nombre,
+              i.cliente.nombre,
+              numero,
+              i.pagadorDeclarado ?? '—',
+              i.monto.toFixed(2),
+              url,
+            ),
+          }),
+        });
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Aviso de PayPal sin confirmar ${intentoId} no enviado: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
 }

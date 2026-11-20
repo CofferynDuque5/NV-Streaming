@@ -1,6 +1,8 @@
 import {
   type ConfigBinancePublica,
   type CorreoBinancePublico,
+  type ConfigPaypalCorreoPublica,
+  type CorreoPaypalPublico,
   ESTADOS_EVENTO_PASARELA,
   type EstadoPasarela,
   type EventoPasarelaResumen,
@@ -14,6 +16,7 @@ import { Globe, Inbox, KeyRound, Repeat, Webhook } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ConfigBinance } from '@/componentes/admin/binance';
+import { ConfigPaypalCorreo } from '@/componentes/admin/paypal-correo';
 import { TablaCobrosAutomaticos } from '@/componentes/admin/cobros-automaticos';
 import { CopiarTexto, ReprocesarEvento } from '@/componentes/admin/pagos-en-linea';
 import { Paginacion } from '@/componentes/panel/paginacion';
@@ -177,7 +180,7 @@ async function Pasarelas() {
                       : 'No: solo pagos únicos.'}
                   </dd>
                 </div>
-                {p.pasarela !== 'binance' && (
+                {p.pasarela !== 'binance' && p.pasarela !== 'paypal_correo' && (
                   <div className="grid min-w-0 gap-1">
                     <dt className="text-xs text-tinta-tenue">URL de avisos (webhook)</dt>
                     <dd className="min-w-0">
@@ -212,6 +215,7 @@ async function Pasarelas() {
         })}
       </div>
       <BuzonBinance />
+      <BuzonPaypal />
     </>
   );
 }
@@ -223,6 +227,15 @@ async function BuzonBinance() {
   ]);
   if (!config.datos) return null;
   return <ConfigBinance config={config.datos} correos={correos.datos ?? []} />;
+}
+
+async function BuzonPaypal() {
+  const [config, correos] = await Promise.all([
+    leerApi<ConfigPaypalCorreoPublica>('/pasarelas/paypal-correo/config'),
+    leerApi<CorreoPaypalPublico[]>('/pasarelas/paypal-correo/correos'),
+  ]);
+  if (!config.datos) return null;
+  return <ConfigPaypalCorreo config={config.datos} correos={correos.datos ?? []} />;
 }
 
 // ── Avisos de las pasarelas ──────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { type Moneda, MONEDAS } from './monedas.js';
  * viven sus datos públicos, el texto de autorización y los esquemas de entrada.
  * Venezuela (VES) sigue con pago manual: ninguna pasarela de aquí cobra en bolívares.
  */
-export const PASARELAS = ['paypal', 'mercadopago', 'binance', 'sandbox'] as const;
+export const PASARELAS = ['paypal', 'mercadopago', 'binance', 'paypal_correo', 'sandbox'] as const;
 export type Pasarela = (typeof PASARELAS)[number];
 
 export interface InfoPasarela {
@@ -36,6 +36,16 @@ export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
    * 1 USDT = 1 USD. Sin cobros automáticos ni devoluciones por la pasarela.
    */
   binance: { nombre: 'Binance Pay', monedas: ['USD'], admiteCobroRecurrente: false },
+  /**
+   * PayPal con cuenta personal (sin API). NV confirma leyendo los avisos «Ha recibido
+   * un pago» firmados por paypal.com: por la referencia de NV en la nota o por el
+   * nombre del pagador y el monto exacto (ver CorreosPaypalService).
+   */
+  paypal_correo: {
+    nombre: 'PayPal (cuenta personal)',
+    monedas: ['USD'],
+    admiteCobroRecurrente: false,
+  },
   /** Pasarela de pruebas: solo en desarrollo y pruebas, nunca en producción. */
   sandbox: {
     nombre: 'Pasarela de pruebas',
@@ -196,3 +206,31 @@ export const configBinanceSchema = z.object({
   activo: z.boolean().default(true),
 });
 export type ConfigBinanceEntrada = z.output<typeof configBinanceSchema>;
+
+// ── PayPal (cuenta personal) confirmado por correo ───────────────────────────
+
+/** Minutos que espera NV el aviso de PayPal después de que el cliente dice que pagó. */
+export const MINUTOS_ESPERA_PAYPAL = 30;
+
+/** El cliente dice a nombre de quién está su cuenta PayPal (la captura va aparte). */
+export const declararPagoPaypalSchema = z.object({
+  nombre: z
+    .string()
+    .trim()
+    .min(3, 'Escribe el nombre de tu cuenta PayPal, tal como aparece en tu perfil.')
+    .max(100, 'El nombre es demasiado largo.')
+    .regex(/^[^<>\n]+$/, 'El nombre tiene caracteres no válidos.'),
+});
+export type DeclararPagoPaypalEntrada = z.output<typeof declararPagoPaypalSchema>;
+
+/** Buzón donde llegan los avisos de PayPal (Gmail con contraseña de aplicación). */
+export const configPaypalCorreoSchema = z.object({
+  host: z.string().trim().min(3).max(120).default('imap.gmail.com'),
+  puerto: z.coerce.number().int().min(1).max(65535).default(993),
+  usuario: z.email({ error: 'Escribe el correo donde llegan los avisos de PayPal.' }).max(200),
+  /** Vacío al editar = no cambia. */
+  clave: z.string().max(200).optional(),
+  carpeta: z.string().trim().min(1).max(120).default('NV-PayPal'),
+  activo: z.boolean().default(true),
+});
+export type ConfigPaypalCorreoEntrada = z.output<typeof configPaypalCorreoSchema>;
