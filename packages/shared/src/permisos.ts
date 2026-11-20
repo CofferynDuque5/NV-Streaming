@@ -29,6 +29,7 @@ export const PERMISOS = [
   'tickets.ver',
   'tickets.gestionar',
   'autoservicio.usar',
+  'soporte.propio',
   // Fase 2
   'revendedores.ver',
   'revendedores.gestionar',
@@ -90,7 +91,8 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'cupones.gestionar': 'Crear y desactivar cupones (ventas: con límite de descuento)',
   'tickets.ver': 'Ver tickets de soporte',
   'tickets.gestionar': 'Responder, asignar y cerrar tickets',
-  'autoservicio.usar': 'Contratar, pagar y pedir soporte desde su panel',
+  'autoservicio.usar': 'Contratar y pagar desde su panel',
+  'soporte.propio': 'Abrir y seguir sus propias solicitudes de soporte',
   'revendedores.ver': 'Ver revendedores, su saldo, recargas y compras',
   'revendedores.gestionar':
     'Aprobar o suspender revendedores, asignar nivel, fijar precios mayoristas, ajustar saldo y reembolsar compras',
@@ -128,6 +130,7 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
 
 const SOLO_CLIENTES: readonly Permiso[] = [
   'autoservicio.usar',
+  'soporte.propio',
   'revendedor.solicitar',
   'reventa.usar',
 ];
@@ -179,8 +182,14 @@ const MATRIZ: Record<Rol, readonly Permiso[]> = {
     'tickets.ver',
     'asistente.usar',
   ],
-  revendedor: ['panel.ver', 'cuenta.gestionar', 'reventa.usar'],
-  cliente: ['panel.ver', 'cuenta.gestionar', 'autoservicio.usar', 'revendedor.solicitar'],
+  revendedor: ['panel.ver', 'cuenta.gestionar', 'reventa.usar', 'soporte.propio'],
+  cliente: [
+    'panel.ver',
+    'cuenta.gestionar',
+    'autoservicio.usar',
+    'soporte.propio',
+    'revendedor.solicitar',
+  ],
 };
 
 /** Descuento máximo (en %) que ventas puede dar con un cupón. Solo porcentaje. */

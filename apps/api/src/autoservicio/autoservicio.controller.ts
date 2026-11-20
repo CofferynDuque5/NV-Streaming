@@ -270,7 +270,7 @@ export class AutoservicioController {
   // ── Soporte ────────────────────────────────────────────────────────────────
 
   @Get('tickets')
-  @RequierePermiso('autoservicio.usar')
+  @RequierePermiso('soporte.propio')
   @DocConsulta(listarTicketsSchema)
   ticketsPropios(
     @Auth() auth: ContextoAuth,
@@ -280,7 +280,7 @@ export class AutoservicioController {
   }
 
   @Post('tickets')
-  @RequierePermiso('autoservicio.usar')
+  @RequierePermiso('soporte.propio')
   @DocCuerpo(abrirTicketSchema)
   abrirTicket(
     @Auth() auth: ContextoAuth,
@@ -291,13 +291,13 @@ export class AutoservicioController {
   }
 
   @Get('tickets/:id')
-  @RequierePermiso('autoservicio.usar')
+  @RequierePermiso('soporte.propio')
   ticket(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
     return this.tickets.obtener(auth, id);
   }
 
   @Post('tickets/:id/mensajes')
-  @RequierePermiso('autoservicio.usar')
+  @RequierePermiso('soporte.propio')
   @DocCuerpo(mensajeCliente)
   responder(
     @Auth() auth: ContextoAuth,
@@ -309,7 +309,7 @@ export class AutoservicioController {
   }
 
   @Post('tickets/:id/cerrar')
-  @RequierePermiso('autoservicio.usar')
+  @RequierePermiso('soporte.propio')
   @HttpCode(200)
   cerrarTicket(
     @Auth() auth: ContextoAuth,

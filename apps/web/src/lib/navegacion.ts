@@ -95,7 +95,10 @@ export const MENU_REVENDEDOR: ElementoCuenta[][] = [
       contador: 'accesos',
     },
   ],
-  [{ etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil' }],
+  [
+    { etiqueta: 'Soporte', href: '/revendedor/soporte', icono: 'soporte' },
+    { etiqueta: 'Perfil y seguridad', href: '/ajustes', icono: 'perfil' },
+  ],
 ];
 /** Rótulo de cada grupo del menú del revendedor (en escritorio); sin rótulo, una línea. */
 export const TITULOS_MENU_REVENDEDOR = [null, 'Vender', 'Dinero', 'Entregas', null];
