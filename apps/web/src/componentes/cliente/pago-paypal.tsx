@@ -1,6 +1,10 @@
 'use client';
 
-import { declararPagoPaypalSchema, type IntentoPagoPublico } from '@nv/shared';
+import {
+  type ComprobantePaypalLectura,
+  declararPagoPaypalSchema,
+  type IntentoPagoPublico,
+} from '@nv/shared';
 import { CircleCheckBig, Clock, LoaderCircle } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { CopiarTexto } from '@/componentes/admin/pagos-en-linea';
@@ -24,6 +28,9 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [idTransaccion, setIdTransaccion] = useState<string | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [avisos, setAvisos] = useState<string[]>([]);
 
   const consultar = useCallback(async () => {
     const r = await llamarApi<IntentoPagoPublico>('GET', `/mi/pagos-en-linea/${intentoId}`);
@@ -55,7 +62,10 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
   async function declarar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
-    const datos = declararPagoPaypalSchema.safeParse({ nombre: d.get('nombre') });
+    const datos = declararPagoPaypalSchema.safeParse({
+      nombre: d.get('nombre'),
+      idTransaccion: d.get('idTransaccion'),
+    });
     const archivo = d.get('comprobante');
     const conArchivo = archivo instanceof File && archivo.size > 0;
     const nuevos: Record<string, string> = datos.success
@@ -71,6 +81,7 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
     setErrores({});
     const envio = new FormData();
     envio.set('nombre', datos.data.nombre);
+    if (datos.data.idTransaccion) envio.set('idTransaccion', datos.data.idTransaccion);
     if (conArchivo) envio.set('comprobante', archivo);
     setEnviando(true);
     const r = await llamarApi<IntentoPagoPublico>(
@@ -84,6 +95,28 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
       setEditando(false);
       setIntento(r.datos);
     } else setError(r.error);
+  }
+
+  /** NV lee la captura en su servidor para llenar el ID de transacción y avisar si algo no cuadra. */
+  async function leerCaptura(f: File | undefined) {
+    setAvisos([]);
+    if (!intento || !f || !f.type.startsWith('image/')) return;
+    const datos = new FormData();
+    datos.set('facturaId', intento.facturaId);
+    datos.set('metodoCobroId', intento.metodoCobroId);
+    datos.set('comprobante', f);
+    setLeyendo(true);
+    const r = await llamarApi<ComprobantePaypalLectura>(
+      'POST',
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      datos,
+    );
+    setLeyendo(false);
+    if (!r.ok)
+      return setAvisos(['No pudimos leer la captura. Escribe el ID de transacción a mano.']);
+    const leido = r.datos.idTransaccion;
+    if (leido) setIdTransaccion((v) => (v?.trim() ? v : leido));
+    setAvisos(r.datos.avisos);
   }
 
   if (!intento) {
@@ -195,6 +228,7 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
             type="file"
             name="comprobante"
             accept="image/png,image/jpeg,image/webp,application/pdf"
+            onChange={(e) => void leerCaptura(e.currentTarget.files?.[0])}
             className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-hundida file:px-3 file:py-1.5 file:text-sm file:font-medium"
           />
           <span className="text-xs text-tinta-tenue">
@@ -206,6 +240,31 @@ export function PagoPaypal({ intentoId }: { intentoId: string }) {
             </span>
           )}
         </label>
+        {leyendo && (
+          <p role="status" className="text-xs text-tinta-suave">
+            Leyendo tu captura…
+          </p>
+        )}
+        {avisos.length > 0 && (
+          <Alerta tono="aviso" titulo="Revisa tu captura">
+            <ul className="grid gap-1">
+              {avisos.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          </Alerta>
+        )}
+        <Campo
+          etiqueta="ID de transacción (opcional)"
+          name="idTransaccion"
+          autoComplete="off"
+          maxLength={20}
+          value={idTransaccion ?? p?.idTransaccion ?? ''}
+          onChange={(e) => setIdTransaccion(e.currentTarget.value)}
+          placeholder="Ej.: 1AB23456CD789012E"
+          ayuda="Lo llenamos solo al leer tu captura. Si no salió, cópialo del detalle del pago en PayPal (17 letras y números)."
+          error={errores['idTransaccion'] ?? error?.campos?.idTransaccion?.[0]}
+        />
         {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
         <Boton type="submit" cargando={enviando} className="justify-self-start">
           Ya pagué, confirmar

@@ -5,6 +5,8 @@ import {
   INFO_MONEDA,
   type MetodoCobroPublico,
   type Moneda,
+  type ComprobantePaypalLectura,
+  type OpcionPagoEnLinea,
   type OpcionesPagoEnLinea,
   type PagoPublico,
 } from '@nv/shared';
@@ -496,12 +498,20 @@ function FormularioComprobante({
   moneda,
   metodo,
   maxMb,
+  textosReferencia,
+  leerPaypal = false,
+  encabezado = 'Paso 2 · Cuéntanos cómo pagaste',
 }: {
   facturaId: string;
   total: string;
   moneda: Moneda;
-  metodo: MetodoCobroPublico;
+  metodo: Pick<MetodoCobroPublico, 'id' | 'requiereReferencia' | 'referenciaUltimos4'>;
   maxMb: number;
+  /** Otra etiqueta para la referencia (p. ej. «ID de transacción» en PayPal). */
+  textosReferencia?: { etiqueta: string; ayuda: string; ejemplo: string };
+  /** Leer la captura de PayPal (en el servidor de NV) para llenar el ID y el monto. */
+  leerPaypal?: boolean;
+  encabezado?: string;
 }) {
   const actualizar = useActualizarPago();
   const notificar = useNotificar();
@@ -516,6 +526,8 @@ function FormularioComprobante({
   const [intento, setIntento] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [avisosCaptura, setAvisosCaptura] = useState<string[]>([]);
   const servidor = erroresPorCampo(error);
   const totalTexto = formatearMonto(total, moneda);
 
@@ -594,12 +606,35 @@ function FormularioComprobante({
     setErrorArchivo('');
     setArchivo(f);
     setVista(f.type.startsWith('image/') ? URL.createObjectURL(f) : '');
+    setAvisosCaptura([]);
+    if (leerPaypal && f.type.startsWith('image/')) void leerCaptura(f);
+  }
+
+  /** NV lee la captura en su servidor y llena lo que falte; el cliente puede corregirlo. */
+  async function leerCaptura(f: File) {
+    const datos = new FormData();
+    datos.set('facturaId', facturaId);
+    datos.set('metodoCobroId', metodo.id);
+    datos.set('comprobante', f);
+    setLeyendo(true);
+    const r = await llamarApi<ComprobantePaypalLectura>(
+      'POST',
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      datos,
+    );
+    setLeyendo(false);
+    if (!r.ok) return setAvisosCaptura(['No pudimos leer la captura. Escribe los datos a mano.']);
+    const { idTransaccion, monto: montoLeido } = r.datos;
+    if (idTransaccion) setReferencia((v) => (v.trim() ? v : idTransaccion));
+    if (montoLeido) setMonto((v) => (v.trim() ? v : montoLeido));
+    setAvisosCaptura(r.datos.avisos);
   }
 
   function quitarArchivo() {
     setArchivo(null);
     setVista('');
     setErrorArchivo('');
+    setAvisosCaptura([]);
   }
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
@@ -632,11 +667,13 @@ function FormularioComprobante({
   const [eFecha, tFecha] = mostrar('fecha');
   const [eRef, tRef] = mostrar(
     'referencia',
-    metodo.referenciaUltimos4
-      ? 'Los 4 últimos números de la referencia de tu recibo.'
-      : metodo.requiereReferencia
-        ? 'Lo ves en el recibo de tu banco.'
-        : 'Opcional. Lo ves en el recibo de tu banco.',
+    textosReferencia
+      ? textosReferencia.ayuda
+      : metodo.referenciaUltimos4
+        ? 'Los 4 últimos números de la referencia de tu recibo.'
+        : metodo.requiereReferencia
+          ? 'Lo ves en el recibo de tu banco.'
+          : 'Opcional. Lo ves en el recibo de tu banco.',
   );
   const [eArchivo, tArchivo] = intento || tocados.archivo ? validar.archivo() : ['', ''];
   const cantidadMalos = intento
@@ -652,7 +689,7 @@ function FormularioComprobante({
   return (
     <form onSubmit={enviar} noValidate className="grid gap-4" aria-label="Enviar comprobante">
       <span className="text-[0.7rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
-        Paso 2 · Cuéntanos cómo pagaste
+        {encabezado}
       </span>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid content-start gap-1.5">
@@ -700,18 +737,22 @@ function FormularioComprobante({
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-ref`} className="text-sm font-semibold">
-          {metodo.referenciaUltimos4
-            ? 'Últimos 4 dígitos de la referencia'
-            : metodo.requiereReferencia
-              ? 'Número de referencia'
-              : 'Referencia (opcional)'}
+          {textosReferencia
+            ? textosReferencia.etiqueta
+            : metodo.referenciaUltimos4
+              ? 'Últimos 4 dígitos de la referencia'
+              : metodo.requiereReferencia
+                ? 'Número de referencia'
+                : 'Referencia (opcional)'}
         </label>
         <input
           id={`${id}-ref`}
           autoComplete="off"
           maxLength={metodo.referenciaUltimos4 ? 4 : 80}
           inputMode={metodo.referenciaUltimos4 ? 'numeric' : undefined}
-          placeholder={metodo.referenciaUltimos4 ? 'Ej.: 3456' : 'Ej.: 00123456'}
+          placeholder={
+            textosReferencia?.ejemplo ?? (metodo.referenciaUltimos4 ? 'Ej.: 3456' : 'Ej.: 00123456')
+          }
           value={referencia}
           onChange={(e) => {
             setReferencia(e.target.value);
@@ -739,6 +780,20 @@ function FormularioComprobante({
           onQuitar={quitarArchivo}
         />
         <Mensaje id={`${id}-comp-m`} estado={eArchivo as Estado} texto={tArchivo as string} />
+        {leyendo && (
+          <p role="status" className="text-xs text-tinta-suave">
+            Leyendo tu captura…
+          </p>
+        )}
+        {avisosCaptura.length > 0 && (
+          <ul role="status" className="grid gap-1">
+            {avisosCaptura.map((a, n) => (
+              <li key={a}>
+                <Mensaje id={`${id}-cap-${n}`} estado="aviso" texto={a} />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {cantidadMalos > 0 && (
@@ -764,6 +819,62 @@ function FormularioComprobante({
         </p>
       </div>
     </form>
+  );
+}
+
+/**
+ * Métodos «Automático»: si el pago no se confirmó solo, el cliente envía su comprobante
+ * como en un método manual y queda en revisión. Si después se confirma solo, ese
+ * reporte se cierra en la API para que no se cobre dos veces.
+ */
+function ReporteAutomatico({
+  facturaId,
+  total,
+  moneda,
+  opcion,
+  maxMb,
+}: {
+  facturaId: string;
+  total: string;
+  moneda: Moneda;
+  opcion: OpcionPagoEnLinea;
+  maxMb: number;
+}) {
+  const esPaypal = opcion.pasarela === 'paypal_correo' || opcion.pasarela === 'paypal';
+  return (
+    <details className="group rounded-2xl border border-borde bg-hundida/40 p-4">
+      <summary className="cursor-pointer text-sm font-semibold marker:text-tinta-tenue">
+        ¿No se confirmó solo? Envía tu comprobante
+      </summary>
+      <div className="mt-4 grid gap-4">
+        <p className="text-sm text-tinta-suave">
+          Si ya pagaste con {opcion.nombre} y la factura sigue pendiente, envíanos la captura del
+          pago. El equipo lo revisa y te avisamos por correo.
+        </p>
+        <FormularioComprobante
+          facturaId={facturaId}
+          total={total}
+          moneda={moneda}
+          metodo={{ id: opcion.metodoCobroId, requiereReferencia: true, referenciaUltimos4: false }}
+          maxMb={maxMb}
+          encabezado="Datos de tu pago"
+          leerPaypal={esPaypal}
+          textosReferencia={
+            esPaypal
+              ? {
+                  etiqueta: 'ID de transacción',
+                  ayuda: 'Lo ves en el detalle del pago en PayPal (17 letras y números).',
+                  ejemplo: 'Ej.: 1AB23456CD789012E',
+                }
+              : {
+                  etiqueta: 'Número de operación',
+                  ayuda: 'Lo ves en el detalle del pago o en el correo de confirmación.',
+                  ejemplo: 'Ej.: 123456789',
+                }
+          }
+        />
+      </div>
+    </details>
   );
 }
 
@@ -1145,7 +1256,17 @@ export function ElegirPago({
   } else if (opcionLinea && enLinea) {
     tituloAccion = `Paga con ${opcionLinea.nombre}`;
     cuerpoAccion = (
-      <AccionPagoEnLinea key={opcionLinea.metodoCobroId} datos={enLinea} opcion={opcionLinea} />
+      <div className="grid gap-5">
+        <AccionPagoEnLinea key={opcionLinea.metodoCobroId} datos={enLinea} opcion={opcionLinea} />
+        <ReporteAutomatico
+          key={`r-${opcionLinea.metodoCobroId}`}
+          facturaId={factura.id}
+          total={factura.total}
+          moneda={factura.moneda}
+          opcion={opcionLinea}
+          maxMb={maxMb}
+        />
+      </div>
     );
   } else if (manual) {
     tituloAccion = 'Paga y envía tu comprobante';

@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LectorImap } from '../../src/codigos/lector-imap.js';
 import { CorreosPaypalService } from '../../src/pagos-en-linea/paypal-correo/correos-paypal.service.js';
+import { LectorOcr } from '../../src/pagos-en-linea/paypal-correo/lector-ocr.js';
 import { correoPaypal, resolverPruebas } from '../correo-binance-falso.js';
 import {
   conectar,
   type Contexto,
   crearContexto,
+  hoy,
   limpiar,
   PNG_1X1,
   prepararCatalogo,
@@ -167,5 +169,132 @@ describe('PayPal (cuenta personal) confirmado por correo', () => {
       captura,
     );
     expect(ajeno.estado).toBe(404);
+  });
+});
+
+/** Texto como el que sale de la captura de un pago enviado en la app de PayPal. */
+const TEXTO_CAPTURA = [
+  'Enviaste $5.00 USD a tienda@example.com',
+  '14 de noviembre de 2026',
+  'Id. de transacción',
+  '9XY12345AB678901C',
+  `Nota: pago`,
+].join('\n');
+
+describe('captura de PayPal leída en el servidor', () => {
+  const ocr = () => ctx.app.get(LectorOcr);
+
+  it('llena el ID de transacción y el monto, sin avisos si todo cuadra', async () => {
+    const e = await escenario();
+    vi.spyOn(ocr(), 'texto').mockResolvedValueOnce(TEXTO_CAPTURA);
+    const r = await e.cliente.formulario(
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      { facturaId: e.facturaId, metodoCobroId: e.intento.metodoCobroId },
+      captura,
+    );
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toEqual({
+      leido: true,
+      monto: '5.00',
+      moneda: 'USD',
+      idTransaccion: '9XY12345AB678901C',
+      destinatario: 'tienda@example.com',
+      avisos: [],
+    });
+  });
+
+  it('avisa si el monto no coincide o el pago fue a otra cuenta', async () => {
+    const e = await escenario();
+    vi.spyOn(ocr(), 'texto').mockResolvedValueOnce(
+      'Enviaste $4.00 USD a Otra Persona\nId. de transacción\n9XY12345AB678901C',
+    );
+    const r = await e.cliente.formulario(
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      { facturaId: e.facturaId, metodoCobroId: e.intento.metodoCobroId },
+      captura,
+    );
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.avisos).toHaveLength(2);
+    expect(r.cuerpo.avisos[0]).toContain('no coincide');
+    expect(r.cuerpo.avisos[1]).toContain('cuenta de PayPal indicada');
+  });
+
+  it('si no se puede leer, pide llenar a mano; y una factura ajena no se lee', async () => {
+    const e = await escenario();
+    vi.spyOn(ocr(), 'texto').mockResolvedValueOnce(null);
+    const r = await e.cliente.formulario(
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      { facturaId: e.facturaId, metodoCobroId: e.intento.metodoCobroId },
+      captura,
+    );
+    expect(r.cuerpo).toMatchObject({ leido: false, idTransaccion: null });
+    const otro = await conectar(ctx, 'cliente');
+    const ajena = await otro.n.formulario(
+      '/mi/pagos-en-linea/paypal/leer-captura',
+      { facturaId: e.facturaId, metodoCobroId: e.intento.metodoCobroId },
+      captura,
+    );
+    expect(ajena.estado).toBe(404);
+  });
+
+  it('guarda el ID de transacción que indica el cliente al declarar', async () => {
+    const e = await escenario();
+    const malo = await e.cliente.formulario(
+      `/mi/pagos-en-linea/${e.intento.id}/paypal`,
+      { nombre: 'Samuel Amador', idTransaccion: '123' },
+      captura,
+    );
+    expect(malo.estado).toBe(400);
+    const d = await e.cliente.formulario(
+      `/mi/pagos-en-linea/${e.intento.id}/paypal`,
+      { nombre: 'Samuel Amador', idTransaccion: '9xy12345ab678901c' },
+      captura,
+    );
+    expect(d.estado).toBe(200);
+    expect(d.cuerpo.paypalCorreo.idTransaccion).toBe('9XY12345AB678901C');
+  });
+});
+
+describe('«¿No se confirmó solo?» en métodos Automático', () => {
+  it('el cliente envía su comprobante y, si después se confirma solo, el reporte se cierra', async () => {
+    const e = await escenario();
+    const reporte = await e.cliente.formulario(
+      `/mi/facturas/${e.facturaId}/pagos`,
+      {
+        metodoCobroId: e.intento.metodoCobroId,
+        monto: '5.00',
+        referenciaExterna: '9XY12345AB678901C',
+        fechaPago: hoy(),
+      },
+      captura,
+    );
+    expect(reporte.estado).toBe(201);
+    expect(reporte.cuerpo.estado).toBe('en_revision');
+
+    buzon(await correoPaypal({ monto: '5.00', nota: e.intento.referencia }));
+    await servicio().leer();
+
+    const factura = await ctx.prisma.factura.findUniqueOrThrow({ where: { id: e.facturaId } });
+    expect(factura.estado).toBe('pagada');
+    const pagos = await ctx.prisma.pago.findMany({ where: { facturaId: e.facturaId } });
+    expect(pagos.filter((p) => p.estado === 'confirmado')).toHaveLength(1);
+    const manual = pagos.find((p) => p.id === reporte.cuerpo.id)!;
+    expect(manual.estado).toBe('rechazado');
+    expect(manual.motivoRechazo).toContain('Se confirmó solo');
+  });
+
+  it('el equipo no puede registrar a mano un cobro en un método Automático', async () => {
+    const e = await escenario();
+    const r = await e.admin.formulario(
+      `/facturas/${e.facturaId}/pagos`,
+      {
+        metodoCobroId: e.intento.metodoCobroId,
+        monto: '5.00',
+        referenciaExterna: 'X1',
+        fechaPago: hoy(),
+      },
+      captura,
+    );
+    expect(r.estado).toBeGreaterThanOrEqual(400);
   });
 });

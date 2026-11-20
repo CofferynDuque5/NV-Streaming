@@ -311,7 +311,7 @@ describe('pago en línea de una factura', () => {
     expect((await iniciar(e, facturaId)).cuerpo.error.codigo).toBe('PAGO_EN_REVISION');
   });
 
-  it('VES nunca se ofrece en línea y un pago manual no puede usar un método en línea', async () => {
+  it('VES nunca se ofrece en línea; en un método Automático el cliente reporta y queda en revisión', async () => {
     const e = await escenario();
     const ves = await e.admin.post('/finanzas/metodos-cobro', {
       nombre: 'En línea Bs',
@@ -345,7 +345,9 @@ describe('pago en línea de una factura', () => {
       { metodoCobroId: e.sandboxId, monto: '5', referenciaExterna: 'X1', fechaPago: hoy() },
       { campo: 'comprobante', nombre: 'p.png', tipo: 'image/png', contenido: PNG_1X1 },
     );
-    expect(manual.estado).toBe(400);
+    // «¿No se confirmó solo?»: el cliente envía su comprobante y el equipo lo revisa.
+    expect(manual.estado).toBe(201);
+    expect(manual.cuerpo.estado).toBe('en_revision');
     const lista = await e.cliente.get('/mi/metodos-cobro?moneda=USD');
     expect(lista.cuerpo.map((m: { nombre: string }) => m.nombre)).toEqual(['Zelle']);
   });

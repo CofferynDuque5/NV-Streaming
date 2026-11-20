@@ -25,6 +25,7 @@
     "@node-rs/argon2": "^2.2.1",
     "@nv/db": "workspace:*",
     "@nv/shared": "workspace:*",
+    "@tesseract.js-data/spa": "1.0.0",
     "baileys": "7.0.0-rc14",
     "fastify": "^5.12.5",
     "imapflow": "^2.11.0",
@@ -35,6 +36,7 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "tesseract.js": "7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

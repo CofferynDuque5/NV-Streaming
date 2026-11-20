@@ -16,7 +16,9 @@ import {
   ReembolsosController,
 } from './pagos-en-linea.controller.js';
 import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
+import { ComprobantesPaypalService } from './paypal-correo/comprobantes-paypal.service.js';
 import { CorreosPaypalService } from './paypal-correo/correos-paypal.service.js';
+import { LectorOcr } from './paypal-correo/lector-ocr.js';
 import { AdaptadorPaypalCorreo } from './paypal-correo/paypal-correo.adaptador.js';
 import {
   PaypalCorreoAdminController,
@@ -55,6 +57,8 @@ export const PROVEEDORES_PAGOS_EN_LINEA: Provider[] = [
   CobrosAutomaticosService,
   CorreosBinanceService,
   CorreosPaypalService,
+  ComprobantesPaypalService,
+  LectorOcr,
   ReembolsosService,
   WebhooksService,
 ];

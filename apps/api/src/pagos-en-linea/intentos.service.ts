@@ -336,15 +336,22 @@ export class IntentosPagoService implements OnModuleInit {
       if (i.estado === 'aprobado') return null;
       const factura = await tx.factura.findUniqueOrThrow({ where: { id: i.facturaId } });
       let revision: string | null = null;
+      // Reportes a mano de este mismo pago («¿No se confirmó solo?»): no frenan la
+      // confirmación automática y se cierran al confirmar. Otros pagos en revisión sí.
+      const enRevision = await tx.pago.findMany({
+        where: { facturaId: factura.id, estado: 'en_revision' },
+        select: { id: true, origen: true, metodoCobroId: true },
+      });
+      const duplicados = enRevision
+        .filter((p) => p.origen === 'manual' && p.metodoCobroId === i.metodoCobroId)
+        .map((p) => p.id);
       if (monedaRecibida !== i.moneda || !recibido.eq(i.monto)) {
         revision = `La pasarela informó ${formatearMonto(recibido.toFixed(2), monedaRecibida)} y se esperaban ${formatearMonto(i.monto.toFixed(2), i.moneda)}.`;
       } else if (factura.estado !== 'emitida') {
         revision = `La factura ya no estaba pendiente (${factura.estado}) cuando llegó el pago.`;
       } else if (factura.moneda !== i.moneda || !factura.total.eq(i.monto)) {
         revision = `La factura cambió después de iniciar el pago (ahora ${formatearMonto(factura.total.toFixed(2), factura.moneda)}).`;
-      } else if (
-        (await tx.pago.count({ where: { facturaId: factura.id, estado: 'en_revision' } })) > 0
-      ) {
+      } else if (enRevision.length > duplicados.length) {
         revision = 'La factura tenía otro pago en revisión.';
       } else if (r.revisionManual) {
         revision = r.revisionManual;
@@ -371,6 +378,9 @@ export class IntentosPagoService implements OnModuleInit {
         where: { id: i.id },
         data: { estado: 'aprobado', pagoId: pago.id, error: revision ? MENSAJE_REVISION : null },
       });
+      if (!revision && !existente) {
+        await this.pagos.cerrarReportesDuplicados(tx, duplicados, pago.id);
+      }
       let metodo: MetodoPagoAutorizado | null = null;
       if (r.metodoGuardado && i.guardarMetodo) {
         metodo = await this.metodos.crearDesdeIntento(tx, i, r.metodoGuardado);
