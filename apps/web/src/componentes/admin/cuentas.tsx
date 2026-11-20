@@ -769,6 +769,26 @@ export function VerCredenciales({ cuentaId }: { cuentaId: string }) {
               ))}
           </ul>
         )}
+        {datos.perfiles.some((p) => p.usuarioMiembro || p.claveMiembro) && (
+          <div className="grid gap-2">
+            <span className="text-xs font-medium text-tinta-suave">
+              Correo y clave de cada miembro
+            </span>
+            <ul className="grid gap-2 text-sm">
+              {datos.perfiles
+                .filter((p) => p.usuarioMiembro || p.claveMiembro)
+                .map((p) => (
+                  <li
+                    key={p.numero}
+                    className="grid gap-1.5 rounded-lg border border-borde bg-superficie p-2"
+                  >
+                    <span className="font-medium">{p.nombre}</span>
+                    <DatosMiembro usuario={p.usuarioMiembro} clave={p.claveMiembro} />
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-tinta-tenue">Se ocultan solas en un minuto.</p>
           <Boton tamano="sm" variante="fantasma" onClick={() => setDatos(null)}>
@@ -828,6 +848,83 @@ export function VerCredenciales({ cuentaId }: { cuentaId: string }) {
         </dialog>
       )}
     </>
+  );
+}
+
+/** Correo y clave propios del miembro de un cupo familiar, cada uno con su botón de copiar. */
+function DatosMiembro({ usuario, clave }: { usuario: string | null; clave: string | null }) {
+  return (
+    <div className="grid gap-1.5">
+      {(
+        [
+          ['Correo', usuario, 'el correo del miembro'],
+          ['Clave', clave, 'la clave del miembro'],
+        ] as const
+      ).map(([etiqueta, valor, que]) => (
+        <div key={etiqueta} className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="w-12 text-xs text-tinta-tenue">{etiqueta}</span>
+          {valor ? (
+            <>
+              <code className="min-w-0 flex-1 font-mono text-sm break-all select-all">{valor}</code>
+              <BotonCopiar texto={valor} que={que} />
+            </>
+          ) : (
+            <span className="text-xs text-tinta-tenue">Sin guardar</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** En «Editar» de un cupo familiar: descifra y muestra el correo y la clave guardados del miembro. */
+function MiembroActual({ cuentaId, numero }: { cuentaId: string; numero: number }) {
+  const [datos, setDatos] = useState<{ usuario: string | null; clave: string | null } | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!datos) return;
+    const t = setTimeout(() => setDatos(null), 60_000);
+    return () => clearTimeout(t);
+  }, [datos]);
+
+  async function mostrar() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<CredencialesCuenta>('POST', `/cuentas/${cuentaId}/revelar`, {});
+    setCargando(false);
+    if (!r.ok) return setError(r.error.mensaje);
+    const p = r.datos.perfiles.find((x) => x.numero === numero);
+    setDatos({ usuario: p?.usuarioMiembro ?? null, clave: p?.claveMiembro ?? null });
+  }
+
+  if (datos) {
+    return (
+      <div className="grid gap-1.5 rounded-lg border border-marca/25 bg-marca-suave/40 p-2">
+        <DatosMiembro usuario={datos.usuario} clave={datos.clave} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-tinta-tenue">Se ocultan solos en un minuto.</p>
+          <Boton tamano="sm" variante="fantasma" onClick={() => setDatos(null)}>
+            Ocultar
+          </Boton>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-1">
+      <Boton
+        tamano="sm"
+        variante="secundario"
+        cargando={cargando}
+        onClick={() => void mostrar()}
+        icono={<Eye className="size-3.5" aria-hidden="true" />}
+      >
+        Mostrar datos actuales
+      </Boton>
+      {error && <Alerta tono="peligro">{error}</Alerta>}
+    </div>
   );
 }
 
@@ -1161,6 +1258,9 @@ export function AccionesPerfil({
         )}
         {conMiembro && (
           <>
+            {perfil.tieneMiembro && puedeRevelar && (
+              <MiembroActual cuentaId={cuentaId} numero={perfil.numero} />
+            )}
             <Campo
               etiqueta={perfil.tieneMiembro ? 'Nuevo correo del miembro' : 'Correo del miembro'}
               name="usuarioMiembro"
