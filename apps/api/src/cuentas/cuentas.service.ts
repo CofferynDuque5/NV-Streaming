@@ -703,6 +703,35 @@ export class CuentasService {
     return p;
   }
 
+  /**
+   * Copia (cifrados de nuevo para el cupo de destino) el correo y la clave propios del
+   * miembro de un cupo a otro. Se usa al mover o reponer; nada queda en claro fuera de aquí.
+   */
+  private async llevarMiembro(
+    tx: Tx,
+    viejo: { id: string; usuarioMiembroCifrado: string | null; claveMiembroCifrada: string | null },
+    destinoId: string,
+  ) {
+    if (!viejo.usuarioMiembroCifrado && !viejo.claveMiembroCifrada) return;
+    const miembro = viejo.usuarioMiembroCifrado
+      ? this.cifrador.descifrar(viejo.usuarioMiembroCifrado, contextoMiembro(viejo.id))
+      : null;
+    const claveMiembro = viejo.claveMiembroCifrada
+      ? this.cifrador.descifrar(viejo.claveMiembroCifrada, contextoClaveMiembro(viejo.id))
+      : null;
+    await tx.perfilCuenta.update({
+      where: { id: destinoId },
+      data: {
+        usuarioMiembroCifrado: miembro
+          ? this.cifrador.cifrar(miembro, contextoMiembro(destinoId))
+          : null,
+        claveMiembroCifrada: claveMiembro
+          ? this.cifrador.cifrar(claveMiembro, contextoClaveMiembro(destinoId))
+          : null,
+      },
+    });
+  }
+
   /** Guarda (cifrados) el correo y la clave propios del miembro de un cupo. */
   async guardarMiembro(tx: Tx, perfilId: string, usuario: string, clave: string | null) {
     await tx.perfilCuenta.update({
@@ -925,25 +954,7 @@ export class CuentasService {
         throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Ese perfil ya no está libre. Elige otro.');
       }
       // El correo propio del miembro (plan familiar) viaja con él.
-      if (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada) {
-        const miembro = viejo.usuarioMiembroCifrado
-          ? this.cifrador.descifrar(viejo.usuarioMiembroCifrado, contextoMiembro(viejo.id))
-          : null;
-        const claveMiembro = viejo.claveMiembroCifrada
-          ? this.cifrador.descifrar(viejo.claveMiembroCifrada, contextoClaveMiembro(viejo.id))
-          : null;
-        await tx.perfilCuenta.update({
-          where: { id: destino.id },
-          data: {
-            usuarioMiembroCifrado: miembro
-              ? this.cifrador.cifrar(miembro, contextoMiembro(destino.id))
-              : null,
-            claveMiembroCifrada: claveMiembro
-              ? this.cifrador.cifrar(claveMiembro, contextoClaveMiembro(destino.id))
-              : null,
-          },
-        });
-      }
+      await this.llevarMiembro(tx, viejo, destino.id);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
@@ -1139,7 +1150,13 @@ export class CuentasService {
       // Primero se suelta el viejo (la suscripción solo puede tener un perfil).
       await tx.perfilCuenta.update({
         where: { id: viejo.id },
-        data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+        data: {
+          estado: 'libre',
+          suscripcionId: null,
+          asignadoEn: null,
+          usuarioMiembroCifrado: null,
+          claveMiembroCifrada: null,
+        },
       });
       const r = await tx.perfilCuenta.updateMany({
         where: { id: destino.id, estado: destino.estado },
@@ -1152,6 +1169,8 @@ export class CuentasService {
           'Ese perfil se acaba de ocupar. Intenta de nuevo.',
         );
       }
+      // El correo y la clave propios del miembro (plan familiar) viajan con él.
+      await this.llevarMiembro(tx, viejo, destino.id);
       let dias = 0;
       if (e.compensar) {
         dias = diasPerdidos(viejo.cuenta.caidaEn, new Date());
