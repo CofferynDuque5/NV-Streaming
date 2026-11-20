@@ -179,10 +179,15 @@ export class ImportarGestorService {
       );
     }
 
-    const miembros = await this.miembrosPorRecuperar(
+    const { miembros, enPrincipal } = await this.miembrosPorRecuperar(
       db,
       e.cuentas.filter((c) => importadas.has(c.origenId)),
     );
+    if (enPrincipal) {
+      avisos.push(
+        `${enPrincipal} ${enPrincipal === 1 ? 'miembro ya importado quedó' : 'miembros ya importados quedaron'} en el cupo Principal de su cuenta; no se ${enPrincipal === 1 ? 'mueve' : 'mueven'} solo${enPrincipal === 1 ? '' : 's'}: pásalo${enPrincipal === 1 ? '' : 's'} a un cupo libre con «Mover» y su correo y clave van con él.`,
+      );
+    }
     if (miembros.length) {
       avisos.push(
         `${miembros.length} ${miembros.length === 1 ? 'cupo ya importado recupera' : 'cupos ya importados recuperan'} el correo y la clave del miembro unido al plan (no se cambia nada más).`,
@@ -294,14 +299,14 @@ export class ImportarGestorService {
   private async miembrosPorRecuperar(
     db: Tx | PrismaClient,
     cuentas: CuentaGestor[],
-  ): Promise<Plan['miembros']> {
+  ): Promise<{ miembros: Plan['miembros']; enPrincipal: number }> {
     const conMiembro = new Map(
       cuentas
         .flatMap((c) => c.perfiles)
         .filter((p) => p.usuarioMiembro || p.claveMiembro)
         .map((p) => [p.origenId, p] as const),
     );
-    if (!conMiembro.size) return [];
+    if (!conMiembro.size) return { miembros: [], enPrincipal: 0 };
     const registros = await db.registroGestor.findMany({
       where: { tipo: 'perfil', entidad: 'perfil_cuenta', origenId: { in: [...conMiembro.keys()] } },
       select: { origenId: true, entidadId: true },
@@ -312,10 +317,15 @@ export class ImportarGestorService {
       select: { id: true, numero: true, usuarioMiembroCifrado: true, claveMiembroCifrada: true },
     });
     const salida: Plan['miembros'] = [];
+    let enPrincipal = 0;
     for (const g of guardados) {
       const p = conMiembro.get(origenDe.get(g.id)!)!;
-      // El cupo 1 es el titular: entra con los datos de la cuenta.
-      if (g.numero === 1) continue;
+      // El cupo 1 es el titular: entra con los datos de la cuenta. Un miembro que quedó
+      // ahí (importado antes) no se mueve solo: se avisa.
+      if (g.numero === 1) {
+        if (p.usuarioMiembro) enPrincipal += 1;
+        continue;
+      }
       const usuario = !g.usuarioMiembroCifrado && p.usuarioMiembro ? p.usuarioMiembro.trim() : null;
       // La clave sola, sin correo del miembro, no sirve: va con el correo nuevo o el guardado.
       const clave =
@@ -324,7 +334,7 @@ export class ImportarGestorService {
           : null;
       if (usuario || clave) salida.push({ perfilId: g.id, usuario, clave });
     }
-    return salida;
+    return { miembros: salida, enPrincipal };
   }
 
   /** Completa los cupos de miembro (solo los campos vacíos) y lo deja en la auditoría. */

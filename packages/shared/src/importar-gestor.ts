@@ -327,6 +327,14 @@ function hijosPapelera(a: Obj): Obj[] {
 
 const usuarioValido = (u: string) => u.length >= 3 && u.length <= 254 && !/\s/.test(u);
 
+/** Correo propio del miembro de un cupo (distinto al de la cuenta), o null. */
+function correoMiembro(s: Obj, usuarioCuenta: string): string | null {
+  const e = texto(s.email);
+  return e.includes('@') && usuarioValido(e) && e.toLowerCase() !== usuarioCuenta.toLowerCase()
+    ? e
+    : null;
+}
+
 /**
  * Lee la «Copia completa» del Gestor (formato nuevo `{ db: { platforms,
  * accounts, clients } }` o el viejo `{ plataformas, cuentas, clientes }`).
@@ -365,6 +373,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
     let sinClave = 0;
     let sinCorreo = 0;
     let libresConCorreo = 0;
+    let miembroEnPrincipal = 0;
     const contactoMalo = (quien: string) => {
       malos.push(quien);
     };
@@ -413,22 +422,22 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           if (Number.isInteger(i) && i >= 0 && i < declarados && !enCupo[i]) enCupo[i] = x;
           else resto.push(x);
         }
+        // Sin número de cupo: el miembro con su propio correo va al primer cupo libre desde
+        // el 2 (el 1 es la Principal, que entra con los datos de la cuenta). Solo si no hay
+        // otro libre cae en el 1, y se avisa para moverlo.
         for (const x of resto) {
-          const i = enCupo.findIndex((y) => !y);
+          const conCorreo = correoMiembro(x, usuario) !== null;
+          let i = enCupo.findIndex((y, j) => !y && (!conCorreo || j > 0));
+          if (i < 0) i = enCupo.findIndex((y) => !y);
           if (i >= 0) enCupo[i] = x;
         }
+        if (enCupo[0] && correoMiembro(enCupo[0], usuario) !== null) miembroEnPrincipal += 1;
       }
       const perfiles: PerfilGestor[] = Array.from({ length: declarados }, (_, i) => {
         const s = enCupo[i];
         const etiqueta = s ? texto(s.email) : '';
         // Correo propio del miembro (unido al plan con su correo), distinto al de la cuenta.
-        const propio =
-          s &&
-          etiqueta.includes('@') &&
-          usuarioValido(etiqueta) &&
-          etiqueta.toLowerCase() !== usuario.toLowerCase()
-            ? etiqueta
-            : null;
+        const propio = s ? correoMiembro(s, usuario) : null;
         const cli = s ? cliente(s, prefijo, contactoMalo, supuesto) : null;
         if (conCupos && !cli && propio) libresConCorreo += 1;
         const claveS = s && typeof s.password === 'string' ? s.password : '';
@@ -447,7 +456,9 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           cliente: cli,
           // Unión de cupos: un correo unido sin cliente se guarda en el cupo libre.
           usuarioMiembro: propio,
-          claveMiembro: !propio || !claveS || claveS === clave ? null : claveS.slice(0, 200),
+          // La clave del miembro se guarda tal cual, aunque sea igual a la de la cuenta.
+          // Sin clave en el Gestor, el miembro queda solo con su correo.
+          claveMiembro: !propio || !claveS ? null : claveS.slice(0, 200),
         };
       });
       cuentas.push({
@@ -606,6 +617,11 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         ]
           .filter(Boolean)
           .join(' y ')}.`,
+      );
+    }
+    if (miembroEnPrincipal) {
+      avisos.push(
+        `${nombrePlat}: ${miembroEnPrincipal === 1 ? 'una cuenta tiene' : `${miembroEnPrincipal} cuentas tienen`} en el cupo Principal un correo distinto al de la cuenta; revísalo y, si es un miembro, muévelo a otro cupo con «Mover».`,
       );
     }
     if (libresConCorreo) {

@@ -319,6 +319,92 @@ describe('leerRespaldoGestor', () => {
     expect(sp!.cuentas[1]!.revisar).toBeNull();
   });
 
+  it('unión de cupos: guarda la clave del miembro aunque sea la de la cuenta y respeta los cupos', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [{ id: 'a', email: 'dueno@example.com', password: 'Igual-1', numProfiles: 4 }],
+        },
+        clients: {
+          sp: [
+            // Misma clave que la cuenta: antes se perdía.
+            {
+              id: 'b',
+              accountId: 'a',
+              slotIndex: 2,
+              email: 'beto@example.com',
+              password: 'Igual-1',
+              nombre: 'Beto',
+              contacto: '+584141110010',
+            },
+            // Sin número de cupo: no debe caer en la Principal.
+            {
+              id: 'c',
+              accountId: 'a',
+              email: 'caro@example.com',
+              password: 'Caro-9',
+              nombre: 'Caro',
+              contacto: '+584141110011',
+            },
+            // Sin clave en el Gestor: queda solo con su correo.
+            {
+              id: 'd',
+              accountId: 'a',
+              slotIndex: 4,
+              email: 'dani@example.com',
+              nombre: 'Dani',
+              contacto: '+584141110012',
+            },
+          ],
+        },
+      },
+    });
+    const perfiles = r.plataformas[0]!.cuentas[0]!.perfiles;
+    expect(
+      perfiles.map((p) => [p.numero, p.cliente?.nombre ?? null, p.usuarioMiembro, p.claveMiembro]),
+    ).toEqual([
+      [1, null, null, null],
+      [2, 'Beto', 'beto@example.com', 'Igual-1'],
+      [3, 'Caro', 'caro@example.com', 'Caro-9'],
+      [4, 'Dani', 'dani@example.com', null],
+    ]);
+    expect(r.avisos.some((a) => a.includes('cupo Principal'))).toBe(false);
+  });
+
+  it('unión de cupos: si solo queda la Principal, el miembro entra ahí y se avisa', () => {
+    const r = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: { sp: [{ id: 'a', email: 'dueno@example.com', password: 'P', numProfiles: 2 }] },
+        clients: {
+          sp: [
+            {
+              id: 'b',
+              accountId: 'a',
+              slotIndex: 2,
+              email: 'beto@example.com',
+              nombre: 'Beto',
+              contacto: '+584141110010',
+            },
+            {
+              id: 'c',
+              accountId: 'a',
+              email: 'caro@example.com',
+              nombre: 'Caro',
+              contacto: '+584141110011',
+            },
+          ],
+        },
+      },
+    });
+    expect(r.plataformas[0]!.cuentas[0]!.perfiles.map((p) => p.usuarioMiembro)).toEqual([
+      'caro@example.com',
+      'beto@example.com',
+    ]);
+    expect(r.avisos.some((a) => a.includes('cupo Principal'))).toBe(true);
+  });
+
   it('Office 365 también va por unión de cupos', () => {
     const [o] = leerRespaldoGestor({
       db: {

@@ -397,6 +397,108 @@ describe('importar el Gestor viejo', () => {
     );
   });
 
+  it('Spotify: recupera la clave del miembro igual a la de la cuenta y avisa del miembro en la Principal', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const operador = await conectar(ctx, 'operador');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [sp] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [{ id: 's1', email: 'dueno@example.com', password: 'Igual-1', numProfiles: 4 }],
+        },
+        clients: {
+          sp: [
+            {
+              id: 'b',
+              accountId: 's1',
+              slotIndex: 2,
+              email: 'beto@example.com',
+              password: 'Igual-1',
+              nombre: 'Beto',
+              contacto: '+584141110002',
+            },
+            {
+              id: 'd',
+              accountId: 's1',
+              slotIndex: 3,
+              email: 'dani@example.com',
+              nombre: 'Dani',
+              contacto: '+584141110003',
+            },
+            {
+              id: 'c',
+              accountId: 's1',
+              email: 'caro@example.com',
+              password: 'Caro-9',
+              nombre: 'Caro',
+              contacto: '+584141110004',
+            },
+          ],
+        },
+      },
+    }).plataformas;
+    const cuerpo = {
+      plataforma: { origenId: sp!.origenId, nombre: sp!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: sp!.cuentas,
+    };
+    expect(cuerpo.cuentas[0]!.perfiles[1]).toMatchObject({ claveMiembro: 'Igual-1' });
+    expect(cuerpo.cuentas[0]!.perfiles[3]).toMatchObject({ usuarioMiembro: 'caro@example.com' });
+    // Como la versión anterior: la clave igual a la de la cuenta se descartaba, y Caro (sin
+    // número de cupo) caía en la Principal.
+    const anterior = {
+      ...cuerpo,
+      cuentas: cuerpo.cuentas.map((c) => {
+        const [p0, p1, p2, p3] = c.perfiles;
+        return {
+          ...c,
+          perfiles: [
+            { ...p3!, numero: 1, nombre: 'Principal' },
+            { ...p1!, claveMiembro: null },
+            p2!,
+            { ...p0!, numero: 4, nombre: 'Miembro 3' },
+          ],
+        };
+      }),
+    };
+    expect((await admin.n.post('/cuentas/gestor/importar', anterior)).estado).toBe(201);
+    const cuenta = await ctx.prisma.cuentaServicio.findFirstOrThrow({
+      include: { perfiles: { orderBy: { numero: 'asc' } } },
+    });
+    const dani = cuenta.perfiles[2]!;
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo).toMatchObject({ perfiles: { miembrosRecuperados: 1 } });
+    expect(sim.cuerpo.avisos.some((a: string) => a.includes('cupo Principal'))).toBe(true);
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
+    const cred = (await admin.n.post(`/cuentas/${cuenta.id}/revelar`, {})).cuerpo;
+    expect(
+      cred.perfiles.map((p: { usuarioMiembro: string | null; claveMiembro: string | null }) => [
+        p.usuarioMiembro,
+        p.claveMiembro,
+      ]),
+    ).toEqual([
+      // La Principal no se toca: se avisa para moverlo a mano.
+      ['caro@example.com', 'Caro-9'],
+      ['beto@example.com', 'Igual-1'],
+      // Sin clave en el Gestor: queda solo con su correo.
+      ['dani@example.com', null],
+      [null, null],
+    ]);
+    const mensaje = await operador.n.post(
+      `/cuentas/${cuenta.id}/perfiles/${cuenta.perfiles[1]!.id}/mensaje`,
+      {},
+    );
+    expect(mensaje.cuerpo.texto).toContain('beto@example.com');
+    expect(mensaje.cuerpo.texto).toContain('Igual-1');
+    expect(
+      (await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: dani.id } }))
+        .usuarioMiembroCifrado,
+    ).toBe(dani.usuarioMiembroCifrado);
+  });
+
   it('papelera: cuentas retiradas y clientes borrados con nota', async () => {
     const admin = await conectar(ctx, 'admin');
     const catalogo = await prepararCatalogo(admin.n);

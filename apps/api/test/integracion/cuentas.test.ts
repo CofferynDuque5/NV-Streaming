@@ -288,6 +288,15 @@ describe('cuentas de servicio', () => {
     const p1 = e.cuenta.listaPerfiles[0] as { id: string };
     await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${p1.id}/asignar`, { suscripcionId });
     expect((await e.operador.n.get('/cuentas/reposicion')).cuerpo).toEqual([]);
+    // Miembro unido a un plan con su correo y su clave: deben viajar con él al reponer.
+    expect(
+      (
+        await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${p1.id}`, {
+          usuarioMiembro: 'miembro.repuesto@example.com',
+          claveMiembro: 'Miembro-1',
+        })
+      ).estado,
+    ).toBe(200);
 
     await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
     // Se cayó hace 3 días.
@@ -327,6 +336,13 @@ describe('cuentas de servicio', () => {
     expect(Math.round((s.venceEn!.getTime() - vence.getTime()) / 86_400_000)).toBe(3);
     const perfil = await ctx.prisma.perfilCuenta.findFirstOrThrow({ where: { suscripcionId } });
     expect(perfil.cuentaId).toBe(nueva.cuerpo.id);
+    const viejo = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: p1.id } });
+    expect([viejo.usuarioMiembroCifrado, viejo.claveMiembroCifrada]).toEqual([null, null]);
+    const cred = (await e.admin.n.post(`/cuentas/${nueva.cuerpo.id}/revelar`, {})).cuerpo;
+    expect(cred.perfiles[0]).toMatchObject({
+      usuarioMiembro: 'miembro.repuesto@example.com',
+      claveMiembro: 'Miembro-1',
+    });
     expect((await e.operador.n.post(`/cuentas/reposicion/${p1.id}`, {})).cuerpo.error.codigo).toBe(
       'NADA_QUE_REPONER',
     );
