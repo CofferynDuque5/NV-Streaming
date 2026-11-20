@@ -843,8 +843,17 @@ export type ImportarGestorEntrada = z.infer<typeof importarGestorSchema>;
 
 /** Cuadre de una simulación o de una importación hecha. */
 export interface CuadreGestor {
-  cuentas: { enArchivo: number; nuevas: number; yaEstaban: number; yaImportadas: number };
+  cuentas: {
+    enArchivo: number;
+    nuevas: number;
+    yaEstaban: number;
+    yaImportadas: number;
+    /** Cuentas ya importadas que se borraron vacías en el panel y se vuelven a llenar. */
+    rellenadas?: number;
+  };
   perfiles: {
+    /** Cupos de esas cuentas que vuelven a quedar como en el Gestor. */
+    cuposRellenados?: number;
     nuevos: number;
     libres: number;
     asignados: number;

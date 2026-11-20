@@ -810,6 +810,45 @@ describe('importar el Gestor viejo', () => {
     expect(prohibido.estado).toBe(403);
   });
 
+  it('cuentas vaciadas y borradas en el panel: volver a importar las deja como en el Gestor', async () => {
+    const { admin, cuerpo } = await escenario();
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
+    const asignados = await ctx.prisma.perfilCuenta.findMany({
+      where: { estado: 'asignado' },
+      select: { id: true, suscripcionId: true },
+    });
+    expect(asignados.length).toBeGreaterThan(0);
+    const suscripciones = await ctx.prisma.suscripcion.count();
+    // Como en el panel: se liberan todos los cupos y se borran las cuentas.
+    await ctx.prisma.perfilCuenta.updateMany({
+      data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+    });
+    await ctx.prisma.cuentaServicio.updateMany({ data: { estado: 'retirada' } });
+    const cuentas = await ctx.prisma.cuentaServicio.count();
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo.cuentas.nuevas).toBe(0);
+    expect(sim.cuerpo.cuentas.rellenadas).toBe(cuentas);
+    expect(await ctx.prisma.perfilCuenta.count({ where: { estado: 'asignado' } })).toBe(0);
+
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(cuentas);
+    expect(await ctx.prisma.cuentaServicio.count({ where: { estado: 'retirada' } })).toBe(0);
+    // Cada cupo vuelve con la misma suscripción: no se duplica nada.
+    const ahora = await ctx.prisma.perfilCuenta.findMany({
+      where: { estado: 'asignado' },
+      select: { id: true, suscripcionId: true },
+    });
+    expect(new Map(ahora.map((x) => [x.id, x.suscripcionId]))).toEqual(
+      new Map(asignados.map((x) => [x.id, x.suscripcionId])),
+    );
+    expect(await ctx.prisma.suscripcion.count()).toBe(suscripciones);
+    // Una vez llenas, repetir no hace nada.
+    const otra = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(otra.cuerpo.error.codigo).toBe('NADA_QUE_IMPORTAR');
+  });
+
   it('rechaza un plan de otro servicio', async () => {
     const { admin, cuerpo } = await escenario();
     const otro = await admin.n.post('/catalogo/servicios', {

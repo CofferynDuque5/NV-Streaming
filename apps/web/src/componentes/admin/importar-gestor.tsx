@@ -65,6 +65,12 @@ function Cuadre({ c }: { c: CuadreGestor }) {
           ...(c.perfiles.clientesCorregidos
             ? [['Cupos que pasan a su cliente', c.perfiles.clientesCorregidos] as const]
             : []),
+          ...(c.cuentas.rellenadas
+            ? [
+                ['Cuentas que se vuelven a llenar', c.cuentas.rellenadas] as const,
+                ['Cupos como en el Gestor', c.perfiles.cuposRellenados ?? 0] as const,
+              ]
+            : []),
         ].map(([t, v]) => (
           <div key={t} className="flex justify-between gap-2 border-b border-borde/60 py-1">
             <dt className="text-tinta-suave">{t}</dt>
@@ -185,7 +191,8 @@ function Plataforma({
     c.cuentas.nuevas +
       (c.clientes.sinPerfil ?? 0) +
       (c.perfiles.miembrosRecuperados ?? 0) +
-      (c.perfiles.clientesCorregidos ?? 0) >
+      (c.perfiles.clientesCorregidos ?? 0) +
+      (c.cuentas.rellenadas ?? 0) >
     0;
 
   if (!p.cuentas.length && !r.sinPerfil) {
@@ -289,8 +296,8 @@ function Plataforma({
               }}
             >
               {simulado?.clave === clave
-                ? simulado.cuadre.cuentas.nuevas
-                  ? `Importar ${plural(simulado.cuadre.cuentas.nuevas, 'cuenta', 'cuentas')}`
+                ? simulado.cuadre.cuentas.nuevas || simulado.cuadre.cuentas.rellenadas
+                  ? `Importar ${plural(simulado.cuadre.cuentas.nuevas + (simulado.cuadre.cuentas.rellenadas ?? 0), 'cuenta', 'cuentas')}`
                   : simulado.cuadre.clientes.sinPerfil
                     ? `Importar ${plural(simulado.cuadre.clientes.sinPerfil, 'cliente', 'clientes')}`
                     : simulado.cuadre.perfiles.clientesCorregidos
