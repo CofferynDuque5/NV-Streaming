@@ -802,6 +802,9 @@ function Totales({
   );
 }
 
+/** Segundos antes de llevar al cliente a «Paga tu pedido» tras crear el pedido. */
+const SEGUNDOS_A_PAGAR = 10;
+
 const TEXTO_BOTON: Record<FormaPagoPedido, string> = {
   billetera: 'Pagar con mi saldo',
   recarga: 'Hacer el pedido y recargar',
@@ -1347,6 +1350,20 @@ function PedidoListo({
   const recarga = cuenta.tipo === 'cliente' ? cuenta.metodosRecarga : [];
   const titulo = useRef<HTMLHeadingElement>(null);
   useEffect(() => titulo.current?.focus({ preventScroll: true }), []);
+  // «Pagar cada factura aparte»: tras 10 s lleva solo a «Paga tu pedido», dando tiempo
+  // a tocar «Seguir comprando» si al cliente se le olvidó algo.
+  const router = useRouter();
+  const conCuenta = forma === 'facturas' && !pagado;
+  const [segundos, setSegundos] = useState(SEGUNDOS_A_PAGAR);
+  useEffect(() => {
+    if (!conCuenta) return;
+    if (segundos <= 0) {
+      router.push(`/cuenta/carrito/${pedido.id}`);
+      return;
+    }
+    const t = setTimeout(() => setSegundos((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [conCuenta, segundos, router, pedido.id]);
 
   let pasos: string[];
   let accion: { texto: string; href: string };
@@ -1412,6 +1429,14 @@ function PedidoListo({
       </ol>
       <Link href={accion.href} className={clasesBoton('primario', 'lg', 'mt-1')}>
         {accion.texto}
+        {conCuenta && (
+          <span
+            aria-hidden="true"
+            className="ml-1.5 inline-grid size-6 place-items-center rounded-full bg-black/20 text-sm tabular-nums"
+          >
+            {Math.max(segundos, 0)}
+          </span>
+        )}
       </Link>
       <Link href="/catalogo" className="py-1 text-sm font-medium text-cian hover:underline">
         Seguir comprando
