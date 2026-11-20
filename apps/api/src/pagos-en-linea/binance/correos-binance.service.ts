@@ -251,7 +251,9 @@ export class CorreosBinanceService implements OnModuleInit {
     if (!c || !c.activo || !c.probadoEn) return 0;
     let validos = 0;
     try {
-      const codigo = c.codigoCifrado ? this.cifrador.descifrar(c.codigoCifrado, CTX_CODIGO) : null;
+      // El código anti-phishing ya no se exige (pedido de Nathan, 20-11-2026): basta la firma
+      // DKIM de binance.com. Si había uno guardado, se conserva cifrado pero no se usa.
+      const codigo: string | null = null;
       const r = await this.lector.nuevos(this.conexion(c), {
         uid: c.ultimoUid,
         validez: c.uidValidez,
@@ -277,6 +279,15 @@ export class CorreosBinanceService implements OnModuleInit {
           skipDuplicates: true,
         });
         if (rev.valido && creado.count === 1) validos += 1;
+        if (rev.valido && creado.count === 0) {
+          // Ya se había leído y descartado (p. ej. por el código anti-phishing que ya no se
+          // exige): si ahora es válido y sigue sin usar, se rescata. Nunca toca uno usado.
+          const rescatado = await this.prisma.correoBinance.updateMany({
+            where: { huella: rev.huella, estado: 'descartado', intentoId: null },
+            data: { ...datos, motivo: null },
+          });
+          validos += rescatado.count;
+        }
         const uid = BigInt(m.uid);
         if (ultimo === null || uid > ultimo) ultimo = uid;
       }

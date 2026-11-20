@@ -89,9 +89,6 @@ export function ConfigBinance({
           ) : (
             <Insignia tono="aviso">Sin configurar</Insignia>
           )}
-          {config.configurada && !config.tieneCodigoAntiPhishing && (
-            <Insignia tono="aviso">Sin código anti-phishing</Insignia>
-          )}
         </div>
       </div>
 
@@ -103,15 +100,15 @@ export function ConfigBinance({
 
       {editando ? (
         <form onSubmit={guardar} className="grid gap-4">
-          <Alerta tono="info" titulo="Cómo prepararlo en Gmail">
-            1) Activa la verificación en dos pasos y crea una contraseña de aplicación. 2) Crea un
-            filtro: «De: binance.com» y «Asunto: Pago recibido» → etiqueta «NV-Binance». 3) En
-            Binance, pon un código anti-phishing nuevo (que nadie conozca) y escríbelo aquí. NV solo
-            acepta correos firmados por binance.com que traigan ese código.
+          <Alerta tono="info" titulo="Cómo prepararlo">
+            1) Haz que los avisos «Pago recibido» de Binance lleguen a este correo (en Gmail, con un
+            filtro «De: binance.com» y «Asunto: Pago recibido»). 2) En el correo, pásalos a la
+            carpeta «NV-Binance». 3) Escribe aquí el servidor, el correo y su clave. NV solo acepta
+            correos firmados por binance.com.
           </Alerta>
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo
-              etiqueta="Correo de Gmail"
+              etiqueta="Correo"
               name="usuario"
               type="email"
               required
@@ -122,8 +119,8 @@ export function ConfigBinance({
             <Campo
               etiqueta={
                 config.configurada
-                  ? 'Contraseña de aplicación (vacío = no cambia)'
-                  : 'Contraseña de aplicación'
+                  ? 'Contraseña del correo (vacío = no cambia)'
+                  : 'Contraseña del correo'
               }
               name="clave"
               type="password"
@@ -137,19 +134,6 @@ export function ConfigBinance({
               defaultValue={config.carpeta}
               required
               error={campos.carpeta}
-            />
-            <Campo
-              etiqueta={
-                config.tieneCodigoAntiPhishing
-                  ? 'Código anti-phishing (vacío = no cambia)'
-                  : 'Código anti-phishing'
-              }
-              name="codigoAntiPhishing"
-              type="password"
-              autoComplete="off"
-              required={!config.tieneCodigoAntiPhishing}
-              ayuda="Se guarda cifrado y nunca se vuelve a mostrar."
-              error={campos.codigoAntiPhishing}
             />
             <Campo
               etiqueta="Servidor IMAP"
