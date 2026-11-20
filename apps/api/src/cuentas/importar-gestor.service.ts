@@ -241,6 +241,7 @@ export class ImportarGestorService {
       ).map((r) => r.origenId),
     );
     const sueltos = todosSueltos.filter((x) => !sueltosYa.has(x.origenId));
+<<<<<<< HEAD
     const claves = [
       ...new Set([
         ...conCliente.map(claveCliente),
@@ -248,6 +249,9 @@ export class ImportarGestorService {
         ...porSeparar.map((x) => claveDe(x.cliente)),
       ]),
     ];
+=======
+    const claves = [...new Set([...conCliente.map(claveCliente), ...sueltos.map(claveDe)])];
+>>>>>>> e04b7e00c873542291cf9cb324098015900441fa
     const contactos = [...new Set(claves.map(contactoDeClave).filter((k) => k !== null))];
     const existentes = new Map<string, string>();
     for (const r of await db.registroGestor.findMany({
@@ -281,6 +285,57 @@ export class ImportarGestorService {
       select: { correo: true, id: true },
     })) {
       agregarCandidato(c.correo!.toLowerCase(), c.id);
+<<<<<<< HEAD
+=======
+    }
+    const idsCandidatos = [...new Set([...candidatos.values()].flatMap((v) => [...v]))];
+    const nombreDe = new Map(
+      (
+        await db.cliente.findMany({
+          where: { id: { in: idsCandidatos } },
+          select: { id: true, nombre: true },
+        })
+      ).map((c) => [c.id, nombreComparable(c.nombre)]),
+    );
+    for (const k of claves) {
+      if (existentes.has(k)) continue;
+      const contacto = contactoDeClave(k);
+      if (!contacto) continue;
+      const nombre = nombreDeClave(k);
+      const ids = [...(candidatos.get(contacto) ?? [])];
+      const mismo =
+        nombre === null
+          ? ids[0]
+          : ids.find((id) => {
+              const n = nombreDe.get(id);
+              return n !== undefined && mismoNombre(n, nombre);
+            });
+      if (mismo) existentes.set(k, mismo);
+    }
+    // Sin contacto y con responsable: antes la clave era solo el nombre; se reutiliza ese
+    // cliente solo si tiene el mismo responsable.
+    const soloNombre = claves.filter((k) => !existentes.has(k) && k.includes('|resp:'));
+    if (soloNombre.length) {
+      const viejas = new Map(soloNombre.map((k) => [k.slice(0, k.indexOf('|resp:')), k]));
+      const filas = await db.registroGestor.findMany({
+        where: { tipo: 'cliente', entidad: 'cliente', origenId: { in: [...viejas.keys()] } },
+        select: { origenId: true, entidadId: true },
+      });
+      const responsableDe = new Map(
+        (
+          await db.cliente.findMany({
+            where: { id: { in: filas.map((f) => f.entidadId) } },
+            select: { id: true, responsable: true },
+          })
+        ).map((c) => [c.id, c.responsable ? nombreComparable(c.responsable) : '']),
+      );
+      for (const f of filas) {
+        const k = viejas.get(f.origenId)!;
+        if (responsableDe.get(f.entidadId) === k.slice(k.indexOf('|resp:') + 6)) {
+          existentes.set(k, f.entidadId);
+        }
+      }
+>>>>>>> e04b7e00c873542291cf9cb324098015900441fa
     }
     const idsCandidatos = [...new Set([...candidatos.values()].flatMap((v) => [...v]))];
     const nombreDe = new Map(
