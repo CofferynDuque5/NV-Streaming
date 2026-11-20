@@ -430,7 +430,7 @@ export interface ResultadoAltaPerfil {
 
 /** Una plataforma (servicio) con todas sus cuentas, como en el Gestor. */
 export interface PlataformaCuentas {
-  servicio: Referencia & { logoUrl: string | null };
+  servicio: Referencia & { slug: string; logoUrl: string | null };
   tipo: TipoPlataforma;
   /** Activas, caídas y sin anotar (las retiradas no). */
   cuentas: CuentaServicioDetalle[];

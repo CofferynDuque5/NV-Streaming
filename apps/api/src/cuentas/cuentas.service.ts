@@ -278,7 +278,7 @@ export class CuentasService {
   ): Promise<PlataformaCuentas> {
     const servicio = await this.prisma.servicio.findUnique({
       where: { id: servicioId },
-      select: { id: true, nombre: true, imagenId: true },
+      select: { id: true, nombre: true, slug: true, imagenId: true },
     });
     if (!servicio) throw Errores.noEncontrado('La plataforma');
     const filas = await this.prisma.cuentaServicio.findMany({
@@ -337,6 +337,7 @@ export class CuentasService {
       servicio: {
         id: servicio.id,
         nombre: servicio.nombre,
+        slug: servicio.slug,
         logoUrl: servicio.imagenId ? urlMedio(servicio.imagenId) : null,
       },
       tipo: tipoPlataforma(servicio.nombre),

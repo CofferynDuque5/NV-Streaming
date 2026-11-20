@@ -29,6 +29,7 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { formatearMonto } from '@/lib/formato';
+import { aSlug } from '@/lib/slug';
 import { DatosRequeridosServicio, ImagenServicio, leerDatosRequeridos } from './catalogo-servicio';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -246,15 +247,6 @@ export function ListaProveedores({
 
 // ── Servicios ────────────────────────────────────────────────────────────────
 
-const aSlug = (t: string) =>
-  t
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-
 export function FormularioServicio({
   servicio,
   proveedores,
@@ -268,7 +260,8 @@ export function FormularioServicio({
   const { cargando, error, campos, ejecutar } = useAccion();
   const [guardado, setGuardado] = useState(false);
   const [slug, setSlug] = useState(servicio?.slug ?? '');
-  const [slugTocado, setSlugTocado] = useState(Boolean(servicio));
+  // El slug sigue al nombre (también al editar) hasta que se escribe a mano.
+  const [slugTocado, setSlugTocado] = useState(false);
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -323,7 +316,7 @@ export function FormularioServicio({
             setSlugTocado(true);
             setSlug(e.currentTarget.value);
           }}
-          ayuda="Aparece en las direcciones web. Minúsculas, números y guiones."
+          ayuda="Aparece en las direcciones web. Se arma solo con el nombre; puedes cambiarlo a mano."
           error={campos.slug}
           spellCheck={false}
           autoCapitalize="off"
