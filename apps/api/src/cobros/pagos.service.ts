@@ -312,6 +312,8 @@ export class PagosService {
       revision: string | null;
       /** Usuario que la originó (el cliente en su pago en línea); nulo = el sistema. */
       creadoPorId: string | null;
+      /** Captura que subió el cliente (PayPal personal). */
+      comprobanteId?: string | null;
       cliente?: InfoCliente;
     },
   ): Promise<Pago> {
@@ -332,6 +334,7 @@ export class PagosService {
       idExterno: e.idCobro,
       notasConciliacion: e.revision?.slice(0, 500) ?? null,
       creadoPorId: e.creadoPorId,
+      ...(e.comprobanteId ? { comprobanteId: e.comprobanteId } : {}),
     });
     await this.auditoria.registrar(
       {

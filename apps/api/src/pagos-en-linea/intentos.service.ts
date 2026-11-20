@@ -364,6 +364,7 @@ export class IntentosPagoService implements OnModuleInit {
           recibido,
           revision,
           creadoPorId: null,
+          comprobanteId: i.comprobanteId,
           ...(cliente ? { cliente } : {}),
         }));
       await tx.intentoPago.update({
@@ -626,7 +627,10 @@ export class IntentosPagoService implements OnModuleInit {
       where: { id },
       include: { metodoCobro: { select: { instrucciones: true, qrId: true } } },
     });
-    return intentoPublico(i, i.pasarela === 'binance' ? i.metodoCobro : undefined);
+    return intentoPublico(
+      i,
+      i.pasarela === 'binance' || i.pasarela === 'paypal_correo' ? i.metodoCobro : undefined,
+    );
   }
 
   private async bloquear(tx: Tx, id: string): Promise<IntentoPago> {

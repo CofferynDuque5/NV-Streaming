@@ -64,6 +64,41 @@ export interface IntentoPagoPublico {
     instrucciones: string;
     qrId: string | null;
   };
+  /** Solo PayPal (cuenta personal): cómo pagar y lo que dijo el cliente. */
+  paypalCorreo?: {
+    nombre: string | null;
+    declaradoEn: string | null;
+    tieneComprobante: boolean;
+    instrucciones: string;
+    qrId: string | null;
+  };
+}
+
+/** Configuración del buzón de PayPal, sin la clave. */
+export interface ConfigPaypalCorreoPublica {
+  configurada: boolean;
+  activo: boolean;
+  host: string;
+  puerto: number;
+  pista: string | null;
+  carpeta: string;
+  probadoEn: string | null;
+  ultimaLectura: string | null;
+  ultimoError: string | null;
+}
+
+/** Aviso de PayPal leído por NV. */
+export interface CorreoPaypalPublico {
+  id: string;
+  pagador: string | null;
+  monto: string | null;
+  referencia: string | null;
+  idTransaccion: string | null;
+  pagadoEn: string | null;
+  recibidoEn: string;
+  estado: 'libre' | 'usado' | 'descartado';
+  motivo: string | null;
+  intento: { id: string; referencia: string; facturaId: string } | null;
 }
 
 /** Configuración del buzón de Binance, sin la clave ni el código anti-phishing. */

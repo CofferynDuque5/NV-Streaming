@@ -68,6 +68,16 @@ export class PlanificadorService {
     ) {
       encolados += 1;
     }
+    // Avisos de PayPal (cuenta personal): igual que Binance, cada 2 minutos.
+    if (
+      await this.trabajos.encolar({
+        tipo: TRABAJO.leerCorreosPaypal,
+        claveUnica: `leer_paypal:${ranuraBinance.toISOString()}`,
+        maxIntentos: 1,
+      })
+    ) {
+      encolados += 1;
+    }
     const minutos = this.entorno.VENCIMIENTOS_CADA_MINUTOS;
     if (minutos > 0) {
       const ranura = ranuraActual({ tipo: 'intervalo', minutos }, ahora)!;

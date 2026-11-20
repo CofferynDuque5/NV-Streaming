@@ -550,6 +550,30 @@ export const Plantillas = {
       ),
     };
   },
+  paypalSinConfirmar(
+    nombre: string,
+    cliente: string,
+    factura: string,
+    pagador: string,
+    monto: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `${cliente} dice que pagó la factura ${factura} (${monto} USD) por PayPal a nombre de «${pagador}», pero no llegó un aviso de PayPal que coincida.`,
+      'Revisa tu PayPal y la captura que subió el cliente. Si el pago llegó, regístralo a mano en la factura; si no, avísale al cliente.',
+    ];
+    return {
+      asunto: `Pago por PayPal sin confirmar: ${factura}`,
+      texto: texto(p, url),
+      html: envolver(
+        'Pago por PayPal sin confirmar',
+        p,
+        { texto: 'Ver avisos de PayPal', url },
+        PIE_EQUIPO,
+      ),
+    };
+  },
   // ── Entregas (fase 6). Nunca llevan el código ni el enlace: se ven en el panel. ──
   servicioListo(nombre: string, servicio: string, url: string): CorreoRenderizado {
     const p = [

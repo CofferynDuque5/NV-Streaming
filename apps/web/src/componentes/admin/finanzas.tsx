@@ -195,6 +195,9 @@ function FormularioMetodo({
   const enLinea = tipo === 'pasarela';
   // Binance: el cliente paga desde su app, así que necesita los datos (Pay ID, usuario) y el QR.
   const esBinance = enLinea && pasarela === 'binance';
+  // PayPal personal: igual que Binance, el cliente paga desde su app con los datos y el QR.
+  const esPaypalCorreo = enLinea && pasarela === 'paypal_correo';
+  const pagaDesdeSuApp = esBinance || esPaypalCorreo;
   // Con pasarela solo se ofrecen las monedas en las que esa pasarela cobra (nunca bolívares).
   const monedas: readonly Moneda[] = enLinea ? INFO_PASARELA[pasarela].monedas : MONEDAS;
   const monedaValida = monedas.includes(moneda) ? moneda : (monedas[0] ?? 'USD');
@@ -332,23 +335,25 @@ function FormularioMetodo({
       </div>
       <AreaTexto
         etiqueta={
-          enLinea && !esBinance
+          enLinea && !pagaDesdeSuApp
             ? 'Nota para el cliente (opcional)'
             : 'Instrucciones para el cliente'
         }
         name="instrucciones"
-        rows={enLinea && !esBinance ? 2 : 5}
-        required={!enLinea || esBinance}
+        rows={enLinea && !pagaDesdeSuApp ? 2 : 5}
+        required={!enLinea || pagaDesdeSuApp}
         defaultValue={metodo?.instrucciones}
         placeholder={
           esBinance
             ? 'Binance Pay ID: …\nUsuario: …\nEnvía USDT por Binance Pay (sin comisión).'
-            : enLinea
-              ? 'Ej. Aceptamos tarjetas de crédito y débito.'
-              : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
+            : esPaypalCorreo
+              ? 'Envía el pago a: tu-correo@gmail.com\nO usa el enlace: paypal.me/…'
+              : enLinea
+                ? 'Ej. Aceptamos tarjetas de crédito y débito.'
+                : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
         }
         ayuda={
-          esBinance
+          pagaDesdeSuApp
             ? 'Se muestran debajo del QR. El buzón que confirma los pagos se configura en Pagos en línea.'
             : enLinea
               ? 'Las credenciales de la pasarela nunca se escriben aquí: van en el entorno del servidor.'

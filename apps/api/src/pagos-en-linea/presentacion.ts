@@ -19,7 +19,7 @@ const pasarela = (p: string) => p as Pasarela;
 
 export const ABIERTOS = ['creado', 'pendiente'] as const;
 
-/** Datos del método de cobro que ve el cliente al pagar por Binance. */
+/** Datos del método de cobro que ve el cliente al pagar por Binance o PayPal personal. */
 export interface MetodoBinanceVisible {
   instrucciones: string;
   qrId: string | null;
@@ -50,6 +50,17 @@ export function intentoPublico(
             usuario: i.pagadorDeclarado,
             monto: i.montoDeclarado ? dec2(i.montoDeclarado) : null,
             declaradoEn: iso(i.declaradoEn),
+            instrucciones: metodoBinance?.instrucciones ?? '',
+            qrId: metodoBinance?.qrId ?? null,
+          },
+        }
+      : {}),
+    ...(i.pasarela === 'paypal_correo'
+      ? {
+          paypalCorreo: {
+            nombre: i.pagadorDeclarado,
+            declaradoEn: iso(i.declaradoEn),
+            tieneComprobante: !!i.comprobanteId,
             instrucciones: metodoBinance?.instrucciones ?? '',
             qrId: metodoBinance?.qrId ?? null,
           },

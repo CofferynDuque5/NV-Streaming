@@ -1,10 +1,5 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import type { CorreoBinance, IntentoPago, PrismaClient } from '@nv/db';
-import {
-  CATEGORIAS_ENTREGA_AUTOMATICA_BINANCE,
-  INFO_CATEGORIA,
-  esCategoriaServicio,
-} from '@nv/shared';
 import { ENTORNO, PRISMA } from '../../comun/tokens.js';
 import type { Entorno } from '../../config/entorno.js';
 import type {
@@ -14,13 +9,12 @@ import type {
   ResultadoReembolso,
   VerificacionWebhook,
 } from '../adaptador.js';
+import { motivoRevisionEntrega } from '../entrega-automatica.js';
 
 /** Margen antes del inicio del intento en el que se acepta la hora del pago en Binance. */
 const MARGEN_PREVIO_MS = 10 * 60_000;
 /** Cada cuánto se vuelve a mirar en la base si el buzón de Binance sigue listo. */
 const REFRESCO_MS = 60_000;
-
-const AUTOMATICAS = CATEGORIAS_ENTREGA_AUTOMATICA_BINANCE as readonly string[];
 
 /**
  * Binance Pay entre usuarios. Binance no tiene API para esto: el cliente paga
@@ -82,7 +76,7 @@ export class AdaptadorBinance implements AdaptadorPasarela, OnModuleInit {
       (await this.prisma.correoBinance.findUnique({ where: { intentoId: i.id } })) ??
       (await this.vincular(i));
     if (!correo?.monto) return pendiente();
-    const revision = await this.motivoRevision(i.facturaId);
+    const revision = await motivoRevisionEntrega(this.prisma, i.facturaId, 'Binance');
     return {
       estado: 'aprobado',
       idCobro: correo.id,
@@ -119,38 +113,6 @@ export class AdaptadorBinance implements AdaptadorPasarela, OnModuleInit {
       if (r.count === 1) return { ...c, estado: 'usado', intentoId: i.id };
     }
     return null;
-  }
-
-  /** Solo streaming, música, IA y software se entregan solos; lo demás lo revisa el equipo. */
-  private async motivoRevision(facturaId: string): Promise<string | null> {
-    const f = await this.prisma.factura.findUnique({
-      where: { id: facturaId },
-      select: {
-        lineas: {
-          select: { plan: { select: { servicio: { select: { nombre: true, categoria: true } } } } },
-        },
-        suscripcion: {
-          select: { plan: { select: { servicio: { select: { nombre: true, categoria: true } } } } },
-        },
-      },
-    });
-    if (!f) return null;
-    const servicios = [
-      ...f.lineas.map((l) => l.plan?.servicio),
-      f.suscripcion?.plan.servicio,
-    ].filter((s) => s !== undefined && s !== null);
-    const fuera = servicios.filter((s) => !s.categoria || !AUTOMATICAS.includes(s.categoria));
-    if (fuera.length === 0) return null;
-    const nombres = [
-      ...new Set(
-        fuera.map((s) =>
-          s.categoria && esCategoriaServicio(s.categoria)
-            ? `${s.nombre} (${INFO_CATEGORIA[s.categoria].nombre})`
-            : `${s.nombre} (sin categoría)`,
-        ),
-      ),
-    ];
-    return `Pago por Binance confirmado. ${nombres.join(', ')} no se entrega solo: revísalo y entrégalo.`;
   }
 
   async cobrarConMetodo(): Promise<ResultadoPago> {
