@@ -13,7 +13,7 @@ import {
 } from '@nv/shared';
 import { Calculator, PencilLine, Plus, ReceiptText, Send, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ComponentProps, type FormEvent, type ReactNode, useState } from 'react';
+import { type ComponentProps, type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -92,13 +92,13 @@ function SelectorResponsable({
   const roles: Rol[] = ['ventas', 'operador', 'admin'];
   return (
     <Selector
-      etiqueta="Responsable"
+      etiqueta="Encargado del equipo"
       name="asignadoAId"
       defaultValue={defaultValue}
       error={error}
-      ayuda="Quien lleva la relación con el cliente. Ventas solo ve su cartera."
+      ayuda="La persona del equipo que lleva la relación con el cliente. Ventas solo ve su cartera."
     >
-      <option value="">Sin responsable</option>
+      <option value="">Sin encargado</option>
       {roles.map((rol) => {
         const personas = responsables.filter((r) => r.rol === rol);
         if (personas.length === 0) return null;
@@ -113,6 +113,48 @@ function SelectorResponsable({
         );
       })}
     </Selector>
+  );
+}
+
+/**
+ * De quién es el cliente, como en el Gestor: «Cliente» si es directo, o el
+ * revendedor que lo trajo (Felix Str., Kenia Str.…). Sugiere los que ya existen.
+ */
+export function CampoResponsableGestor({
+  defaultValue,
+  error,
+}: {
+  defaultValue?: string;
+  error?: string;
+}) {
+  const [opciones, setOpciones] = useState<string[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    void llamarApi<string[]>('GET', '/clientes/responsables').then((r) => {
+      if (vivo && r.ok) setOpciones(r.datos);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  return (
+    <>
+      <Campo
+        etiqueta="Responsable"
+        name="responsable"
+        defaultValue={defaultValue ?? ''}
+        list="nv-responsables-cliente"
+        autoComplete="off"
+        maxLength={60}
+        ayuda="De quién es el cliente: «Cliente» si es directo, o el revendedor (Felix Str., Kenia Str.…)."
+        error={error}
+      />
+      <datalist id="nv-responsables-cliente">
+        {[...new Set(['Cliente', ...opciones])].map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+    </>
   );
 }
 
@@ -299,6 +341,8 @@ export function DatosCliente({
     const tg = texto(d, 'telegram');
     if (tg !== (telegram?.valor ?? '')) cuerpo.telegram = tg;
     if (responsables) cuerpo.asignadoAId = texto(d, 'asignadoAId');
+    const responsable = texto(d, 'responsable');
+    if (responsable !== (cliente.responsable ?? '')) cuerpo.responsable = responsable;
 
     setCargando(true);
     setError(null);
@@ -374,6 +418,10 @@ export function DatosCliente({
             error={campos.whatsapp}
           />
           <CampoTelegram defaultValue={telegram?.valor ?? ''} error={campos.telegram} />
+          <CampoResponsableGestor
+            defaultValue={cliente.responsable ?? ''}
+            error={campos.responsable}
+          />
           {responsables && (
             <SelectorResponsable
               responsables={responsables}
@@ -410,7 +458,8 @@ export function DatosCliente({
                 'Moneda preferida',
                 `${cliente.monedaPreferida} · ${INFO_MONEDA[cliente.monedaPreferida].nombre}`,
               ],
-              ['Responsable', cliente.asignadoA?.nombre ?? <Vacio>Sin responsable</Vacio>],
+              ['Responsable', cliente.responsable ?? <Vacio>Sin responsable</Vacio>],
+              ['Encargado del equipo', cliente.asignadoA?.nombre ?? <Vacio>Sin encargado</Vacio>],
               ['Origen', ORIGEN_CLIENTE[cliente.origen] ?? cliente.origen],
               ['Cliente desde', formatearFecha(cliente.creadoEn)],
             ]}

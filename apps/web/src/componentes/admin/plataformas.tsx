@@ -9,6 +9,7 @@ import {
   type PlataformaCuentas,
   type ServicioInventario,
   TEXTOS_PLATAFORMA,
+  tipoPlataforma,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -39,6 +40,7 @@ import { clasesEntrada } from '@/componentes/ui/clases';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Insignia } from '@/componentes/ui/insignia';
 import { llamarApi } from '@/lib/api-cliente';
+import { aSlug } from '@/lib/slug';
 import { formatearFecha } from '@/lib/formato';
 import { AgregarCliente, type LugarElegido, type PermisosAlta } from './agregar-cliente';
 import { AccionesPerfil, ArmarMensaje, NuevaCuenta } from './cuentas';
@@ -115,7 +117,7 @@ export function GrillaPlataformas({
               <Logo nombre={s.servicio.nombre} url={s.servicio.logoUrl} />
               <span className="grid min-w-0 flex-1 gap-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate font-semibold" title={s.servicio.nombre}>
+                  <span className="min-w-0 truncate font-semibold" title={s.servicio.nombre}>
                     {s.servicio.nombre}
                   </span>
                   <span
@@ -219,6 +221,138 @@ export interface PermisosPlataforma {
   codigos: boolean;
   /** «Agregar cliente» (sin permiso de crear suscripciones, undefined). */
   alta: PermisosAlta | undefined;
+  /** Puede cambiar el nombre y el slug de la plataforma (permiso del catálogo). */
+  editarNombre?: boolean;
+}
+
+/**
+ * Cambia el nombre de la plataforma. Es el mismo servicio del catálogo, así que el
+ * cambio se ve también en el catálogo y en la tienda. El slug sigue al nombre
+ * hasta que se escribe a mano.
+ */
+function EditarNombrePlataforma({ servicio }: { servicio: PlataformaCuentas['servicio'] }) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const [nombre, setNombre] = useState(servicio.nombre);
+  const [slug, setSlug] = useState(servicio.slug);
+  const [slugTocado, setSlugTocado] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [campos, setCampos] = useState<Record<string, string>>({});
+  const tipoAntes = tipoPlataforma(servicio.nombre);
+  const tipoDespues = tipoPlataforma(nombre);
+  const textoTipo = (t: typeof tipoAntes) => TEXTOS_PLATAFORMA[t].lugares.toLowerCase();
+
+  function abrir() {
+    setNombre(servicio.nombre);
+    setSlug(servicio.slug);
+    setSlugTocado(false);
+    setError(null);
+    setCampos({});
+    setAbierto(true);
+  }
+
+  async function guardar() {
+    setCargando(true);
+    setError(null);
+    setCampos({});
+    const r = await llamarApi('PATCH', `/catalogo/servicios/${servicio.id}`, {
+      nombre: nombre.trim(),
+      slug: slug.trim(),
+    });
+    setCargando(false);
+    if (!r.ok) {
+      setError(r.error.mensaje);
+      setCampos(
+        Object.fromEntries(
+          Object.entries(r.error.campos ?? {}).map(([k, v]) => [k, (v as string[])[0] ?? '']),
+        ),
+      );
+      return;
+    }
+    setAbierto(false);
+    router.refresh();
+  }
+
+  return (
+    <>
+      <Boton
+        variante="secundario"
+        tamano="sm"
+        icono={<Pencil className="size-4" />}
+        onClick={abrir}
+      >
+        Editar nombre
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo="Editar nombre de la plataforma"
+          icono={<Pencil className="size-5 text-cian" aria-hidden />}
+          onCerrar={() => setAbierto(false)}
+          bloquear={cargando}
+        >
+          <label className="grid gap-1 text-sm">
+            <span className="font-semibold">Nombre</span>
+            <input
+              className={clasesEntrada}
+              value={nombre}
+              maxLength={80}
+              onChange={(e) => {
+                setNombre(e.currentTarget.value);
+                if (!slugTocado) setSlug(aSlug(e.currentTarget.value));
+              }}
+              aria-invalid={campos.nombre ? true : undefined}
+            />
+            {campos.nombre && <span className="text-peligro">{campos.nombre}</span>}
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-semibold">Identificador (slug)</span>
+            <input
+              className={clsx(clasesEntrada, 'font-mono')}
+              value={slug}
+              maxLength={80}
+              spellCheck={false}
+              autoCapitalize="off"
+              onChange={(e) => {
+                setSlugTocado(true);
+                setSlug(e.currentTarget.value);
+              }}
+              aria-invalid={campos.slug ? true : undefined}
+            />
+            <span className="text-tinta-suave">
+              Se arma solo con el nombre. Es la dirección en la tienda: /catalogo/{slug || '…'}
+            </span>
+            {campos.slug && <span className="text-peligro">{campos.slug}</span>}
+          </label>
+          {tipoDespues !== tipoAntes && (
+            <Alerta tono="aviso">
+              Con este nombre la plataforma pasaría de {textoTipo(tipoAntes)} a{' '}
+              {textoTipo(tipoDespues)}: cambia cómo se reparten y entregan sus cuentas. Revisa el
+              nombre antes de guardar.
+            </Alerta>
+          )}
+          {slug !== servicio.slug && (
+            <p className="text-sm text-tinta-suave">
+              La dirección vieja (/catalogo/{servicio.slug}) dejará de abrir.
+            </p>
+          )}
+          {error && <Alerta tono="peligro">{error}</Alerta>}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Boton variante="secundario" onClick={() => setAbierto(false)} disabled={cargando}>
+              Cancelar
+            </Boton>
+            <Boton
+              cargando={cargando}
+              disabled={nombre.trim().length < 2 || !slug.trim()}
+              onClick={guardar}
+            >
+              Guardar
+            </Boton>
+          </div>
+        </Dialogo>
+      )}
+    </>
+  );
 }
 
 /** Cuando el texto del cliente se ve en la tarjeta y en la lista (contacto y responsable). */
@@ -883,6 +1017,7 @@ export function PlataformaGestor({
               Ver clientes
             </Boton>
           )}
+          {permisos.editarNombre && <EditarNombrePlataforma servicio={datos.servicio} />}
           {vista === 'cuentas' && permisos.gestionar && (
             <BotonEnlace href="/admin/cuentas/reposicion" variante="secundario" tamano="sm">
               <ShieldCheck className="size-4" aria-hidden /> Respaldo

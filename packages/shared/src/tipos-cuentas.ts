@@ -38,7 +38,8 @@ export interface AsignacionPerfil {
   suscripcionId: string;
   estado: EstadoSuscripcion;
   venceEn: string | null;
-  cliente: Referencia;
+  /** `responsable`: de quién es el cliente («Cliente» o el revendedor), donde se conoce. */
+  cliente: Referencia & { responsable?: string | null };
   plan: Referencia;
   /** La suscripción ya terminó: conviene liberar el perfil. */
   terminada: boolean;
@@ -430,7 +431,7 @@ export interface ResultadoAltaPerfil {
 
 /** Una plataforma (servicio) con todas sus cuentas, como en el Gestor. */
 export interface PlataformaCuentas {
-  servicio: Referencia & { logoUrl: string | null };
+  servicio: Referencia & { slug: string; logoUrl: string | null };
   tipo: TipoPlataforma;
   /** Activas, caídas y sin anotar (las retiradas no). */
   cuentas: CuentaServicioDetalle[];

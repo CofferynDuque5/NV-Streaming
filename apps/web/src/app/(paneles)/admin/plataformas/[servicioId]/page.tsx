@@ -45,6 +45,7 @@ export default async function Plataforma({
           gestionar: puede('cuentas.gestionar'),
           revelar: puede('cuentas.revelar'),
           codigos: puede('codigos.consultar'),
+          editarNombre: puede('catalogo.gestionar'),
           alta: puede('suscripciones.crear')
             ? {
                 cobrar: puede('pagos.gestionar'),

@@ -601,6 +601,66 @@ describe('importar el Gestor viejo', () => {
     ]);
   });
 
+  it('un revendedor con su número en varios clientes: cada nombre es un cliente aparte', async () => {
+    const { admin, catalogo } = await escenario();
+    const copia = {
+      db: {
+        platforms: [{ id: 'plat_r', name: 'Cine revendedor' }],
+        accounts: {
+          plat_r: [{ id: 'r_1', email: 'rev1@example.com', password: 'Clave-R', numProfiles: 5 }],
+        },
+        clients: {
+          plat_r: [
+            ...['Eli', 'Marta', 'eli'].map((nombre, i) => ({
+              id: `rc_${i}`,
+              accountId: 'r_1',
+              slotIndex: i,
+              email: `Perfil ${i + 1}`,
+              nombre,
+              contacto: '+58 412 192 0000',
+              vencimientoCliente: '2099-02-01',
+              precioVenta: 3,
+            })),
+            // Sin contacto: dos «María» de revendedores distintos son dos clientes.
+            ...['Felix Str.', 'Kenia Str.'].map((responsable, i) => ({
+              id: `rm_${i}`,
+              accountId: 'r_1',
+              slotIndex: 3 + i,
+              email: `Perfil ${4 + i}`,
+              nombre: 'María',
+              responsable,
+              vencimientoCliente: '2099-02-01',
+              precioVenta: 3,
+            })),
+          ],
+        },
+      },
+    };
+    const [plat] = leerRespaldoGestor(copia).plataformas;
+    const imp = await admin.n.post('/cuentas/gestor/importar', {
+      plataforma: { origenId: plat!.origenId, nombre: plat!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: plat!.cuentas,
+    });
+    expect(imp.estado).toBe(201);
+    const clientes = await ctx.prisma.cliente.findMany({
+      where: { contactos: { some: { valor: '+584121920000' } } },
+      include: { _count: { select: { suscripciones: true } } },
+      orderBy: { nombre: 'asc' },
+    });
+    // «Eli» y «eli» son la misma persona; «Marta» es otra con el mismo número.
+    expect(clientes.map((c) => [c.nombre, c._count.suscripciones])).toEqual([
+      ['Eli', 2],
+      ['Marta', 1],
+    ]);
+    const marias = await ctx.prisma.cliente.findMany({
+      where: { nombre: 'María' },
+      orderBy: { responsable: 'asc' },
+    });
+    expect(marias.map((c) => c.responsable)).toEqual(['Felix Str.', 'Kenia Str.']);
+  });
+
   it('rechaza un plan de otro servicio', async () => {
     const { admin, cuerpo } = await escenario();
     const otro = await admin.n.post('/catalogo/servicios', {

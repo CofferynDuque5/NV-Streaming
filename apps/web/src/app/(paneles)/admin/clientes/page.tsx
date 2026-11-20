@@ -38,12 +38,16 @@ export default async function Clientes({
   });
   const nuevo = puedeGestionar && crudo.nuevo === '1';
 
-  const [{ datos }, responsables] = await Promise.all([
+  const [{ datos }, responsables, deQuien] = await Promise.all([
     leerApi<Pagina<ClienteResumen>>(`/clientes?${consulta}`),
     nuevo && puedeElegirResponsable
       ? cargarEquipo(['ventas', 'operador', 'admin'])
       : Promise.resolve(null),
+    leerApi<string[]>('/clientes/responsables'),
   ]);
+  const opcionesResponsable = [
+    ...new Set([...(deQuien.datos ?? []), ...(filtro.responsable ? [filtro.responsable] : [])]),
+  ];
   const pagina = datos ?? { elementos: [], total: 0, pagina: 1, porPagina: 20 };
   const archivados = filtro.estado === 'archivado';
 
@@ -107,6 +111,21 @@ export default async function Clientes({
             <option value="activo">Activos</option>
             <option value="archivado">Archivados</option>
           </FiltroSelector>
+          {opcionesResponsable.length > 0 && (
+            <FiltroSelector
+              id="filtro-responsable"
+              etiqueta="Responsable"
+              name="responsable"
+              defaultValue={filtro.responsable ?? ''}
+            >
+              <option value="">Todos los responsables</option>
+              {opcionesResponsable.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </FiltroSelector>
+          )}
           <Boton type="submit" variante="secundario">
             Filtrar
           </Boton>
@@ -140,13 +159,14 @@ export default async function Clientes({
             </EstadoVacio>
           )
         ) : (
-          <Tabla minimo="52rem">
+          <Tabla minimo="60rem">
             <Encabezados
               columnas={[
                 'Cliente',
                 'País',
                 'Moneda',
                 'Responsable',
+                'Encargado',
                 { texto: 'Servicios activos', className: 'text-right' },
                 'Acceso al panel',
                 { texto: 'Detalle', className: 'w-10 sr-only' },
@@ -176,6 +196,9 @@ export default async function Clientes({
                   </Celda>
                   <Celda>
                     <span className="font-mono text-xs text-tinta-suave">{c.monedaPreferida}</span>
+                  </Celda>
+                  <Celda className="text-tinta-suave">
+                    {c.responsable ?? <span className="text-tinta-tenue">—</span>}
                   </Celda>
                   <Celda className="text-tinta-suave">
                     {c.asignadoA?.nombre ?? <span className="text-tinta-tenue">Sin asignar</span>}

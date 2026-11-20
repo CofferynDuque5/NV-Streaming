@@ -414,10 +414,24 @@ export function EditarCuenta({
   const [actuales, setActuales] = useState<{ usuario: string; clave: string } | null>(null);
   const [mostrando, setMostrando] = useState(false);
   const [errorPrevio, setErrorPrevio] = useState<string | null>(null);
+  // Responsable de cada cliente que usa un perfil (va en la ficha del cliente).
+  const responsablesIniciales = () =>
+    Object.fromEntries(
+      cuenta.listaPerfiles
+        .filter((p) => p.asignacion)
+        .map((p) => [p.asignacion!.cliente.id, p.asignacion!.cliente.responsable ?? '']),
+    ) as Record<string, string>;
+  const [responsables, setResponsables] = useState<Record<string, string>>(responsablesIniciales);
+  const [opcionesResponsable, setOpcionesResponsable] = useState<string[]>([]);
+  const idListaResponsables = useId();
   const [guardando, setGuardando] = useState(false);
 
   function abrir() {
     setFilas(filasIniciales());
+    setResponsables(responsablesIniciales());
+    void llamarApi<string[]>('GET', '/clientes/responsables').then((r) => {
+      if (r.ok) setOpcionesResponsable(r.datos);
+    });
     setUsuario('');
     setClave('');
     setActuales(null);
@@ -493,6 +507,16 @@ export function EditarCuenta({
       if (!r.ok) {
         setGuardando(false);
         setErrorPrevio(`${f.nombre}: ${r.error.mensaje}`);
+        return;
+      }
+    }
+    const iniciales = responsablesIniciales();
+    for (const [clienteId, valor] of Object.entries(responsables)) {
+      if (valor.trim() === (iniciales[clienteId] ?? '').trim()) continue;
+      const r = await llamarApi('PATCH', `/clientes/${clienteId}`, { responsable: valor.trim() });
+      if (!r.ok) {
+        setGuardando(false);
+        setErrorPrevio(`Responsable: ${r.error.mensaje}`);
         return;
       }
     }
@@ -657,6 +681,25 @@ export function EditarCuenta({
                       </span>
                     )}
                   </p>
+                  {f.asignacion && (
+                    <label className="col-span-full flex items-center gap-2 text-xs text-tinta-suave">
+                      <span className="shrink-0">Responsable</span>
+                      <input
+                        value={responsables[f.asignacion.cliente.id] ?? ''}
+                        onChange={(e) => {
+                          const v = e.currentTarget.value.slice(0, 60);
+                          const id = f.asignacion!.cliente.id;
+                          setResponsables((r) => ({ ...r, [id]: v }));
+                        }}
+                        list={idListaResponsables}
+                        maxLength={60}
+                        autoComplete="off"
+                        placeholder="Cliente, Felix Str.…"
+                        aria-label={`Responsable de ${f.asignacion.cliente.nombre}`}
+                        className={`${clasesEntrada} py-1 text-sm`}
+                      />
+                    </label>
+                  )}
                   <input
                     value={f.pin}
                     onChange={(e) => {
@@ -674,6 +717,14 @@ export function EditarCuenta({
                 </li>
               ))}
             </ul>
+            <datalist id={idListaResponsables}>
+              {[...new Set(['Cliente', ...opcionesResponsable])].map((r) => (
+                <option key={r} value={r} />
+              ))}
+            </datalist>
+            <p className="text-xs text-tinta-tenue">
+              El responsable es de la persona: cambia en todos sus perfiles.
+            </p>
           </fieldset>
         )}
         <DatosCuenta
