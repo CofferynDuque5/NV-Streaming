@@ -14,6 +14,7 @@ import {
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
+import { exigirStock, planesAgotados } from '../cuentas/stock-cuentas.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
@@ -121,11 +122,23 @@ export class ComprasService {
     const planes = await this.prisma.plan.findMany({
       where: { ...planRevendible, preciosMayoristas: { some: { nivelId: nivel.id } } },
       include: {
-        servicio: { select: { id: true, nombre: true, slug: true, categoria: true } },
+        servicio: {
+          select: {
+            id: true,
+            nombre: true,
+            slug: true,
+            categoria: true,
+            proveedor: { select: { adaptador: true } },
+          },
+        },
         preciosMayoristas: { where: { nivelId: nivel.id } },
       },
       orderBy: [{ orden: 'asc' }, { precioUsd: 'asc' }],
     });
+    const agotados = await planesAgotados(
+      this.prisma,
+      planes.map((p) => ({ ...p, adaptador: p.servicio.proveedor.adaptador })),
+    );
     return {
       nivel,
       tasaVes: tasaVes?.toFixed(2) ?? null,
@@ -135,7 +148,12 @@ export class ComprasService {
           id: p.id,
           nombre: p.nombre,
           descripcion: p.descripcion,
-          servicio: p.servicio,
+          servicio: {
+            id: p.servicio.id,
+            nombre: p.servicio.nombre,
+            slug: p.servicio.slug,
+            categoria: p.servicio.categoria,
+          },
           tipo: p.tipo,
           duracionCantidad: p.duracionCantidad,
           duracionUnidad: p.duracionUnidad,
@@ -144,6 +162,7 @@ export class ComprasService {
           precioPublicoUsd: p.precioUsd.toFixed(2),
           precioUsd: precio.toFixed(2),
           precioVes: tasaVes ? redondear(precio.mul(tasaVes), 'VES').toFixed(2) : null,
+          ...(agotados.has(p.id) ? { agotado: true } : {}),
         };
       }),
     };
@@ -356,6 +375,7 @@ export class ComprasService {
     info: InfoCliente,
   ): Promise<string> {
     const plan = await this.planDelNivel(tx, r, e.planId);
+    await exigirStock(tx, plan.id);
     const precio = plan.precio;
     this.exigirSaldo(r, precio);
     let titular: Cliente;

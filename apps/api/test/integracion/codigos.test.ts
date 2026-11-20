@@ -39,6 +39,8 @@ async function escenario() {
     usuario: 'Cine.Uno@Midominio.com',
     clave: 'Clave-Cuenta-1',
     perfiles: 3,
+    // Vigente: la web solo vende planes con perfiles de cuentas al día.
+    facturaEn: '2099-11-05',
     datosPerfiles: [{ nombre: 'Sala', pin: '1357' }, { pin: '' }, { nombre: 'Cuarto' }],
   });
   expect(cuenta.estado).toBe(201);

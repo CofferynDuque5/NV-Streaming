@@ -224,6 +224,11 @@ export interface PlanPublico {
   precioRevendedorUsd?: Decimal | 'varios' | null;
   orden: number;
   precios: PreciosPorMoneda;
+  /**
+   * Se entrega desde Plataformas y no queda ningún perfil o cuenta libre y
+   * vigente: en vez de comprar, se pide por WhatsApp.
+   */
+  agotado?: boolean;
 }
 
 /** Vencimientos y cortes del equipo, por día de Caracas. */

@@ -324,6 +324,31 @@ export class MisPerfilesController {
   }
 }
 
+/** Perfiles de Plataformas que el revendedor compró para sus clientes, con su contrato. */
+@ApiTags('Revendedores: panel')
+@Controller('revendedor/perfiles')
+export class PerfilesRevendedorController {
+  constructor(@Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService) {}
+
+  @Get()
+  @RequierePermiso('reventa.usar')
+  listar(@Auth() auth: ContextoAuth) {
+    return this.perfiles.deRevendedor(auth);
+  }
+
+  @Post(':suscripcionId/revelar')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('reventa.usar')
+  revelar(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.revelarDeRevendedor(auth, suscripcionId, cliente);
+  }
+}
+
 /** Lista del proveedor (TXT o CSV, leída en el navegador): revisar y luego importar. */
 @ApiTags('Cuentas de servicio')
 @Controller('cuentas/importar')

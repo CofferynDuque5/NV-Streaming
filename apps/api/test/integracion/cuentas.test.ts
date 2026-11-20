@@ -25,7 +25,7 @@ async function escenario() {
     clave: CLAVE,
     perfiles: 3,
     costoUsd: '12.50',
-    facturaEn: '2026-11-05',
+    facturaEn: '2099-11-05',
     metodoPago: 'Tarjeta ···· 1234',
   });
   expect(cuenta.estado).toBe(201);
@@ -40,7 +40,7 @@ describe('cuentas de servicio', () => {
       modo: 'perfiles',
       estado: 'activa',
       costoUsd: '12.50',
-      facturaEn: '2026-11-05',
+      facturaEn: '2099-11-05',
       perfiles: { total: 3, libres: 3, asignados: 0, bloqueados: 0 },
     });
     expect(e.cuenta.listaPerfiles.map((p: { nombre: string }) => p.nombre)).toEqual([
@@ -257,10 +257,10 @@ describe('cuentas de servicio', () => {
 
   it('una cuenta caída no recibe asignaciones y el método de pago no acepta números de tarjeta', async () => {
     const e = await escenario();
-    const caida = await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
-    expect(caida.cuerpo.estado).toBe('caida');
     const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
     const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    const caida = await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
+    expect(caida.cuerpo.estado).toBe('caida');
     const r = await e.operador.n.post(
       `/cuentas/${e.cuenta.id}/perfiles/${e.cuenta.listaPerfiles[0].id}/asignar`,
       { suscripcionId },
@@ -428,6 +428,7 @@ describe('cuentas de servicio', () => {
       pin: '2468',
       tipo: 'perfiles',
       miembro: false,
+      contrato: expect.stringContaining('Perfil: Sala\nPin: 2468'),
     });
 
     // Otro cliente no ve el perfil ajeno.
@@ -447,8 +448,10 @@ describe('cuentas de servicio', () => {
     expect((await sinPermiso.n.post(rutaMensaje)).estado).toBe(403);
     const m1 = await e.operador.n.post(rutaMensaje);
     expect(m1.estado).toBe(201);
-    expect(m1.cuerpo.texto).toContain(`Clave: ${CLAVE}`);
-    expect(m1.cuerpo.texto).toContain('PIN: 2468');
+    // Se envía con el contrato del Gestor.
+    expect(m1.cuerpo.texto).toMatch(/^CONTRATO – FACTURA DE SERVICIO/);
+    expect(m1.cuerpo.texto).toContain(`Contraseña: ${CLAVE}`);
+    expect(m1.cuerpo.texto).toContain('Pin: 2468');
     expect(m1.cuerpo.whatsapp).toBeNull();
     await ctx.prisma.contactoCliente.updateMany({
       where: { clienteId },
@@ -580,6 +583,7 @@ describe('cuentas de servicio', () => {
       usuario: 'familia@example.com',
       clave: 'Titular-789',
       perfiles: 6,
+      facturaEn: '2099-11-05',
     });
     const alta = await e.cliente.post('/mi/suscripciones', {
       planId: plan.cuerpo.id,
@@ -611,7 +615,7 @@ describe('cuentas de servicio', () => {
     });
     expect(JSON.stringify(r.cuerpo)).not.toContain('Titular-789');
     const m = await e.operador.n.post(`${rutaCupo}/mensaje`);
-    expect(m.cuerpo.texto).toContain('propio correo: miembro@gmail.com');
+    expect(m.cuerpo.texto).toContain('Correo: miembro@gmail.com\nContraseña: Propia-111');
     expect(m.cuerpo.texto).not.toContain('Titular-789');
     const fila = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: cupo.id } });
     expect(fila.usuarioMiembroCifrado).not.toContain('miembro');
