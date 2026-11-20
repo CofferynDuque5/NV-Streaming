@@ -16,6 +16,7 @@ import {
   actualizarComboSchema,
   actualizarPlanSchema,
   comboSchema,
+  crearPlataformaSchema,
   actualizarProveedorSchema,
   actualizarServicioSchema,
   planSchema,
@@ -125,6 +126,18 @@ export class CatalogoController {
   @RequierePermiso('catalogo.ver')
   plan(@Param('id', idValido) id: string) {
     return this.catalogo.plan(id);
+  }
+
+  /** «Crear plataforma» como en el Gestor: servicio + primer plan. */
+  @Post('plataformas')
+  @RequierePermiso('catalogo.gestionar')
+  @DocCuerpo(crearPlataformaSchema)
+  crearPlataforma(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(crearPlataformaSchema)) cuerpo: z.output<typeof crearPlataformaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.catalogo.crearPlataforma(auth, cuerpo, cliente);
   }
 
   @Post('planes')

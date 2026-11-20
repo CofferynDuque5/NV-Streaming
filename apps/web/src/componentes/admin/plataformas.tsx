@@ -93,8 +93,9 @@ export function GrillaPlataformas({
 }) {
   if (servicios.length === 0) {
     return (
-      <EstadoVacio icono={LayoutGrid} titulo="Aún no hay plataformas con cuentas">
-        Agrega la primera cuenta de una plataforma en «Todas las cuentas».
+      <EstadoVacio icono={LayoutGrid} titulo="Aún no hay plataformas">
+        Crea tu primera plataforma con «Crear plataforma» o pásalas desde el Gestor con «Importar
+        del Gestor».
       </EstadoVacio>
     );
   }

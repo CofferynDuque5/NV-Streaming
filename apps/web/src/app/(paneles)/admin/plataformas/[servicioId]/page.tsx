@@ -1,6 +1,7 @@
 import type { Inventario, PlataformaCuentas } from '@nv/shared';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { QuitarPlataforma } from '@/componentes/admin/crear-plataforma';
 import { Volver } from '@/componentes/admin/piezas-crm';
 import { PlataformaGestor } from '@/componentes/admin/plataformas';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -33,7 +34,12 @@ export default async function Plataforma({
   }
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      <Volver href="/admin/plataformas">Plataformas</Volver>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Volver href="/admin/plataformas">Plataformas</Volver>
+        {r.datos.cuentas.length === 0 && puede('catalogo.gestionar') && (
+          <QuitarPlataforma servicioId={r.datos.servicio.id} nombre={r.datos.servicio.nombre} />
+        )}
+      </div>
       <PlataformaGestor
         key={vista}
         datos={r.datos}

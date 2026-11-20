@@ -241,8 +241,10 @@ describe('correos de códigos', () => {
     const auditoria = await ctx.prisma.auditoria.findMany({
       where: { accion: 'codigo.consultado' },
     });
-    expect(JSON.stringify(auditoria)).not.toContain('4821');
-    expect(JSON.stringify(auditoria).toLowerCase()).not.toContain('cine.uno');
+    // Solo lo que se guardó, sin los ids al azar (un UUID puede llevar «4821»).
+    const guardado = JSON.stringify(auditoria.map((a) => ({ antes: a.antes, despues: a.despues })));
+    expect(guardado).not.toContain('4821');
+    expect(guardado.toLowerCase()).not.toContain('cine.uno');
 
     const ventas = await conectar(ctx, 'ventas');
     expect((await ventas.n.post('/codigos/buscar', { cuentaId: e.cuenta.id })).estado).toBe(403);
