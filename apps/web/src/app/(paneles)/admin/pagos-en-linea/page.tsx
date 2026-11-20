@@ -1,4 +1,6 @@
 import {
+  type ConfigBinancePublica,
+  type CorreoBinancePublico,
   ESTADOS_EVENTO_PASARELA,
   type EstadoPasarela,
   type EventoPasarelaResumen,
@@ -11,6 +13,7 @@ import clsx from 'clsx';
 import { Globe, Inbox, KeyRound, Repeat, Webhook } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ConfigBinance } from '@/componentes/admin/binance';
 import { TablaCobrosAutomaticos } from '@/componentes/admin/cobros-automaticos';
 import { CopiarTexto, ReprocesarEvento } from '@/componentes/admin/pagos-en-linea';
 import { Paginacion } from '@/componentes/panel/paginacion';
@@ -174,38 +177,52 @@ async function Pasarelas() {
                       : 'No: solo pagos únicos.'}
                   </dd>
                 </div>
-                <div className="grid min-w-0 gap-1">
-                  <dt className="text-xs text-tinta-tenue">URL de avisos (webhook)</dt>
-                  <dd className="min-w-0">
-                    <CopiarTexto
-                      texto={p.urlWebhook}
-                      etiqueta={`la URL de avisos de ${p.nombre}`}
-                    />
-                  </dd>
-                </div>
+                {p.pasarela !== 'binance' && (
+                  <div className="grid min-w-0 gap-1">
+                    <dt className="text-xs text-tinta-tenue">URL de avisos (webhook)</dt>
+                    <dd className="min-w-0">
+                      <CopiarTexto
+                        texto={p.urlWebhook}
+                        etiqueta={`la URL de avisos de ${p.nombre}`}
+                      />
+                    </dd>
+                  </div>
+                )}
               </dl>
               <div className="mt-auto grid gap-2 border-t border-borde bg-hundida/40 px-5 py-4 text-sm">
                 <p className="flex items-center gap-1.5 font-medium">
                   <KeyRound className="size-4 text-marca" aria-hidden="true" /> Cómo conectarla
                 </p>
                 <p className="text-tinta-suave">{ayuda.pasos}</p>
-                <ul className="flex flex-wrap gap-1.5" aria-label="Variables de entorno">
-                  {ayuda.variables.map((v) => (
-                    <li
-                      key={v}
-                      className="rounded-md border border-borde bg-superficie px-1.5 py-0.5 font-mono text-[0.7rem] break-all"
-                    >
-                      {v}
-                    </li>
-                  ))}
-                </ul>
+                {ayuda.variables.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="Variables de entorno">
+                    {ayuda.variables.map((v) => (
+                      <li
+                        key={v}
+                        className="rounded-md border border-borde bg-superficie px-1.5 py-0.5 font-mono text-[0.7rem] break-all"
+                      >
+                        {v}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </Tarjeta>
           );
         })}
       </div>
+      <BuzonBinance />
     </>
   );
+}
+
+async function BuzonBinance() {
+  const [config, correos] = await Promise.all([
+    leerApi<ConfigBinancePublica>('/pasarelas/binance/config'),
+    leerApi<CorreoBinancePublico[]>('/pasarelas/binance/correos'),
+  ]);
+  if (!config.datos) return null;
+  return <ConfigBinance config={config.datos} correos={correos.datos ?? []} />;
 }
 
 // ── Avisos de las pasarelas ──────────────────────────────────────────────────

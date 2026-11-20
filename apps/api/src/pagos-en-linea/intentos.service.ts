@@ -247,7 +247,7 @@ export class IntentosPagoService implements OnModuleInit {
         where: { id: intento.id },
         data: { idExterno: orden.idExterno, urlPago: orden.urlPago, estado: 'pendiente' },
       });
-      return intentoPublico(listo);
+      return this.publico(listo.id);
     } catch (err) {
       this.logger.warn(
         `La pasarela ${intento.pasarela} no creó la orden del intento ${intento.id}: ${err instanceof Error ? err.message : String(err)}`,
@@ -346,6 +346,8 @@ export class IntentosPagoService implements OnModuleInit {
         (await tx.pago.count({ where: { facturaId: factura.id, estado: 'en_revision' } })) > 0
       ) {
         revision = 'La factura tenía otro pago en revisión.';
+      } else if (r.revisionManual) {
+        revision = r.revisionManual;
       }
       const existente = await tx.pago.findUnique({
         where: { pasarela_idExterno: { pasarela: i.pasarela, idExterno: idCobro } },
@@ -619,8 +621,12 @@ export class IntentosPagoService implements OnModuleInit {
     return i;
   }
 
-  private async publico(id: string): Promise<IntentoPagoPublico> {
-    return intentoPublico(await this.prisma.intentoPago.findUniqueOrThrow({ where: { id } }));
+  async publico(id: string): Promise<IntentoPagoPublico> {
+    const i = await this.prisma.intentoPago.findUniqueOrThrow({
+      where: { id },
+      include: { metodoCobro: { select: { instrucciones: true, qrId: true } } },
+    });
+    return intentoPublico(i, i.pasarela === 'binance' ? i.metodoCobro : undefined);
   }
 
   private async bloquear(tx: Tx, id: string): Promise<IntentoPago> {

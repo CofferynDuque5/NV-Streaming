@@ -9,6 +9,7 @@ import {
   type PagoMercadoPago,
 } from '../../src/pagos-en-linea/mercadopago/mercadopago.adaptador.js';
 import type { AdaptadorPaypal } from '../../src/pagos-en-linea/paypal/paypal.adaptador.js';
+import type { AdaptadorBinance } from '../../src/pagos-en-linea/binance/binance.adaptador.js';
 import { RegistroPasarelas } from '../../src/pagos-en-linea/registro.service.js';
 import type { AdaptadorSandbox } from '../../src/pagos-en-linea/sandbox/sandbox.adaptador.js';
 
@@ -225,7 +226,13 @@ describe('Mercado Pago: configuración', () => {
 
   it('el registro solo ofrece la moneda de la cuenta', () => {
     const registro = (m: AdaptadorMercadoPago) =>
-      new RegistroPasarelas(entorno(), {} as AdaptadorSandbox, {} as AdaptadorPaypal, m);
+      new RegistroPasarelas(
+        entorno(),
+        {} as AdaptadorSandbox,
+        {} as AdaptadorPaypal,
+        m,
+        {} as AdaptadorBinance,
+      );
     const ars = registro(mpa);
     expect(ars.monedas('mercadopago')).toEqual(['ARS']);
     expect(ars.admiteMoneda('mercadopago', 'ARS')).toBe(true);

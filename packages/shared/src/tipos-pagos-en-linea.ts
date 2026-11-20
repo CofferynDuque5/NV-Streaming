@@ -56,6 +56,41 @@ export interface IntentoPagoPublico {
   pagoId: string | null;
   expiraEn: string;
   creadoEn: string;
+  /** Solo Binance: lo que declaró el cliente y cómo pagar. */
+  binance?: {
+    usuario: string | null;
+    monto: string | null;
+    declaradoEn: string | null;
+    instrucciones: string;
+    qrId: string | null;
+  };
+}
+
+/** Configuración del buzón de Binance, sin la clave ni el código anti-phishing. */
+export interface ConfigBinancePublica {
+  configurada: boolean;
+  activo: boolean;
+  host: string;
+  puerto: number;
+  /** «co•••@gmail.com» */
+  pista: string | null;
+  carpeta: string;
+  tieneCodigoAntiPhishing: boolean;
+  probadoEn: string | null;
+  ultimaLectura: string | null;
+  ultimoError: string | null;
+}
+
+/** Correo de Binance leído por NV. */
+export interface CorreoBinancePublico {
+  id: string;
+  remitente: string | null;
+  monto: string | null;
+  pagadoEn: string | null;
+  recibidoEn: string;
+  estado: 'libre' | 'usado' | 'descartado';
+  motivo: string | null;
+  intento: { id: string; referencia: string; facturaId: string } | null;
 }
 
 export interface MetodoAutorizadoPublico {

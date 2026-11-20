@@ -19,7 +19,16 @@ const pasarela = (p: string) => p as Pasarela;
 
 export const ABIERTOS = ['creado', 'pendiente'] as const;
 
-export function intentoPublico(i: IntentoPago): IntentoPagoPublico {
+/** Datos del método de cobro que ve el cliente al pagar por Binance. */
+export interface MetodoBinanceVisible {
+  instrucciones: string;
+  qrId: string | null;
+}
+
+export function intentoPublico(
+  i: IntentoPago,
+  metodoBinance?: MetodoBinanceVisible,
+): IntentoPagoPublico {
   const abierto = (ABIERTOS as readonly string[]).includes(i.estado);
   return {
     id: i.id,
@@ -35,6 +44,17 @@ export function intentoPublico(i: IntentoPago): IntentoPagoPublico {
     pagoId: i.pagoId,
     expiraEn: iso(i.expiraEn)!,
     creadoEn: iso(i.creadoEn)!,
+    ...(i.pasarela === 'binance'
+      ? {
+          binance: {
+            usuario: i.pagadorDeclarado,
+            monto: i.montoDeclarado ? dec2(i.montoDeclarado) : null,
+            declaradoEn: iso(i.declaradoEn),
+            instrucciones: metodoBinance?.instrucciones ?? '',
+            qrId: metodoBinance?.qrId ?? null,
+          },
+        }
+      : {}),
   };
 }
 

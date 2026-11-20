@@ -193,6 +193,8 @@ function FormularioMetodo({
   const [pasarela, setPasarela] = useState<Pasarela>(metodo?.pasarela ?? 'paypal');
   const [moneda, setMoneda] = useState<Moneda>(metodo?.moneda ?? 'USD');
   const enLinea = tipo === 'pasarela';
+  // Binance: el cliente paga desde su app, así que necesita los datos (Pay ID, usuario) y el QR.
+  const esBinance = enLinea && pasarela === 'binance';
   // Con pasarela solo se ofrecen las monedas en las que esa pasarela cobra (nunca bolívares).
   const monedas: readonly Moneda[] = enLinea ? INFO_PASARELA[pasarela].monedas : MONEDAS;
   const monedaValida = monedas.includes(moneda) ? moneda : (monedas[0] ?? 'USD');
@@ -329,20 +331,28 @@ function FormularioMetodo({
         />
       </div>
       <AreaTexto
-        etiqueta={enLinea ? 'Nota para el cliente (opcional)' : 'Instrucciones para el cliente'}
+        etiqueta={
+          enLinea && !esBinance
+            ? 'Nota para el cliente (opcional)'
+            : 'Instrucciones para el cliente'
+        }
         name="instrucciones"
-        rows={enLinea ? 2 : 5}
-        required={!enLinea}
+        rows={enLinea && !esBinance ? 2 : 5}
+        required={!enLinea || esBinance}
         defaultValue={metodo?.instrucciones}
         placeholder={
-          enLinea
-            ? 'Ej. Aceptamos tarjetas de crédito y débito.'
-            : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
+          esBinance
+            ? 'Binance Pay ID: …\nUsuario: …\nEnvía USDT por Binance Pay (sin comisión).'
+            : enLinea
+              ? 'Ej. Aceptamos tarjetas de crédito y débito.'
+              : 'Titular: …\nBanco: …\nCuenta o teléfono: …'
         }
         ayuda={
-          enLinea
-            ? 'Las credenciales de la pasarela nunca se escriben aquí: van en el entorno del servidor.'
-            : 'Se muestran tal cual al cliente cuando va a pagar.'
+          esBinance
+            ? 'Se muestran debajo del QR. El buzón que confirma los pagos se configura en Pagos en línea.'
+            : enLinea
+              ? 'Las credenciales de la pasarela nunca se escriben aquí: van en el entorno del servidor.'
+              : 'Se muestran tal cual al cliente cuando va a pagar.'
         }
         error={campos.instrucciones}
       />
@@ -417,7 +427,6 @@ function QrMetodo({ metodo }: { metodo: MetodoCobroPublico }) {
   return (
     <>
       {metodo.qrId && (
-        // eslint-disable-next-line @next/next/no-img-element -- imagen del almacén servida por la API
         <img
           src={`/api/v1/sitio/publico/medios/${metodo.qrId}`}
           alt={`QR de ${metodo.nombre}`}

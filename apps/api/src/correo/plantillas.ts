@@ -526,6 +526,30 @@ export const Plantillas = {
       html: envolver('Pago en línea para revisar', p, { texto: 'Ir a cobros', url }, PIE_EQUIPO),
     };
   },
+  binanceSinConfirmar(
+    nombre: string,
+    cliente: string,
+    factura: string,
+    usuario: string,
+    monto: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `${cliente} dice que pagó la factura ${factura} por Binance con el usuario «${usuario}» y ${monto} USDT, pero no llegó un correo de Binance que coincida.`,
+      'Revisa tu Binance. Si el pago llegó, regístralo a mano en la factura; si no, avísale al cliente.',
+    ];
+    return {
+      asunto: `Pago por Binance sin confirmar: ${factura}`,
+      texto: texto(p, url),
+      html: envolver(
+        'Pago por Binance sin confirmar',
+        p,
+        { texto: 'Ver correos de Binance', url },
+        PIE_EQUIPO,
+      ),
+    };
+  },
   // ── Entregas (fase 6). Nunca llevan el código ni el enlace: se ven en el panel. ──
   servicioListo(nombre: string, servicio: string, url: string): CorreoRenderizado {
     const p = [

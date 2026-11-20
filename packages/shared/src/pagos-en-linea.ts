@@ -6,7 +6,7 @@ import { type Moneda, MONEDAS } from './monedas.js';
  * viven sus datos públicos, el texto de autorización y los esquemas de entrada.
  * Venezuela (VES) sigue con pago manual: ninguna pasarela de aquí cobra en bolívares.
  */
-export const PASARELAS = ['paypal', 'mercadopago', 'sandbox'] as const;
+export const PASARELAS = ['paypal', 'mercadopago', 'binance', 'sandbox'] as const;
 export type Pasarela = (typeof PASARELAS)[number];
 
 export interface InfoPasarela {
@@ -30,6 +30,12 @@ export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
     monedas: ['ARS', 'COP', 'PEN'],
     admiteCobroRecurrente: false,
   },
+  /**
+   * Binance Pay entre usuarios (USDT). No hay API: NV confirma leyendo los correos
+   * «Pago recibido correctamente» que Binance envía al vendedor (ver CorreosBinanceService).
+   * 1 USDT = 1 USD. Sin cobros automáticos ni devoluciones por la pasarela.
+   */
+  binance: { nombre: 'Binance Pay', monedas: ['USD'], admiteCobroRecurrente: false },
   /** Pasarela de pruebas: solo en desarrollo y pruebas, nunca en producción. */
   sandbox: {
     nombre: 'Pasarela de pruebas',
@@ -140,3 +146,53 @@ export const filtroEventosPasarelaSchema = z.object({
 export const simularSandboxSchema = z.object({
   resultado: z.enum(['aprobar', 'rechazar', 'cancelar']),
 });
+
+// ── Binance Pay confirmado por correo ────────────────────────────────────────
+
+/**
+ * Categorías de servicio que se entregan solas cuando Binance confirma el pago.
+ * Las demás (juegos, nube…) quedan en revisión del equipo aunque el pago llegue bien.
+ */
+export const CATEGORIAS_ENTREGA_AUTOMATICA_BINANCE = [
+  'streaming',
+  'musica',
+  'ia',
+  'software',
+] as const;
+
+/** Minutos que espera NV el correo de Binance después de que el cliente declara su pago. */
+export const MINUTOS_ESPERA_BINANCE = 30;
+
+/** El cliente dice con qué usuario de Binance pagó y cuánto envió (USDT). */
+export const declararPagoBinanceSchema = z.object({
+  usuario: z
+    .string()
+    .trim()
+    .min(2, 'Escribe tu usuario de Binance tal como aparece en tu perfil.')
+    .max(60, 'El usuario es demasiado largo.')
+    .regex(/^[^\s<>]+(?: [^\s<>]+)*$/, 'El usuario tiene caracteres no válidos.'),
+  monto: z
+    .string()
+    .trim()
+    .regex(/^\d{1,9}(\.\d{1,2})?$/, 'Escribe el monto exacto que enviaste, p. ej. 2.50.'),
+});
+export type DeclararPagoBinanceEntrada = z.output<typeof declararPagoBinanceSchema>;
+
+/** Buzón donde llegan los correos de Binance (Gmail con contraseña de aplicación). */
+export const configBinanceSchema = z.object({
+  host: z.string().trim().min(3).max(120).default('imap.gmail.com'),
+  puerto: z.coerce.number().int().min(1).max(65535).default(993),
+  usuario: z.email({ error: 'Escribe el correo donde llegan los avisos de Binance.' }).max(200),
+  /** Vacío al editar = no cambia. */
+  clave: z.string().max(200).optional(),
+  carpeta: z.string().trim().min(1).max(120).default('NV-Binance'),
+  /** Código anti-phishing configurado en Binance. Vacío al editar = no cambia. */
+  codigoAntiPhishing: z
+    .string()
+    .trim()
+    .max(40)
+    .regex(/^[\w-]*$/, 'El código anti-phishing solo lleva letras, números, - y _.')
+    .optional(),
+  activo: z.boolean().default(true),
+});
+export type ConfigBinanceEntrada = z.output<typeof configBinanceSchema>;

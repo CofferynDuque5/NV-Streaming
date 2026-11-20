@@ -8,7 +8,6 @@ export function QrMetodo({ metodo }: { metodo: Pick<MetodoCobroPublico, 'qrId' |
   if (!metodo.qrId) return null;
   return (
     <figure className="grid justify-items-center gap-2 border-b border-borde px-3.5 py-4">
-      {/* eslint-disable-next-line @next/next/no-img-element -- imagen del almacén servida por la API */}
       <img
         src={`/api/v1/sitio/publico/medios/${metodo.qrId}`}
         alt={`Código QR para pagar con ${metodo.nombre}`}

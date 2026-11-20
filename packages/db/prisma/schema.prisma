@@ -1574,14 +1574,21 @@ model IntentoPago {
   autorizadoAgente  String?           @map("autorizado_agente") @db.VarChar(300)
   pagoId            String?           @unique @map("pago_id") @db.Uuid
   error             String?           @db.VarChar(500)
+  /// Binance: usuario con el que el cliente dice que pagó y monto (USDT) que envió.
+  pagadorDeclarado  String?           @map("pagador_declarado") @db.VarChar(80)
+  montoDeclarado    Decimal?          @map("monto_declarado") @db.Decimal(14, 2)
+  declaradoEn       DateTime?         @map("declarado_en") @db.Timestamptz(3)
+  /// Se avisó al equipo que el pago no se pudo confirmar solo.
+  avisoEquipoEn     DateTime?         @map("aviso_equipo_en") @db.Timestamptz(3)
   expiraEn          DateTime          @map("expira_en") @db.Timestamptz(3)
   creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn     DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  factura     Factura     @relation(fields: [facturaId], references: [id], onDelete: Restrict)
-  cliente     Cliente     @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  metodoCobro MetodoCobro @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
-  pago        Pago?       @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  factura       Factura        @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  cliente       Cliente        @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  metodoCobro   MetodoCobro    @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  pago          Pago?          @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  correoBinance CorreoBinance?
 
   @@unique([pasarela, idExterno])
   @@index([facturaId, estado])
@@ -2383,4 +2390,56 @@ model ConsultaCodigo {
   @@index([usuarioId, creadoEn])
   @@index([creadoEn])
   @@map("consultas_codigo")
+}
+
+// ── Binance Pay confirmado por correo ────────────────────────────────────────
+
+/// Buzón donde llegan los correos «Pago recibido correctamente» de Binance (una sola fila, id = 1).
+model ConfigBinance {
+  id             Int       @id @default(1)
+  host           String    @default("imap.gmail.com") @db.VarChar(120)
+  puerto         Int       @default(993)
+  /// Cifrado (contexto "binance:usuario").
+  usuarioCifrado String    @map("usuario_cifrado") @db.VarChar(1000)
+  /// Para reconocerlo: «co•••@gmail.com».
+  pista          String    @db.VarChar(120)
+  /// Contraseña de aplicación, cifrada (contexto "binance:clave").
+  claveCifrada   String    @map("clave_cifrada") @db.VarChar(1000)
+  carpeta        String    @default("NV-Binance") @db.VarChar(120)
+  /// Código anti-phishing de Binance, cifrado (contexto "binance:antiphishing"). Vacío = sin comprobar.
+  codigoCifrado  String?   @map("codigo_cifrado") @db.VarChar(1000)
+  activo         Boolean   @default(true)
+  /// Último UID leído y la UIDVALIDITY de la carpeta (si cambia, se vuelve a leer desde 2 días atrás).
+  ultimoUid      BigInt?   @map("ultimo_uid")
+  uidValidez     BigInt?   @map("uid_validez")
+  probadoEn      DateTime? @map("probado_en") @db.Timestamptz(3)
+  ultimaLectura  DateTime? @map("ultima_lectura") @db.Timestamptz(3)
+  /// Último error al leer (sin datos sensibles); null si la última lectura salió bien.
+  ultimoError    String?   @map("ultimo_error") @db.VarChar(300)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  @@map("config_binance")
+}
+
+/// Correo de Binance leído. Solo se usan los que pasan la firma DKIM de binance.com.
+model CorreoBinance {
+  id         String    @id @default(uuid()) @db.Uuid
+  /// sha256 del Message-ID (o del correo): el mismo correo nunca se guarda dos veces.
+  huella     String    @unique @db.Char(64)
+  remitente  String?   @db.VarChar(80)
+  monto      Decimal?  @db.Decimal(14, 2)
+  moneda     String?   @db.VarChar(10)
+  pagadoEn   DateTime? @map("pagado_en") @db.Timestamptz(3)
+  recibidoEn DateTime  @default(now()) @map("recibido_en") @db.Timestamptz(3)
+  /// "libre" (válido, sin pedido), "usado" (confirmó un pago) o "descartado" (no pasó las comprobaciones).
+  estado     String    @default("libre") @db.VarChar(20)
+  motivo     String?   @db.VarChar(200)
+  intentoId  String?   @unique @map("intento_id") @db.Uuid
+
+  intento IntentoPago? @relation(fields: [intentoId], references: [id], onDelete: Restrict)
+
+  @@index([estado, remitente, monto])
+  @@index([recibidoEn(sort: Desc)])
+  @@map("correos_binance")
 }

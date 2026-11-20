@@ -51,4 +51,39 @@ export class AvisosEquipoPagosService {
       );
     }
   }
+
+  /** El cliente declaró un pago por Binance y no llegó el correo que lo confirme. Nunca lanza. */
+  async binanceSinConfirmar(intentoId: string): Promise<void> {
+    try {
+      const i = await this.prisma.intentoPago.findUniqueOrThrow({
+        where: { id: intentoId },
+        include: { factura: { select: { numero: true } }, cliente: { select: { nombre: true } } },
+      });
+      const url = this.correo.urlWeb('/admin/finanzas');
+      const numero = numeroFactura(i.factura.numero);
+      for (const u of await equipoConPermiso(this.prisma, 'pagos.gestionar')) {
+        await this.avisos.avisar({
+          plantilla: 'binanceSinConfirmar',
+          destinatario: { usuarioId: u.id },
+          claveUnica: `binance_sin_confirmar:${intentoId}:${u.id}`,
+          automatizacion: null,
+          entidad: { tipo: 'intento_pago', id: intentoId },
+          contenido: (nombre) => ({
+            correo: Plantillas.binanceSinConfirmar(
+              nombre,
+              i.cliente.nombre,
+              numero,
+              i.pagadorDeclarado ?? '—',
+              i.montoDeclarado?.toFixed(2) ?? '—',
+              url,
+            ),
+          }),
+        });
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Aviso de Binance sin confirmar ${intentoId} no enviado: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
 }
