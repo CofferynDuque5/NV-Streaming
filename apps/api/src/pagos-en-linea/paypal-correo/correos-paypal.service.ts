@@ -217,6 +217,7 @@ export class CorreosPaypalService implements OnModuleInit {
         where: { id: i.id },
         data: {
           pagadorDeclarado: e.nombre.trim().slice(0, 80),
+          transaccionDeclarada: e.idTransaccion ?? null,
           declaradoEn: ahora,
           expiraEn: new Date(ahora.getTime() + MINUTOS_ESPERA_PAYPAL * 60_000),
           ...(comprobante ? { comprobanteId: comprobante.id } : {}),
@@ -228,7 +229,11 @@ export class CorreosPaypalService implements OnModuleInit {
           accion: 'pago_en_linea.paypal_declarado',
           entidad: 'intento_pago',
           entidadId: i.id,
-          despues: { nombre: e.nombre.trim(), comprobante: comprobante?.id ?? null },
+          despues: {
+            nombre: e.nombre.trim(),
+            idTransaccion: e.idTransaccion ?? null,
+            comprobante: comprobante?.id ?? null,
+          },
           cliente,
         },
         tx,

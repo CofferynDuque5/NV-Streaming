@@ -557,10 +557,16 @@ export const Plantillas = {
     pagador: string,
     monto: string,
     url: string,
+    idTransaccion: string | null = null,
   ): CorreoRenderizado {
     const p = [
       `Hola, ${nombre}.`,
       `${cliente} dice que pagó la factura ${factura} (${monto} USD) por PayPal a nombre de «${pagador}», pero no llegó un aviso de PayPal que coincida.`,
+      ...(idTransaccion
+        ? [
+            `ID de transacción que indicó el cliente: ${idTransaccion} (es el del pagador; en tu PayPal puede verse otro).`,
+          ]
+        : []),
       'Revisa tu PayPal y la captura que subió el cliente. Si el pago llegó, regístralo a mano en la factura; si no, avísale al cliente.',
     ];
     return {

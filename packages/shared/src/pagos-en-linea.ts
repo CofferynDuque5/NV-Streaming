@@ -17,8 +17,20 @@ export interface InfoPasarela {
   admiteCobroRecurrente: boolean;
 }
 
+/**
+ * Pasarelas que se ofrecen al crear un método «Automático», en este orden. PayPal Business
+ * (con API) queda fuera: se mantiene solo para los métodos que ya la usan.
+ */
+export const PASARELAS_OFRECIDAS: readonly Pasarela[] = [
+  'binance',
+  'paypal_correo',
+  'mercadopago',
+  'sandbox',
+];
+
 export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
-  paypal: { nombre: 'PayPal', monedas: ['USD', 'EUR'], admiteCobroRecurrente: true },
+  /** PayPal Business con API (credenciales en el entorno). Ya no se ofrece para métodos nuevos. */
+  paypal: { nombre: 'PayPal Business', monedas: ['USD', 'EUR'], admiteCobroRecurrente: true },
   /**
    * Checkout Pro (pago único). Sin cobros automáticos: Mercado Pago no permite que el
    * comercio cobre una tarjeta guardada sin que el cliente vuelva a poner el CVV en un
@@ -42,7 +54,7 @@ export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
    * nombre del pagador y el monto exacto (ver CorreosPaypalService).
    */
   paypal_correo: {
-    nombre: 'PayPal (cuenta personal)',
+    nombre: 'PayPal',
     monedas: ['USD'],
     admiteCobroRecurrente: false,
   },
@@ -212,6 +224,33 @@ export type ConfigBinanceEntrada = z.output<typeof configBinanceSchema>;
 /** Minutos que espera NV el aviso de PayPal después de que el cliente dice que pagó. */
 export const MINUTOS_ESPERA_PAYPAL = 30;
 
+/** Id. de transacción de PayPal: 17 letras y números. Vacío = no lo escribió. */
+export const idTransaccionPaypalSchema = z.preprocess(
+  (v) => (typeof v === 'string' ? v.replace(/\s+/g, '').toUpperCase() || undefined : v),
+  z
+    .string()
+    .regex(/^[0-9A-Z]{17}$/, 'El ID de transacción de PayPal tiene 17 letras y números.')
+    .optional(),
+);
+
+/** Leer la captura de un pago de PayPal para llenar el formulario (no confirma nada). */
+export const leerComprobantePaypalSchema = z.object({
+  facturaId: z.uuid(),
+  metodoCobroId: z.uuid(),
+});
+export type LeerComprobantePaypalEntrada = z.output<typeof leerComprobantePaypalSchema>;
+
+/** Lo que NV pudo leer de la captura y los avisos para el cliente. */
+export interface ComprobantePaypalLectura {
+  /** false = no se pudo leer la imagen (se llena a mano). */
+  leido: boolean;
+  monto: string | null;
+  moneda: string | null;
+  idTransaccion: string | null;
+  destinatario: string | null;
+  avisos: string[];
+}
+
 /** El cliente dice a nombre de quién está su cuenta PayPal (la captura va aparte). */
 export const declararPagoPaypalSchema = z.object({
   nombre: z
@@ -220,6 +259,8 @@ export const declararPagoPaypalSchema = z.object({
     .min(3, 'Escribe el nombre de tu cuenta PayPal, tal como aparece en tu perfil.')
     .max(100, 'El nombre es demasiado largo.')
     .regex(/^[^<>\n]+$/, 'El nombre tiene caracteres no válidos.'),
+  /** Id. de transacción que muestra PayPal al pagador (opcional; ayuda al equipo a revisar). */
+  idTransaccion: idTransaccionPaypalSchema,
 });
 export type DeclararPagoPaypalEntrada = z.output<typeof declararPagoPaypalSchema>;
 

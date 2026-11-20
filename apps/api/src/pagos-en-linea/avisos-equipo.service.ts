@@ -111,6 +111,7 @@ export class AvisosEquipoPagosService {
               i.pagadorDeclarado ?? '—',
               i.monto.toFixed(2),
               url,
+              i.transaccionDeclarada,
             ),
           }),
         });

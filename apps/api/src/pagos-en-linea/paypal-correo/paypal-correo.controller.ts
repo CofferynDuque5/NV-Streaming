@@ -11,7 +11,12 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { configPaypalCorreoSchema, declararPagoPaypalSchema, uuidSchema } from '@nv/shared';
+import {
+  configPaypalCorreoSchema,
+  declararPagoPaypalSchema,
+  leerComprobantePaypalSchema,
+  uuidSchema,
+} from '@nv/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import { enviarComprobante } from '../../cobros/cobros.controller.js';
@@ -25,13 +30,32 @@ import {
 import { DocCuerpo } from '../../comun/documentacion.js';
 import { leerFormulario } from '../../comun/formulario.js';
 import { validar, ZodPipe } from '../../comun/zod.pipe.js';
+import { ComprobantesPaypalService } from './comprobantes-paypal.service.js';
 import { CorreosPaypalService } from './correos-paypal.service.js';
 
 /** El cliente dice a nombre de quién está su PayPal y sube la captura del pago. */
 @ApiTags('Autoservicio del cliente')
 @Controller('mi/pagos-en-linea')
 export class PaypalCorreoClienteController {
-  constructor(@Inject(CorreosPaypalService) private readonly paypal: CorreosPaypalService) {}
+  constructor(
+    @Inject(CorreosPaypalService) private readonly paypal: CorreosPaypalService,
+    @Inject(ComprobantesPaypalService) private readonly capturas: ComprobantesPaypalService,
+  ) {}
+
+  /**
+   * Lee la captura de un pago de PayPal (en este servidor) para llenar el ID de
+   * transacción y el monto. No guarda la imagen ni confirma el pago.
+   * Multipart: «facturaId», «metodoCobroId» y archivo «comprobante».
+   */
+  @Post('paypal/leer-captura')
+  @RequierePermiso('autoservicio.usar')
+  @HttpCode(200)
+  @ApiConsumes('multipart/form-data')
+  async leerCaptura(@Auth() auth: ContextoAuth, @Req() peticion: FastifyRequest) {
+    const { campos, archivo } = await leerFormulario(peticion, 'comprobante');
+    const datos = new ZodPipe(leerComprobantePaypalSchema).transform(campos);
+    return this.capturas.leer(auth, datos, archivo);
+  }
 
   /** Multipart: campo «nombre» y archivo «comprobante» (captura del pago). */
   @Post(':id/paypal')

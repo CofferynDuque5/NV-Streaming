@@ -214,8 +214,9 @@ export class PagosService {
           metodoCobroId: ['Elige un método de pago disponible.'],
         });
       }
-      if (metodo.tipo === 'pasarela') {
-        // Los pagos en línea los registra la pasarela, nunca un reporte manual.
+      if (metodo.tipo === 'pasarela' && confirmarYa) {
+        // El equipo no registra a mano un cobro de pasarela: eso lo hace la pasarela.
+        // El cliente sí puede reportarlo («¿No se confirmó solo?»): queda en revisión.
         throw new ErrorApp(
           400,
           'DATOS_INVALIDOS',
@@ -359,6 +360,36 @@ export class PagosService {
       await this.cerrarFactura(tx, null, factura, e.recibido, pago.id, null, e.cliente);
     }
     return tx.pago.findUniqueOrThrow({ where: { id: pago.id } });
+  }
+
+  /**
+   * El pago automático de una factura se confirmó y el cliente ya había reportado ese
+   * mismo pago a mano («¿No se confirmó solo?», mismo método): esos reportes se cierran
+   * para que nadie los apruebe y se cobre dos veces. No se avisa al cliente como un
+   * rechazo, porque su factura quedó pagada.
+   */
+  async cerrarReportesDuplicados(tx: Tx, ids: string[], pagoConfirmadoId: string) {
+    if (ids.length === 0) return;
+    const ahora = new Date();
+    const motivo = 'Se confirmó solo con el pago automático; este reporte ya no hace falta.';
+    for (const id of ids) {
+      const r = await tx.pago.updateMany({
+        where: { id, estado: 'en_revision', origen: 'manual' },
+        data: { estado: 'rechazado', motivoRechazo: motivo, revisadoEn: ahora },
+      });
+      if (r.count === 0) continue;
+      await this.auditoria.registrar(
+        {
+          actorTipo: 'sistema',
+          accion: 'pago.reporte_cerrado_por_automatico',
+          entidad: 'pago',
+          entidadId: id,
+          antes: { estado: 'en_revision' },
+          despues: { estado: 'rechazado', motivo, pagoConfirmado: pagoConfirmadoId },
+        },
+        tx,
+      );
+    }
   }
 
   /**

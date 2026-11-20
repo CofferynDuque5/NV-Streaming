@@ -103,19 +103,21 @@ export function GrillaPlataformas({
       {servicios.map((s) => {
         const ocupacion = s.conteo.perfiles ? s.conteo.ocupados / s.conteo.perfiles : 0;
         return (
-          <li key={s.servicio.id}>
+          <li key={s.servicio.id} className="min-w-0">
             <Link
               href={`/admin/plataformas/${s.servicio.id}${vista ? `?vista=${vista}` : ''}`}
               aria-current={actual === s.servicio.id ? 'page' : undefined}
               className={clsx(
-                'flex items-center gap-3 rounded-2xl border bg-[rgb(10_14_32/0.55)] p-4 transition-colors hover:border-cian',
+                'flex min-w-0 items-center gap-3 rounded-2xl border bg-[rgb(10_14_32/0.55)] p-4 transition-colors hover:border-cian',
                 actual === s.servicio.id ? 'border-marca' : 'border-borde',
               )}
             >
               <Logo nombre={s.servicio.nombre} url={s.servicio.logoUrl} />
               <span className="grid min-w-0 flex-1 gap-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate font-semibold">{s.servicio.nombre}</span>
+                  <span className="truncate font-semibold" title={s.servicio.nombre}>
+                    {s.servicio.nombre}
+                  </span>
                   <span
                     className="rounded-full bg-hundida px-2 py-0.5 text-sm font-semibold tabular-nums"
                     title="Clientes"

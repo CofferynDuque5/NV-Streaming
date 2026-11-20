@@ -44,6 +44,7 @@ export interface IntentoPagoPublico {
   id: string;
   referencia: string;
   facturaId: string;
+  metodoCobroId: string;
   pasarela: Pasarela;
   moneda: Moneda;
   monto: Decimal;
@@ -69,6 +70,8 @@ export interface IntentoPagoPublico {
     nombre: string | null;
     declaradoEn: string | null;
     tieneComprobante: boolean;
+    /** Id. de transacción que escribió el cliente (o que se leyó de su captura). */
+    idTransaccion: string | null;
     instrucciones: string;
     qrId: string | null;
   };

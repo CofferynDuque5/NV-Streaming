@@ -370,7 +370,7 @@ function PagoDeFactura({
         <EstadoPagoInsignia estado={p.estado} />
         {enLinea ? (
           <Insignia tono="acento">
-            <Globe className="size-3" aria-hidden="true" /> Pago en línea
+            <Globe className="size-3" aria-hidden="true" /> Automático
           </Insignia>
         ) : (
           <Insignia>Manual</Insignia>
