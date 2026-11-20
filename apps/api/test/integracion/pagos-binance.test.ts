@@ -136,6 +136,33 @@ describe('Binance Pay confirmado por correo', () => {
     expect(r.cuerpo.estado).toBe('aprobado');
   });
 
+  it('un correo válido que antes se descartó (código anti-phishing) se rescata al leerlo otra vez', async () => {
+    const e = await escenario();
+    const correo = await correoBinance({ monto: '5', idMensaje: 'rescate@binance.com' });
+    buzon(correo);
+    await servicio().leer();
+    // Así quedó en producción antes de dejar de exigir el código.
+    await ctx.prisma.correoBinance.updateMany({
+      data: {
+        estado: 'descartado',
+        motivo: 'No trae tu código anti-phishing.',
+        remitente: null,
+        monto: null,
+      },
+    });
+    buzon(correo);
+    expect(await servicio().leer()).toBe(1);
+    const fila = await ctx.prisma.correoBinance.findFirstOrThrow();
+    expect(fila).toMatchObject({ estado: 'libre', motivo: null, remitente: 'Katy-2207' });
+    await e.cliente.post(`/mi/pagos-en-linea/${e.intento.id}/binance`, {
+      usuario: 'Katy-2207',
+      monto: '5.00',
+    });
+    const r = await e.cliente.get(`/mi/pagos-en-linea/${e.intento.id}`);
+    expect(r.cuerpo.estado).toBe('aprobado');
+    expect(await ctx.prisma.correoBinance.count()).toBe(1);
+  });
+
   it('juegos (y lo que no se entrega solo) queda en revisión aunque el pago llegue bien', async () => {
     const e = await escenario('juegos');
     await e.cliente.post(`/mi/pagos-en-linea/${e.intento.id}/binance`, {

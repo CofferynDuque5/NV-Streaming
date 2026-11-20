@@ -279,6 +279,15 @@ export class CorreosBinanceService implements OnModuleInit {
           skipDuplicates: true,
         });
         if (rev.valido && creado.count === 1) validos += 1;
+        if (rev.valido && creado.count === 0) {
+          // Ya se había leído y descartado (p. ej. por el código anti-phishing que ya no se
+          // exige): si ahora es válido y sigue sin usar, se rescata. Nunca toca uno usado.
+          const rescatado = await this.prisma.correoBinance.updateMany({
+            where: { huella: rev.huella, estado: 'descartado', intentoId: null },
+            data: { ...datos, motivo: null },
+          });
+          validos += rescatado.count;
+        }
         const uid = BigInt(m.uid);
         if (ultimo === null || uid > ultimo) ultimo = uid;
       }
