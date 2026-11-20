@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import type {
+  CambiarPlataformaLoteEntrada,
+  CambioPlataformaLote,
   ClienteGestor,
   ClienteSueltoGestor,
   CuadreGestor,
@@ -118,6 +120,21 @@ interface Plan {
    * clave del miembro) que hoy no los tienen: se completan, sin tocar lo que ya hay.
    */
   miembros: { perfilId: string; usuario: string | null; clave: string | null }[];
+  /**
+   * Cupos ya importados que quedaron con otro cliente (el importador viejo unía por el
+   * número del revendedor): pasan al cliente que tienen en el Gestor, sin borrar nada.
+   */
+  separar: { suscripcionId: string; deClienteId: string; cliente: ClienteGestor }[];
+  /**
+   * Cuentas ya importadas que en el panel se borraron con todos sus cupos libres: se
+   * reactivan y cada cupo vuelve a quedar como en el Gestor (titular, miembros y
+   * clientes). La suscripción que ese cupo ya tenía se reutiliza: no se duplica.
+   */
+  rellenar: {
+    cuentaId: string;
+    gestor: CuentaGestor;
+    cupos: { perfilId: string; perfil: PerfilGestor; reusar: string | null }[];
+  }[];
 }
 
 /**
@@ -201,16 +218,29 @@ export class ImportarGestorService {
       );
     }
 
-    const miembros = await this.miembrosPorRecuperar(
+    const rellenar = await this.cuentasPorRellenar(
       db,
       e.cuentas.filter((c) => importadas.has(c.origenId)),
     );
+    const enRelleno = new Set(rellenar.map((r) => r.gestor.origenId));
+    const yaImportadasVivas = e.cuentas.filter(
+      (c) => importadas.has(c.origenId) && !enRelleno.has(c.origenId),
+    );
+    if (rellenar.length) {
+      const cupos = rellenar.reduce((n, r) => n + r.cupos.length, 0);
+      avisos.push(
+        `${rellenar.length} ${rellenar.length === 1 ? 'cuenta borrada vacía en el panel vuelve' : 'cuentas borradas vacías en el panel vuelven'} a quedar como en el Gestor: ${cupos} ${cupos === 1 ? 'cupo' : 'cupos'} con su titular, miembros y clientes. Las suscripciones que ya tenían se reutilizan, sin duplicar.`,
+      );
+    }
+    const miembros = await this.miembrosPorRecuperar(db, yaImportadasVivas);
     if (miembros.length) {
       avisos.push(
         `${miembros.length} ${miembros.length === 1 ? 'cupo ya importado recupera' : 'cupos ya importados recuperan'} el correo y la clave del miembro unido al plan (no se cambia nada más).`,
       );
     }
 
+    const porSeparar = await this.cuposPorSeparar(db, yaImportadasVivas);
+    const deRelleno = rellenar.flatMap((r) => r.cupos.filter((x) => x.perfil.cliente));
     const perfiles = nuevas.flatMap((c) => c.perfiles);
     const conCliente = perfiles.filter((p) => p.cliente);
     const vistosSuelto = new Set<string>();
@@ -230,7 +260,14 @@ export class ImportarGestorService {
       ).map((r) => r.origenId),
     );
     const sueltos = todosSueltos.filter((x) => !sueltosYa.has(x.origenId));
-    const claves = [...new Set([...conCliente.map(claveCliente), ...sueltos.map(claveDe)])];
+    const claves = [
+      ...new Set([
+        ...conCliente.map(claveCliente),
+        ...sueltos.map(claveDe),
+        ...porSeparar.map((x) => claveDe(x.cliente)),
+        ...deRelleno.map((x) => claveCliente(x.perfil)),
+      ]),
+    ];
     const contactos = [...new Set(claves.map(contactoDeClave).filter((k) => k !== null))];
     const existentes = new Map<string, string>();
     for (const r of await db.registroGestor.findMany({
@@ -313,8 +350,21 @@ export class ImportarGestorService {
         }
       }
     }
+    // Solo los que de verdad pasan a otro cliente (con un correo, el correo es la persona).
+    const separar = porSeparar.filter((x) => existentes.get(claveDe(x.cliente)) !== x.deClienteId);
+    if (separar.length) {
+      avisos.push(
+        `${separar.length} ${separar.length === 1 ? 'cupo ya importado quedó' : 'cupos ya importados quedaron'} con otro cliente: ${separar.length === 1 ? 'pasa' : 'pasan'} al cliente que ${separar.length === 1 ? 'tiene' : 'tienen'} en el Gestor (nombre y responsable). No se borra nada.`,
+      );
+    }
+
     const porCrear = new Map<string, ClienteGestor>();
-    for (const c of [...conCliente.map((p) => p.cliente!), ...sueltos]) {
+    for (const c of [
+      ...conCliente.map((p) => p.cliente!),
+      ...sueltos,
+      ...separar.map((x) => x.cliente),
+      ...deRelleno.map((x) => x.perfil.cliente!),
+    ]) {
       const k = claveDe(c);
       if (!existentes.has(k) && !porCrear.has(k)) porCrear.set(k, c);
     }
@@ -343,18 +393,23 @@ export class ImportarGestorService {
       porCrear,
       sueltos,
       miembros,
+      separar,
+      rellenar,
       cuadre: {
         cuentas: {
           enArchivo: e.cuentas.length,
           nuevas: nuevas.length,
           yaEstaban: guardadas.size,
-          yaImportadas: importadas.size,
+          yaImportadas: importadas.size - rellenar.length,
+          rellenadas: rellenar.length,
         },
         perfiles: {
+          cuposRellenados: rellenar.reduce((n, r) => n + r.cupos.length, 0),
           nuevos: perfiles.length,
           libres: perfiles.length - conCliente.length,
           asignados: conCliente.length,
           miembrosRecuperados: miembros.length,
+          clientesCorregidos: separar.length,
         },
         clientes: {
           nuevos: porCrear.size,
@@ -406,6 +461,123 @@ export class ImportarGestorService {
           ? p.claveMiembro
           : null;
       if (usuario || clave) salida.push({ perfilId: g.id, usuario, clave });
+    }
+    return salida;
+  }
+
+  /**
+   * Cuentas ya importadas que en el panel quedaron borradas (retirada) con todos sus
+   * cupos libres: se vacían para volver a importarlas. Cada cupo del Gestor se ubica
+   * por el registro de la importación (o por su número) y, si el cupo tenía cliente,
+   * se reutiliza su suscripción mientras no esté puesta en otro cupo.
+   */
+  private async cuentasPorRellenar(
+    db: Tx | PrismaClient,
+    cuentas: CuentaGestor[],
+  ): Promise<Plan['rellenar']> {
+    const candidatas = cuentas.filter((c) => !c.papelera);
+    if (!candidatas.length) return [];
+    const regCuenta = await db.registroGestor.findMany({
+      where: {
+        tipo: 'cuenta',
+        entidad: 'cuenta_servicio',
+        origenId: { in: candidatas.map((c) => c.origenId) },
+      },
+      select: { origenId: true, entidadId: true },
+    });
+    const cuentaDe = new Map(regCuenta.map((r) => [r.origenId, r.entidadId]));
+    const guardadas = new Map(
+      (
+        await db.cuentaServicio.findMany({
+          where: { id: { in: [...cuentaDe.values()] }, estado: 'retirada' },
+          select: {
+            id: true,
+            perfiles: { select: { id: true, numero: true, estado: true, suscripcionId: true } },
+          },
+        })
+      ).map((c) => [c.id, c]),
+    );
+    const vacias = candidatas.filter((c) => {
+      const g = guardadas.get(cuentaDe.get(c.origenId) ?? '');
+      return g && g.perfiles.every((p) => !p.suscripcionId && p.estado !== 'asignado');
+    });
+    if (!vacias.length) return [];
+    const origenesPerfil = vacias.flatMap((c) => c.perfiles.map((p) => p.origenId));
+    const regPerfil = await db.registroGestor.findMany({
+      where: {
+        tipo: 'perfil',
+        entidad: { in: ['perfil_cuenta', 'suscripcion'] },
+        origenId: { in: origenesPerfil },
+      },
+      select: { origenId: true, entidad: true, entidadId: true },
+    });
+    const perfilDe = new Map(
+      regPerfil.filter((r) => r.entidad === 'perfil_cuenta').map((r) => [r.origenId, r.entidadId]),
+    );
+    const suscripcionDe = new Map(
+      regPerfil.filter((r) => r.entidad === 'suscripcion').map((r) => [r.origenId, r.entidadId]),
+    );
+    // Una suscripción que ya está en otro cupo (se reasignó) no se toca.
+    const ocupadas = new Set(
+      (
+        await db.perfilCuenta.findMany({
+          where: { suscripcionId: { in: [...suscripcionDe.values()] } },
+          select: { suscripcionId: true },
+        })
+      ).map((p) => p.suscripcionId!),
+    );
+    const salida: Plan['rellenar'] = [];
+    for (const c of vacias) {
+      const g = guardadas.get(cuentaDe.get(c.origenId)!)!;
+      const propios = new Set(g.perfiles.map((p) => p.id));
+      const porNumero = new Map(g.perfiles.map((p) => [p.numero, p.id]));
+      const usados = new Set<string>();
+      const cupos: Plan['rellenar'][number]['cupos'] = [];
+      for (const p of c.perfiles) {
+        const registrado = perfilDe.get(p.origenId);
+        const perfilId =
+          registrado && propios.has(registrado) ? registrado : porNumero.get(p.numero);
+        if (!perfilId || usados.has(perfilId)) continue;
+        const previa = p.cliente ? suscripcionDe.get(p.origenId) : undefined;
+        // Su suscripción está en otro cupo: este queda libre, como en el panel.
+        if (previa && ocupadas.has(previa)) continue;
+        usados.add(perfilId);
+        cupos.push({ perfilId, perfil: p, reusar: previa ?? null });
+      }
+      salida.push({ cuentaId: g.id, gestor: c, cupos });
+    }
+    return salida;
+  }
+
+  /**
+   * Cupos ya importados cuyo cliente en el panel no tiene el nombre que tiene en el
+   * Gestor (el importador viejo los unía por el número del revendedor).
+   */
+  private async cuposPorSeparar(
+    db: Tx | PrismaClient,
+    cuentas: CuentaGestor[],
+  ): Promise<Plan['separar']> {
+    const conCliente = new Map(
+      cuentas
+        .flatMap((c) => c.perfiles)
+        .filter((p) => p.cliente)
+        .map((p) => [p.origenId, p.cliente!] as const),
+    );
+    if (!conCliente.size) return [];
+    const registros = await db.registroGestor.findMany({
+      where: { tipo: 'perfil', entidad: 'suscripcion', origenId: { in: [...conCliente.keys()] } },
+      select: { origenId: true, entidadId: true },
+    });
+    const origenDe = new Map(registros.map((r) => [r.entidadId, r.origenId]));
+    const suscripciones = await db.suscripcion.findMany({
+      where: { id: { in: [...origenDe.keys()] } },
+      select: { id: true, clienteId: true, cliente: { select: { nombre: true } } },
+    });
+    const salida: Plan['separar'] = [];
+    for (const s of suscripciones) {
+      const c = conCliente.get(origenDe.get(s.id)!)!;
+      if (mismoNombre(nombreComparable(s.cliente.nombre), nombreComparable(c.nombre))) continue;
+      salida.push({ suscripcionId: s.id, deClienteId: s.clienteId, cliente: c });
     }
     return salida;
   }
@@ -483,7 +655,12 @@ export class ImportarGestorService {
         const plan = await this.planear(tx, e);
         const actor = auth.usuario.id;
         await this.recuperarMiembros(tx, plan.miembros, actor, e.plataforma.nombre, cliente);
-        if (!plan.nuevas.length && !plan.sueltos.length) {
+        if (
+          !plan.nuevas.length &&
+          !plan.sueltos.length &&
+          !plan.separar.length &&
+          !plan.rellenar.length
+        ) {
           if (plan.miembros.length) return { loteId: null, cuadre: plan.cuadre };
           throw new ErrorApp(
             409,
@@ -623,6 +800,138 @@ export class ImportarGestorService {
             registrar('perfil', p.origenId, 'perfil_cuenta', pid);
           }
         }
+        // Cupos que quedaron con otro cliente: pasan (con sus facturas) al del Gestor.
+        let corregidos = 0;
+        for (const x of plan.separar) {
+          const destino = clienteDe.get(claveDe(x.cliente));
+          if (!destino || destino === x.deClienteId) continue;
+          await tx.suscripcion.update({
+            where: { id: x.suscripcionId },
+            data: { clienteId: destino },
+          });
+          await tx.factura.updateMany({
+            where: { suscripcionId: x.suscripcionId, clienteId: x.deClienteId },
+            data: { clienteId: destino },
+          });
+          corregidos += 1;
+        }
+        // Cuentas borradas vacías: vuelven a quedar como en el Gestor.
+        let cuposRellenados = 0;
+        for (const r of plan.rellenar) {
+          await tx.cuentaServicio.update({
+            where: { id: r.cuentaId },
+            data: {
+              estado: r.gestor.caida ? 'caida' : 'activa',
+              servicioId: e.servicioId,
+            },
+          });
+          for (const x of r.cupos) {
+            const p = x.perfil;
+            let suscripcionId: string | null = null;
+            if (p.cliente) {
+              const destino = clienteDe.get(claveCliente(p))!;
+              if (x.reusar) {
+                const previa = await tx.suscripcion.findUnique({
+                  where: { id: x.reusar },
+                  select: { id: true, clienteId: true },
+                });
+                if (previa) {
+                  suscripcionId = previa.id;
+                  await tx.suscripcion.update({
+                    where: { id: previa.id },
+                    data: { planId: e.planId, clienteId: destino },
+                  });
+                  if (previa.clienteId !== destino) {
+                    await tx.factura.updateMany({
+                      where: { suscripcionId: previa.id, clienteId: previa.clienteId },
+                      data: { clienteId: destino },
+                    });
+                  }
+                }
+              }
+              if (!suscripcionId) {
+                suscripcionId = randomUUID();
+                const vence = p.cliente.venceEn;
+                await tx.suscripcion.create({
+                  data: {
+                    id: suscripcionId,
+                    clienteId: destino,
+                    planId: e.planId,
+                    estado: !vence || vence >= hoy ? 'activa' : 'vencida',
+                    moneda: e.moneda,
+                    venceEn: vence ? new Date(`${vence}T23:59:59Z`) : null,
+                    creadoPorId: actor,
+                  },
+                });
+                if (!x.reusar) registrar('perfil', p.origenId, 'suscripcion', suscripcionId);
+              }
+            }
+            const actual = await tx.perfilCuenta.findUnique({
+              where: { id: x.perfilId },
+              select: { usuarioMiembroCifrado: true, claveMiembroCifrada: true, pinCifrado: true },
+            });
+            // Solo se llena lo vacío: un dato guardado en el panel no se reemplaza.
+            await tx.perfilCuenta.update({
+              where: { id: x.perfilId },
+              data: {
+                nombre: p.nombre,
+                estado: suscripcionId ? 'asignado' : 'libre',
+                suscripcionId,
+                asignadoEn: suscripcionId ? new Date() : null,
+                ...(!actual?.pinCifrado && p.pin
+                  ? { pinCifrado: this.cifrador.cifrar(p.pin, contextoPin(x.perfilId)) }
+                  : {}),
+                ...(!actual?.usuarioMiembroCifrado && p.usuarioMiembro && p.numero !== 1
+                  ? {
+                      usuarioMiembroCifrado: this.cifrador.cifrar(
+                        p.usuarioMiembro.trim(),
+                        contextoMiembro(x.perfilId),
+                      ),
+                    }
+                  : {}),
+                ...(!actual?.claveMiembroCifrada && p.claveMiembro && p.numero !== 1
+                  ? {
+                      claveMiembroCifrada: this.cifrador.cifrar(
+                        p.claveMiembro,
+                        contextoClaveMiembro(x.perfilId),
+                      ),
+                    }
+                  : {}),
+              },
+            });
+            cuposRellenados += 1;
+          }
+        }
+        if (plan.rellenar.length) {
+          await this.auditoria.registrar(
+            {
+              actorId: actor,
+              accion: 'gestor.cuentas_rellenadas',
+              entidad: 'lote_gestor',
+              entidadId: lote.id,
+              despues: {
+                plataforma: e.plataforma.nombre,
+                cuentas: plan.rellenar.length,
+                cupos: cuposRellenados,
+              },
+              cliente,
+            },
+            tx,
+          );
+        }
+        if (corregidos) {
+          await this.auditoria.registrar(
+            {
+              actorId: actor,
+              accion: 'gestor.clientes_corregidos',
+              entidad: 'lote_gestor',
+              entidadId: lote.id,
+              despues: { plataforma: e.plataforma.nombre, cupos: corregidos },
+              cliente,
+            },
+            tx,
+          );
+        }
         await tx.suscripcion.createMany({ data: suscripciones });
         await tx.perfilCuenta.createMany({ data: perfiles });
         await tx.registroGestor.createMany({ data: registros });
@@ -670,6 +979,101 @@ export class ImportarGestorService {
       creadoPor: l.creadoPorId ? (usuario.get(l.creadoPorId) ?? null) : null,
       revertidoEn: l.revertidoEn?.toISOString() ?? null,
     }));
+  }
+
+  /**
+   * Pasa un lote a otro servicio (p. ej. «Gemini Plus» que entró en «Google One»):
+   * sus cuentas cambian de servicio y sus suscripciones de plan. No borra nada; las
+   * facturas y fechas quedan igual. Con confirmar=false solo cuenta lo que cambiaría.
+   */
+  async cambiarPlataforma(
+    auth: ContextoAuth,
+    id: string,
+    e: CambiarPlataformaLoteEntrada,
+    cliente: InfoCliente,
+  ): Promise<CambioPlataformaLote> {
+    if (auth.usuario.rol !== 'admin') {
+      throw new ErrorApp(403, 'SOLO_ADMINISTRACION', 'Solo la administración corrige lotes.');
+    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        const lote = await tx.loteGestor.findUnique({
+          where: { id },
+          select: { id: true, revertidoEn: true, servicioId: true, plataformaNombre: true },
+        });
+        if (!lote) throw Errores.noEncontrado('El lote');
+        if (lote.revertidoEn) throw new ErrorApp(409, 'LOTE_REVERTIDO', 'Este lote ya se deshizo.');
+        const plan = await tx.plan.findUnique({
+          where: { id: e.planId },
+          select: { servicioId: true },
+        });
+        if (!plan) throw Errores.noEncontrado('El plan');
+        if (plan.servicioId !== e.servicioId) {
+          throw new ErrorApp(400, 'PLAN_DE_OTRO_SERVICIO', 'El plan no es del servicio elegido.', {
+            planId: ['Elige un plan del servicio.'],
+          });
+        }
+        if (e.servicioId === lote.servicioId) {
+          throw new ErrorApp(400, 'MISMO_SERVICIO', 'El lote ya está en ese servicio.', {
+            servicioId: ['Elige otro servicio.'],
+          });
+        }
+        const regs = await tx.registroGestor.findMany({
+          where: { loteId: id, entidad: { in: ['cuenta_servicio', 'suscripcion'] } },
+          select: { entidad: true, entidadId: true },
+        });
+        const cuentas = regs.filter((r) => r.entidad === 'cuenta_servicio').map((r) => r.entidadId);
+        const delLote = regs.filter((r) => r.entidad === 'suscripcion').map((r) => r.entidadId);
+        // Las del lote y las que hoy ocupan cupos de sus cuentas, si siguen en el servicio viejo.
+        const suscripciones = (
+          await tx.suscripcion.findMany({
+            where: {
+              OR: [{ id: { in: delLote } }, { perfilCuenta: { cuentaId: { in: cuentas } } }],
+              plan: { servicioId: lote.servicioId },
+            },
+            select: { id: true },
+          })
+        ).map((x) => x.id);
+        const cuentasViejas = await tx.cuentaServicio.count({
+          where: { id: { in: cuentas }, servicioId: lote.servicioId },
+        });
+        if (!e.confirmar) {
+          return { cuentas: cuentasViejas, suscripciones: suscripciones.length, hecho: false };
+        }
+        await tx.cuentaServicio.updateMany({
+          where: { id: { in: cuentas }, servicioId: lote.servicioId },
+          data: { servicioId: e.servicioId },
+        });
+        await tx.suscripcion.updateMany({
+          where: { id: { in: suscripciones } },
+          data: { planId: e.planId },
+        });
+        await tx.loteGestor.update({
+          where: { id },
+          data: { servicioId: e.servicioId, planId: e.planId },
+        });
+        await this.auditoria.registrar(
+          {
+            actorId: auth.usuario.id,
+            accion: 'gestor.lote_cambio_plataforma',
+            entidad: 'lote_gestor',
+            entidadId: id,
+            antes: { servicioId: lote.servicioId },
+            despues: {
+              plataforma: lote.plataformaNombre,
+              servicioId: e.servicioId,
+              planId: e.planId,
+              cuentas: cuentasViejas,
+              suscripciones: suscripciones.length,
+            },
+            cliente,
+          },
+          tx,
+        );
+        return { cuentas: cuentasViejas, suscripciones: suscripciones.length, hecho: true };
+      },
+      { timeout: 60_000 },
+    );
   }
 
   /**

@@ -843,13 +843,24 @@ export type ImportarGestorEntrada = z.infer<typeof importarGestorSchema>;
 
 /** Cuadre de una simulación o de una importación hecha. */
 export interface CuadreGestor {
-  cuentas: { enArchivo: number; nuevas: number; yaEstaban: number; yaImportadas: number };
+  cuentas: {
+    enArchivo: number;
+    nuevas: number;
+    yaEstaban: number;
+    yaImportadas: number;
+    /** Cuentas ya importadas que se borraron vacías en el panel y se vuelven a llenar. */
+    rellenadas?: number;
+  };
   perfiles: {
+    /** Cupos de esas cuentas que vuelven a quedar como en el Gestor. */
+    cuposRellenados?: number;
     nuevos: number;
     libres: number;
     asignados: number;
     /** Cupos ya importados que recuperan el correo o la clave del miembro. */
     miembrosRecuperados?: number;
+    /** Cupos ya importados que pasan al cliente que tienen en el Gestor. */
+    clientesCorregidos?: number;
   };
   clientes: { nuevos: number; existentes: number; sinContacto: number; sinPerfil?: number };
   suscripciones: { activas: number; vencidas: number };
@@ -858,6 +869,21 @@ export interface CuadreGestor {
   /** Suma de lo que pagan los clientes de los perfiles nuevos (USD). */
   ventaUsd: string;
   avisos: string[];
+}
+
+/** Pasa un lote (sus cuentas y suscripciones) a otro servicio y plan del catálogo. */
+export const cambiarPlataformaLoteSchema = z.object({
+  servicioId: uuidSchema,
+  planId: uuidSchema,
+  /** false: solo cuenta lo que cambiaría, sin escribir nada. */
+  confirmar: z.boolean().default(false),
+});
+export type CambiarPlataformaLoteEntrada = z.infer<typeof cambiarPlataformaLoteSchema>;
+
+export interface CambioPlataformaLote {
+  cuentas: number;
+  suscripciones: number;
+  hecho: boolean;
 }
 
 export interface LoteGestorPublico {

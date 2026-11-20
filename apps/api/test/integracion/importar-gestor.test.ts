@@ -661,6 +661,194 @@ describe('importar el Gestor viejo', () => {
     expect(marias.map((c) => c.responsable)).toEqual(['Felix Str.', 'Kenia Str.']);
   });
 
+  it('cupos que el importador viejo unió a otro cliente: volver a importar los pasa a su cliente', async () => {
+    const { admin, catalogo } = await escenario();
+    const copia = {
+      db: {
+        platforms: [{ id: 'plat_s', name: 'Cine separar' }],
+        accounts: {
+          plat_s: [{ id: 's_1', email: 'sep1@example.com', password: 'Clave-S', numProfiles: 4 }],
+        },
+        clients: {
+          plat_s: ['Eliadys', 'Desiree', 'Luisa'].map((nombre, i) => ({
+            id: `sc_${i}`,
+            accountId: 's_1',
+            slotIndex: i,
+            email: `Perfil ${i + 1}`,
+            nombre,
+            responsable: 'Felix Str.',
+            contacto: '+58 412 192 7362',
+            vencimientoCliente: '2099-02-01',
+            precioVenta: 3,
+          })),
+        },
+      },
+    };
+    const [plat] = leerRespaldoGestor(copia).plataformas;
+    const cuerpo = {
+      plataforma: { origenId: plat!.origenId, nombre: plat!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: plat!.cuentas,
+    };
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
+    // Así quedó con el importador viejo: los tres cupos con «Eliadys».
+    const eliadys = await ctx.prisma.cliente.findFirstOrThrow({ where: { nombre: 'Eliadys' } });
+    const otros = await ctx.prisma.cliente.findMany({
+      where: { nombre: { in: ['Desiree', 'Luisa'] } },
+    });
+    const susDeOtros = await ctx.prisma.suscripcion.findMany({
+      where: { clienteId: { in: otros.map((c) => c.id) } },
+    });
+    await ctx.prisma.suscripcion.updateMany({
+      where: { id: { in: susDeOtros.map((x) => x.id) } },
+      data: { clienteId: eliadys.id },
+    });
+    await ctx.prisma.registroGestor.deleteMany({
+      where: { entidad: { in: ['cliente', 'contacto_cliente'] }, entidadId: { not: eliadys.id } },
+    });
+    await ctx.prisma.contactoCliente.deleteMany({
+      where: { clienteId: { in: otros.map((c) => c.id) } },
+    });
+    await ctx.prisma.cliente.deleteMany({ where: { id: { in: otros.map((c) => c.id) } } });
+    const factura = await ctx.prisma.factura.create({
+      data: {
+        clienteId: eliadys.id,
+        suscripcionId: susDeOtros[0]!.id,
+        concepto: 'renovacion',
+        moneda: 'USD',
+        subtotal: '3.00',
+        total: '3.00',
+        tasa: '1',
+        totalUsd: '3.00',
+        venceEn: new Date('2099-01-01'),
+      },
+    });
+    expect(await ctx.prisma.suscripcion.count({ where: { clienteId: eliadys.id } })).toBe(3);
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.estado).toBe(200);
+    expect(sim.cuerpo.perfiles.clientesCorregidos).toBe(2);
+    expect(sim.cuerpo.cuentas.nuevas).toBe(0);
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    const ahora = await ctx.prisma.cliente.findMany({
+      include: { _count: { select: { suscripciones: true } } },
+      orderBy: { nombre: 'asc' },
+    });
+    expect(ahora.map((c) => [c.nombre, c.responsable, c._count.suscripciones])).toEqual([
+      ['Desiree', 'Felix Str.', 1],
+      ['Eliadys', 'Felix Str.', 1],
+      ['Luisa', 'Felix Str.', 1],
+    ]);
+    // La factura sigue a su cupo.
+    const f = await ctx.prisma.factura.findUniqueOrThrow({ where: { id: factura.id } });
+    const sus = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: f.suscripcionId! } });
+    expect(f.clienteId).toBe(sus.clienteId);
+    expect(f.clienteId).not.toBe(eliadys.id);
+    // Una tercera vez no hay nada que corregir.
+    const otra = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(otra.cuerpo.perfiles.clientesCorregidos).toBe(0);
+  });
+
+  it('un lote que entró en otra plataforma se pasa a la correcta sin borrar nada', async () => {
+    const { admin, operador, catalogo, cuerpo } = await escenario();
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    const loteId = imp.cuerpo.loteId as string;
+    const antes = await conteos();
+    const gemini = await admin.n.post('/catalogo/servicios', {
+      proveedorId: (await ctx.prisma.servicio.findFirstOrThrow()).proveedorId,
+      nombre: 'Gemini Plus',
+      slug: 'gemini-plus',
+    });
+    const planGemini = await admin.n.post('/catalogo/planes', {
+      servicioId: gemini.cuerpo.id,
+      nombre: 'Mensual',
+      precioUsd: '4.00',
+      duracionCantidad: 1,
+      duracionUnidad: 'mes',
+      beneficios: ['IA'],
+    });
+    const ruta = `/cuentas/gestor/lotes/${loteId}/plataforma`;
+    const malo = await admin.n.post(ruta, {
+      servicioId: gemini.cuerpo.id,
+      planId: catalogo.planId,
+    });
+    expect(malo.cuerpo.error.codigo).toBe('PLAN_DE_OTRO_SERVICIO');
+    const vista = await admin.n.post(ruta, {
+      servicioId: gemini.cuerpo.id,
+      planId: planGemini.cuerpo.id,
+    });
+    expect(vista.estado).toBe(200);
+    expect(vista.cuerpo.hecho).toBe(false);
+    expect(vista.cuerpo.cuentas).toBeGreaterThan(0);
+    expect(await ctx.prisma.cuentaServicio.count({ where: { servicioId: gemini.cuerpo.id } })).toBe(
+      0,
+    );
+    const hecho = await admin.n.post(ruta, {
+      servicioId: gemini.cuerpo.id,
+      planId: planGemini.cuerpo.id,
+      confirmar: true,
+    });
+    expect(hecho.cuerpo).toMatchObject({ ...vista.cuerpo, hecho: true });
+    expect(
+      await ctx.prisma.cuentaServicio.count({ where: { servicioId: catalogo.servicioId } }),
+    ).toBe(0);
+    expect(
+      await ctx.prisma.suscripcion.count({ where: { planId: { not: planGemini.cuerpo.id } } }),
+    ).toBe(0);
+    expect(await conteos()).toEqual(antes);
+    const lotes = await admin.n.get('/cuentas/gestor/lotes');
+    expect(lotes.cuerpo[0].servicio.nombre).toBe('Gemini Plus');
+    // El operador no puede.
+    const prohibido = await operador.n.post(ruta, {
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      confirmar: true,
+    });
+    expect(prohibido.estado).toBe(403);
+  });
+
+  it('cuentas vaciadas y borradas en el panel: volver a importar las deja como en el Gestor', async () => {
+    const { admin, cuerpo } = await escenario();
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
+    const asignados = await ctx.prisma.perfilCuenta.findMany({
+      where: { estado: 'asignado' },
+      select: { id: true, suscripcionId: true },
+    });
+    expect(asignados.length).toBeGreaterThan(0);
+    const suscripciones = await ctx.prisma.suscripcion.count();
+    // Como en el panel: se liberan todos los cupos y se borran las cuentas.
+    await ctx.prisma.perfilCuenta.updateMany({
+      data: { estado: 'libre', suscripcionId: null, asignadoEn: null },
+    });
+    await ctx.prisma.cuentaServicio.updateMany({ data: { estado: 'retirada' } });
+    const cuentas = await ctx.prisma.cuentaServicio.count();
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo.cuentas.nuevas).toBe(0);
+    expect(sim.cuerpo.cuentas.rellenadas).toBe(cuentas);
+    expect(await ctx.prisma.perfilCuenta.count({ where: { estado: 'asignado' } })).toBe(0);
+
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(cuentas);
+    expect(await ctx.prisma.cuentaServicio.count({ where: { estado: 'retirada' } })).toBe(0);
+    // Cada cupo vuelve con la misma suscripción: no se duplica nada.
+    const ahora = await ctx.prisma.perfilCuenta.findMany({
+      where: { estado: 'asignado' },
+      select: { id: true, suscripcionId: true },
+    });
+    expect(new Map(ahora.map((x) => [x.id, x.suscripcionId]))).toEqual(
+      new Map(asignados.map((x) => [x.id, x.suscripcionId])),
+    );
+    expect(await ctx.prisma.suscripcion.count()).toBe(suscripciones);
+    // Una vez llenas, repetir no hace nada.
+    const otra = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(otra.cuerpo.error.codigo).toBe('NADA_QUE_IMPORTAR');
+  });
+
   it('rechaza un plan de otro servicio', async () => {
     const { admin, cuerpo } = await escenario();
     const otro = await admin.n.post('/catalogo/servicios', {

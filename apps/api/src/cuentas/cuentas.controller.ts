@@ -26,6 +26,7 @@ import {
   editarCuentaSchema,
   editarPerfilSchema,
   importarCuentasSchema,
+  cambiarPlataformaLoteSchema,
   importarGestorSchema,
   listarCuentasSchema,
   revisarImportacionSchema,
@@ -417,6 +418,22 @@ export class ImportarGestorController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.gestor.importar(auth, cuerpo, cliente);
+  }
+
+  /** Pasa el lote a otro servicio; con confirmar=false solo cuenta lo que cambiaría. */
+  @Post('lotes/:id/plataforma')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('cuentas.gestionar')
+  @DocCuerpo(cambiarPlataformaLoteSchema)
+  cambiarPlataforma(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(cambiarPlataformaLoteSchema))
+    cuerpo: z.output<typeof cambiarPlataformaLoteSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.gestor.cambiarPlataforma(auth, id, cuerpo, cliente);
   }
 
   @Post('lotes/:id/deshacer')
