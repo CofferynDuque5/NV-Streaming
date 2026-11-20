@@ -115,7 +115,7 @@ async function Pasarelas() {
     <>
       <Alerta tono="info" titulo="Las credenciales nunca se escriben en el panel">
         Cada pasarela se conecta con variables de entorno del servidor de la API; al reiniciarla,
-        aparece aquí como configurada. Después crea un método de cobro de tipo «Pago en línea» en{' '}
+        aparece aquí como configurada. Después crea un método de cobro de tipo «Automático» en{' '}
         <Link href="/admin/finanzas" className="font-medium text-marca hover:underline">
           Monedas y cobro
         </Link>{' '}

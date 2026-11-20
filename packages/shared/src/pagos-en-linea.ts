@@ -17,8 +17,20 @@ export interface InfoPasarela {
   admiteCobroRecurrente: boolean;
 }
 
+/**
+ * Pasarelas que se ofrecen al crear un método «Automático», en este orden. PayPal Business
+ * (con API) queda fuera: se mantiene solo para los métodos que ya la usan.
+ */
+export const PASARELAS_OFRECIDAS: readonly Pasarela[] = [
+  'binance',
+  'paypal_correo',
+  'mercadopago',
+  'sandbox',
+];
+
 export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
-  paypal: { nombre: 'PayPal', monedas: ['USD', 'EUR'], admiteCobroRecurrente: true },
+  /** PayPal Business con API (credenciales en el entorno). Ya no se ofrece para métodos nuevos. */
+  paypal: { nombre: 'PayPal Business', monedas: ['USD', 'EUR'], admiteCobroRecurrente: true },
   /**
    * Checkout Pro (pago único). Sin cobros automáticos: Mercado Pago no permite que el
    * comercio cobre una tarjeta guardada sin que el cliente vuelva a poner el CVV en un
@@ -42,7 +54,7 @@ export const INFO_PASARELA: Record<Pasarela, InfoPasarela> = {
    * nombre del pagador y el monto exacto (ver CorreosPaypalService).
    */
   paypal_correo: {
-    nombre: 'PayPal (cuenta personal)',
+    nombre: 'PayPal',
     monedas: ['USD'],
     admiteCobroRecurrente: false,
   },

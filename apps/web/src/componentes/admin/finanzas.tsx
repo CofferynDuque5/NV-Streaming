@@ -8,7 +8,7 @@ import {
   MONEDAS,
   type MonedaConTasa,
   type Pasarela,
-  PASARELAS,
+  PASARELAS_OFRECIDAS,
   type TasaVigente,
   type TipoMetodoCobro,
 } from '@nv/shared';
@@ -191,7 +191,12 @@ function FormularioMetodo({
 }) {
   const { cargando, error, campos, ejecutar } = useAccion();
   const [tipo, setTipo] = useState<TipoMetodoCobro>(metodo?.tipo ?? 'manual');
-  const [pasarela, setPasarela] = useState<Pasarela>(metodo?.pasarela ?? 'paypal');
+  const [pasarela, setPasarela] = useState<Pasarela>(metodo?.pasarela ?? 'binance');
+  // PayPal Business (con API) ya no se ofrece para métodos nuevos; sigue si un método ya la usa.
+  const pasarelasElegibles: readonly Pasarela[] =
+    metodo?.pasarela && !PASARELAS_OFRECIDAS.includes(metodo.pasarela)
+      ? [...PASARELAS_OFRECIDAS, metodo.pasarela]
+      : PASARELAS_OFRECIDAS;
   const [moneda, setMoneda] = useState<Moneda>(metodo?.moneda ?? 'USD');
   const enLinea = tipo === 'pasarela';
   // Binance: el cliente paga desde su app, así que necesita los datos (Pay ID, usuario) y el QR.
@@ -249,8 +254,8 @@ function FormularioMetodo({
               ['manual', 'Manual', 'El cliente paga por su cuenta y envía el comprobante.'],
               [
                 'pasarela',
-                'Pago en línea',
-                'El cliente paga en la pasarela y la factura se confirma sola.',
+                'Automático',
+                'NV verifica el pago y libera el servicio solo.',
               ],
             ] as const
           ).map(([valor, texto, ayuda]) => (
@@ -299,7 +304,7 @@ function FormularioMetodo({
             onChange={(e) => setPasarela(e.target.value as Pasarela)}
             error={campos.pasarela}
           >
-            {PASARELAS.map((p) => (
+            {pasarelasElegibles.map((p) => (
               <option key={p} value={p}>
                 {INFO_PASARELA[p].nombre}
               </option>
@@ -566,7 +571,7 @@ export function ListaMetodos({ metodos }: { metodos: MetodoCobroPublico[] }) {
                           {m.tipo === 'pasarela' ? (
                             <Insignia tono="acento">
                               <Globe className="size-3" aria-hidden="true" />
-                              Pago en línea · {nombrePasarela(m.pasarela)}
+                              Automático · {nombrePasarela(m.pasarela)}
                             </Insignia>
                           ) : (
                             m.requiereReferencia && (

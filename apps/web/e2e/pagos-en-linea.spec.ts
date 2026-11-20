@@ -33,7 +33,7 @@ test('administración crea un método de pago en línea con la pasarela de prueb
   await entrarAdmin(page);
   await page.goto('/admin/finanzas');
   await page.getByRole('button', { name: 'Nuevo método' }).click();
-  await page.getByRole('radio', { name: /Pago en línea/ }).check();
+  await page.getByRole('radio', { name: /Automático/ }).check();
   await page.getByLabel('Pasarela', { exact: true }).selectOption('sandbox');
   // Las monedas se limitan a las de la pasarela: nunca bolívares.
   const moneda = page.getByLabel('Moneda', { exact: true });
@@ -42,7 +42,7 @@ test('administración crea un método de pago en línea con la pasarela de prueb
   await page.getByLabel('Nombre').fill(METODO);
   await page.getByRole('button', { name: 'Crear método' }).click();
   const fila = page.getByRole('listitem').filter({ hasText: METODO });
-  await expect(fila.getByText('Pago en línea · Pasarela de pruebas')).toBeVisible();
+  await expect(fila.getByText('Automático · Pasarela de pruebas')).toBeVisible();
 });
 
 test('el cliente paga en línea, guarda el método y autoriza el cobro automático', async ({
@@ -180,7 +180,7 @@ test('administración ve el pago en línea, devuelve una parte y revisa las pasa
   await expect(page.getByRole('heading', { name: new RegExp(facturaPagada) })).toBeVisible();
 
   const pago = page.getByRole('listitem').filter({ hasText: 'Id en la pasarela' }).first();
-  await expect(pago.getByText('Pago en línea', { exact: true })).toBeVisible();
+  await expect(pago.getByText('Automático', { exact: true })).toBeVisible();
   await expect(pago.getByText('Pasarela de pruebas')).toBeVisible();
   await expect(pago.getByText('Sin devoluciones.')).toBeVisible();
 
