@@ -3,6 +3,7 @@
 import {
   type DatoRequerido,
   datosDelPlan,
+  enlaceWhatsapp,
   esCompraUnica,
   etiquetaPlan,
   formatearMonto,
@@ -18,6 +19,7 @@ import {
   Check,
   CircleCheck,
   Lock,
+  MessageCircle,
   Share2,
   ShieldCheck,
   ShoppingCart,
@@ -260,7 +262,10 @@ export function DetalleServicio({
   pagos,
   comoSeActiva,
   preguntas,
+  whatsapp = null,
 }: {
+  /** Número del negocio: sin stock, el plan se pide por WhatsApp. */
+  whatsapp?: string | null;
   servicioId: string;
   nombre: string;
   planes: PlanPublico[];
@@ -401,7 +406,31 @@ export function DetalleServicio({
     </button>
   );
 
-  const botonPrincipal = esRevendedor ? (
+  // Sin perfiles ni cuentas libres y vigentes: no se compra, se pide por WhatsApp.
+  const agotado = Boolean(plan.agotado);
+  const botonPedir = (tamano: 'md' | 'lg', clase?: string) =>
+    whatsapp ? (
+      <a
+        href={enlaceWhatsapp(
+          whatsapp,
+          `Hola, quiero ${nombre} (${plan.nombre}). En la web aparece agotado, ¿me avisan cuando haya?`,
+        )}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={clasesBoton('primario', tamano, clase)}
+      >
+        <MessageCircle className="size-4" aria-hidden="true" />
+        Pedir por WhatsApp
+      </a>
+    ) : (
+      <span className={clasesBoton('secundario', tamano, clsx('pointer-events-none', clase))}>
+        Agotado por ahora
+      </span>
+    );
+
+  const botonPrincipal = agotado ? (
+    botonPedir('lg', 'flex-1')
+  ) : esRevendedor ? (
     precio.compraMayorista ? (
       <Link
         href={`/revendedor/catalogo?plan=${plan.id}`}
@@ -664,7 +693,7 @@ export function DetalleServicio({
             <div ref={acciones} className="grid gap-3">
               <div className="flex flex-wrap gap-2.5">
                 {botonPrincipal}
-                {!esRevendedor && precio.principal && (
+                {!esRevendedor && !agotado && precio.principal && (
                   <button
                     type="button"
                     onClick={comprarAhora}
@@ -674,7 +703,13 @@ export function DetalleServicio({
                   </button>
                 )}
               </div>
-              {hayPasoDatos && !datosListos && !mostrarErrores && (
+              {agotado && (
+                <p className="text-sm text-aviso" role="status">
+                  Agotado por ahora: no queda ningún perfil disponible. Escríbenos y te lo apartamos
+                  en cuanto haya.
+                </p>
+              )}
+              {hayPasoDatos && !agotado && !datosListos && !mostrarErrores && (
                 <p className="text-xs text-tinta-tenue">
                   Completa el paso 2 para agregarlo al carrito.
                 </p>
@@ -730,7 +765,9 @@ export function DetalleServicio({
             </span>
             <b className="font-titulo tabular-nums">{precio.principal}</b>
           </div>
-          {esRevendedor ? (
+          {agotado ? (
+            botonPedir('md')
+          ) : esRevendedor ? (
             <Link
               href={`/revendedor/catalogo?plan=${plan.id}`}
               className={clasesBoton('primario', 'md')}

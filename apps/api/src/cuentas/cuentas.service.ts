@@ -20,7 +20,7 @@ import type {
   ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
-import { tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
+import { MAX_PERFILES_CUENTA, tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
 import { fechaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
@@ -82,12 +82,31 @@ const INCLUIR_DETALLE = {
           estado: true,
           venceEn: true,
           cliente: { select: { id: true, nombre: true } },
-          plan: { select: { id: true, nombre: true } },
+          plan: {
+            select: {
+              id: true,
+              nombre: true,
+              precioUsd: true,
+              duracionCantidad: true,
+              duracionUnidad: true,
+            },
+          },
         },
       },
     },
   },
 } as const satisfies Prisma.CuentaServicioInclude;
+
+/** Precio del plan llevado a un mes (30 días si el plan va por días). */
+function precioMensual(p: {
+  precioUsd: Prisma.Decimal;
+  duracionCantidad: number;
+  duracionUnidad: 'dia' | 'mes';
+}): string {
+  const meses =
+    p.duracionUnidad === 'mes' ? p.duracionCantidad : Math.max(p.duracionCantidad, 1) / 30;
+  return (Number(p.precioUsd) / Math.max(meses, 1 / 30)).toFixed(2);
+}
 
 type FilaResumen = Prisma.CuentaServicioGetPayload<{ include: typeof INCLUIR_RESUMEN }>;
 type FilaDetalle = Prisma.CuentaServicioGetPayload<{ include: typeof INCLUIR_DETALLE }>;
@@ -138,8 +157,9 @@ function detalle(c: FilaDetalle): CuentaServicioDetalle {
             estado: p.suscripcion.estado,
             venceEn: iso(p.suscripcion.venceEn),
             cliente: p.suscripcion.cliente,
-            plan: p.suscripcion.plan,
+            plan: { id: p.suscripcion.plan.id, nombre: p.suscripcion.plan.nombre },
             terminada: TERMINADAS.includes(p.suscripcion.estado),
+            precioMensualUsd: precioMensual(p.suscripcion.plan),
           }
         : null,
     })),
@@ -566,6 +586,83 @@ export class CuentasService {
           entidad: 'perfil_cuenta',
           entidadId: p.id,
           despues: { cuentaId, numero: p.numero, cambios },
+          cliente,
+        },
+        tx,
+      );
+      return this.ver(cuentaId, tx);
+    });
+  }
+
+  /**
+   * Pone los perfiles en el orden dado (el primero queda como 1). Cada perfil
+   * se lleva su cliente, su PIN y su nota; «Perfil N» se renombra a su número.
+   */
+  async ordenarPerfiles(
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilIds: string[],
+    cliente: InfoCliente,
+  ): Promise<CuentaServicioDetalle> {
+    return this.prisma.$transaction(async (tx) => {
+      const actuales = await tx.perfilCuenta.findMany({
+        where: { cuentaId },
+        select: { id: true, numero: true, nombre: true },
+      });
+      if (!actuales.length) throw Errores.noEncontrado('La cuenta');
+      const ids = new Set(actuales.map((p) => p.id));
+      if (perfilIds.length !== actuales.length || perfilIds.some((id) => !ids.has(id))) {
+        throw new ErrorApp(
+          409,
+          'ORDEN_DESACTUALIZADO',
+          'Los perfiles cambiaron mientras ordenabas. Abre la cuenta otra vez.',
+        );
+      }
+      const porId = new Map(actuales.map((p) => [p.id, p]));
+      const antes = perfilIds.map((id) => porId.get(id)!.numero);
+      // El número es único por cuenta y va de 1 a MAX_PERFILES_CUENTA: se mueve cada perfil
+      // a su número cuando está libre y, para romper un ciclo, uno pasa antes a un número sin usar.
+      const numero = new Map(actuales.map((p) => [p.id, p.numero]));
+      const destino = new Map(perfilIds.map((id, i) => [id, i + 1]));
+      const ocupados = () => new Set(numero.values());
+      const mover = async (id: string, n: number) => {
+        await tx.perfilCuenta.update({ where: { id }, data: { numero: n } });
+        numero.set(id, n);
+      };
+      for (;;) {
+        const pendientes = perfilIds.filter((id) => numero.get(id) !== destino.get(id));
+        if (!pendientes.length) break;
+        const usados = ocupados();
+        const listo = pendientes.find((id) => !usados.has(destino.get(id)!));
+        if (listo) {
+          await mover(listo, destino.get(listo)!);
+          continue;
+        }
+        const libre = Array.from({ length: MAX_PERFILES_CUENTA }, (_, i) => i + 1).find(
+          (n) => !usados.has(n),
+        );
+        if (libre === undefined) {
+          throw new ErrorApp(
+            409,
+            'SIN_NUMERO_LIBRE',
+            `Con ${MAX_PERFILES_CUENTA} perfiles no se puede cambiar este orden. Quita un perfil libre y vuelve a intentarlo.`,
+          );
+        }
+        await mover(pendientes[0]!, libre);
+      }
+      for (const [i, id] of perfilIds.entries()) {
+        const p = porId.get(id)!;
+        if (/^Perfil \d+$/.test(p.nombre) && p.nombre !== `Perfil ${i + 1}`) {
+          await tx.perfilCuenta.update({ where: { id }, data: { nombre: `Perfil ${i + 1}` } });
+        }
+      }
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'cuenta_servicio.perfiles_ordenados',
+          entidad: 'cuenta_servicio',
+          entidadId: cuentaId,
+          despues: { orden: antes },
           cliente,
         },
         tx,

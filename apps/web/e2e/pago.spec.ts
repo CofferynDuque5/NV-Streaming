@@ -53,11 +53,27 @@ test.beforeAll(async ({ browser }) => {
   await ingresar(cliente, 'cliente@nv.test');
   await expect(cliente).toHaveURL(/\/cuenta$/);
   const catalogo = (await (await cliente.request.get('/api/v1/catalogo')).json()) as {
-    planes: { id: string; nombre: string; servicio: { slug: string } }[];
+    planes: { id: string; nombre: string; servicio: { id: string; slug: string } }[];
   };
   const plan = (slug: string, nombre?: string) =>
-    catalogo.planes.find((p) => p.servicio.slug === slug && (!nombre || p.nombre === nombre))!.id;
-  planes = [plan('nv-cine', 'Trimestral'), plan('nv-musica')];
+    catalogo.planes.find((p) => p.servicio.slug === slug && (!nombre || p.nombre === nombre))!;
+  const elegidos = [plan('nv-cine', 'Trimestral'), plan('nv-musica')];
+  planes = elegidos.map((p) => p.id);
+  // Las pruebas del Gestor dejan cuentas de NV Cine en Plataformas: la web solo vende
+  // con perfiles libres de cuentas vigentes, así que se agrega una al día.
+  for (const p of elegidos) {
+    const r = await admin.request.post('/api/v1/cuentas', {
+      headers: origen,
+      data: {
+        servicioId: p.servicio.id,
+        usuario: `stock.${p.servicio.slug}.${Date.now().toString(36)}@example.com`,
+        clave: 'Clave-de-prueba-1',
+        perfiles: 20,
+        facturaEn: '2099-12-31',
+      },
+    });
+    expect(r.status()).toBe(201);
+  }
 });
 
 test.afterAll(async () => {

@@ -243,6 +243,16 @@ export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
 
 /** Mover al cliente de un perfil a otro libre (de esta u otra cuenta del mismo servicio). */
 export const moverPerfilSchema = z.object({ destinoPerfilId: uuidSchema });
+
+/** Orden nuevo de los perfiles de una cuenta (flechas de «Editar cuenta», como en el Gestor). */
+export const ordenarPerfilesSchema = z.object({
+  perfilIds: z
+    .array(uuidSchema)
+    .min(1)
+    .max(MAX_PERFILES_CUENTA)
+    .refine((l) => new Set(l).size === l.length, 'Hay perfiles repetidos.'),
+});
+export type OrdenarPerfilesEntrada = z.infer<typeof ordenarPerfilesSchema>;
 export type MoverPerfilEntrada = z.infer<typeof moverPerfilSchema>;
 
 /** Avisar los datos de la cuenta a quienes la usan. */

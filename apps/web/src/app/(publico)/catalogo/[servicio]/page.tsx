@@ -191,6 +191,7 @@ export default async function DetalleServicioPagina({
           servicioId={servicio.id}
           nombre={servicio.nombre}
           planes={item.planes}
+          whatsapp={whatsapp}
           datos={servicio.datosRequeridos}
           inicial={inicial}
           moneda={moneda}

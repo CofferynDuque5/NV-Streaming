@@ -154,6 +154,8 @@ export interface PlanMayorista {
   precioUsd: Decimal;
   /** Equivalente en bolívares con la tasa vigente; null si no hay tasa. */
   precioVes: Decimal | null;
+  /** Sin perfiles ni cuentas libres y vigentes en Plataformas: no se puede vender ahora. */
+  agotado?: boolean;
 }
 
 export interface CatalogoMayorista {

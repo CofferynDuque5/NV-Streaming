@@ -15,8 +15,10 @@ import {
   esTitular,
 } from '@nv/shared';
 import {
+  ChevronDown,
+  ChevronUp,
+  Dices,
   Eye,
-  EyeOff,
   KeyRound,
   LifeBuoy,
   Link2,
@@ -30,7 +32,7 @@ import {
   Unlock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { BotonCopiar } from '@/componentes/accesos';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
@@ -39,6 +41,15 @@ import { clasesEntrada } from '@/componentes/ui/clases';
 import { AreaTexto, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { CICLOS_CUENTA, formatearFecha } from '@/lib/formato';
+import {
+  CampoFechaCobro,
+  CampoMetodoPago,
+  CampoPais,
+  CampoPlan,
+  CamposCredenciales,
+  ResumenCuenta,
+  pinsUnicos,
+} from './cuenta-campos';
 import {
   AltaPerfil,
   CortarPerfil,
@@ -65,18 +76,31 @@ function camposDatos(d: FormData) {
   };
 }
 
+/** Valores que cambian el resumen de la derecha mientras se edita. */
+interface ValoresCuenta {
+  costoUsd: string;
+  cicloMeses: number;
+  facturaEn: string;
+}
+
 function DatosCuenta({
   campos,
   cuenta,
   conLiberacion = false,
+  lateral,
 }: {
   campos: Record<string, string>;
   cuenta?: CuentaServicioDetalle;
   /** Cuentas sin anotar: cuándo quedan libres para usarlas. */
   conLiberacion?: boolean;
+  /** Resumen al lado (costo por perfil, margen…), con los valores en vivo. */
+  lateral?: (v: ValoresCuenta) => ReactNode;
 }) {
-  return (
-    <>
+  const [costoUsd, setCostoUsd] = useState(cuenta?.costoUsd ?? '');
+  const [cicloMeses, setCicloMeses] = useState(cuenta?.cicloMeses ?? 1);
+  const [facturaEn, setFacturaEn] = useState(cuenta?.facturaEn ?? '');
+  const datos = (
+    <div className="grid content-start gap-5">
       {conLiberacion && (
         <Campo
           etiqueta="Fecha de liberación"
@@ -87,19 +111,32 @@ function DatosCuenta({
           error={campos.liberacionEn}
         />
       )}
+      <CampoPlan inicial={cuenta?.plan ?? null} error={campos.plan} />
       <div className="grid gap-4 sm:grid-cols-2">
+        <CampoPais inicial={cuenta?.pais ?? null} error={campos.pais} />
         <Campo
-          etiqueta="Plan de la cuenta (opcional)"
-          name="plan"
-          defaultValue={cuenta?.plan ?? ''}
-          placeholder="Premium 4 pantallas"
-          maxLength={60}
-          error={campos.plan}
+          etiqueta="Proveedor (opcional)"
+          name="proveedor"
+          defaultValue={cuenta?.proveedor ?? ''}
+          maxLength={120}
+          placeholder="Dónde se compró"
+          error={campos.proveedor}
+        />
+        <Campo
+          etiqueta="Costo de cada cobro (USD)"
+          name="costoUsd"
+          inputMode="decimal"
+          value={costoUsd}
+          onChange={(e) => setCostoUsd(e.currentTarget.value)}
+          placeholder="0.00"
+          ayuda="Lo que te cuesta a ti."
+          error={campos.costoUsd}
         />
         <Selector
           etiqueta="El proveedor cobra"
           name="cicloMeses"
-          defaultValue={String(cuenta?.cicloMeses ?? 1)}
+          value={String(cicloMeses)}
+          onChange={(e) => setCicloMeses(Number(e.currentTarget.value) || 1)}
           error={campos.cicloMeses}
         >
           {CICLOS_CUENTA.map(([meses, texto]) => (
@@ -108,49 +145,9 @@ function DatosCuenta({
             </option>
           ))}
         </Selector>
-        <Campo
-          etiqueta="Costo de cada cobro (USD)"
-          name="costoUsd"
-          inputMode="decimal"
-          defaultValue={cuenta?.costoUsd ?? ''}
-          placeholder="0.00"
-          ayuda="Lo que te cuesta a ti."
-          error={campos.costoUsd}
-        />
-        <Campo
-          etiqueta="Próximo cobro del proveedor"
-          name="facturaEn"
-          type="date"
-          defaultValue={cuenta?.facturaEn ?? ''}
-          error={campos.facturaEn}
-        />
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Campo
-          etiqueta="Cómo la pagas (opcional)"
-          name="metodoPago"
-          defaultValue={cuenta?.metodoPago ?? ''}
-          placeholder="Tarjeta ···· 1234"
-          maxLength={60}
-          ayuda="Nunca el número completo de la tarjeta."
-          error={campos.metodoPago}
-        />
-        <Campo
-          etiqueta="Dónde se compró (opcional)"
-          name="proveedor"
-          defaultValue={cuenta?.proveedor ?? ''}
-          maxLength={120}
-          error={campos.proveedor}
-        />
-        <Campo
-          etiqueta="País (opcional)"
-          name="pais"
-          defaultValue={cuenta?.pais ?? ''}
-          placeholder="VE"
-          maxLength={2}
-          error={campos.pais}
-        />
-      </div>
+      <CampoFechaCobro valor={facturaEn} onCambio={setFacturaEn} error={campos.facturaEn} />
+      <CampoMetodoPago inicial={cuenta?.metodoPago ?? null} error={campos.metodoPago} />
       <AreaTexto
         etiqueta="Notas (opcional)"
         name="notas"
@@ -160,7 +157,14 @@ function DatosCuenta({
         ayuda="No escribas aquí claves ni PIN: van cifrados en sus campos."
         error={campos.notas}
       />
-    </>
+    </div>
+  );
+  if (!lateral) return datos;
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      {datos}
+      {lateral({ costoUsd, cicloMeses, facturaEn })}
+    </div>
   );
 }
 
@@ -240,7 +244,8 @@ export function NuevaCuenta({
   const [abierto, setAbierto] = useState(false);
   const [modo, setModo] = useState<ModoCuenta>(modoInicial);
   const [cantidad, setCantidad] = useState(5);
-  const [verClave, setVerClave] = useState(false);
+  const [usuarioNuevo, setUsuarioNuevo] = useState('');
+  const [claveNueva, setClaveNueva] = useState('');
   const [creada, setCreada] = useState<string | null>(null);
   const { cargando, error, campos, ejecutar } = useAccion();
 
@@ -263,7 +268,8 @@ export function NuevaCuenta({
       formulario.reset();
       setModo(modoInicial);
       setCantidad(5);
-      setVerClave(false);
+      setUsuarioNuevo('');
+      setClaveNueva('');
     }
   }
 
@@ -344,39 +350,16 @@ export function NuevaCuenta({
             </div>
           )}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo
-            etiqueta="Correo o usuario"
-            name="usuario"
-            required
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={254}
-            error={campos.usuario}
-          />
-          <div className="relative">
-            <Campo
-              etiqueta="Clave"
-              name="clave"
-              type={verClave ? 'text' : 'password'}
-              required
-              autoComplete="new-password"
-              spellCheck={false}
-              maxLength={200}
-              error={campos.clave}
-            />
-            <button
-              type="button"
-              onClick={() => setVerClave((v) => !v)}
-              className="absolute top-8 right-2 rounded-lg p-1.5 text-tinta-tenue hover:text-tinta"
-              aria-label={verClave ? 'Ocultar la clave' : 'Mostrar la clave'}
-            >
-              {verClave ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
-          </div>
-        </div>
+        <CamposCredenciales
+          usuario={usuarioNuevo}
+          clave={claveNueva}
+          onUsuario={setUsuarioNuevo}
+          onClave={setClaveNueva}
+          errores={{ usuario: campos.usuario, clave: campos.clave }}
+          obligatorios
+        />
         <DatosPerfiles cantidad={modo === 'completa' ? 1 : cantidad} campos={campos} />
-        <DatosCuenta campos={campos} conLiberacion={enEspera} />
+        <DatosCuenta key={creada ?? 'nueva'} campos={campos} conLiberacion={enEspera} />
         <ErrorGeneral error={error} />
         {creada && !error && <Alerta tono="exito">Cuenta {creada} guardada.</Alerta>}
         <div className="flex flex-wrap gap-2">
@@ -392,40 +375,166 @@ export function NuevaCuenta({
   );
 }
 
-export function EditarCuenta({ cuenta }: { cuenta: CuentaServicioDetalle }) {
+/** Un perfil en la ventana de edición: su orden y el PIN que se va a guardar. */
+interface FilaPerfil {
+  id: string;
+  nombre: string;
+  estado: PerfilCuentaPublico['estado'];
+  tienePin: boolean;
+  asignacion: PerfilCuentaPublico['asignacion'];
+  /** PIN escrito (vacío: se conserva el actual). */
+  pin: string;
+  /** PIN actual, si se mostraron los datos. */
+  pinActual: string;
+}
+
+export function EditarCuenta({
+  cuenta,
+  puedeRevelar = false,
+}: {
+  cuenta: CuentaServicioDetalle;
+  /** Con `cuentas.revelar`: botón para ver y copiar el correo, la clave y los PIN actuales. */
+  puedeRevelar?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const { cargando, error, campos, ejecutar } = useAccion();
+  const filasIniciales = () =>
+    cuenta.listaPerfiles.map<FilaPerfil>((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      estado: p.estado,
+      tienePin: p.tienePin,
+      asignacion: p.asignacion,
+      pin: '',
+      pinActual: '',
+    }));
+  const [filas, setFilas] = useState<FilaPerfil[]>(filasIniciales);
+  const [usuario, setUsuario] = useState('');
+  const [clave, setClave] = useState('');
+  const [actuales, setActuales] = useState<{ usuario: string; clave: string } | null>(null);
+  const [mostrando, setMostrando] = useState(false);
+  const [errorPrevio, setErrorPrevio] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  function abrir() {
+    setFilas(filasIniciales());
+    setUsuario('');
+    setClave('');
+    setActuales(null);
+    setErrorPrevio(null);
+    setAbierto(true);
+  }
+
+  async function mostrarDatos() {
+    setMostrando(true);
+    setErrorPrevio(null);
+    const r = await llamarApi<CredencialesCuenta>('POST', `/cuentas/${cuenta.id}/revelar`, {});
+    setMostrando(false);
+    if (!r.ok) {
+      setErrorPrevio(r.error.mensaje);
+      return;
+    }
+    setActuales({ usuario: r.datos.usuario, clave: r.datos.clave });
+    setUsuario(r.datos.usuario);
+    setClave(r.datos.clave);
+    const porNumero = new Map(cuenta.listaPerfiles.map((p) => [p.id, p.numero]));
+    setFilas((lista) =>
+      lista.map((f) => {
+        const pin = r.datos.perfiles.find((p) => p.numero === porNumero.get(f.id))?.pin ?? '';
+        return { ...f, pin: f.pin || pin, pinActual: pin };
+      }),
+    );
+  }
+
+  function mover(i: number, paso: -1 | 1) {
+    setFilas((lista) => {
+      const j = i + paso;
+      if (j < 0 || j >= lista.length) return lista;
+      const nueva = [...lista];
+      [nueva[i], nueva[j]] = [nueva[j]!, nueva[i]!];
+      return nueva;
+    });
+  }
+
+  function pinsParaTodos() {
+    const pins = pinsUnicos(filas.length);
+    setFilas((lista) => lista.map((f, i) => ({ ...f, pin: pins[i]! })));
+  }
+
+  const ordenCambiado = filas.some((f, i) => f.id !== cuenta.listaPerfiles[i]?.id);
+  const pinsNuevos = filas.filter((f) => f.pin && f.pin !== f.pinActual);
+  const pinMalo = pinsNuevos.find((f) => !/^\d{4,8}$/.test(f.pin));
 
   async function enviar(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const d = new FormData(e.currentTarget);
-    const usuario = textoDe(d, 'usuario');
-    const clave = String(d.get('clave') ?? '');
+    setErrorPrevio(null);
+    if (pinMalo) {
+      setErrorPrevio(`El PIN de «${pinMalo.nombre}» son de 4 a 8 dígitos.`);
+      return;
+    }
+    const usuarioNuevo =
+      usuario.trim() && usuario.trim() !== actuales?.usuario ? usuario.trim() : '';
+    const claveNueva = clave && clave !== actuales?.clave ? clave : '';
+    setGuardando(true);
+    // Primero el orden y los PIN (por perfil); luego los datos de la cuenta.
+    if (ordenCambiado) {
+      const r = await llamarApi('POST', `/cuentas/${cuenta.id}/perfiles/orden`, {
+        perfilIds: filas.map((f) => f.id),
+      });
+      if (!r.ok) {
+        setGuardando(false);
+        setErrorPrevio(r.error.mensaje);
+        return;
+      }
+    }
+    for (const f of pinsNuevos) {
+      const r = await llamarApi('PATCH', `/cuentas/${cuenta.id}/perfiles/${f.id}`, { pin: f.pin });
+      if (!r.ok) {
+        setGuardando(false);
+        setErrorPrevio(`${f.nombre}: ${r.error.mensaje}`);
+        return;
+      }
+    }
+    setGuardando(false);
     const r = await ejecutar('PATCH', `/cuentas/${cuenta.id}`, {
       estado: textoDe(d, 'estado'),
       ...(cuenta.modo === 'perfiles' ? { perfiles: textoDe(d, 'perfiles') } : {}),
-      // Vacíos: se conservan el correo y la clave actuales.
-      ...(usuario ? { usuario } : {}),
-      ...(clave ? { clave } : {}),
+      // Vacíos o sin cambios: se conservan el correo y la clave actuales.
+      ...(usuarioNuevo ? { usuario: usuarioNuevo } : {}),
+      ...(claveNueva ? { clave: claveNueva } : {}),
       ...camposDatos(d),
     });
     if (!r) return;
     setAbierto(false);
-    // Con correo o clave nuevos, se avisa a los que usan la cuenta.
-    if ((usuario || clave) && cuenta.perfiles.asignados > 0) pedirAvisoCuenta(cuenta.id);
+    // Con correo, clave o PIN nuevos, se avisa a los que usan la cuenta.
+    const asignadoConPin = pinsNuevos.some((f) => f.asignacion);
+    if ((usuarioNuevo || claveNueva || asignadoConPin) && cuenta.perfiles.asignados > 0) {
+      pedirAvisoCuenta(cuenta.id);
+    }
   }
 
   if (!abierto) {
     return (
-      <Boton
-        variante="secundario"
-        onClick={() => setAbierto(true)}
-        icono={<Pencil className="size-4" />}
-      >
+      <Boton variante="secundario" onClick={abrir} icono={<Pencil className="size-4" />}>
         Editar cuenta
       </Boton>
     );
   }
+
+  const asignados = filas.filter((f) => f.asignacion).length;
+  const ingresoMensual = filas.reduce(
+    (s, f) => s + (f.asignacion ? Number(f.asignacion.precioMensualUsd) || 0 : 0),
+    0,
+  );
+  const textoTodo = actuales
+    ? [
+        `${cuenta.servicio.nombre}`,
+        `Correo: ${usuario}`,
+        `Clave: ${clave}`,
+        ...filas.filter((f) => f.pin).map((f) => `${f.nombre}: PIN ${f.pin}`),
+      ].join('\n')
+    : '';
 
   return (
     <PanelFormulario
@@ -454,32 +563,138 @@ export function EditarCuenta({ cuenta }: { cuenta: CuentaServicioDetalle }) {
             />
           )}
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo
-            etiqueta="Nuevo correo o usuario"
-            name="usuario"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={cuenta.pista}
-            error={campos.usuario}
+        <fieldset className="grid gap-3">
+          <legend className="sr-only">Acceso</legend>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Acceso</h4>
+            <div className="flex flex-wrap gap-2">
+              {puedeRevelar && !actuales && (
+                <Boton
+                  tamano="sm"
+                  variante="secundario"
+                  cargando={mostrando}
+                  onClick={() => void mostrarDatos()}
+                  icono={<Eye className="size-3.5" aria-hidden="true" />}
+                >
+                  Mostrar datos actuales
+                </Boton>
+              )}
+              {textoTodo && <BotonCopiar texto={textoTodo} que="todos los datos" />}
+            </div>
+          </div>
+          <CamposCredenciales
+            usuario={usuario}
+            clave={clave}
+            onUsuario={setUsuario}
+            onClave={setClave}
+            errores={{ usuario: campos.usuario, clave: campos.clave }}
+            obligatorios={false}
+            pista={cuenta.pista}
           />
-          <Campo
-            etiqueta="Nueva clave"
-            name="clave"
-            type="password"
-            autoComplete="new-password"
-            spellCheck={false}
-            error={campos.clave}
-          />
-        </div>
+        </fieldset>
+        {filas.length > 0 && (
+          <fieldset className="grid gap-2 rounded-xl border border-borde p-3 sm:p-4">
+            <legend className="px-1 text-sm font-semibold">Perfiles</legend>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-tinta-tenue">
+                PIN vacío: se conserva el actual. Con las flechas cambias el orden.
+              </p>
+              <button type="button" className="chip" onClick={pinsParaTodos}>
+                <Dices className="size-3.5" aria-hidden="true" /> PINs únicos para todos
+              </button>
+            </div>
+            <ul className="grid gap-2">
+              {filas.map((f, i) => (
+                <li
+                  key={f.id}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_6.5rem] items-center gap-2 rounded-lg border border-borde px-2 py-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_6.5rem]"
+                >
+                  <div className="flex items-center gap-0.5">
+                    <span className="w-6 text-center text-sm font-semibold text-tinta-tenue tabular-nums">
+                      {i + 1}
+                    </span>
+                    <div className="grid">
+                      <button
+                        type="button"
+                        onClick={() => mover(i, -1)}
+                        disabled={i === 0}
+                        className="rounded p-0.5 text-tinta-tenue hover:text-tinta disabled:opacity-30"
+                        aria-label={`Subir ${f.nombre}`}
+                      >
+                        <ChevronUp className="size-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => mover(i, 1)}
+                        disabled={i === filas.length - 1}
+                        className="rounded p-0.5 text-tinta-tenue hover:text-tinta disabled:opacity-30"
+                        aria-label={`Bajar ${f.nombre}`}
+                      >
+                        <ChevronDown className="size-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{f.nombre}</p>
+                    <p className="truncate text-xs text-tinta-tenue sm:hidden">
+                      {f.asignacion ? f.asignacion.cliente.nombre : 'Libre'}
+                    </p>
+                  </div>
+                  <p className="hidden min-w-0 truncate text-sm sm:block">
+                    {f.asignacion ? (
+                      <>
+                        {f.asignacion.cliente.nombre}
+                        {f.asignacion.venceEn && (
+                          <span className="text-tinta-tenue">
+                            {' '}
+                            · {formatearFecha(f.asignacion.venceEn)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-tinta-tenue">
+                        {f.estado === 'bloqueado' ? 'Bloqueado' : 'Libre'}
+                      </span>
+                    )}
+                  </p>
+                  <input
+                    value={f.pin}
+                    onChange={(e) => {
+                      const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 8);
+                      setFilas((lista) => lista.map((x) => (x.id === f.id ? { ...x, pin: v } : x)));
+                    }}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={8}
+                    placeholder={f.tienePin ? '••••' : 'PIN'}
+                    aria-label={`PIN de ${f.nombre}`}
+                    aria-invalid={f.pin && !/^\d{4,8}$/.test(f.pin) ? true : undefined}
+                    className={clasesEntrada}
+                  />
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+        )}
         <DatosCuenta
           campos={campos}
           cuenta={cuenta}
           conLiberacion={cuenta.estado === 'en_espera'}
+          lateral={(v) => (
+            <ResumenCuenta
+              costoUsd={Number(v.costoUsd) || 0}
+              cicloMeses={v.cicloMeses}
+              total={filas.length}
+              asignados={asignados}
+              ingresoMensualUsd={ingresoMensual}
+              facturaEn={v.facturaEn}
+            />
+          )}
         />
+        {errorPrevio && <Alerta tono="peligro">{errorPrevio}</Alerta>}
         <ErrorGeneral error={error} />
         <div className="flex flex-wrap gap-2">
-          <Boton type="submit" cargando={cargando}>
+          <Boton type="submit" cargando={cargando || guardando}>
             Guardar cambios
           </Boton>
           <Boton variante="fantasma" onClick={() => setAbierto(false)}>

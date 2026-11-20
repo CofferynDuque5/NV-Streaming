@@ -43,6 +43,7 @@ export * from './esquemas/codigos.js';
 export * from './tipos-codigos.js';
 export * from './importar-cuentas.js';
 export * from './importar-gestor.js';
+export * from './migracion-gestor.js';
 export * from './cookies.js';
 export * from './politicas.js';
 export * from './politicas-por-definir.js';

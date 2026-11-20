@@ -31,6 +31,7 @@ import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
+import { planesAgotados } from '../cuentas/stock-cuentas.js';
 import { PRISMA } from '../comun/tokens.js';
 import { D, type MapaTasas, preciosPorMoneda } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
@@ -48,7 +49,7 @@ export type PlanCompleto = Plan & {
     | 'datosRequeridos'
     | 'vitrina'
   > & {
-    proveedor: Pick<Proveedor, 'activo'>;
+    proveedor: Pick<Proveedor, 'activo' | 'adaptador'>;
   };
   preciosFijos: PrecioFijo[];
 };
@@ -65,7 +66,7 @@ export const INCLUIR_PLAN = {
       imagenId: true,
       datosRequeridos: true,
       vitrina: true,
-      proveedor: { select: { activo: true } },
+      proveedor: { select: { activo: true, adaptador: true } },
     },
   },
   preciosFijos: true,
@@ -259,9 +260,17 @@ export class CatalogoService {
         });
       }
     }
+    const publicos = planes.filter((p) => servicios.has(p.servicio.id));
+    const agotados = await planesAgotados(
+      this.prisma,
+      publicos.map((p) => ({ ...p, adaptador: p.servicio.proveedor.adaptador })),
+    );
     return {
       // Un servicio oculto en la vitrina no sale con sus planes.
-      planes: planes.filter((p) => servicios.has(p.servicio.id)).map((p) => planPublico(p, tasas)),
+      planes: publicos.map((p) => ({
+        ...planPublico(p, tasas),
+        ...(agotados.has(p.id) ? { agotado: true } : {}),
+      })),
       servicios: [...servicios.values()],
       masPedidos: pedidos.filter((id) => servicios.has(id)),
       monedas: MONEDAS.filter(

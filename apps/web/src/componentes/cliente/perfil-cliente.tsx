@@ -105,10 +105,13 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
 export function TarjetaPerfilCliente({
   perfil,
   detalle,
+  ruta = '/mi/perfiles',
 }: {
   perfil: PerfilDelCliente;
   /** «Perfil 2 · vence el 3 de noviembre». */
   detalle: string;
+  /** El revendedor ve los perfiles de sus clientes en «/revendedor/perfiles». */
+  ruta?: string;
 }) {
   const titulo = useId();
   const [fase, setFase] = useState<'cerrado' | 'confirmar' | 'visto'>('cerrado');
@@ -132,7 +135,7 @@ export function TarjetaPerfilCliente({
     setError(null);
     const r = await llamarApi<PerfilRevelado>(
       'POST',
-      `/mi/perfiles/${perfil.suscripcionId}/revelar`,
+      `${ruta}/${perfil.suscripcionId}/revelar`,
       {},
     );
     setCargando(false);
@@ -186,6 +189,17 @@ export function TarjetaPerfilCliente({
           )}
           {datos.pin && <Dato etiqueta="PIN del perfil" valor={datos.pin} copiar="el PIN" />}
         </div>
+        {datos.contrato && (
+          <div className="grid gap-2 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Contrato – factura de servicio</h3>
+              <BotonCopiar texto={datos.contrato} etiqueta="el contrato" />
+            </div>
+            <pre className="max-h-64 overflow-y-auto font-sans text-[0.8rem] leading-relaxed whitespace-pre-wrap text-tinta-suave">
+              {datos.contrato}
+            </pre>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           <p className="text-[0.8rem] text-tinta-tenue">
             {completa

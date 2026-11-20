@@ -1,7 +1,8 @@
-import type { AccesoServicio } from '@nv/shared';
+import type { AccesoServicio, PerfilDelCliente } from '@nv/shared';
 import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
+import { TarjetaPerfilCliente } from '@/componentes/cliente/perfil-cliente';
 import { fechaLarga, NotaSeguridad, Vacio } from '@/componentes/cliente/piezas-cuenta';
 import { CabeceraPanel } from '@/componentes/revendedor/panel';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -21,13 +22,16 @@ function detalle(a: AccesoServicio): string {
 
 export default async function AccesosClientes() {
   await requerirSesion({ roles: ['revendedor'] });
-  const { datos } = await leerApi<AccesoServicio[]>('/revendedor/accesos');
+  const [{ datos }, { datos: perfiles }] = await Promise.all([
+    leerApi<AccesoServicio[]>('/revendedor/accesos'),
+    leerApi<PerfilDelCliente[]>('/revendedor/perfiles'),
+  ]);
   const accesos = datos ?? [];
+  const listaPerfiles = perfiles ?? [];
   const nota = (
     <NotaSeguridad>
-      Son códigos o enlaces para activar el servicio en <b>la cuenta propia de tu cliente</b>.
-      Entrégaselos solo a él. Si su servicio es un perfil de una cuenta que administra NV, el equipo
-      le envía los datos.
+      Los códigos y enlaces se activan en <b>la cuenta propia de tu cliente</b>. Los perfiles y
+      cuentas de NV traen su contrato listo para enviárselo. Entrégaselos solo a él.
     </NotaSeguridad>
   );
 
@@ -47,7 +51,21 @@ export default async function AccesosClientes() {
         </Alerta>
       )}
       {nota}
-      {datos && accesos.length === 0 ? (
+      {listaPerfiles.map((p) => (
+        <TarjetaPerfilCliente
+          key={p.suscripcionId}
+          perfil={p}
+          ruta="/revendedor/perfiles"
+          detalle={[
+            `Para ${p.cliente?.nombre ?? 'tu cliente'}`,
+            p.modo === 'completa' ? 'Cuenta completa' : p.perfil.nombre,
+            p.venceEn ? `vence el ${fechaLarga(p.venceEn)}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        />
+      ))}
+      {datos && accesos.length === 0 && listaPerfiles.length === 0 ? (
         <Vacio
           icono={<Zap className="size-5" aria-hidden="true" />}
           color="#22d3ee"

@@ -7,6 +7,7 @@ import {
   generarClave,
   generarPin,
   recomendarLugar,
+  sirveVentaWeb,
   tipoPlataforma,
 } from '../src/plataformas.js';
 
@@ -111,5 +112,16 @@ describe('teléfono como en el Gestor', () => {
   it('acepta el número con código de país sin «+»', () => {
     expect(telefonoSchema.parse('584121234567')).toBe('+584121234567');
     expect(telefonoSchema.parse('+584121234567')).toBe('+584121234567');
+  });
+});
+
+describe('lugares que la web entrega sola', () => {
+  it('perfiles de cuentas compartidas; en familiares, la principal o una individual', () => {
+    expect(sirveVentaWeb('perfiles', false, 3)).toBe(true);
+    expect(sirveVentaWeb('perfiles', true, 1)).toBe(false);
+    expect(sirveVentaWeb('familiar', false, 1)).toBe(true);
+    expect(sirveVentaWeb('familiar', false, 2)).toBe(false);
+    expect(sirveVentaWeb('familiar', true, 1)).toBe(true);
+    expect(sirveVentaWeb('correo', false, 4)).toBe(true);
   });
 });

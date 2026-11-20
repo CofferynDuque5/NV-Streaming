@@ -183,6 +183,200 @@ describe('importar el Gestor viejo', () => {
     expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
   });
 
+  it('Spotify: miembros a su correo, cuentas a correo sin clave ni fecha y clientes sin cuenta', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [sp] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'sp', name: 'Spotify' }],
+        accounts: {
+          sp: [
+            {
+              id: 'fam',
+              email: 'familia@example.com',
+              password: 'F-1',
+              numProfiles: 3,
+              caidaReportada: true,
+            },
+            { id: 'nada', email: '', password: '', numProfiles: 2 },
+          ],
+        },
+        clients: {
+          sp: [
+            {
+              id: 's1',
+              accountId: 'fam',
+              slotIndex: 1,
+              email: 'familia@example.com',
+              nombre: 'Sin asignar',
+            },
+            {
+              id: 's2',
+              accountId: 'fam',
+              slotIndex: 2,
+              email: 'rosa@example.com',
+              password: 'Rosa-1',
+              nombre: 'Rosa',
+              contacto: '+584141112244',
+            },
+            { id: 's3', email: 'juan@example.com', nombre: 'Juan', contacto: '+584141112255' },
+            {
+              id: 's4',
+              nombre: 'Pedro',
+              contacto: '+584141112266',
+              vencimientoCliente: '2099-01-01',
+              precioVenta: 2,
+            },
+            { id: 's5', accountId: 'borrada', nombre: 'Marta', contacto: '+584141112277' },
+          ],
+        },
+      },
+    }).plataformas;
+    const cuerpo = {
+      plataforma: { origenId: sp!.origenId, nombre: sp!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: sp!.cuentas,
+      clientesSueltos: sp!.clientesSueltos,
+    };
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo).toMatchObject({
+      cuentas: { nuevas: 3 },
+      clientes: { nuevos: 4, sinPerfil: 2 },
+      suscripciones: { activas: 2, vencidas: 0 },
+    });
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+
+    const fam = await ctx.prisma.cuentaServicio.findFirstOrThrow({
+      where: { estado: 'caida' },
+      include: { perfiles: { orderBy: { numero: 'asc' } } },
+    });
+    expect(fam.perfiles.map((p) => [p.nombre, p.estado])).toEqual([
+      ['Principal', 'libre'],
+      ['Miembro 1', 'asignado'],
+      ['Miembro 2', 'libre'],
+    ]);
+    expect(fam.perfiles[1]!.usuarioMiembroCifrado).not.toBeNull();
+    expect(fam.perfiles[1]!.usuarioMiembroCifrado).not.toContain('rosa@');
+    expect(fam.perfiles[1]!.claveMiembroCifrada).not.toBeNull();
+    expect(await ctx.prisma.cuentaServicio.count({ where: { modo: 'completa' } })).toBe(1);
+    expect(
+      await ctx.prisma.cuentaServicio.count({ where: { notas: { contains: 'no tenía correo' } } }),
+    ).toBe(1);
+    // Juan (a su correo) queda activo y sin fecha, como en el Gestor.
+    const juan = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Juan' },
+      include: { suscripciones: true },
+    });
+    expect(juan.suscripciones).toMatchObject([{ estado: 'activa', venceEn: null }]);
+    // Pedro y Marta entran sin perfil, con su nota.
+    const notas = await ctx.prisma.notaInterna.findMany({ include: { cliente: true } });
+    expect(notas.map((n) => n.cliente!.nombre).sort()).toEqual(['Marta', 'Pedro']);
+    expect(notas.find((n) => n.cliente!.nombre === 'Pedro')!.texto).toMatch(
+      /no tenía cuenta asignada.*2099-01-01.*2\.00 USD/,
+    );
+
+    // Repetir no duplica las notas.
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).cuerpo.error.codigo).toBe(
+      'NADA_QUE_IMPORTAR',
+    );
+    expect(
+      (await admin.n.post(`/cuentas/gestor/lotes/${imp.cuerpo.loteId}/deshacer`, {})).estado,
+    ).toBe(204);
+    expect(await ctx.prisma.notaInterna.count()).toBe(0);
+    expect(await ctx.prisma.cliente.count({ where: { origen: 'gestor' } })).toBe(0);
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(0);
+  });
+
+  it('papelera: cuentas retiradas y clientes borrados con nota', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [n] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'n', name: 'Netflix' }],
+        accounts: { n: [] },
+        clients: { n: [] },
+        papelera: {
+          cuentas: [
+            {
+              id: 'pa',
+              _platId: 'n',
+              email: 'vieja@example.com',
+              password: 'V-1',
+              numProfiles: 2,
+              _deletedAt: '2026-10-01T00:00:00Z',
+              _clientsJson: JSON.stringify([{ id: 'h', nombre: 'Rosa', pin: '1111' }]),
+            },
+          ],
+          clientes: [
+            {
+              id: 'pc',
+              _platId: 'n',
+              nombre: 'Luis',
+              contacto: '+584141112233',
+              _deletedAt: '2026-10-02T00:00:00Z',
+            },
+          ],
+        },
+      },
+    }).plataformas;
+    const imp = await admin.n.post('/cuentas/gestor/importar', {
+      plataforma: { origenId: n!.origenId, nombre: n!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: n!.cuentas,
+      clientesSueltos: n!.clientesSueltos,
+    });
+    expect(imp.estado).toBe(201);
+    const c = await ctx.prisma.cuentaServicio.findFirstOrThrow({ include: { perfiles: true } });
+    expect(c.estado).toBe('retirada');
+    expect(c.notas).toMatch(/papelera del Gestor \(borrada el 2026-10-01\)\. Tenía a: Rosa/);
+    expect(c.perfiles.every((p) => p.estado === 'libre')).toBe(true);
+    const nota = await ctx.prisma.notaInterna.findFirstOrThrow({ include: { cliente: true } });
+    expect(nota.cliente!.nombre).toBe('Luis');
+    expect(nota.texto).toMatch(/papelera del Gestor \(borrado el 2026-10-02\)/);
+  });
+
+  it('correos repetidos: entran todas las cuentas, aunque el correo ya esté en el panel', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const leer = (id: string, nombre: string) =>
+      leerRespaldoGestor({
+        db: {
+          platforms: [{ id, name: nombre }],
+          accounts: {
+            [id]: [
+              { id: `${id}1`, email: 'misma@example.com', password: 'M-1', numProfiles: 1 },
+              { id: `${id}2`, email: 'Misma@example.com', password: 'M-2', numProfiles: 1 },
+            ],
+          },
+          clients: { [id]: [] },
+        },
+      }).plataformas[0]!;
+    const importar = async (p: ReturnType<typeof leer>) =>
+      admin.n.post('/cuentas/gestor/importar', {
+        plataforma: { origenId: p.origenId, nombre: p.nombre },
+        servicioId: catalogo.servicioId,
+        planId: catalogo.planId,
+        cuentas: p.cuentas,
+      });
+    expect((await importar(leer('a', 'Uno'))).estado).toBe(201);
+    // Otra plataforma con el mismo correo: también entra, no se pierde.
+    const otra = await importar(leer('b', 'Dos'));
+    expect(otra.estado).toBe(201);
+    const cuentas = await ctx.prisma.cuentaServicio.findMany({ orderBy: { creadoEn: 'asc' } });
+    expect(cuentas).toHaveLength(4);
+    expect(new Set(cuentas.map((c) => c.usuarioHuella)).size).toBe(4);
+    expect(cuentas.every((c) => /Pendiente por revisar/.test(c.notas ?? ''))).toBe(true);
+    expect(
+      cuentas.filter((c) => /ya había otra cuenta con este correo/.test(c.notas ?? '')),
+    ).toHaveLength(3);
+    // Volver a importar no duplica nada.
+    expect((await importar(leer('b', 'Dos'))).cuerpo.error.codigo).toBe('NADA_QUE_IMPORTAR');
+    expect(await ctx.prisma.cuentaServicio.count()).toBe(4);
+  });
+
   it('no deshace un lote que ya tiene movimientos', async () => {
     const { admin, catalogo, cuerpo } = await escenario();
     const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
@@ -197,6 +391,106 @@ describe('importar el Gestor viejo', () => {
     const r = await admin.n.post(`/cuentas/gestor/lotes/${imp.cuerpo.loteId}/deshacer`, {});
     expect(r.cuerpo.error.codigo).toBe('LOTE_EN_USO');
     expect(await ctx.prisma.cuentaServicio.count()).toBe(2);
+  });
+
+  it('con la «Copia para NV Streaming» guarda responsable, todos los contactos y el orden', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const catalogo = await prepararCatalogo(admin.n);
+    const copia = {
+      formato: 'nv-gestor-a-nvstreaming',
+      db: {
+        platforms: [{ id: 'plat_9', name: 'Cine nuevo', orden: 0 }],
+        accounts: {
+          plat_9: [
+            {
+              id: 'z_1',
+              orden: 0,
+              email: 'primera@example.com',
+              password: 'P-1',
+              numProfiles: 2,
+              tipoCuenta: 'perfiles',
+              metodoPago: 'paypal',
+            },
+            {
+              id: 'z_2',
+              orden: 1,
+              email: 'segunda@example.com',
+              password: 'P-2',
+              numProfiles: 1,
+              tipoCuenta: 'completa',
+            },
+            { id: 'z_3', orden: 2, email: 'tercera@example.com', password: 'P-3', numProfiles: 1 },
+          ],
+        },
+        clients: {
+          plat_9: [
+            {
+              id: 'k_1',
+              accountId: 'z_1',
+              slotIndex: 1,
+              ordenPerfil: 1,
+              nombre: 'Marta',
+              responsable: 'Revendedor Juan',
+              contactos: [
+                { tipo: 'telegram', valor: 'marta_tg' },
+                { tipo: 'whatsapp', valor: '+584125550001' },
+                { tipo: 'correo', valor: 'marta@example.com' },
+              ],
+              vencimientoCliente: '2099-01-01',
+              precioVenta: 3,
+            },
+            {
+              id: 'k_2',
+              accountId: 'z_2',
+              slotIndex: 1,
+              nombre: 'Rosa',
+              contacto: '@rosa_r',
+              vencimientoCliente: '2099-01-01',
+            },
+          ],
+        },
+      },
+    };
+    const [plat] = leerRespaldoGestor(copia).plataformas;
+    const imp = await admin.n.post('/cuentas/gestor/importar', {
+      plataforma: { origenId: plat!.origenId, nombre: plat!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: plat!.cuentas,
+    });
+
+    expect(imp.estado).toBe(201);
+    const marta = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Marta' },
+      include: { contactos: { orderBy: { tipo: 'asc' } } },
+    });
+    expect(marta).toMatchObject({ responsable: 'Revendedor Juan', correo: 'marta@example.com' });
+    expect(marta.contactos.map((c) => [c.tipo, c.valor]).sort()).toEqual([
+      ['telegram', 'marta_tg'],
+      ['whatsapp', '+584125550001'],
+    ]);
+    const rosa = await ctx.prisma.cliente.findFirstOrThrow({
+      where: { nombre: 'Rosa' },
+      include: { contactos: true },
+    });
+    expect(rosa.contactos.map((c) => [c.tipo, c.valor])).toEqual([['telegram', 'rosa_r']]);
+    // La lista de cuentas (más nuevas arriba) queda en el orden del Gestor.
+    const cuentas = await admin.n.get('/cuentas');
+    const pistas = cuentas.cuerpo.elementos.map((c: { pista: string }) => c.pista);
+    expect(pistas.slice(0, 3)).toEqual([
+      'pr•••@example.com',
+      'se•••@example.com',
+      'te•••@example.com',
+    ]);
+    const modos = await ctx.prisma.cuentaServicio.findMany({
+      orderBy: { creadoEn: 'desc' },
+      select: { modo: true, metodoPago: true },
+    });
+    expect(modos).toEqual([
+      { modo: 'perfiles', metodoPago: 'PayPal' },
+      { modo: 'completa', metodoPago: null },
+      { modo: 'perfiles', metodoPago: null },
+    ]);
   });
 
   it('rechaza un plan de otro servicio', async () => {
