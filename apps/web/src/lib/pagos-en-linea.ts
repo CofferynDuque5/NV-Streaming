@@ -82,7 +82,7 @@ export const AYUDA_PASARELA: Record<Pasarela, { variables: string[]; pasos: stri
   binance: {
     variables: [],
     pasos:
-      'No usa variables del servidor: se configura abajo, en «Binance Pay por correo». NV lee los avisos «Pago recibido correctamente» que Binance manda a tu Gmail, comprueba la firma de binance.com y tu código anti-phishing, y confirma el pago cuando el usuario y el monto que escribió el cliente coinciden.',
+      'No usa variables del servidor: se configura abajo, en «Binance Pay por correo». NV lee los avisos «Pago recibido correctamente» que Binance manda a tu correo, comprueba la firma de binance.com y confirma el pago cuando el usuario y el monto que escribió el cliente coinciden.',
   },
   paypal_correo: {
     variables: [],

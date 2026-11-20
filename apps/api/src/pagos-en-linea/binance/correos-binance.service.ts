@@ -251,7 +251,9 @@ export class CorreosBinanceService implements OnModuleInit {
     if (!c || !c.activo || !c.probadoEn) return 0;
     let validos = 0;
     try {
-      const codigo = c.codigoCifrado ? this.cifrador.descifrar(c.codigoCifrado, CTX_CODIGO) : null;
+      // El código anti-phishing ya no se exige (pedido de Nathan, 20-11-2026): basta la firma
+      // DKIM de binance.com. Si había uno guardado, se conserva cifrado pero no se usa.
+      const codigo: string | null = null;
       const r = await this.lector.nuevos(this.conexion(c), {
         uid: c.ultimoUid,
         validez: c.uidValidez,

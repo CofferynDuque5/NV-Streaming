@@ -93,13 +93,13 @@ describe('Binance Pay confirmado por correo', () => {
     buzon(
       // Sin firma de binance.com: no sirve.
       await correoBinance({ monto: '5', firmaDominio: null }),
-      // Código anti-phishing distinto: no sirve.
+      // El código anti-phishing ya no se exige: basta la firma de binance.com.
       await correoBinance({ monto: '5', codigo: 'OTRO' }),
       // Otro monto: no coincide.
       await correoBinance({ monto: '4.99' }),
       await correoBinance({ monto: '5', remitente: 'Katy-2207' }),
     );
-    expect(await servicio().leer()).toBe(2);
+    expect(await servicio().leer()).toBe(3);
 
     const r = await e.cliente.get(`/mi/pagos-en-linea/${e.intento.id}`);
     expect(r.cuerpo.estado).toBe('aprobado');
@@ -109,12 +109,7 @@ describe('Binance Pay confirmado por correo', () => {
     expect(factura.estado).toBe('pagada');
 
     const filas = await ctx.prisma.correoBinance.findMany({ orderBy: { monto: 'asc' } });
-    expect(filas.map((f) => f.estado).sort()).toEqual([
-      'descartado',
-      'descartado',
-      'libre',
-      'usado',
-    ]);
+    expect(filas.map((f) => f.estado).sort()).toEqual(['descartado', 'libre', 'libre', 'usado']);
     const lista = await e.admin.get('/pasarelas/binance/correos');
     expect(lista.cuerpo).toHaveLength(4);
     expect(lista.cuerpo.find((c: { estado: string }) => c.estado === 'usado').intento.id).toBe(
