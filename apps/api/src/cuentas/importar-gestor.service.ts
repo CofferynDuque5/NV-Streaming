@@ -91,6 +91,11 @@ interface Plan {
   porCrear: Map<string, ClienteGestor>;
   /** Clientes que entran sin perfil y aún no se importaron. */
   sueltos: ClienteSueltoGestor[];
+  /**
+   * Cupos de plan familiar ya importados (con una versión que no traía el correo y la
+   * clave del miembro) que hoy no los tienen: se completan, sin tocar lo que ya hay.
+   */
+  miembros: { perfilId: string; usuario: string | null; clave: string | null }[];
 }
 
 /**
@@ -174,6 +179,16 @@ export class ImportarGestorService {
       );
     }
 
+    const miembros = await this.miembrosPorRecuperar(
+      db,
+      e.cuentas.filter((c) => importadas.has(c.origenId)),
+    );
+    if (miembros.length) {
+      avisos.push(
+        `${miembros.length} ${miembros.length === 1 ? 'cupo ya importado recupera' : 'cupos ya importados recuperan'} el correo y la clave del miembro unido al plan (no se cambia nada más).`,
+      );
+    }
+
     const perfiles = nuevas.flatMap((c) => c.perfiles);
     const conCliente = perfiles.filter((p) => p.cliente);
     const vistosSuelto = new Set<string>();
@@ -244,6 +259,7 @@ export class ImportarGestorService {
       existentes,
       porCrear,
       sueltos,
+      miembros,
       cuadre: {
         cuentas: {
           enArchivo: e.cuentas.length,
@@ -255,6 +271,7 @@ export class ImportarGestorService {
           nuevos: perfiles.length,
           libres: perfiles.length - conCliente.length,
           asignados: conCliente.length,
+          miembrosRecuperados: miembros.length,
         },
         clientes: {
           nuevos: porCrear.size,
@@ -268,6 +285,98 @@ export class ImportarGestorService {
         avisos,
       },
     };
+  }
+
+  /**
+   * Cupos de cuentas ya importadas cuyo correo o clave de miembro trae el archivo y el
+   * panel no tiene. Solo llena lo vacío: nunca reemplaza un dato guardado.
+   */
+  private async miembrosPorRecuperar(
+    db: Tx | PrismaClient,
+    cuentas: CuentaGestor[],
+  ): Promise<Plan['miembros']> {
+    const conMiembro = new Map(
+      cuentas
+        .flatMap((c) => c.perfiles)
+        .filter((p) => p.usuarioMiembro || p.claveMiembro)
+        .map((p) => [p.origenId, p] as const),
+    );
+    if (!conMiembro.size) return [];
+    const registros = await db.registroGestor.findMany({
+      where: { tipo: 'perfil', entidad: 'perfil_cuenta', origenId: { in: [...conMiembro.keys()] } },
+      select: { origenId: true, entidadId: true },
+    });
+    const origenDe = new Map(registros.map((r) => [r.entidadId, r.origenId]));
+    const guardados = await db.perfilCuenta.findMany({
+      where: { id: { in: [...origenDe.keys()] } },
+      select: { id: true, numero: true, usuarioMiembroCifrado: true, claveMiembroCifrada: true },
+    });
+    const salida: Plan['miembros'] = [];
+    for (const g of guardados) {
+      const p = conMiembro.get(origenDe.get(g.id)!)!;
+      // El cupo 1 es el titular: entra con los datos de la cuenta.
+      if (g.numero === 1) continue;
+      const usuario = !g.usuarioMiembroCifrado && p.usuarioMiembro ? p.usuarioMiembro.trim() : null;
+      // La clave sola, sin correo del miembro, no sirve: va con el correo nuevo o el guardado.
+      const clave =
+        !g.claveMiembroCifrada && p.claveMiembro && (usuario || g.usuarioMiembroCifrado)
+          ? p.claveMiembro
+          : null;
+      if (usuario || clave) salida.push({ perfilId: g.id, usuario, clave });
+    }
+    return salida;
+  }
+
+  /** Completa los cupos de miembro (solo los campos vacíos) y lo deja en la auditoría. */
+  private async recuperarMiembros(
+    tx: Tx,
+    miembros: Plan['miembros'],
+    actor: string,
+    plataforma: string,
+    cliente: InfoCliente,
+  ) {
+    for (const m of miembros) {
+      await tx.perfilCuenta.updateMany({
+        where: {
+          id: m.perfilId,
+          ...(m.usuario ? { usuarioMiembroCifrado: null } : {}),
+          ...(m.clave ? { claveMiembroCifrada: null } : {}),
+        },
+        data: {
+          ...(m.usuario
+            ? {
+                usuarioMiembroCifrado: this.cifrador.cifrar(m.usuario, contextoMiembro(m.perfilId)),
+              }
+            : {}),
+          ...(m.clave
+            ? {
+                claveMiembroCifrada: this.cifrador.cifrar(
+                  m.clave,
+                  contextoClaveMiembro(m.perfilId),
+                ),
+              }
+            : {}),
+        },
+      });
+    }
+    if (miembros.length) {
+      await this.auditoria.registrar(
+        {
+          actorId: actor,
+          accion: 'gestor.miembros_recuperados',
+          entidad: 'perfil_cuenta',
+          entidadId: miembros[0]!.perfilId,
+          despues: {
+            plataforma,
+            cupos: miembros.length,
+            correos: miembros.filter((m) => m.usuario).length,
+            claves: miembros.filter((m) => m.clave).length,
+          },
+          cliente,
+        },
+        tx,
+      );
+    }
   }
 
   async simular(auth: ContextoAuth, e: ImportarGestorEntrada, cliente: InfoCliente) {
@@ -289,14 +398,16 @@ export class ImportarGestorService {
     return this.prisma.$transaction(
       async (tx) => {
         const plan = await this.planear(tx, e);
+        const actor = auth.usuario.id;
+        await this.recuperarMiembros(tx, plan.miembros, actor, e.plataforma.nombre, cliente);
         if (!plan.nuevas.length && !plan.sueltos.length) {
+          if (plan.miembros.length) return { loteId: null, cuadre: plan.cuadre };
           throw new ErrorApp(
             409,
             'NADA_QUE_IMPORTAR',
             'Todas las cuentas y clientes ya están en el panel.',
           );
         }
-        const actor = auth.usuario.id;
         const lote = await tx.loteGestor.create({
           data: {
             plataformaOrigen: e.plataforma.origenId,

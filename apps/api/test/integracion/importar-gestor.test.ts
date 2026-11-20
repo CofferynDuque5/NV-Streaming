@@ -289,6 +289,114 @@ describe('importar el Gestor viejo', () => {
     expect(await ctx.prisma.cuentaServicio.count()).toBe(0);
   });
 
+  it('Gemini importado sin los correos de los miembros: volver a importar los recupera sin tocar nada más', async () => {
+    const admin = await conectar(ctx, 'admin');
+    const operador = await conectar(ctx, 'operador');
+    const catalogo = await prepararCatalogo(admin.n);
+    const [gem] = leerRespaldoGestor({
+      db: {
+        platforms: [{ id: 'gem', name: 'Gemini Pro' }],
+        accounts: {
+          gem: [{ id: 'g1', email: 'principal@example.com', password: 'P-1', numProfiles: 3 }],
+        },
+        clients: {
+          gem: [
+            {
+              id: 'm1',
+              accountId: 'g1',
+              slotIndex: 1,
+              email: 'principal@example.com',
+              nombre: 'Ana',
+              contacto: '+584141110001',
+            },
+            {
+              id: 'm2',
+              accountId: 'g1',
+              slotIndex: 2,
+              email: 'beto@example.com',
+              password: 'Beto-1',
+              nombre: 'Beto',
+              contacto: '+584141110002',
+            },
+            {
+              id: 'm3',
+              accountId: 'g1',
+              slotIndex: 3,
+              email: 'caro@example.com',
+              password: 'Caro-1',
+              nombre: 'Caro',
+              contacto: '+584141110003',
+            },
+          ],
+        },
+      },
+    }).plataformas;
+    const cuerpo = {
+      plataforma: { origenId: gem!.origenId, nombre: gem!.nombre },
+      servicioId: catalogo.servicioId,
+      planId: catalogo.planId,
+      cuentas: gem!.cuentas,
+    };
+    // Como la versión anterior del importador: los cupos entran sin correo ni clave del miembro.
+    const sinMiembros = {
+      ...cuerpo,
+      cuentas: cuerpo.cuentas.map((c) => ({
+        ...c,
+        perfiles: c.perfiles.map((p) => ({ ...p, usuarioMiembro: null, claveMiembro: null })),
+      })),
+    };
+    expect((await admin.n.post('/cuentas/gestor/importar', sinMiembros)).estado).toBe(201);
+    const cuenta = await ctx.prisma.cuentaServicio.findFirstOrThrow({
+      include: { perfiles: { orderBy: { numero: 'asc' } } },
+    });
+    // Caro ya tiene un correo puesto a mano en el panel: no se cambia.
+    const caro = cuenta.perfiles[2]!;
+    expect(
+      (
+        await operador.n.patch(`/cuentas/${cuenta.id}/perfiles/${caro.id}`, {
+          usuarioMiembro: 'caro.nuevo@example.com',
+        })
+      ).estado,
+    ).toBe(200);
+    const caroAntes = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: caro.id } });
+    const antes = await conteos();
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo).toMatchObject({
+      cuentas: { nuevas: 0 },
+      perfiles: { miembrosRecuperados: 2 },
+    });
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    expect(imp.cuerpo.loteId).toBeNull();
+    // No se crea nada nuevo.
+    expect(await conteos()).toEqual(antes);
+    const despues = await ctx.prisma.perfilCuenta.findMany({
+      where: { cuentaId: cuenta.id },
+      orderBy: { numero: 'asc' },
+    });
+    // Principal: entra con los datos de la cuenta.
+    expect(despues[0]!.usuarioMiembroCifrado).toBeNull();
+    expect(despues[1]!.usuarioMiembroCifrado).not.toBeNull();
+    expect(despues[1]!.usuarioMiembroCifrado).not.toContain('beto@');
+    expect(despues[1]!.claveMiembroCifrada).not.toBeNull();
+    // Caro conserva su correo y recibe solo la clave que le faltaba.
+    expect(despues[2]!.usuarioMiembroCifrado).toBe(caroAntes.usuarioMiembroCifrado);
+    expect(despues[2]!.claveMiembroCifrada).not.toBeNull();
+    const datos = await operador.n.post(
+      `/cuentas/${cuenta.id}/perfiles/${despues[1]!.id}/mensaje`,
+      {},
+    );
+    expect(datos.cuerpo.texto).toContain('beto@example.com');
+    expect(
+      await ctx.prisma.auditoria.count({ where: { accion: 'gestor.miembros_recuperados' } }),
+    ).toBe(1);
+    // Ya no queda nada por recuperar.
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).cuerpo.error.codigo).toBe(
+      'NADA_QUE_IMPORTAR',
+    );
+  });
+
   it('papelera: cuentas retiradas y clientes borrados con nota', async () => {
     const admin = await conectar(ctx, 'admin');
     const catalogo = await prepararCatalogo(admin.n);

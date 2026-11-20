@@ -56,6 +56,9 @@ function Cuadre({ c }: { c: CuadreGestor }) {
           ['Suscripciones vencidas', c.suscripciones.vencidas],
           ['Clientes sin contacto', c.clientes.sinContacto],
           ['Clientes sin perfil', c.clientes.sinPerfil ?? 0],
+          ...(c.perfiles.miembrosRecuperados
+            ? [['Miembros recuperados', c.perfiles.miembrosRecuperados] as const]
+            : []),
         ].map(([t, v]) => (
           <div key={t} className="flex justify-between gap-2 border-b border-borde/60 py-1">
             <dt className="text-tinta-suave">{t}</dt>
@@ -172,7 +175,8 @@ function Plataforma({
     cuentas: p.cuentas,
     clientesSueltos: p.clientesSueltos ?? [],
   });
-  const hayAlgo = (c: CuadreGestor) => c.cuentas.nuevas + (c.clientes.sinPerfil ?? 0) > 0;
+  const hayAlgo = (c: CuadreGestor) =>
+    c.cuentas.nuevas + (c.clientes.sinPerfil ?? 0) + (c.perfiles.miembrosRecuperados ?? 0) > 0;
 
   if (!p.cuentas.length && !r.sinPerfil) {
     return (
@@ -277,7 +281,9 @@ function Plataforma({
               {simulado?.clave === clave
                 ? simulado.cuadre.cuentas.nuevas
                   ? `Importar ${plural(simulado.cuadre.cuentas.nuevas, 'cuenta', 'cuentas')}`
-                  : `Importar ${plural(simulado.cuadre.clientes.sinPerfil ?? 0, 'cliente', 'clientes')}`
+                  : simulado.cuadre.clientes.sinPerfil
+                    ? `Importar ${plural(simulado.cuadre.clientes.sinPerfil, 'cliente', 'clientes')}`
+                    : `Recuperar ${plural(simulado.cuadre.perfiles.miembrosRecuperados ?? 0, 'miembro', 'miembros')}`
                 : 'Importar'}
             </Boton>
           </div>
