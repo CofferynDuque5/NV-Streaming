@@ -34,9 +34,12 @@ function validarMensaje(v: string): Validacion {
 export function NuevaSolicitud({
   servicios,
   categoria,
+  base = '/cuenta/soporte',
 }: {
   servicios: { id: string; nombre: string }[];
   categoria?: string | undefined;
+  /** Dónde viven las solicitudes: la cuenta del cliente o el panel del revendedor. */
+  base?: string;
 }) {
   const router = useRouter();
   const notificar = useNotificar();
@@ -92,7 +95,7 @@ export function NuevaSolicitud({
       return setError(r.error);
     }
     notificar(`Recibimos tu solicitud #${r.datos.numero}. Te respondemos por aquí y por correo.`);
-    router.push(`/cuenta/soporte/${r.datos.id}`);
+    router.push(`${base}/${r.datos.id}`);
   }
 
   return (

@@ -95,6 +95,43 @@ describe('soporte', () => {
     ).toBe(403);
   });
 
+  it('el revendedor abre sus propias solicitudes y no ve las de nadie más', async () => {
+    const rev = await conectar(ctx, 'revendedor');
+    const cliente = await conectar(ctx, 'cliente');
+    const operador = await conectar(ctx, 'operador');
+    const delCliente = await cliente.n.post('/mi/tickets', {
+      asunto: 'Consulta del cliente',
+      categoria: 'otro',
+      mensaje: 'Hola',
+    });
+
+    const t = await rev.n.post('/mi/tickets', {
+      asunto: 'Mi recarga no aparece',
+      categoria: 'pagos',
+      mensaje: 'Hice una recarga de saldo y no la veo.',
+    });
+    expect(t.estado).toBe(201);
+    const lista = await rev.n.get('/mi/tickets');
+    expect(lista.cuerpo.total).toBe(1);
+    expect(lista.cuerpo.elementos[0].id).toBe(t.cuerpo.id);
+    expect((await rev.n.get(`/mi/tickets/${delCliente.cuerpo.id}`)).estado).toBe(404);
+    expect((await cliente.n.get(`/mi/tickets/${t.cuerpo.id}`)).estado).toBe(404);
+    // Sigue sin entrar a la bandeja del equipo ni al resto del autoservicio.
+    expect((await rev.n.get('/tickets')).estado).toBe(403);
+    expect((await rev.n.get('/mi/suscripciones')).estado).toBe(403);
+
+    // El equipo lo ve en la bandeja y le responde; el revendedor contesta y cierra.
+    const bandeja = await operador.n.get('/tickets?abiertos=true');
+    expect(bandeja.cuerpo.total).toBe(2);
+    await operador.n.post(`/tickets/${t.cuerpo.id}/mensajes`, { texto: 'Ya la acreditamos.' });
+    const visto = await rev.n.get(`/mi/tickets/${t.cuerpo.id}`);
+    expect(visto.cuerpo.mensajes).toHaveLength(2);
+    const r = await rev.n.post(`/mi/tickets/${t.cuerpo.id}/mensajes`, { texto: 'Gracias' });
+    expect(r.cuerpo.estado).toBe('abierto');
+    const cerrado = await rev.n.post(`/mi/tickets/${t.cuerpo.id}/cerrar`, {});
+    expect(cerrado.cuerpo.estado).toBe('cerrado');
+  });
+
   it('marca el plazo de primera respuesta incumplido', async () => {
     const c = await conectar(ctx, 'cliente');
     const op = await conectar(ctx, 'operador');

@@ -3,7 +3,12 @@ import { exige2fa, PERMISOS, permisosDe, ROLES, rutaInicio, tienePermiso } from 
 
 describe('matriz de permisos', () => {
   it('el administrador tiene todos los permisos salvo los de clientes y revendedores', () => {
-    const soloClientes = ['autoservicio.usar', 'revendedor.solicitar', 'reventa.usar'];
+    const soloClientes = [
+      'autoservicio.usar',
+      'soporte.propio',
+      'revendedor.solicitar',
+      'reventa.usar',
+    ];
     expect([...permisosDe('admin')].sort()).toEqual(
       PERMISOS.filter((p) => !soloClientes.includes(p)).sort(),
     );
@@ -24,6 +29,13 @@ describe('matriz de permisos', () => {
     expect(ROLES.filter((r) => tienePermiso(r, 'automatizaciones.ver'))).toEqual([
       'admin',
       'operador',
+    ]);
+  });
+
+  it('el cliente y el revendedor abren sus propias solicitudes de soporte', () => {
+    expect(ROLES.filter((r) => tienePermiso(r, 'soporte.propio'))).toEqual([
+      'revendedor',
+      'cliente',
     ]);
   });
 

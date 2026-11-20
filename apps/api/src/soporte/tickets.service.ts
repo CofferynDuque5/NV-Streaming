@@ -64,6 +64,15 @@ function resumen(t: TicketBase, ahora = new Date()): TicketResumen {
 }
 
 /** Autor de los mensajes que escribe el sistema (escalado automático). */
+/**
+ * Clientes cuyos tickets ve quien consulta: el revendedor solo los suyos (su propia
+ * ficha de cliente), no los de sus clientes; el resto, como en todo el panel.
+ */
+function alcanceTickets(auth: ContextoAuth): Prisma.ClienteWhereInput {
+  if (auth.usuario.rol === 'revendedor') return { usuarioId: auth.usuario.id };
+  return alcanceClientes(auth);
+}
+
 export const AUTOR_SISTEMA = { id: 'sistema', nombre: 'NV (automático)', esEquipo: true };
 
 @Injectable()
@@ -80,7 +89,7 @@ export class TicketsService {
 
   async listar(auth: ContextoAuth, f: ListarTicketsEntrada): Promise<Pagina<TicketResumen>> {
     const where: Prisma.TicketWhereInput = {
-      cliente: alcanceClientes(auth),
+      cliente: alcanceTickets(auth),
       ...(f.estado ? { estado: f.estado } : f.abiertos ? { estado: { in: [...ABIERTOS] } } : {}),
       ...(f.prioridad ? { prioridad: f.prioridad } : {}),
       ...(f.clienteId ? { clienteId: f.clienteId } : {}),
@@ -108,7 +117,7 @@ export class TicketsService {
   async obtener(auth: ContextoAuth, id: string): Promise<TicketDetalle> {
     const verInternos = esEquipo(auth.usuario.rol);
     const t = await this.prisma.ticket.findFirst({
-      where: { id, cliente: alcanceClientes(auth) },
+      where: { id, cliente: alcanceTickets(auth) },
       include: {
         ...INCLUIR,
         mensajes: {
@@ -374,7 +383,7 @@ export class TicketsService {
 
   private async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Ticket> {
     const visible = await tx.ticket.findFirst({
-      where: { id, cliente: alcanceClientes(auth) },
+      where: { id, cliente: alcanceTickets(auth) },
       select: { id: true },
     });
     if (!visible) throw Errores.noEncontrado('El ticket');
