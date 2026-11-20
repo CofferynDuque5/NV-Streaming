@@ -42,6 +42,8 @@ export interface AsignacionPerfil {
   plan: Referencia;
   /** La suscripción ya terminó: conviene liberar el perfil. */
   terminada: boolean;
+  /** Precio del plan llevado a un mes (USD), para el margen de la cuenta. */
+  precioMensualUsd: string;
 }
 
 export interface PerfilCuentaPublico {

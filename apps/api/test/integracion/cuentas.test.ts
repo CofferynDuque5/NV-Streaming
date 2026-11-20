@@ -209,6 +209,52 @@ describe('cuentas de servicio', () => {
     ]);
   });
 
+  it('cambia el orden de los perfiles: los PIN y clientes van con su perfil y se renumeran', async () => {
+    const e = await escenario();
+    const [p1, p2, p3] = e.cuenta.listaPerfiles as { id: string }[];
+    const pin = await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${p3!.id}`, {
+      nombre: 'Ana',
+      pin: '4321',
+    });
+    expect(pin.estado).toBe(200);
+
+    const ruta = `/cuentas/${e.cuenta.id}/perfiles/orden`;
+    const r = await e.operador.n.post(ruta, { perfilIds: [p3!.id, p1!.id, p2!.id] });
+    expect(r.estado).toBe(200);
+    expect(
+      r.cuerpo.listaPerfiles.map(
+        (p: { id: string; numero: number; nombre: string; tienePin: boolean }) => [
+          p.id,
+          p.numero,
+          p.nombre,
+          p.tienePin,
+        ],
+      ),
+    ).toEqual([
+      [p3!.id, 1, 'Ana', true],
+      [p1!.id, 2, 'Perfil 2', false],
+      [p2!.id, 3, 'Perfil 3', false],
+    ]);
+    const credenciales = await e.admin.n.post(`/cuentas/${e.cuenta.id}/revelar`, {});
+    expect(credenciales.cuerpo.perfiles[0]).toMatchObject({
+      numero: 1,
+      nombre: 'Ana',
+      pin: '4321',
+    });
+
+    // Lista incompleta o con perfiles de otra cuenta: no.
+    const corta = await e.operador.n.post(ruta, { perfilIds: [p1!.id, p2!.id] });
+    expect(corta.cuerpo.error.codigo).toBe('ORDEN_DESACTUALIZADO');
+    const repetida = await e.operador.n.post(ruta, { perfilIds: [p1!.id, p1!.id, p2!.id] });
+    expect(repetida.estado).toBe(400);
+    expect((await e.cliente.post(ruta, { perfilIds: [p1!.id, p2!.id, p3!.id] })).estado).toBe(403);
+
+    const auditoria = await ctx.prisma.auditoria.findFirstOrThrow({
+      where: { accion: 'cuenta_servicio.perfiles_ordenados' },
+    });
+    expect(auditoria.despues).toEqual({ orden: [3, 1, 2] });
+  });
+
   it('una cuenta caída no recibe asignaciones y el método de pago no acepta números de tarjeta', async () => {
     const e = await escenario();
     const caida = await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { estado: 'caida' });
