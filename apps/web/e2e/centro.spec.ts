@@ -58,7 +58,7 @@ test('administración: colas reales, cifras, módulos con buscador y por área, 
   await expect(page.getByText('El proceso trabajador no está en marcha')).toBeVisible();
   const sistema = page.getByRole('region', { name: 'Estado del sistema' });
   await expect(sistema.getByText('Trabajador')).toBeVisible();
-  await expect(sistema.getByText('PayPal')).toBeVisible();
+  await expect(sistema.getByText('PayPal', { exact: true })).toBeVisible();
 
   await expect(page.getByRole('region', { name: 'Este mes' })).toBeVisible();
   await expect(page.getByText('Suscripciones por estado')).toBeVisible();
