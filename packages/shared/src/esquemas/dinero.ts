@@ -52,6 +52,8 @@ export const metodoCobroSchema = z.object({
     .min(5, 'Explica al cliente cómo pagar.')
     .max(2000, 'Las instrucciones son demasiado largas.'),
   requiereReferencia: z.boolean().default(true),
+  /** Pedir solo los 4 últimos dígitos de la referencia (Pago Móvil). */
+  referenciaUltimos4: z.boolean().default(false),
   /** "pasarela" = pago en línea con la pasarela indicada (fase 4). */
   tipo: z.enum(TIPOS_METODO_COBRO).default('manual'),
   pasarela: z.enum(PASARELAS, { error: 'Elige una pasarela válida.' }).nullable().default(null),
@@ -59,6 +61,26 @@ export const metodoCobroSchema = z.object({
   orden: z.coerce.number().int().min(0).max(999).default(0),
 });
 export type MetodoCobroEntrada = z.infer<typeof metodoCobroSchema>;
+
+/**
+ * Comprueba la referencia que escribe el cliente según el método. Con
+ * `referenciaUltimos4` deben ser exactamente 4 dígitos. Devuelve el mensaje de
+ * error para mostrar, o null si está bien.
+ */
+export function errorReferencia(
+  metodo: { requiereReferencia: boolean; referenciaUltimos4: boolean },
+  referencia: string | null | undefined,
+): string | null {
+  const r = referencia?.trim() ?? '';
+  if (metodo.referenciaUltimos4) {
+    if (!r) return 'Escribe los 4 últimos dígitos de la referencia.';
+    if (!/^\d{4}$/.test(r))
+      return 'Escribe solo los 4 últimos dígitos de la referencia (4 números).';
+    return null;
+  }
+  if (metodo.requiereReferencia && !r) return 'Escribe el número de referencia del pago.';
+  return null;
+}
 export const actualizarMetodoCobroSchema = parcialSinDefectos(metodoCobroSchema);
 
 /** Meta de ingresos del mes en curso (USD). null la quita. */

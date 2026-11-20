@@ -46,6 +46,7 @@ import { nombrePasarela } from '@/lib/pagos-en-linea';
 import { enlaceRecarga } from '@/lib/recarga';
 import { AccionPagoEnLinea } from './pago-en-linea';
 import { AvisoSaldoInsuficiente } from './saldo-insuficiente';
+import { QrMetodo } from './qr-metodo';
 
 /* ─────────────────────────── piezas comunes ─────────────────────────── */
 
@@ -547,6 +548,11 @@ function FormularioComprobante({
     referencia: () => {
       if (servidor.referenciaExterna) return ['mal', servidor.referenciaExterna];
       const r = referencia.trim();
+      if (metodo.referenciaUltimos4) {
+        if (!r) return ['mal', 'Escribe los 4 últimos dígitos de la referencia.'];
+        if (!/^\d{4}$/.test(r)) return ['mal', 'Solo los 4 últimos dígitos (4 números).'];
+        return ['ok', 'Referencia lista'];
+      }
       if (!r) {
         return metodo.requiereReferencia
           ? ['mal', 'Escribe el número de referencia del pago.']
@@ -626,9 +632,11 @@ function FormularioComprobante({
   const [eFecha, tFecha] = mostrar('fecha');
   const [eRef, tRef] = mostrar(
     'referencia',
-    metodo.requiereReferencia
-      ? 'Lo ves en el recibo de tu banco.'
-      : 'Opcional. Lo ves en el recibo de tu banco.',
+    metodo.referenciaUltimos4
+      ? 'Los 4 últimos números de la referencia de tu recibo.'
+      : metodo.requiereReferencia
+        ? 'Lo ves en el recibo de tu banco.'
+        : 'Opcional. Lo ves en el recibo de tu banco.',
   );
   const [eArchivo, tArchivo] = intento || tocados.archivo ? validar.archivo() : ['', ''];
   const cantidadMalos = intento
@@ -692,13 +700,18 @@ function FormularioComprobante({
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-ref`} className="text-sm font-semibold">
-          {metodo.requiereReferencia ? 'Número de referencia' : 'Referencia (opcional)'}
+          {metodo.referenciaUltimos4
+            ? 'Últimos 4 dígitos de la referencia'
+            : metodo.requiereReferencia
+              ? 'Número de referencia'
+              : 'Referencia (opcional)'}
         </label>
         <input
           id={`${id}-ref`}
           autoComplete="off"
-          maxLength={80}
-          placeholder="Ej.: 00123456"
+          maxLength={metodo.referenciaUltimos4 ? 4 : 80}
+          inputMode={metodo.referenciaUltimos4 ? 'numeric' : undefined}
+          placeholder={metodo.referenciaUltimos4 ? 'Ej.: 3456' : 'Ej.: 00123456'}
           value={referencia}
           onChange={(e) => {
             setReferencia(e.target.value);
@@ -781,6 +794,7 @@ function AccionComprobante({
           Paso 1 · Paga con estos datos
         </span>
         <div className="grid overflow-hidden rounded-2xl border border-borde-fuerte bg-hundida/70">
+          <QrMetodo metodo={metodo} />
           {filas ? (
             filas.map(([etiqueta, valor]) => (
               <div

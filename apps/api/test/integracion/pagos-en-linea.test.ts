@@ -874,9 +874,10 @@ describe('webhooks', () => {
     expect(r.cuerpo.map((p: { pasarela: string }) => p.pasarela)).toEqual([
       'paypal',
       'mercadopago',
+      'binance',
       'sandbox',
     ]);
-    expect(r.cuerpo[2]).toMatchObject({
+    expect(r.cuerpo[3]).toMatchObject({
       configurada: true,
       modo: 'pruebas',
       urlWebhook: `${ORIGEN}/api/v1/pasarelas/sandbox/webhook`,

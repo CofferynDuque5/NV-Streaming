@@ -5,6 +5,7 @@ import { ENTORNO } from '../comun/tokens.js';
 import type { Entorno } from '../config/entorno.js';
 import { AdaptadorNoDisponible, type AdaptadorPasarela } from './adaptador.js';
 import { esPasarela, pasarelaAdmiteMoneda } from './pasarelas.js';
+import { AdaptadorBinance } from './binance/binance.adaptador.js';
 import { AdaptadorMercadoPago } from './mercadopago/mercadopago.adaptador.js';
 import { AdaptadorPaypal } from './paypal/paypal.adaptador.js';
 import { AdaptadorSandbox } from './sandbox/sandbox.adaptador.js';
@@ -22,10 +23,12 @@ export class RegistroPasarelas {
     @Inject(AdaptadorSandbox) sandbox: AdaptadorSandbox,
     @Inject(AdaptadorPaypal) paypal: AdaptadorPaypal,
     @Inject(AdaptadorMercadoPago) mercadopago: AdaptadorMercadoPago,
+    @Inject(AdaptadorBinance) binance: AdaptadorBinance,
   ) {
     this.adaptadores = {
       paypal,
       mercadopago,
+      binance,
       sandbox: entorno.PASARELA_SANDBOX_HABILITADA ? sandbox : new AdaptadorNoDisponible('sandbox'),
     };
   }

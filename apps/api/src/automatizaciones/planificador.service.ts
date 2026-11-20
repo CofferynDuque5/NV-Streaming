@@ -57,6 +57,17 @@ export class PlanificadorService {
     ) {
       encolados += 1;
     }
+    // Avisos de Binance: se leen cada 2 minutos (si el buzón no está activo, no hace nada).
+    const ranuraBinance = ranuraActual({ tipo: 'intervalo', minutos: 2 }, ahora)!;
+    if (
+      await this.trabajos.encolar({
+        tipo: TRABAJO.leerCorreosBinance,
+        claveUnica: `leer_binance:${ranuraBinance.toISOString()}`,
+        maxIntentos: 1,
+      })
+    ) {
+      encolados += 1;
+    }
     const minutos = this.entorno.VENCIMIENTOS_CADA_MINUTOS;
     if (minutos > 0) {
       const ranura = ranuraActual({ tipo: 'intervalo', minutos }, ahora)!;

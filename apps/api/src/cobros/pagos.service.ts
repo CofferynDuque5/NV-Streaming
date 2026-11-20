@@ -9,6 +9,7 @@ import {
   type PagoPublico,
   type RegistrarPagoEntrada,
   type ReportarPagoEntrada,
+  errorReferencia,
 } from '@nv/shared';
 import { type ArchivoRecibido, AlmacenService } from '../almacen/almacen.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -232,11 +233,10 @@ export class PagosService {
           },
         );
       }
-      if (metodo.requiereReferencia && !e.referenciaExterna) {
-        throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Escribe el número de referencia del pago.', {
-          referenciaExterna: [
-            'Escribe el número de referencia que te dio el banco o la billetera.',
-          ],
+      const errorRef = errorReferencia(metodo, e.referenciaExterna);
+      if (errorRef) {
+        throw new ErrorApp(400, 'DATOS_INVALIDOS', errorRef, {
+          referenciaExterna: [errorRef],
         });
       }
       const enRevision = await tx.pago.count({ where: { facturaId, estado: 'en_revision' } });
@@ -247,7 +247,10 @@ export class PagosService {
           'Ya hay un pago de esta factura en revisión. Espera a que lo confirmemos.',
         );
       }
-      if (e.referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      // Con solo 4 dígitos dos pagos distintos pueden coincidir: no se exige que sea nueva.
+      if (e.referenciaExterna && !metodo.referenciaUltimos4) {
+        await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      }
       const comprobante = archivo ? await this.almacen.guardar(tx, archivo, auth.usuario.id) : null;
       const monto = D(e.monto);
       const pago = await this.insertarConReferencia(tx, {
@@ -405,7 +408,11 @@ export class PagosService {
       });
     }
     const referenciaExterna = e.referenciaExterna?.trim() || null;
-    if (referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, referenciaExterna);
+    // Los 4 últimos dígitos (Pago Móvil) pueden repetirse entre pagos distintos.
+    const soloUltimos4 = metodo.referenciaUltimos4 && /^\d{4}$/.test(referenciaExterna ?? '');
+    if (referenciaExterna && !soloUltimos4) {
+      await exigirReferenciaNueva(tx, metodo.id, referenciaExterna);
+    }
     const ahora = new Date();
     const pago = await this.insertarConReferencia(tx, {
       facturaId: factura.id,

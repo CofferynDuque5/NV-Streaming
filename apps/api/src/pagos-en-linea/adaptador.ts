@@ -116,6 +116,11 @@ export interface ResultadoPago {
   metodoInvalido?: boolean;
   /** Motivo legible para el cliente si no se aprobó. */
   mensaje?: string;
+  /**
+   * El pago llegó bien pero el equipo debe revisarlo antes de entregar (p. ej.
+   * Binance con servicios que no se entregan solos). Es el motivo de la revisión.
+   */
+  revisionManual?: string;
 }
 
 export interface ResultadoReembolso {

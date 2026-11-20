@@ -33,9 +33,13 @@ export interface MetodoCobroPublico {
   moneda: Moneda;
   instrucciones: string;
   requiereReferencia: boolean;
+  /** Pide solo los 4 últimos dígitos de la referencia (p. ej. Pago Móvil). */
+  referenciaUltimos4: boolean;
+  /** Imagen QR del método (id en la biblioteca de imágenes) o null si no tiene. */
+  qrId: string | null;
   /** "manual" (con comprobante) o "pasarela" (pago en línea). */
   tipo?: 'manual' | 'pasarela';
-  pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;
+  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'sandbox' | null;
   activo: boolean;
   orden: number;
 }
@@ -357,7 +361,7 @@ export interface PagoPublico {
   creadoEn: string;
   /** "manual", "pasarela" (fase 4) o "billetera" (pagado con saldo). */
   origen?: 'manual' | 'pasarela' | 'billetera';
-  pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;
+  pasarela?: 'paypal' | 'mercadopago' | 'binance' | 'sandbox' | null;
   montoReembolsado?: Decimal;
   /** Solo para el equipo. */
   notasConciliacion?: string | null;

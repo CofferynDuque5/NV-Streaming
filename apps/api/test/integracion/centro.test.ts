@@ -89,12 +89,13 @@ describe('centro de módulos del equipo', () => {
     for (const p of a.sistema.pasarelas) {
       expect(Object.keys(p).sort()).toEqual(['configurada', 'modo', 'nombre', 'pasarela']);
     }
-    // PayPal y Mercado Pago siempre; la de pruebas, solo si está habilitada.
-    expect(a.sistema.pasarelas.slice(0, 2)).toMatchObject([
+    // PayPal, Mercado Pago y Binance siempre; la de pruebas, solo si está habilitada.
+    expect(a.sistema.pasarelas.slice(0, 3)).toMatchObject([
       { pasarela: 'paypal', configurada: false },
       { pasarela: 'mercadopago', configurada: false },
+      { pasarela: 'binance', configurada: false },
     ]);
-    expect(a.sistema.pasarelas.slice(2)).toMatchObject([
+    expect(a.sistema.pasarelas.slice(3)).toMatchObject([
       { pasarela: 'sandbox', configurada: true, modo: 'pruebas' },
     ]);
     expect(JSON.stringify(a)).not.toMatch(/https?:|webhook|clave|token/i);

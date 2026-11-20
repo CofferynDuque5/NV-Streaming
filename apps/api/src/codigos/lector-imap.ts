@@ -113,6 +113,49 @@ export class LectorImap {
     }
   }
 
+  /**
+   * Correos nuevos de la carpeta, crudos (para comprobar su firma DKIM), con UID
+   * mayor que `despuesDeUid`. Si la carpeta cambió de UIDVALIDITY o no hay UID
+   * previo, se leen los de los últimos `diasAtras` días. Devuelve como máximo `max`
+   * correos, de los más antiguos a los más nuevos, para avanzar sin saltarse ninguno.
+   */
+  async nuevos(
+    c: ConexionBuzon,
+    previo: { uid: bigint | null; validez: bigint | null },
+    diasAtras = 2,
+    max = 50,
+  ): Promise<{ validez: bigint; correos: { uid: number; fuente: Buffer }[] }> {
+    let imap: ImapFlow | null = null;
+    try {
+      imap = await this.cliente(c);
+      const caja = await imap.mailboxOpen(c.carpeta, { readOnly: true });
+      const validez = BigInt(caja.uidValidity ?? 0);
+      const continuar = previo.uid !== null && previo.validez === validez;
+      const uids = continuar
+        ? await imap.search({ uid: `${(previo.uid as bigint) + 1n}:*` }, { uid: true })
+        : await imap.search(
+            { since: new Date(Date.now() - diasAtras * 86_400_000) },
+            { uid: true },
+          );
+      // «N:*» siempre devuelve al menos el último aunque sea menor: se filtra.
+      const lista = [...(uids || [])]
+        .filter((u) => !continuar || BigInt(u) > (previo.uid as bigint))
+        .sort((a, b) => a - b)
+        .slice(0, max);
+      const correos: { uid: number; fuente: Buffer }[] = [];
+      if (lista.length > 0) {
+        for await (const m of imap.fetch(lista, { source: true }, { uid: true })) {
+          if (m.source) correos.push({ uid: m.uid, fuente: m.source });
+        }
+      }
+      return { validez, correos: correos.sort((a, b) => a.uid - b.uid) };
+    } catch (err) {
+      throw new ErrorBuzon(mensajeDe(err));
+    } finally {
+      await imap?.logout().catch(() => undefined);
+    }
+  }
+
   /** Correos dirigidos a `para` desde `desde`, del más reciente al más antiguo. */
   async buscar(c: ConexionBuzon, para: string, desde: Date): Promise<CorreoLeido[]> {
     let imap: ImapFlow | null = null;

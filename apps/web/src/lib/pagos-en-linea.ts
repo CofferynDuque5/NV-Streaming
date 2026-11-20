@@ -79,6 +79,11 @@ export const AYUDA_PASARELA: Record<Pasarela, { variables: string[]; pasos: stri
     pasos:
       'En «Tus integraciones» de Mercado Pago crea una aplicación, copia el Access Token al entorno del servidor, configura la URL de avisos (Webhooks, evento «Pagos») y copia la clave secreta de la firma. Cada cuenta opera en un solo país: indica su moneda en MERCADOPAGO_MONEDA (ARS, COP o PEN); para otro país hace falta otra cuenta. Mercado Pago no admite cobros automáticos aquí: el cliente paga cada factura. MERCADOPAGO_MODO=produccion cobra de verdad; por defecto usa pruebas.',
   },
+  binance: {
+    variables: [],
+    pasos:
+      'No usa variables del servidor: se configura abajo, en «Binance Pay por correo». NV lee los avisos «Pago recibido correctamente» que Binance manda a tu Gmail, comprueba la firma de binance.com y tu código anti-phishing, y confirma el pago cuando el usuario y el monto que escribió el cliente coinciden.',
+  },
   sandbox: {
     variables: ['PASARELA_SANDBOX_HABILITADA'],
     pasos:

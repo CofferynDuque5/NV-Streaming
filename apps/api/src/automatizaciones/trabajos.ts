@@ -13,6 +13,8 @@ export const TRABAJO = {
   avisoSaldoBajo: 'aviso.saldo_bajo',
   /** Consulta y vence los pagos en línea abandonados. */
   expirarIntentosPago: 'pagos_en_linea.expirar_intentos',
+  /** Lee el buzón de avisos de Binance y concilia los pagos declarados. */
+  leerCorreosBinance: 'pagos_en_linea.leer_binance',
   /** Procesa un webhook de pasarela ya guardado. Carga: { eventoId }. */
   eventoPasarela: 'pasarela.evento',
   /** Entrega un servicio con el adaptador de su proveedor (fase 6). Carga: { entregaId }. */

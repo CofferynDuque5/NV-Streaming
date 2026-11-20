@@ -1,4 +1,7 @@
 import type { Provider, Type } from '@nestjs/common';
+import { AdaptadorBinance } from './binance/binance.adaptador.js';
+import { BinanceAdminController, BinanceClienteController } from './binance/binance.controller.js';
+import { CorreosBinanceService } from './binance/correos-binance.service.js';
 import { AvisosEquipoPagosService } from './avisos-equipo.service.js';
 import { CobrosAutomaticosService } from './cobros-automaticos.service.js';
 import { IntentosPagoService } from './intentos.service.js';
@@ -28,16 +31,20 @@ export const CONTROLADORES_PAGOS_EN_LINEA: Type[] = [
   EventosPasarelaController,
   ReembolsosController,
   MetodosAutorizadosClienteController,
+  BinanceClienteController,
+  BinanceAdminController,
 ];
 export const PROVEEDORES_PAGOS_EN_LINEA: Provider[] = [
   AdaptadorSandbox,
   AdaptadorPaypal,
   AdaptadorMercadoPago,
+  AdaptadorBinance,
   RegistroPasarelas,
   AvisosEquipoPagosService,
   MetodosAutorizadosService,
   IntentosPagoService,
   CobrosAutomaticosService,
+  CorreosBinanceService,
   ReembolsosService,
   WebhooksService,
 ];

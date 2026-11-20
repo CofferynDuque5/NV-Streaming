@@ -1,5 +1,17 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import { ApiConsumes, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import {
   actualizarMetodoCobroSchema,
   metodoCobroSchema,
@@ -18,6 +30,7 @@ import {
   RequierePermiso,
 } from '../comun/contexto.js';
 import { DocCuerpo } from '../comun/documentacion.js';
+import { leerFormulario } from '../comun/formulario.js';
 import { validar } from '../comun/zod.pipe.js';
 import { MetodosCobroService } from './metodos-cobro.service.js';
 import { TasasService } from './tasas.service.js';
@@ -86,5 +99,30 @@ export class FinanzasController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.metodos.actualizar(auth, id, cuerpo, cliente);
+  }
+
+  /** Sube la imagen QR del método (multipart: `archivo`). JPG, PNG o WebP. */
+  @Post('metodos-cobro/:id/qr')
+  @RequierePermiso('finanzas.configurar')
+  @ApiConsumes('multipart/form-data')
+  async ponerQr(
+    @Auth() auth: ContextoAuth,
+    @Param('id', validar(uuidSchema)) id: string,
+    @Req() peticion: FastifyRequest,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    const { archivo } = await leerFormulario(peticion, 'archivo');
+    return this.metodos.ponerQr(auth, id, archivo, cliente);
+  }
+
+  /** Quita el QR del método (la imagen queda en la biblioteca). */
+  @Delete('metodos-cobro/:id/qr')
+  @RequierePermiso('finanzas.configurar')
+  quitarQr(
+    @Auth() auth: ContextoAuth,
+    @Param('id', validar(uuidSchema)) id: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.metodos.quitarQr(auth, id, cliente);
   }
 }
