@@ -118,7 +118,7 @@ describe('teléfono como en el Gestor', () => {
 describe('lugares que la web entrega sola', () => {
   it('perfiles de cuentas compartidas; en familiares, la principal o una individual', () => {
     expect(sirveVentaWeb('perfiles', false, 3)).toBe(true);
-    expect(sirveVentaWeb('perfiles', true, 1)).toBe(false);
+    expect(sirveVentaWeb('perfiles', true, 1)).toBe(true);
     expect(sirveVentaWeb('familiar', false, 1)).toBe(true);
     expect(sirveVentaWeb('familiar', false, 2)).toBe(false);
     expect(sirveVentaWeb('familiar', true, 1)).toBe(true);

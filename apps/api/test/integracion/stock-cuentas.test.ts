@@ -144,6 +144,27 @@ describe('stock y entrega automática desde Plataformas', () => {
     expect(mensaje.cuerpo.texto).toBe(contrato);
   });
 
+  it('una cuenta individual también es stock; se entrega después de los perfiles compartidos', async () => {
+    const e = await escenario();
+    const individual = await cuenta(e, 'individual@example.com', dia(60), 1);
+    expect((await planEnCatalogo(e)).agotado).toBeUndefined();
+    const compartida = await cuenta(e, 'compartida@example.com', dia(10));
+
+    const primera = await comprarYPagar(e);
+    const p1 = await ctx.prisma.perfilCuenta.findFirstOrThrow({
+      where: { suscripcionId: primera },
+    });
+    expect(p1.cuentaId).toBe(compartida.id);
+
+    await e.operador.n.patch(`/cuentas/${compartida.id}`, { estado: 'caida' });
+    const segunda = await comprarYPagar(e);
+    const p2 = await ctx.prisma.perfilCuenta.findFirstOrThrow({
+      where: { suscripcionId: segunda },
+    });
+    expect(p2.cuentaId).toBe(individual.id);
+    expect((await planEnCatalogo(e)).agotado).toBe(true);
+  });
+
   it('si el stock se acaba antes del pago, la suscripción queda para asignar a mano', async () => {
     const e = await escenario();
     const c = await cuenta(e, 'una@example.com', dia(10), 2);
