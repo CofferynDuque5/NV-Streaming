@@ -33,9 +33,28 @@ export const LIMITE_IMPORTAR_GESTOR = { maximo: 30, ventanaSegundos: 3600 };
 
 type Tx = Prisma.TransactionClient;
 
-/** Cliente del Gestor: por su contacto o, si no tiene, por su nombre. */
+/** Nombre para comparar: sin tildes, mayúsculas ni espacios repetidos. */
+const nombreComparable = (n: string) =>
+  n.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+/**
+ * Cliente del Gestor: por su contacto y su nombre o, si no tiene contacto, por su nombre.
+ * Un revendedor pone su número a varios clientes con nombres distintos: cada uno es
+ * un cliente aparte que comparte ese contacto (pedido de Nathan, 20-11-2026).
+ */
 const claveDe = (c: ClienteGestor) =>
-  c.contacto ? c.contacto.valor : `nombre:${c.nombre.toLowerCase()}`;
+  !c.contacto
+    ? `nombre:${c.nombre.toLowerCase()}`
+    : // Un correo es de una sola persona: basta el correo, como antes.
+      c.contacto.tipo === 'correo'
+      ? c.contacto.valor
+      : `${c.contacto.valor}#${nombreComparable(c.nombre)}`.slice(0, 260);
+/** Mismo nombre, o uno es el otro con más palabras («Ana» y «Ana Pérez»). */
+const mismoNombre = (a: string, b: string) =>
+  a === b || a.startsWith(`${b} `) || b.startsWith(`${a} `);
+/** El contacto de una clave (sin el nombre), o null si la clave es solo de nombre. */
+const contactoDeClave = (k: string) => (k.startsWith('nombre:') ? null : k.split('#')[0]!);
+/** El nombre de una clave con contacto y nombre, o null si la clave es solo el correo. */
+const nombreDeClave = (k: string) => (k.includes('#') ? k.slice(k.indexOf('#') + 1) : null);
 const claveCliente = (p: PerfilGestor) => claveDe(p.cliente!);
 
 const MOTIVO_SUELTO: Record<ClienteSueltoGestor['motivo'], string> = {
@@ -209,7 +228,7 @@ export class ImportarGestorService {
     );
     const sueltos = todosSueltos.filter((x) => !sueltosYa.has(x.origenId));
     const claves = [...new Set([...conCliente.map(claveCliente), ...sueltos.map(claveDe)])];
-    const contactos = claves.filter((k) => !k.startsWith('nombre:'));
+    const contactos = [...new Set(claves.map(contactoDeClave).filter((k) => k !== null))];
     const existentes = new Map<string, string>();
     for (const r of await db.registroGestor.findMany({
       where: { tipo: 'cliente', entidad: 'cliente', origenId: { in: claves } },
@@ -217,18 +236,55 @@ export class ImportarGestorService {
     })) {
       existentes.set(r.origenId, r.entidadId);
     }
+    // Clientes que ya tienen ese contacto (importados antes, cuando la clave era solo el
+    // contacto, o creados en NV): se reutiliza solo el que tiene el mismo nombre.
+    const candidatos = new Map<string, Set<string>>();
+    const agregarCandidato = (valor: string, clienteId: string) => {
+      const v = candidatos.get(valor) ?? new Set<string>();
+      v.add(clienteId);
+      candidatos.set(valor, v);
+    };
+    for (const r of await db.registroGestor.findMany({
+      where: { tipo: 'cliente', entidad: 'cliente', origenId: { in: contactos } },
+      select: { origenId: true, entidadId: true },
+    })) {
+      agregarCandidato(r.origenId, r.entidadId);
+    }
     for (const c of await db.contactoCliente.findMany({
       where: { valor: { in: contactos } },
       select: { valor: true, clienteId: true },
     })) {
-      if (!existentes.has(c.valor)) existentes.set(c.valor, c.clienteId);
+      agregarCandidato(c.valor, c.clienteId);
     }
     for (const c of await db.cliente.findMany({
       where: { correo: { in: contactos.filter((k) => k.includes('@')), mode: 'insensitive' } },
       select: { correo: true, id: true },
     })) {
-      const k = c.correo!.toLowerCase();
-      if (!existentes.has(k)) existentes.set(k, c.id);
+      agregarCandidato(c.correo!.toLowerCase(), c.id);
+    }
+    const idsCandidatos = [...new Set([...candidatos.values()].flatMap((v) => [...v]))];
+    const nombreDe = new Map(
+      (
+        await db.cliente.findMany({
+          where: { id: { in: idsCandidatos } },
+          select: { id: true, nombre: true },
+        })
+      ).map((c) => [c.id, nombreComparable(c.nombre)]),
+    );
+    for (const k of claves) {
+      if (existentes.has(k)) continue;
+      const contacto = contactoDeClave(k);
+      if (!contacto) continue;
+      const nombre = nombreDeClave(k);
+      const ids = [...(candidatos.get(contacto) ?? [])];
+      const mismo =
+        nombre === null
+          ? ids[0]
+          : ids.find((id) => {
+              const n = nombreDe.get(id);
+              return n !== undefined && mismoNombre(n, nombre);
+            });
+      if (mismo) existentes.set(k, mismo);
     }
     const porCrear = new Map<string, ClienteGestor>();
     for (const c of [...conCliente.map((p) => p.cliente!), ...sueltos]) {
