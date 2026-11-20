@@ -83,7 +83,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
             <AvisarDatos cuentaId={c.id} asignados={c.perfiles.asignados} />
           )}
           {puedeRevelar && <VerCredenciales cuentaId={c.id} />}
-          {puedeGestionar && <EditarCuenta cuenta={c} />}
+          {puedeGestionar && <EditarCuenta cuenta={c} puedeRevelar={puedeRevelar} />}
         </div>
       </header>
 

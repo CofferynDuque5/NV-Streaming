@@ -42,6 +42,8 @@ export interface AsignacionPerfil {
   plan: Referencia;
   /** La suscripción ya terminó: conviene liberar el perfil. */
   terminada: boolean;
+  /** Precio del plan llevado a un mes (USD), para el margen de la cuenta. */
+  precioMensualUsd: string;
 }
 
 export interface PerfilCuentaPublico {
@@ -223,6 +225,8 @@ export interface PerfilDelCliente {
   disponible: boolean;
   /** El servicio tiene asuntos de códigos y hay un buzón activo: puede pedir su código. */
   pideCodigos: boolean;
+  /** Solo en el panel del revendedor: para qué cliente es. */
+  cliente?: Referencia;
 }
 
 /** Datos para entrar al perfil. Solo los ve su dueño mientras la suscripción está vigente. */
@@ -236,6 +240,8 @@ export interface PerfilRevelado {
   tipo: TipoPlataforma;
   /** Plan familiar: entra con su propio correo (miembro del plan), no con el de la cuenta. */
   miembro: boolean;
+  /** «CONTRATO – FACTURA DE SERVICIO» con estos datos (formato del Gestor). */
+  contrato?: string;
 }
 
 /** Mensaje que arma el equipo para enviar a mano. Nunca se envía solo. */

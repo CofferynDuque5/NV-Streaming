@@ -66,6 +66,18 @@ export const TEXTOS_PLATAFORMA: Record<TipoPlataforma, TextosPlataforma> = {
 export const esTitular = (tipo: TipoPlataforma, numero: number) =>
   tipo === 'familiar' && numero === 1;
 
+/**
+ * Lugares que la web entrega sola, como los modos del Gestor: en las
+ * plataformas por perfiles, un perfil de una cuenta compartida; en las
+ * familiares (Spotify, YouTube, Gemini, Google One, Office…), la cuenta
+ * principal (cupo titular) o una cuenta individual; en las de correo, cualquiera.
+ */
+export function sirveVentaWeb(tipo: TipoPlataforma, individual: boolean, numero: number): boolean {
+  if (tipo === 'perfiles') return !individual;
+  if (tipo === 'familiar') return individual || esTitular(tipo, numero);
+  return true;
+}
+
 function aleatorios(n: number): Uint32Array {
   const a = new Uint32Array(n);
   // Web Crypto existe en el navegador y en Node 20+ (el paquete no carga los tipos del DOM).

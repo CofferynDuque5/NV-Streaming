@@ -21,6 +21,7 @@ import {
   tienePermiso,
   type DevolucionSugerida,
 } from '@nv/shared';
+import { asignarAutomatico, exigirStock } from '../cuentas/stock-cuentas.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import {
   datosDeServicio,
@@ -380,6 +381,8 @@ export class SuscripcionesService {
     },
   ): Promise<{ s: Suscripcion; factura: Factura }> {
     const { plan } = e;
+    // Lo que compra un cliente en la web se entrega de Plataformas: sin stock vigente, no se vende.
+    if (auth.usuario.rol === 'cliente') await exigirStock(tx, plan.id);
     const s = await tx.suscripcion.create({
       data: {
         clienteId: e.clienteId,
@@ -693,6 +696,10 @@ export class SuscripcionesService {
     }
     await tx.suscripcion.update({ where: { id: actual.id }, data });
     await this.evento(tx, actual.id, tipo, actorId, null, datos);
+    // Alquiler desde Plataformas: el perfil (o la cuenta) libre y vigente se entrega solo.
+    // Si no queda ninguno, sigue la entrega del proveedor y el equipo la asigna a mano.
+    const automatica =
+      tipo === 'renovacion' ? null : await asignarAutomatico(tx, this.auditoria, actual.id);
     // Entrega del servicio (fase 6): se crea en esta misma transacción con su trabajo.
     const origen: OrigenEntrega | null =
       typeof datos['facturaId'] === 'string'
@@ -700,7 +707,7 @@ export class SuscripcionesService {
         : typeof datos['compraRevendedorId'] === 'string'
           ? { tipo: 'compra', compraRevendedorId: datos['compraRevendedorId'] }
           : null;
-    if (origen) {
+    if (origen && !automatica) {
       await registrarEntrega(tx, {
         origen,
         suscripcionId: actual.id,

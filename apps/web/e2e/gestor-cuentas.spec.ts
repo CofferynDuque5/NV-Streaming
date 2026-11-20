@@ -118,3 +118,87 @@ test('agrega un cliente nuevo a un perfil libre en 3 pasos y abre el mensaje', a
   await mensaje.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Perfil 1' })).toContainText(nombre);
 });
+
+test('edita la cuenta como en el Gestor: plan, país, pago, fecha, PIN y orden de perfiles', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const sufijo = Date.now().toString(36);
+  const cliente = `Cliente Orden ${sufijo}`;
+  await entrarEquipo(page, 'admin@nv.test');
+  const origin = new URL(page.url()).origin;
+  const api = (ruta: string) => `/api/v1${ruta}`;
+  const catalogo = (await (await page.request.get(api('/catalogo'))).json()) as CatalogoPublico;
+  const plan = catalogo.planes.find((p) => p.tipo === 'suscripcion' && p.entrega === 'alquiler')!;
+  ejecutarSql(`
+    INSERT INTO clientes (id, nombre, actualizado_en) VALUES (gen_random_uuid(), '${cliente}', now());
+    INSERT INTO suscripciones (id, cliente_id, plan_id, estado, moneda, inicio_en, vence_en, actualizado_en)
+    SELECT gen_random_uuid(), c.id, '${plan.id}'::uuid, 'activa', 'USD', now(), now() + interval '20 days', now()
+    FROM clientes c WHERE c.nombre = '${cliente}';
+  `);
+  const r = await page.request.post(api('/cuentas'), {
+    data: {
+      servicioId: plan.servicio.id,
+      usuario: `orden.${sufijo}@example.com`,
+      clave: 'Clave-de-prueba-1',
+      perfiles: 3,
+      costoUsd: '9.00',
+    },
+    headers: { origin },
+  });
+  expect(r.status()).toBe(201);
+  const cuenta = (await r.json()) as { id: string; listaPerfiles: { id: string }[] };
+  const subs = (
+    (await (await page.request.get(api('/suscripciones?porPagina=100&estado=activa'))).json()) as {
+      elementos: { id: string; cliente: { nombre: string } }[];
+    }
+  ).elementos;
+  const a = await page.request.post(
+    api(`/cuentas/${cuenta.id}/perfiles/${cuenta.listaPerfiles[2]!.id}/asignar`),
+    {
+      data: { suscripcionId: subs.find((s) => s.cliente.nombre === cliente)!.id },
+      headers: { origin },
+    },
+  );
+  expect(a.status()).toBe(201);
+
+  await page.goto(`/admin/cuentas/${cuenta.id}`);
+  await page.getByRole('button', { name: 'Editar cuenta' }).click();
+  await page.getByRole('button', { name: 'Premium' }).click();
+  await page.getByLabel('País').selectOption('CO');
+  await page.getByRole('button', { name: 'Tarjeta', exact: true }).click();
+  await page.getByLabel('Últimos 4 dígitos de la tarjeta').fill('3907');
+  await page.getByLabel('Fecha de vencimiento').fill('2026-03-31');
+  await page.getByRole('button', { name: 'Sumar 1 mes' }).click();
+  await expect(page.getByLabel('Fecha de vencimiento')).toHaveValue('2026-04-30');
+  await page.getByRole('button', { name: 'Generar una clave segura' }).click();
+  await expect(page.getByText(/^(Buena|Fuerte)$/)).toBeVisible();
+  // El cliente del perfil 3 sube al primer lugar, con su PIN nuevo.
+  await expect(page.getByText(cliente).filter({ visible: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Subir Perfil 3' }).click();
+  await page.getByRole('button', { name: 'Subir Perfil 3' }).click();
+  await page.getByLabel('PIN de Perfil 3').fill('2468');
+  await expect(page.getByRole('complementary', { name: 'Resumen de la cuenta' })).toContainText(
+    '1 de 3',
+  );
+  await page.screenshot({ path: 'test-results/editar-cuenta.png', fullPage: true });
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  // La clave cambió y hay un cliente: se ofrece avisarle.
+  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeHidden();
+
+  const detalle = (await (await page.request.get(api(`/cuentas/${cuenta.id}`))).json()) as {
+    plan: string;
+    pais: string;
+    metodoPago: string;
+    facturaEn: string;
+    listaPerfiles: { numero: number; nombre: string; tienePin: boolean; asignacion: unknown }[];
+  };
+  expect(detalle).toMatchObject({
+    plan: 'Premium',
+    pais: 'CO',
+    metodoPago: 'Tarjeta ···· 3907',
+    facturaEn: '2026-04-30',
+  });
+  expect(detalle.listaPerfiles[0]).toMatchObject({ numero: 1, nombre: 'Perfil 1', tienePin: true });
+  expect(detalle.listaPerfiles[0]!.asignacion).not.toBeNull();
+});

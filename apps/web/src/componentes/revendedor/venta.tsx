@@ -177,13 +177,17 @@ export function NuevaVenta({
                       <Boton
                         tamano="sm"
                         variante="secundario"
-                        disabled={Boolean(bloqueo)}
-                        title={bloqueo ?? undefined}
-                        aria-label={`Vender ${nombre}`}
+                        disabled={Boolean(bloqueo) || Boolean(p.agotado)}
+                        title={
+                          p.agotado
+                            ? 'Agotado: no quedan perfiles ni cuentas vigentes.'
+                            : (bloqueo ?? undefined)
+                        }
+                        aria-label={p.agotado ? `${nombre} agotado` : `Vender ${nombre}`}
                         aria-haspopup="dialog"
                         onClick={() => abrir(p)}
                       >
-                        Vender
+                        {p.agotado ? 'Agotado' : 'Vender'}
                       </Boton>
                     </td>
                   </tr>

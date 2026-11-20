@@ -40,6 +40,18 @@ function Precio({ plan, moneda, mayorista }: Omit<PropsTarjeta, 'item'>) {
 function Accion({ item, plan, moneda, mayorista }: PropsTarjeta) {
   const p = precioDeTarjeta(plan, moneda, mayorista);
   const nombre = item.servicio.nombre;
+  // Sin stock: en la ficha del servicio se pide por WhatsApp.
+  if (plan.agotado) {
+    return (
+      <Link
+        href={`/catalogo/${item.servicio.slug}?plan=${plan.id}`}
+        className={clasesBoton('secundario', 'md', 'px-3')}
+        aria-label={`${nombre} está agotado: pedirlo por WhatsApp`}
+      >
+        Agotado · pedir
+      </Link>
+    );
+  }
   if (mayorista) {
     return p.compraMayorista ? (
       <Link

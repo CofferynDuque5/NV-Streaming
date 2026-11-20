@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import {
   type AvisarCuentaEntrada,
+  contratoServicio,
+  fechaContrato,
   type AvisosCuenta,
   esTitular,
   type EstadoSuscripcion,
@@ -12,13 +14,14 @@ import {
   tipoPlataforma,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
-import { fechaLarga } from '../automatizaciones/horario.js';
+import { fechaCaracas, fechaLarga } from '../automatizaciones/horario.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { Cifrador } from '../comun/cripto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { LimitesService } from '../limites/limites.service.js';
+import { revendedorPropio } from '../revendedores/libro-mayor.js';
 import {
   contextoClave,
   contextoClaveMiembro,
@@ -49,6 +52,7 @@ const SELECCION_PERFIL = {
       usuarioCifrado: true,
       claveCifrada: true,
       servicio: { select: { id: true, nombre: true } },
+      _count: { select: { perfiles: true } },
     },
   },
 } as const;
@@ -111,6 +115,29 @@ export function textoDatos(d: DatosTexto, intro?: string): string[] {
         : 'No cambies la clave ni el correo de la cuenta. También los ves en «Mis accesos» de tu panel.',
   );
   return lineas;
+}
+
+/**
+ * «CONTRATO – FACTURA DE SERVICIO» (formato del Gestor) con los datos del
+ * lugar entregado: el perfil por su nombre («Perfil 3»), «Cuenta individual»
+ * o nada en la cuenta principal de un plan familiar; PIN o «NO APLICA»; y el
+ * vencimiento del cliente en dd/mm/aaaa (hora de Venezuela).
+ */
+export function contratoDe(
+  servicio: string,
+  datos: PerfilRevelado,
+  cuenta: { modo: 'perfiles' | 'completa'; perfiles: number },
+  venceEn: Date | null,
+): string {
+  const individual = cuenta.modo === 'completa' || cuenta.perfiles === 1;
+  return contratoServicio({
+    servicio,
+    correo: datos.usuario,
+    clave: datos.clave,
+    perfil: individual ? 'Cuenta individual' : datos.tipo === 'perfiles' ? datos.perfil : '',
+    pin: datos.pin ?? '',
+    vence: venceEn ? fechaContrato(fechaCaracas(venceEn)) : '',
+  });
 }
 
 /** Contacto del cliente para armar los enlaces (WhatsApp con consentimiento, correo, Telegram). */
@@ -204,6 +231,19 @@ export class PerfilesClienteService {
 
   /** Perfiles asignados a las suscripciones del cliente que inició sesión. Sin credenciales. */
   async mios(auth: ContextoAuth): Promise<PerfilDelCliente[]> {
+    return this.listar({ cliente: { usuarioId: auth.usuario.id } });
+  }
+
+  /** Perfiles entregados a los clientes de un revendedor (lo que compró con su saldo). */
+  async deRevendedor(auth: ContextoAuth): Promise<PerfilDelCliente[]> {
+    const r = await revendedorPropio(auth, this.prisma);
+    return this.listar({ revendedorId: r.id }, true);
+  }
+
+  private async listar(
+    dueno: Prisma.SuscripcionWhereInput,
+    conCliente = false,
+  ): Promise<PerfilDelCliente[]> {
     const [buzones, conAsuntos] = await Promise.all([
       this.prisma.buzonCodigos.count({ where: { activo: true } }),
       this.prisma.asuntoCodigo.findMany({
@@ -216,10 +256,7 @@ export class PerfilesClienteService {
     const filas = await this.prisma.perfilCuenta.findMany({
       where: {
         estado: 'asignado',
-        suscripcion: {
-          cliente: { usuarioId: auth.usuario.id },
-          estado: { notIn: ['vencida', 'cancelada'] },
-        },
+        suscripcion: { ...dueno, estado: { notIn: ['vencida', 'cancelada'] } },
       },
       select: {
         numero: true,
@@ -234,6 +271,7 @@ export class PerfilesClienteService {
             estado: true,
             venceEn: true,
             plan: { select: { id: true, nombre: true } },
+            cliente: { select: { id: true, nombre: true } },
           },
         },
       },
@@ -259,6 +297,7 @@ export class PerfilesClienteService {
               modo: p.cuenta.modo,
               disponible: p.cuenta.estado === 'activa' && VIGENTES.includes(p.suscripcion.estado),
               pideCodigos: conCodigos.has(p.cuenta.servicio.id),
+              ...(conCliente ? { cliente: p.suscripcion.cliente } : {}),
             },
           ]
         : [],
@@ -271,10 +310,29 @@ export class PerfilesClienteService {
     suscripcionId: string,
     cliente: InfoCliente,
   ): Promise<PerfilRevelado> {
+    return this.revelar(auth, { cliente: { usuarioId: auth.usuario.id } }, suscripcionId, cliente);
+  }
+
+  /** El revendedor ve los datos (y el contrato) del perfil que compró para su cliente. */
+  async revelarDeRevendedor(
+    auth: ContextoAuth,
+    suscripcionId: string,
+    cliente: InfoCliente,
+  ): Promise<PerfilRevelado> {
+    const r = await revendedorPropio(auth, this.prisma);
+    return this.revelar(auth, { revendedorId: r.id }, suscripcionId, cliente);
+  }
+
+  private async revelar(
+    auth: ContextoAuth,
+    dueno: Prisma.SuscripcionWhereInput,
+    suscripcionId: string,
+    cliente: InfoCliente,
+  ): Promise<PerfilRevelado> {
     await this.limites.consumir(`revelar_perfil:${auth.usuario.id}`, LIMITE_REVELAR_PERFIL);
     const s = await this.prisma.suscripcion.findFirst({
-      where: { id: suscripcionId, cliente: { usuarioId: auth.usuario.id } },
-      select: { estado: true, perfilCuenta: { select: SELECCION_PERFIL } },
+      where: { id: suscripcionId, ...dueno },
+      select: { estado: true, venceEn: true, perfilCuenta: { select: SELECCION_PERFIL } },
     });
     if (!s?.perfilCuenta) throw Errores.noEncontrado('El perfil');
     if (!VIGENTES.includes(s.estado)) throw noDisponible(s.estado);
@@ -289,13 +347,24 @@ export class PerfilesClienteService {
     const datos = this.descifrar(p);
     await this.auditoria.registrar({
       actorId: auth.usuario.id,
-      accion: 'perfil_cuenta.visto_por_cliente',
+      accion:
+        'revendedorId' in dueno
+          ? 'perfil_cuenta.visto_por_revendedor'
+          : 'perfil_cuenta.visto_por_cliente',
       entidad: 'perfil_cuenta',
       entidadId: p.id,
       despues: { cuentaId: p.cuenta.id, suscripcionId, conPin: Boolean(datos.pin) },
       cliente,
     });
-    return datos;
+    return {
+      ...datos,
+      contrato: contratoDe(
+        p.cuenta.servicio.nombre,
+        datos,
+        { modo: p.cuenta.modo, perfiles: p.cuenta._count.perfiles },
+        s.venceEn,
+      ),
+    };
   }
 
   /** Arma el mensaje con los datos de un perfil asignado. El equipo lo envía a mano. */
@@ -329,14 +398,23 @@ export class PerfilesClienteService {
       throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'La cuenta no está activa: revísala primero.');
     }
     const d = this.descifrar(p);
-    const texto = textoDatos({
-      nombreCliente: s.cliente.nombre,
-      servicio: p.cuenta.servicio.nombre,
-      plan: s.plan.nombre,
-      modo: p.cuenta.modo,
-      datos: d,
-      venceEn: s.venceEn,
-    }).join('\n');
+    // Se entrega con el contrato del Gestor; las de correo con código llevan sus instrucciones.
+    const texto =
+      d.tipo === 'correo'
+        ? textoDatos({
+            nombreCliente: s.cliente.nombre,
+            servicio: p.cuenta.servicio.nombre,
+            plan: s.plan.nombre,
+            modo: p.cuenta.modo,
+            datos: d,
+            venceEn: s.venceEn,
+          }).join('\n')
+        : contratoDe(
+            p.cuenta.servicio.nombre,
+            d,
+            { modo: p.cuenta.modo, perfiles: p.cuenta._count.perfiles },
+            s.venceEn,
+          );
     const e = enlaces(s.cliente, `Datos de tu ${p.cuenta.servicio.nombre}`, texto);
     await this.auditoria.registrar({
       actorId: auth.usuario.id,

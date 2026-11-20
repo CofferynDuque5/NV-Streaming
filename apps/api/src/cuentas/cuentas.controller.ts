@@ -17,6 +17,7 @@ import {
   avisarCuentaSchema,
   liberarPerfilSchema,
   moverPerfilSchema,
+  ordenarPerfilesSchema,
   pasarAIndividualesSchema,
   reponerPerfilSchema,
   reporteCaidasSchema,
@@ -234,6 +235,20 @@ export class CuentasController {
     return this.cuentas.liberar(auth, id, perfilId, cuerpo, cliente);
   }
 
+  /** Cambia el orden (número) de los perfiles, con sus clientes y PIN. */
+  @Post(':id/perfiles/orden')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(ordenarPerfilesSchema)
+  ordenar(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(ordenarPerfilesSchema)) cuerpo: z.output<typeof ordenarPerfilesSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.ordenarPerfiles(auth, id, cuerpo.perfilIds, cliente);
+  }
+
   /** Lugares libres del mismo servicio adonde se puede mover al cliente del perfil. */
   @Get(':id/perfiles/:perfilId/destinos')
   @RequierePermiso('cuentas.gestionar')
@@ -306,6 +321,31 @@ export class MisPerfilesController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.perfiles.revelarMio(auth, suscripcionId, cliente);
+  }
+}
+
+/** Perfiles de Plataformas que el revendedor compró para sus clientes, con su contrato. */
+@ApiTags('Revendedores: panel')
+@Controller('revendedor/perfiles')
+export class PerfilesRevendedorController {
+  constructor(@Inject(PerfilesClienteService) private readonly perfiles: PerfilesClienteService) {}
+
+  @Get()
+  @RequierePermiso('reventa.usar')
+  listar(@Auth() auth: ContextoAuth) {
+    return this.perfiles.deRevendedor(auth);
+  }
+
+  @Post(':suscripcionId/revelar')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('reventa.usar')
+  revelar(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.perfiles.revelarDeRevendedor(auth, suscripcionId, cliente);
   }
 }
 
