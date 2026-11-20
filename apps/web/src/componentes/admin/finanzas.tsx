@@ -33,6 +33,7 @@ import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { llamarApi } from '@/lib/api-cliente';
 import { formatearFechaHora } from '@/lib/formato';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
+import { recortarQr } from '@/lib/recortar-qr';
 import { formatearTasa, origenAutomatico } from './formato-admin';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -231,7 +232,7 @@ function FormularioMetodo({
     // El QR va aparte (multipart) una vez que el método existe.
     if (qr instanceof File && qr.size > 0) {
       const datos = new FormData();
-      datos.append('archivo', qr);
+      datos.append('archivo', (await recortarQr(qr)).archivo);
       const subido = await ejecutar('POST', `/finanzas/metodos-cobro/${r.datos.id}/qr`, datos);
       if (!subido) return;
     }
@@ -372,7 +373,8 @@ function FormularioMetodo({
           className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-hundida file:px-3 file:py-1.5 file:text-sm file:font-medium"
         />
         <span className="text-xs text-tinta-tenue">
-          JPG, PNG o WebP, hasta 3 MB. El cliente ve el QR primero y debajo las instrucciones.
+          JPG, PNG o WebP, hasta 3 MB. Puedes subir la captura completa: se recorta solo el QR. El
+          cliente lo ve primero y debajo las instrucciones.
         </span>
         {campos.archivo && (
           <span className="text-xs font-medium text-peligro">{campos.archivo}</span>
@@ -425,7 +427,7 @@ function QrMetodo({ metodo }: { metodo: MetodoCobroPublico }) {
     e.currentTarget.value = '';
     if (!f) return;
     const datos = new FormData();
-    datos.append('archivo', f);
+    datos.append('archivo', (await recortarQr(f)).archivo);
     await ejecutar('POST', `/finanzas/metodos-cobro/${metodo.id}/qr`, datos);
   }
 

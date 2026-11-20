@@ -11,10 +11,10 @@ export function QrMetodo({ metodo }: { metodo: Pick<MetodoCobroPublico, 'qrId' |
       <img
         src={`/api/v1/sitio/publico/medios/${metodo.qrId}`}
         alt={`Código QR para pagar con ${metodo.nombre}`}
-        width={224}
-        height={224}
+        width={320}
+        height={320}
         loading="lazy"
-        className="size-56 rounded-xl bg-white object-contain p-2"
+        className="aspect-square w-full max-w-80 rounded-xl bg-white object-contain p-2"
       />
       <figcaption className="text-xs text-tinta-suave">
         Escanéalo con tu app o usa los datos de abajo.
