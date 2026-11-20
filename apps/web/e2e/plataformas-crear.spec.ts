@@ -73,13 +73,14 @@ test('importa del Gestor una plataforma que no existía, con cuentas completas e
   test.setTimeout(120_000);
   const s = Date.now().toString(36);
   const plat = `Streaming ${s}`;
+  // Ids propios: otras pruebas ya importaron cuentas con ids como «a1» y el Gestor no se reimporta.
   const respaldo = {
     db: {
-      platforms: [{ id: 'p1', name: plat }],
+      platforms: [{ id: `p1-${s}`, name: plat }],
       accounts: {
-        p1: [
+        [`p1-${s}`]: [
           {
-            id: 'a1',
+            id: `a1-${s}`,
             email: `completa.${s}@example.com`,
             password: 'Clave-1',
             numProfiles: 3,
@@ -89,10 +90,10 @@ test('importa del Gestor una plataforma que no existía, con cuentas completas e
         ],
       },
       clients: {
-        p1: [
+        [`p1-${s}`]: [
           {
-            id: 'c1',
-            accountId: 'a1',
+            id: `c1-${s}`,
+            accountId: `a1-${s}`,
             slotIndex: 0,
             nombre: 'Luis',
             apellido: 'Mora',
@@ -102,7 +103,7 @@ test('importa del Gestor una plataforma que no existía, con cuentas completas e
             pin: '1234',
           },
           {
-            id: 'c2',
+            id: `c2-${s}`,
             accountId: '',
             isClientAccount: true,
             email: `individual.${s}@example.com`,
