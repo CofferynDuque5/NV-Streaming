@@ -11,6 +11,11 @@ export * from './generated/prisma/client.js';
  * 10 s, así que casi cada clic del panel volvía a abrirlas. Se mantienen 4 minutos:
  * menos que los 5 de inactividad tras los que Neon gratis se apaga, para no impedirlo.
  * Con 20 conexiones, las ~20 consultas paralelas del centro no esperan turno.
+ *
+ * Por la misma distancia, una transacción con muchas consultas (crear un pedido:
+ * cliente, plan, stock, suscripción, factura, auditoría…) pasa de los 5 s que
+ * Prisma da por defecto y se cortaba con «error inesperado». Se les dan 30 s, y
+ * 10 s para conseguir conexión.
  */
 export function crearClientePrisma(urlConexion: string): PrismaClient {
   const adapter = new PrismaPg({
@@ -19,5 +24,8 @@ export function crearClientePrisma(urlConexion: string): PrismaClient {
     idleTimeoutMillis: 240_000,
     connectionTimeoutMillis: 20_000,
   });
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    transactionOptions: { timeout: 30_000, maxWait: 10_000 },
+  });
 }
