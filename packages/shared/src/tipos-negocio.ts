@@ -33,6 +33,10 @@ export interface MetodoCobroPublico {
   moneda: Moneda;
   instrucciones: string;
   requiereReferencia: boolean;
+  /** Pide solo los 4 últimos dígitos de la referencia (p. ej. Pago Móvil). */
+  referenciaUltimos4: boolean;
+  /** Imagen QR del método (id en la biblioteca de imágenes) o null si no tiene. */
+  qrId: string | null;
   /** "manual" (con comprobante) o "pasarela" (pago en línea). */
   tipo?: 'manual' | 'pasarela';
   pasarela?: 'paypal' | 'mercadopago' | 'sandbox' | null;

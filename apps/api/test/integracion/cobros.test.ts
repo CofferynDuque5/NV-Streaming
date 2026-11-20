@@ -371,6 +371,95 @@ describe('alta, pago manual y conciliación', () => {
     expect(repetida.cuerpo.error.codigo).toBe('REFERENCIA_REPETIDA');
   });
 
+  it('con «solo 4 últimos dígitos» la referencia debe ser de 4 números y puede repetirse', async () => {
+    const e = await escenario();
+    const cambio = await e.admin.patch(`/finanzas/metodos-cobro/${e.pagoMovilId}`, {
+      referenciaUltimos4: true,
+    });
+    expect(cambio.estado).toBe(200);
+    expect(cambio.cuerpo.referenciaUltimos4).toBe(true);
+    expect(cambio.cuerpo.requiereReferencia).toBe(true);
+
+    const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'VES' });
+    const f = alta.cuerpo.factura.id;
+    const base = { metodoCobroId: e.pagoMovilId, monto: '200', fechaPago: hoy() };
+    for (const mala of ['', '123', '12345', 'AB12']) {
+      const r = await e.cliente.formulario(
+        `/mi/facturas/${f}/pagos`,
+        { ...base, referenciaExterna: mala },
+        comprobante,
+      );
+      expect(r.estado, `referencia «${mala}»`).toBe(400);
+      expect(r.cuerpo.error.campos.referenciaExterna).toBeDefined();
+    }
+    const sinComprobante = await e.cliente.formulario(`/mi/facturas/${f}/pagos`, {
+      ...base,
+      referenciaExterna: '3456',
+    });
+    expect(sinComprobante.estado).toBe(400);
+    expect(
+      (
+        await e.cliente.formulario(
+          `/mi/facturas/${f}/pagos`,
+          { ...base, referenciaExterna: '3456' },
+          comprobante,
+        )
+      ).estado,
+    ).toBe(201);
+    // Otro cliente con los mismos 4 dígitos: es posible y lo revisa el equipo con el comprobante.
+    const otro = await conectar(ctx, 'cliente');
+    const alta2 = await otro.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'VES' });
+    const repetida = await otro.n.formulario(
+      `/mi/facturas/${alta2.cuerpo.factura.id}/pagos`,
+      { ...base, referenciaExterna: '3456' },
+      comprobante,
+    );
+    expect(repetida.estado).toBe(201);
+  });
+
+  it('el QR de un método se sube, se ve al pagar y se puede quitar', async () => {
+    const e = await escenario();
+    const sinPermiso = await e.cliente.formulario(
+      `/finanzas/metodos-cobro/${e.pagoMovilId}/qr`,
+      {},
+      { campo: 'archivo', nombre: 'qr.png', tipo: 'image/png', contenido: PNG_1X1 },
+    );
+    expect(sinPermiso.estado).toBe(403);
+    const falso = await e.admin.formulario(
+      `/finanzas/metodos-cobro/${e.pagoMovilId}/qr`,
+      {},
+      {
+        campo: 'archivo',
+        nombre: 'qr.svg',
+        tipo: 'image/svg+xml',
+        contenido: Buffer.from('<svg/>'),
+      },
+    );
+    expect(falso.estado).toBe(415);
+    const subido = await e.admin.formulario(
+      `/finanzas/metodos-cobro/${e.pagoMovilId}/qr`,
+      {},
+      { campo: 'archivo', nombre: 'qr.png', tipo: 'image/png', contenido: PNG_1X1 },
+    );
+    expect(subido.estado).toBe(201);
+    const qrId = subido.cuerpo.qrId as string;
+    expect(qrId).toBeTruthy();
+
+    const metodos = await e.cliente.get('/mi/metodos-cobro?moneda=VES');
+    const pm = (metodos.cuerpo as { id: string; qrId: string | null }[]).find(
+      (m) => m.id === e.pagoMovilId,
+    );
+    expect(pm?.qrId).toBe(qrId);
+    const imagen = await e.cliente.descargar(`/sitio/publico/medios/${qrId}`);
+    expect(imagen.estado).toBe(200);
+
+    const quitado = await e.admin.delete(`/finanzas/metodos-cobro/${e.pagoMovilId}/qr`);
+    expect(quitado.estado).toBe(200);
+    expect(quitado.cuerpo.qrId).toBeNull();
+    // La imagen no se borra: sigue en la biblioteca.
+    expect((await e.cliente.descargar(`/sitio/publico/medios/${qrId}`)).estado).toBe(200);
+  });
+
   it('un rechazo avisa al cliente y le deja reportar de nuevo', async () => {
     const e = await escenario();
     const alta = await e.cliente.post('/mi/suscripciones', { planId: e.planId, moneda: 'VES' });

@@ -17,13 +17,14 @@ import {
   ChevronDown,
   CreditCard,
   Globe,
+  QrCode,
   LoaderCircle,
   Pencil,
   Plus,
   Power,
   PowerOff,
 } from 'lucide-react';
-import { type FormEvent, useId, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -210,14 +211,26 @@ function FormularioMetodo({
       instrucciones,
       tipo,
       pasarela: enLinea ? pasarela : null,
-      requiereReferencia: enLinea ? false : d.get('requiereReferencia') === 'on',
+      requiereReferencia: enLinea
+        ? false
+        : d.get('requiereReferencia') === 'on' || d.get('referenciaUltimos4') === 'on',
+      referenciaUltimos4: enLinea ? false : d.get('referenciaUltimos4') === 'on',
       activo: d.get('activo') === 'on',
       orden: textoDe(d, 'orden') ?? '0',
     };
+    const qr = d.get('qr');
     const r = metodo
-      ? await ejecutar('PATCH', `/finanzas/metodos-cobro/${metodo.id}`, cuerpo)
-      : await ejecutar('POST', '/finanzas/metodos-cobro', cuerpo);
-    if (r) onListo();
+      ? await ejecutar<MetodoCobroPublico>('PATCH', `/finanzas/metodos-cobro/${metodo.id}`, cuerpo)
+      : await ejecutar<MetodoCobroPublico>('POST', '/finanzas/metodos-cobro', cuerpo);
+    if (!r) return;
+    // El QR va aparte (multipart) una vez que el método existe.
+    if (qr instanceof File && qr.size > 0) {
+      const datos = new FormData();
+      datos.append('archivo', qr);
+      const subido = await ejecutar('POST', `/finanzas/metodos-cobro/${r.datos.id}/qr`, datos);
+      if (!subido) return;
+    }
+    onListo();
   }
 
   return (
@@ -333,6 +346,23 @@ function FormularioMetodo({
         }
         error={campos.instrucciones}
       />
+      <label className="grid gap-1.5 text-sm">
+        <span className="font-medium">
+          {metodo?.qrId ? 'Cambiar imagen QR (opcional)' : 'Imagen QR (opcional)'}
+        </span>
+        <input
+          type="file"
+          name="qr"
+          accept="image/png,image/jpeg,image/webp"
+          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-hundida file:px-3 file:py-1.5 file:text-sm file:font-medium"
+        />
+        <span className="text-xs text-tinta-tenue">
+          JPG, PNG o WebP, hasta 3 MB. El cliente ve el QR primero y debajo las instrucciones.
+        </span>
+        {campos.archivo && (
+          <span className="text-xs font-medium text-peligro">{campos.archivo}</span>
+        )}
+      </label>
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         {!enLinea && (
           <Casilla
@@ -340,6 +370,14 @@ function FormularioMetodo({
             etiqueta="Pide número de referencia"
             ayuda="El cliente debe escribir la referencia del banco al reportar."
             defaultChecked={metodo?.requiereReferencia ?? true}
+          />
+        )}
+        {!enLinea && (
+          <Casilla
+            name="referenciaUltimos4"
+            etiqueta="Solo los 4 últimos dígitos"
+            ayuda="El cliente escribe solo los 4 últimos dígitos de la referencia (Pago Móvil)."
+            defaultChecked={metodo?.referenciaUltimos4 ?? false}
           />
         )}
         <Casilla
@@ -359,6 +397,64 @@ function FormularioMetodo({
         </Boton>
       </div>
     </form>
+  );
+}
+
+/** Subir, cambiar o quitar la imagen QR de un método desde la lista. */
+function QrMetodo({ metodo }: { metodo: MetodoCobroPublico }) {
+  const { cargando, error, ejecutar } = useAccion();
+  const entrada = useId();
+
+  async function subir(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.currentTarget.files?.[0];
+    e.currentTarget.value = '';
+    if (!f) return;
+    const datos = new FormData();
+    datos.append('archivo', f);
+    await ejecutar('POST', `/finanzas/metodos-cobro/${metodo.id}/qr`, datos);
+  }
+
+  return (
+    <>
+      {metodo.qrId && (
+        // eslint-disable-next-line @next/next/no-img-element -- imagen del almacén servida por la API
+        <img
+          src={`/api/v1/sitio/publico/medios/${metodo.qrId}`}
+          alt={`QR de ${metodo.nombre}`}
+          className="size-10 rounded-md border border-borde bg-white object-contain"
+        />
+      )}
+      <label
+        htmlFor={entrada}
+        className={clsx(
+          'inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-tinta-suave hover:bg-hundida hover:text-tinta',
+          cargando && 'pointer-events-none opacity-60',
+        )}
+      >
+        <QrCode className="size-3.5" aria-hidden="true" />
+        {metodo.qrId ? 'Cambiar QR' : 'Subir QR'}
+        <input
+          id={entrada}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="sr-only"
+          onChange={(e) => void subir(e)}
+          aria-label={`${metodo.qrId ? 'Cambiar' : 'Subir'} el QR de ${metodo.nombre}`}
+        />
+      </label>
+      {metodo.qrId && (
+        <Boton
+          tamano="sm"
+          variante="fantasma"
+          cargando={cargando}
+          onClick={() => void ejecutar('DELETE', `/finanzas/metodos-cobro/${metodo.id}/qr`)}
+          aria-label={`Quitar el QR de ${metodo.nombre}`}
+        >
+          Quitar QR
+        </Boton>
+      )}
+      {error && <p className="w-full text-right text-xs text-peligro">{error.mensaje}</p>}
+    </>
   );
 }
 
@@ -458,9 +554,14 @@ export function ListaMetodos({ metodos }: { metodos: MetodoCobroPublico[] }) {
                             </Insignia>
                           ) : (
                             m.requiereReferencia && (
-                              <Insignia tono="marca">Pide referencia</Insignia>
+                              <Insignia tono="marca">
+                                {m.referenciaUltimos4
+                                  ? 'Pide 4 últimos dígitos'
+                                  : 'Pide referencia'}
+                              </Insignia>
                             )
                           )}
+                          {m.qrId && <Insignia tono="acento">Con QR</Insignia>}
                           <span className="text-xs text-tinta-tenue tabular-nums">
                             Orden {m.orden}
                           </span>
@@ -479,6 +580,7 @@ export function ListaMetodos({ metodos }: { metodos: MetodoCobroPublico[] }) {
                         >
                           Editar
                         </Boton>
+                        <QrMetodo metodo={m} />
                         <CambiarActivoMetodo metodo={m} />
                       </div>
                     </div>

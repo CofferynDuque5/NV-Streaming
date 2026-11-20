@@ -268,6 +268,10 @@ model MetodoCobro {
   /// Texto que ve el cliente al pagar (titular, banco, número...). Sin secretos.
   instrucciones      String   @db.VarChar(2000)
   requiereReferencia Boolean  @default(true) @map("requiere_referencia")
+  /// Pide solo los 4 últimos dígitos de la referencia (Pago Móvil).
+  referenciaUltimos4 Boolean  @default(false) @map("referencia_ultimos_4")
+  /// Imagen QR del método (de la biblioteca de imágenes): se muestra antes de las instrucciones.
+  qrId               String?  @map("qr_id") @db.Uuid
   /// "manual" (transferencia, Pago Móvil... con comprobante) o "pasarela" (pago en línea).
   tipo               String   @default("manual") @db.VarChar(20)
   /// Pasarela del método en línea: "paypal", "mercadopago" o "sandbox".
@@ -282,6 +286,7 @@ model MetodoCobro {
   pagos              Pago[]
   intentos           IntentoPago[]
   metodosAutorizados MetodoPagoAutorizado[]
+  qr                 Medio?                 @relation(fields: [qrId], references: [id], onDelete: SetNull)
 
   @@index([moneda, activo])
   @@map("metodos_cobro")
@@ -1366,9 +1371,10 @@ model Medio {
   subidoPorId      String?  @map("subido_por_id") @db.Uuid
   creadoEn         DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
-  archivo   Archivo    @relation(fields: [archivoId], references: [id], onDelete: Restrict)
-  subidoPor Usuario?   @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
-  servicios Servicio[]
+  archivo      Archivo       @relation(fields: [archivoId], references: [id], onDelete: Restrict)
+  subidoPor    Usuario?      @relation(fields: [subidoPorId], references: [id], onDelete: Restrict)
+  servicios    Servicio[]
+  metodosCobro MetodoCobro[]
 
   @@map("medios")
 }

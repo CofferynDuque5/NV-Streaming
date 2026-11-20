@@ -12,6 +12,7 @@ import {
   type Pagina,
   type RecargaBilleteraPublica,
   type ReportarRecargaBilleteraEntrada,
+  errorReferencia,
 } from '@nv/shared';
 import { type ArchivoRecibido, AlmacenService } from '../almacen/almacen.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -191,14 +192,16 @@ export class BilleteraService {
           metodoCobroId: [`Elige un método que cobre en ${e.moneda}.`],
         });
       }
-      if (metodo.requiereReferencia && !e.referenciaExterna) {
-        throw new ErrorApp(400, 'DATOS_INVALIDOS', 'Escribe el número de referencia del pago.', {
-          referenciaExterna: [
-            'Escribe el número de referencia que te dio el banco o la billetera.',
-          ],
+      const errorRef = errorReferencia(metodo, e.referenciaExterna);
+      if (errorRef) {
+        throw new ErrorApp(400, 'DATOS_INVALIDOS', errorRef, {
+          referenciaExterna: [errorRef],
         });
       }
-      if (e.referenciaExterna) await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      // Con solo 4 dígitos dos pagos distintos pueden coincidir: no se exige que sea nueva.
+      if (e.referenciaExterna && !metodo.referenciaUltimos4) {
+        await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
+      }
       const tasa = e.moneda === 'USD' ? D(1) : await this.tasas.tasaDe(e.moneda, tx);
       const comprobante = await this.almacen.guardar(tx, archivo, auth.usuario.id);
       const monto = D(e.monto);
