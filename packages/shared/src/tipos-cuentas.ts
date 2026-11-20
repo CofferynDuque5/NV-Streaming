@@ -38,7 +38,8 @@ export interface AsignacionPerfil {
   suscripcionId: string;
   estado: EstadoSuscripcion;
   venceEn: string | null;
-  cliente: Referencia;
+  /** `responsable`: de quién es el cliente («Cliente» o el revendedor), donde se conoce. */
+  cliente: Referencia & { responsable?: string | null };
   plan: Referencia;
   /** La suscripción ya terminó: conviene liberar el perfil. */
   terminada: boolean;

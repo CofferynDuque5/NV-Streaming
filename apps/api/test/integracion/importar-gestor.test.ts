@@ -607,19 +607,32 @@ describe('importar el Gestor viejo', () => {
       db: {
         platforms: [{ id: 'plat_r', name: 'Cine revendedor' }],
         accounts: {
-          plat_r: [{ id: 'r_1', email: 'rev1@example.com', password: 'Clave-R', numProfiles: 3 }],
+          plat_r: [{ id: 'r_1', email: 'rev1@example.com', password: 'Clave-R', numProfiles: 5 }],
         },
         clients: {
-          plat_r: ['Eli', 'Marta', 'eli'].map((nombre, i) => ({
-            id: `rc_${i}`,
-            accountId: 'r_1',
-            slotIndex: i,
-            email: `Perfil ${i + 1}`,
-            nombre,
-            contacto: '+58 412 192 0000',
-            vencimientoCliente: '2099-02-01',
-            precioVenta: 3,
-          })),
+          plat_r: [
+            ...['Eli', 'Marta', 'eli'].map((nombre, i) => ({
+              id: `rc_${i}`,
+              accountId: 'r_1',
+              slotIndex: i,
+              email: `Perfil ${i + 1}`,
+              nombre,
+              contacto: '+58 412 192 0000',
+              vencimientoCliente: '2099-02-01',
+              precioVenta: 3,
+            })),
+            // Sin contacto: dos «María» de revendedores distintos son dos clientes.
+            ...['Felix Str.', 'Kenia Str.'].map((responsable, i) => ({
+              id: `rm_${i}`,
+              accountId: 'r_1',
+              slotIndex: 3 + i,
+              email: `Perfil ${4 + i}`,
+              nombre: 'María',
+              responsable,
+              vencimientoCliente: '2099-02-01',
+              precioVenta: 3,
+            })),
+          ],
         },
       },
     };
@@ -641,6 +654,11 @@ describe('importar el Gestor viejo', () => {
       ['Eli', 2],
       ['Marta', 1],
     ]);
+    const marias = await ctx.prisma.cliente.findMany({
+      where: { nombre: 'María' },
+      orderBy: { responsable: 'asc' },
+    });
+    expect(marias.map((c) => c.responsable)).toEqual(['Felix Str.', 'Kenia Str.']);
   });
 
   it('rechaza un plan de otro servicio', async () => {

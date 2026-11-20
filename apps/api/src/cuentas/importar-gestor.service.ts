@@ -37,20 +37,23 @@ type Tx = Prisma.TransactionClient;
 const nombreComparable = (n: string) =>
   n.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 /**
- * Cliente del Gestor: por su contacto y su nombre o, si no tiene contacto, por su nombre.
- * Un revendedor pone su número a varios clientes con nombres distintos: cada uno es
- * un cliente aparte que comparte ese contacto (pedido de Nathan, 20-11-2026).
+ * Cliente del Gestor: igual que su «Ficha del cliente», la misma persona es el mismo
+ * nombre completo con el mismo contacto. Un revendedor pone su número a varios
+ * clientes con nombres distintos: cada uno es un cliente aparte que comparte ese
+ * contacto (pedido de Nathan, 20-11-2026). Sin contacto, el nombre y su responsable:
+ * dos «María» de revendedores distintos no son la misma.
  */
 const claveDe = (c: ClienteGestor) =>
   !c.contacto
-    ? `nombre:${c.nombre.toLowerCase()}`
+    ? c.responsable
+      ? `nombre:${c.nombre.toLowerCase()}|resp:${nombreComparable(c.responsable)}`.slice(0, 260)
+      : `nombre:${c.nombre.toLowerCase()}`
     : // Un correo es de una sola persona: basta el correo, como antes.
       c.contacto.tipo === 'correo'
       ? c.contacto.valor
       : `${c.contacto.valor}#${nombreComparable(c.nombre)}`.slice(0, 260);
-/** Mismo nombre, o uno es el otro con más palabras («Ana» y «Ana Pérez»). */
-const mismoNombre = (a: string, b: string) =>
-  a === b || a.startsWith(`${b} `) || b.startsWith(`${a} `);
+/** Mismo nombre completo, como compara el Gestor (perfilesDe: nombre + contacto). */
+const mismoNombre = (a: string, b: string) => a === b;
 /** El contacto de una clave (sin el nombre), o null si la clave es solo de nombre. */
 const contactoDeClave = (k: string) => (k.startsWith('nombre:') ? null : k.split('#')[0]!);
 /** El nombre de una clave con contacto y nombre, o null si la clave es solo el correo. */
@@ -285,6 +288,30 @@ export class ImportarGestorService {
               return n !== undefined && mismoNombre(n, nombre);
             });
       if (mismo) existentes.set(k, mismo);
+    }
+    // Sin contacto y con responsable: antes la clave era solo el nombre; se reutiliza ese
+    // cliente solo si tiene el mismo responsable.
+    const soloNombre = claves.filter((k) => !existentes.has(k) && k.includes('|resp:'));
+    if (soloNombre.length) {
+      const viejas = new Map(soloNombre.map((k) => [k.slice(0, k.indexOf('|resp:')), k]));
+      const filas = await db.registroGestor.findMany({
+        where: { tipo: 'cliente', entidad: 'cliente', origenId: { in: [...viejas.keys()] } },
+        select: { origenId: true, entidadId: true },
+      });
+      const responsableDe = new Map(
+        (
+          await db.cliente.findMany({
+            where: { id: { in: filas.map((f) => f.entidadId) } },
+            select: { id: true, responsable: true },
+          })
+        ).map((c) => [c.id, c.responsable ? nombreComparable(c.responsable) : '']),
+      );
+      for (const f of filas) {
+        const k = viejas.get(f.origenId)!;
+        if (responsableDe.get(f.entidadId) === k.slice(k.indexOf('|resp:') + 6)) {
+          existentes.set(k, f.entidadId);
+        }
+      }
     }
     const porCrear = new Map<string, ClienteGestor>();
     for (const c of [...conCliente.map((p) => p.cliente!), ...sueltos]) {

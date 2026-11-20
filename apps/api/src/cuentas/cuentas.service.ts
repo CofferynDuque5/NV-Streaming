@@ -81,7 +81,7 @@ const INCLUIR_DETALLE = {
           id: true,
           estado: true,
           venceEn: true,
-          cliente: { select: { id: true, nombre: true } },
+          cliente: { select: { id: true, nombre: true, responsable: true } },
           plan: {
             select: {
               id: true,
