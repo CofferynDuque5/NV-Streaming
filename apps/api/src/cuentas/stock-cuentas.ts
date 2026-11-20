@@ -40,11 +40,16 @@ interface FilaLibre {
 /** Condición del tipo de lugar que se vende por la web (ver `sirveVentaWeb`). */
 function condicionTipo(tipo: TipoPlataforma): Prisma.Sql {
   const total = Prisma.sql`(SELECT count(*) FROM perfiles_cuenta x WHERE x.cuenta_id = c.id)`;
-  if (tipo === 'perfiles') return Prisma.sql`AND c.modo = 'perfiles' AND ${total} > 1`;
   if (tipo === 'familiar') {
     return Prisma.sql`AND (c.modo = 'completa' OR ${total} = 1 OR p.numero = 1)`;
   }
   return Prisma.empty;
+}
+
+/** En las plataformas por perfiles se entrega primero un perfil compartido y luego una cuenta individual. */
+function ordenTipo(tipo: TipoPlataforma): Prisma.Sql {
+  if (tipo !== 'perfiles') return Prisma.empty;
+  return Prisma.sql`(c.modo = 'completa' OR (SELECT count(*) FROM perfiles_cuenta x WHERE x.cuenta_id = c.id) = 1),`;
 }
 
 const libresVigentes = (servicioIds: string[], hoy: string) => Prisma.sql`
@@ -149,7 +154,7 @@ export async function asignarAutomatico(
   const [lugar] = await tx.$queryRaw<FilaLibre[]>`
     ${libresVigentes([plan.servicioId], fechaCaracas(ahora))}
     ${condicionTipo(tipo)}
-    ORDER BY c.factura_en DESC, p.actualizado_en ASC, c.creado_en ASC, p.numero ASC
+    ORDER BY ${ordenTipo(tipo)} c.factura_en DESC, p.actualizado_en ASC, c.creado_en ASC, p.numero ASC
     LIMIT 1
     FOR UPDATE OF p SKIP LOCKED`;
   if (!lugar) return null;

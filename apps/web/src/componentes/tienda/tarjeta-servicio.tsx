@@ -1,6 +1,6 @@
 import type { Moneda, PlanPublico, ServicioTienda } from '@nv/shared';
 import clsx from 'clsx';
-import { Store } from 'lucide-react';
+import { ShoppingCart, Store } from 'lucide-react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { clasesBoton } from '@/componentes/ui/boton';
@@ -40,15 +40,16 @@ function Precio({ plan, moneda, mayorista }: Omit<PropsTarjeta, 'item'>) {
 function Accion({ item, plan, moneda, mayorista }: PropsTarjeta) {
   const p = precioDeTarjeta(plan, moneda, mayorista);
   const nombre = item.servicio.nombre;
-  // Sin stock: en la ficha del servicio se pide por WhatsApp.
+  // Sin stock: la tarjeta se ve igual; el carrito lleva a la ficha, donde se pide por WhatsApp.
   if (plan.agotado) {
     return (
       <Link
         href={`/catalogo/${item.servicio.slug}?plan=${plan.id}`}
-        className={clasesBoton('secundario', 'md', 'px-3')}
         aria-label={`${nombre} está agotado: pedirlo por WhatsApp`}
+        title="Agotado por ahora: pídelo por WhatsApp"
+        className="grid size-11 shrink-0 place-items-center rounded-[0.875rem] border border-borde-fuerte bg-white/[0.03] text-tinta transition-colors hover:border-cian"
       >
-        Agotado · pedir
+        <ShoppingCart className="size-[1.1rem]" aria-hidden="true" />
       </Link>
     );
   }
