@@ -2,6 +2,7 @@
 
 import {
   type ArchivoMigracionGestor,
+  type CambioPlataformaLote,
   type ComparacionMigracion,
   compararMigracion,
   type CuadreGestor,
@@ -19,7 +20,8 @@ import {
   type RespaldoGestor,
   resumenPlataforma,
 } from '@nv/shared';
-import { FileUp, ShieldCheck, Undo2 } from 'lucide-react';
+import { ArrowRightLeft, FileUp, ShieldCheck, Undo2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { type ChangeEvent, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
@@ -36,6 +38,7 @@ import {
   iconoComoPng,
   verificarMigracion,
 } from '@/lib/migracion-gestor';
+import { Dialogo } from './cuentas-gestor';
 import { ErrorGeneral, useAccion } from './piezas';
 
 const plural = (n: number, uno: string, varios: string) =>
@@ -58,6 +61,9 @@ function Cuadre({ c }: { c: CuadreGestor }) {
           ['Clientes sin perfil', c.clientes.sinPerfil ?? 0],
           ...(c.perfiles.miembrosRecuperados
             ? [['Miembros recuperados', c.perfiles.miembrosRecuperados] as const]
+            : []),
+          ...(c.perfiles.clientesCorregidos
+            ? [['Cupos que pasan a su cliente', c.perfiles.clientesCorregidos] as const]
             : []),
         ].map(([t, v]) => (
           <div key={t} className="flex justify-between gap-2 border-b border-borde/60 py-1">
@@ -176,7 +182,11 @@ function Plataforma({
     clientesSueltos: p.clientesSueltos ?? [],
   });
   const hayAlgo = (c: CuadreGestor) =>
-    c.cuentas.nuevas + (c.clientes.sinPerfil ?? 0) + (c.perfiles.miembrosRecuperados ?? 0) > 0;
+    c.cuentas.nuevas +
+      (c.clientes.sinPerfil ?? 0) +
+      (c.perfiles.miembrosRecuperados ?? 0) +
+      (c.perfiles.clientesCorregidos ?? 0) >
+    0;
 
   if (!p.cuentas.length && !r.sinPerfil) {
     return (
@@ -283,7 +293,9 @@ function Plataforma({
                   ? `Importar ${plural(simulado.cuadre.cuentas.nuevas, 'cuenta', 'cuentas')}`
                   : simulado.cuadre.clientes.sinPerfil
                     ? `Importar ${plural(simulado.cuadre.clientes.sinPerfil, 'cliente', 'clientes')}`
-                    : `Recuperar ${plural(simulado.cuadre.perfiles.miembrosRecuperados ?? 0, 'miembro', 'miembros')}`
+                    : simulado.cuadre.perfiles.clientesCorregidos
+                      ? `Corregir ${plural(simulado.cuadre.perfiles.clientesCorregidos, 'cupo', 'cupos')}`
+                      : `Recuperar ${plural(simulado.cuadre.perfiles.miembrosRecuperados ?? 0, 'miembro', 'miembros')}`
                 : 'Importar'}
             </Boton>
           </div>
@@ -293,7 +305,145 @@ function Plataforma({
   );
 }
 
-function Lotes({ lotes }: { lotes: LoteGestorPublico[] }) {
+/** Pasa un lote a otro servicio (p. ej. Gemini Plus que entró en Google One). */
+function CambiarPlataforma({
+  lote,
+  servicios,
+  planes,
+}: {
+  lote: LoteGestorPublico;
+  servicios: ServicioImportar[];
+  planes: PlanPublico[];
+}) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const [servicioId, setServicioId] = useState('');
+  const [planId, setPlanId] = useState('');
+  const [vista, setVista] = useState<{ clave: string; c: CambioPlataformaLote } | null>(null);
+  const accion = useAccion();
+  const clave = `${servicioId}|${planId}`;
+  const otros = servicios.filter((s) => s.id !== lote.servicio.id);
+  const delServicio = planes.filter((x) => x.servicio.id === servicioId);
+  const enviar = (confirmar: boolean) =>
+    accion.ejecutar<CambioPlataformaLote>('POST', `/cuentas/gestor/lotes/${lote.id}/plataforma`, {
+      servicioId,
+      planId,
+      confirmar,
+    });
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="fantasma"
+        icono={<ArrowRightLeft className="size-3.5" />}
+        onClick={() => {
+          accion.limpiar();
+          setVista(null);
+          setServicioId('');
+          setPlanId('');
+          setAbierto(true);
+        }}
+      >
+        Cambiar plataforma
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo={`Cambiar de plataforma: ${lote.plataforma}`}
+          icono={<ArrowRightLeft className="size-5 text-cian" aria-hidden />}
+          onCerrar={() => setAbierto(false)}
+          bloquear={accion.cargando}
+        >
+          <p className="text-sm text-tinta-suave">
+            Hoy está en <b className="text-tinta">{lote.servicio.nombre}</b>. Sus cuentas y los
+            cupos de sus clientes pasan a la plataforma que elijas. No se borra nada: los clientes,
+            fechas y facturas quedan igual. Si la plataforma no existe, créala antes en el Catálogo.
+          </p>
+          <div className="grid items-start gap-3 sm:grid-cols-2">
+            <Selector
+              etiqueta="Pasa a la plataforma"
+              value={servicioId}
+              onChange={(e) => {
+                const s = e.currentTarget.value;
+                setServicioId(s);
+                setPlanId(planes.find((x) => x.servicio.id === s)?.id ?? '');
+              }}
+              error={accion.campos.servicioId}
+            >
+              <option value="">Elige</option>
+              {otros.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
+                </option>
+              ))}
+            </Selector>
+            <Selector
+              etiqueta="Plan de las suscripciones"
+              value={planId}
+              onChange={(e) => setPlanId(e.currentTarget.value)}
+              error={accion.campos.planId}
+            >
+              <option value="">Elige</option>
+              {delServicio.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.nombre}
+                </option>
+              ))}
+            </Selector>
+          </div>
+          {vista?.clave === clave && (
+            <Alerta tono={vista.c.hecho ? 'exito' : 'info'}>
+              {vista.c.hecho ? 'Listo: pasaron ' : 'Pasarían '}
+              {plural(vista.c.cuentas, 'cuenta', 'cuentas')} y{' '}
+              {plural(vista.c.suscripciones, 'suscripción', 'suscripciones')}.
+            </Alerta>
+          )}
+          <ErrorGeneral error={accion.error} />
+          <div className="flex flex-wrap justify-end gap-2">
+            {vista?.clave === clave && vista.c.hecho ? (
+              <Boton onClick={() => setAbierto(false)}>Cerrar</Boton>
+            ) : (
+              <>
+                <Boton
+                  variante="secundario"
+                  cargando={accion.cargando}
+                  disabled={!servicioId || !planId}
+                  onClick={async () => {
+                    const r = await enviar(false);
+                    if (r) setVista({ clave, c: r.datos });
+                  }}
+                >
+                  Ver qué cambia
+                </Boton>
+                <Boton
+                  cargando={accion.cargando}
+                  disabled={vista?.clave !== clave}
+                  onClick={async () => {
+                    const r = await enviar(true);
+                    if (!r) return;
+                    setVista({ clave, c: r.datos });
+                    router.refresh();
+                  }}
+                >
+                  Cambiar
+                </Boton>
+              </>
+            )}
+          </div>
+        </Dialogo>
+      )}
+    </>
+  );
+}
+
+function Lotes({
+  lotes,
+  servicios,
+  planes,
+}: {
+  lotes: LoteGestorPublico[];
+  servicios: ServicioImportar[];
+  planes: PlanPublico[];
+}) {
   const deshacer = useAccion();
   const [cual, setCual] = useState<string | null>(null);
   if (!lotes.length) return null;
@@ -342,17 +492,20 @@ function Lotes({ lotes }: { lotes: LoteGestorPublico[] }) {
                     </Boton>
                   </span>
                 ) : (
-                  <Boton
-                    tamano="sm"
-                    variante="fantasma"
-                    icono={<Undo2 className="size-3.5" />}
-                    onClick={() => {
-                      deshacer.limpiar();
-                      setCual(l.id);
-                    }}
-                  >
-                    Deshacer
-                  </Boton>
+                  <span className="flex flex-wrap gap-2">
+                    <CambiarPlataforma lote={l} servicios={servicios} planes={planes} />
+                    <Boton
+                      tamano="sm"
+                      variante="fantasma"
+                      icono={<Undo2 className="size-3.5" />}
+                      onClick={() => {
+                        deshacer.limpiar();
+                        setCual(l.id);
+                      }}
+                    >
+                      Deshacer
+                    </Boton>
+                  </span>
                 )}
               </Celda>
             </tr>
@@ -641,7 +794,7 @@ export function ImportarGestor({
         </Tarjeta>
       )}
 
-      <Lotes lotes={lotes} />
+      <Lotes lotes={lotes} servicios={servicios} planes={planes} />
     </div>
   );
 }

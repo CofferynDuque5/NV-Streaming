@@ -850,6 +850,8 @@ export interface CuadreGestor {
     asignados: number;
     /** Cupos ya importados que recuperan el correo o la clave del miembro. */
     miembrosRecuperados?: number;
+    /** Cupos ya importados que pasan al cliente que tienen en el Gestor. */
+    clientesCorregidos?: number;
   };
   clientes: { nuevos: number; existentes: number; sinContacto: number; sinPerfil?: number };
   suscripciones: { activas: number; vencidas: number };
@@ -858,6 +860,21 @@ export interface CuadreGestor {
   /** Suma de lo que pagan los clientes de los perfiles nuevos (USD). */
   ventaUsd: string;
   avisos: string[];
+}
+
+/** Pasa un lote (sus cuentas y suscripciones) a otro servicio y plan del catálogo. */
+export const cambiarPlataformaLoteSchema = z.object({
+  servicioId: uuidSchema,
+  planId: uuidSchema,
+  /** false: solo cuenta lo que cambiaría, sin escribir nada. */
+  confirmar: z.boolean().default(false),
+});
+export type CambiarPlataformaLoteEntrada = z.infer<typeof cambiarPlataformaLoteSchema>;
+
+export interface CambioPlataformaLote {
+  cuentas: number;
+  suscripciones: number;
+  hecho: boolean;
 }
 
 export interface LoteGestorPublico {
