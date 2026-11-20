@@ -252,11 +252,7 @@ function FormularioMetodo({
           {(
             [
               ['manual', 'Manual', 'El cliente paga por su cuenta y envía el comprobante.'],
-              [
-                'pasarela',
-                'Automático',
-                'NV verifica el pago y libera el servicio solo.',
-              ],
+              ['pasarela', 'Automático', 'NV verifica el pago y libera el servicio solo.'],
             ] as const
           ).map(([valor, texto, ayuda]) => (
             <label
