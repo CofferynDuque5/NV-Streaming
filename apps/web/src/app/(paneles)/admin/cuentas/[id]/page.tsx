@@ -1,6 +1,7 @@
 import {
   type CuentaServicioDetalle,
   esTitular,
+  etiquetaPerfil,
   formatearMonto,
   type PagoCuentaPublico,
   TEXTOS_PLATAFORMA,
@@ -152,7 +153,9 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
               return (
                 <tr key={p.id}>
                   <Celda primera>
-                    <span className="block font-medium">{p.nombre}</span>
+                    <span className="block font-medium">
+                      {etiquetaPerfil(tipo, p.numero, p.nombre)}
+                    </span>
                     <span className="block text-xs text-tinta-tenue">
                       N.º {p.numero}
                       {esTitular(tipo, p.numero) ? ' · titular' : ''}

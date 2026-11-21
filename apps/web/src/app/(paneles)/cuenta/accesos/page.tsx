@@ -1,4 +1,5 @@
 import type { AccesoServicio, PerfilDelCliente } from '@nv/shared';
+import { etiquetaPerfil } from '@nv/shared';
 import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
@@ -82,7 +83,9 @@ export default async function MisAccesos() {
               key={p.suscripcionId}
               perfil={p}
               detalle={[
-                p.modo === 'completa' ? 'Cuenta completa' : p.perfil.nombre,
+                p.modo === 'completa'
+                  ? 'Cuenta completa'
+                  : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre),
                 p.venceEn && p.estado !== 'pendiente_pago'
                   ? `vence el ${fechaLarga(p.venceEn)}`
                   : null,

@@ -214,7 +214,7 @@ export class PerfilesClienteService {
         clave: p.claveMiembroCifrada
           ? this.cifrador.descifrar(p.claveMiembroCifrada, contextoClaveMiembro(p.id))
           : '',
-        perfil: p.nombre,
+        perfil: tipo === 'perfiles' ? String(p.numero) : p.nombre,
         pin,
         tipo,
         miembro: true,
@@ -223,7 +223,7 @@ export class PerfilesClienteService {
     return {
       usuario: this.cifrador.descifrar(p.cuenta.usuarioCifrado, contextoUsuario(p.cuenta.id)),
       clave: this.cifrador.descifrar(p.cuenta.claveCifrada, contextoClave(p.cuenta.id)),
-      perfil: p.nombre,
+      perfil: tipo === 'perfiles' ? String(p.numero) : p.nombre,
       pin,
       tipo,
       miembro: false,

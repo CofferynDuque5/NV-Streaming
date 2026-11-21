@@ -1,4 +1,5 @@
 import type { AccesoServicio, PerfilDelCliente } from '@nv/shared';
+import { etiquetaPerfil } from '@nv/shared';
 import { Zap } from 'lucide-react';
 import type { Metadata } from 'next';
 import { TarjetaAccesoCliente } from '@/componentes/cliente/accesos-cliente';
@@ -58,7 +59,9 @@ export default async function AccesosClientes() {
           ruta="/revendedor/perfiles"
           detalle={[
             `Para ${p.cliente?.nombre ?? 'tu cliente'}`,
-            p.modo === 'completa' ? 'Cuenta completa' : p.perfil.nombre,
+            p.modo === 'completa'
+              ? 'Cuenta completa'
+              : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre),
             p.venceEn ? `vence el ${fechaLarga(p.venceEn)}` : null,
           ]
             .filter(Boolean)
