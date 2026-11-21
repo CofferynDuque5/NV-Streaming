@@ -22,6 +22,15 @@ const CORREO = ['canva'];
 
 const normalizar = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+/**
+ * Cómo se nombra un perfil ante el cliente y el equipo. En las plataformas por
+ * perfiles manda su ubicación en la cuenta (1, 2, 3…), no el nombre guardado,
+ * para que coincida siempre con el orden real de la cuenta.
+ */
+export function etiquetaPerfil(tipo: TipoPlataforma, numero: number, nombre: string): string {
+  return tipo === 'perfiles' ? `Perfil ${numero}` : nombre;
+}
+
 export function tipoPlataforma(nombreServicio: string): TipoPlataforma {
   const n = normalizar(nombreServicio);
   if (FAMILIAR.some((p) => n.includes(p))) return 'familiar';

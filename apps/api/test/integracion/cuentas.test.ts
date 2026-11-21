@@ -424,11 +424,11 @@ describe('cuentas de servicio', () => {
     expect(r.cuerpo).toEqual({
       usuario: 'Maria.Cine@Example.com',
       clave: CLAVE,
-      perfil: 'Sala',
+      perfil: '2',
       pin: '2468',
       tipo: 'perfiles',
       miembro: false,
-      contrato: expect.stringContaining('Perfil: Sala\nPin: 2468'),
+      contrato: expect.stringContaining('Perfil: 2\nPin: 2468'),
     });
 
     // Otro cliente no ve el perfil ajeno.

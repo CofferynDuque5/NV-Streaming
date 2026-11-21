@@ -652,7 +652,7 @@ export class CuentasService {
       }
       for (const [i, id] of perfilIds.entries()) {
         const p = porId.get(id)!;
-        if (/^Perfil \d+$/.test(p.nombre) && p.nombre !== `Perfil ${i + 1}`) {
+        if (/^(Perfil )?\d+$/.test(p.nombre) && p.nombre !== `Perfil ${i + 1}`) {
           await tx.perfilCuenta.update({ where: { id }, data: { nombre: `Perfil ${i + 1}` } });
         }
       }

@@ -129,7 +129,7 @@ describe('stock y entrega automática desde Plataformas', () => {
       'Servicio: NV Cine',
       'Correo: lejos@example.com',
       'Contraseña: Clave-123',
-      `Perfil: Perfil ${perfil.numero}`,
+      `Perfil: ${perfil.numero}`,
       `Pin: ${perfil.numero === 1 ? '1357' : 'NO APLICA'}`,
       `Fecha vencimiento: ${ddmmaaaa(vence)}`,
     ]);

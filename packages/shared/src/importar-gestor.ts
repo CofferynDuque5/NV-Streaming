@@ -435,7 +435,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
         return {
           origenId: s ? texto(s.id) || `${texto(a.id)}#${i + 1}` : `${texto(a.id)}#${i + 1}`,
           numero: i + 1,
-          nombre: (/^perfil\s*\d*$/i.test(etiqueta) || !etiqueta || etiqueta.includes('@')
+          nombre: (/^(perfil\s*)?\d*$/i.test(etiqueta) || !etiqueta || etiqueta.includes('@')
             ? conCupos
               ? i === 0
                 ? 'Principal'
