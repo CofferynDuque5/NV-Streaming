@@ -1,24 +1,26 @@
 'use client';
 
 import type { CodigoDelCliente, PerfilDelCliente, PerfilRevelado } from '@nv/shared';
-import { ExternalLink, Eye, EyeOff, MailSearch } from 'lucide-react';
+import clsx from 'clsx';
+import { ChevronDown, ExternalLink, EyeOff, MailSearch } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
 import { BotonCopiar, MensajeError, PildoraEstado } from './pago';
-import { claseEnlace } from './piezas-cuenta';
+import { claseEnlace, MiniaturaServicio } from './piezas-cuenta';
 
 /** Segundos que los datos quedan a la vista antes de ocultarse solos. */
 const SEGUNDOS_VISIBLES = 120;
 
-function Dato({ etiqueta, valor, copiar }: { etiqueta: string; valor: string; copiar: string }) {
+/** Una fila de datos: etiqueta arriba, valor abajo y el botón de copiar a la derecha. */
+function Dato({ etiqueta, valor, copiar }: { etiqueta: string; valor: string; copiar?: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-[0.875rem] border border-dashed border-cian bg-cian/[0.06] px-3.5 py-2.5">
+    <div className="flex items-center justify-between gap-3 border-b border-borde py-2.5 last:border-b-0">
       <div className="grid min-w-0 gap-0.5">
-        <small className="text-xs text-tinta-suave">{etiqueta}</small>
-        <b className="font-mono text-[1.0625rem] break-all select-all">{valor}</b>
+        <small className="text-xs text-tinta-tenue">{etiqueta}</small>
+        <span className="text-[0.95rem] font-medium break-all select-all">{valor}</span>
       </div>
-      <BotonCopiar texto={valor} etiqueta={copiar} />
+      {copiar && <BotonCopiar texto={valor} etiqueta={copiar} soloIcono />}
     </div>
   );
 }
@@ -50,7 +52,7 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
 
   const c = resultado?.codigo;
   return (
-    <div className="grid gap-2.5 border-t border-borde pt-3">
+    <div className="grid gap-2.5">
       <div className="flex flex-wrap items-center gap-2.5">
         <Boton
           variante="secundario"
@@ -61,8 +63,8 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
         >
           {resultado ? 'Buscar otra vez' : 'Ver mi código de acceso'}
         </Boton>
-        <span className="text-[0.8rem] text-tinta-tenue">
-          Pídelo primero en la app (por ejemplo «Enviar código» o «Actualizar Hogar»).
+        <span className="text-xs text-tinta-tenue">
+          Pídelo primero en la app («Enviar código» o «Actualizar Hogar»).
         </span>
       </div>
       {error && <MensajeError error={error} />}
@@ -70,7 +72,14 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
         {resultado &&
           (c ? (
             <div className="grid gap-2">
-              {c.codigo && <Dato etiqueta="Código" valor={c.codigo} copiar="el código" />}
+              {c.codigo && (
+                <div className="flex items-center justify-between gap-3 rounded-[0.875rem] bg-cian/[0.07] px-3.5 py-3">
+                  <b className="font-mono text-[1.375rem] tracking-[0.18em] break-all select-all">
+                    {c.codigo}
+                  </b>
+                  <BotonCopiar texto={c.codigo} etiqueta="el código" soloIcono />
+                </div>
+              )}
               {c.enlace && (
                 <a
                   href={c.enlace.url}
@@ -99,8 +108,9 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
 }
 
 /**
- * Perfil de una cuenta compartida en «Mis accesos». Los datos se piden tras
- * confirmar, quedan registrados y se ocultan solos a los dos minutos.
+ * Perfil de una cuenta compartida en «Mis accesos»: una fila plegable con el
+ * logo del servicio. Al abrirla se confirma que los datos son personales; se
+ * piden, quedan registrados y se ocultan solos a los dos minutos.
  */
 export function TarjetaPerfilCliente({
   perfil,
@@ -114,12 +124,14 @@ export function TarjetaPerfilCliente({
   ruta?: string;
 }) {
   const titulo = useId();
+  const cuerpoId = useId();
   const [fase, setFase] = useState<'cerrado' | 'confirmar' | 'visto'>('cerrado');
   const [datos, setDatos] = useState<PerfilRevelado | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const completa = perfil.modo === 'completa';
   const que = completa ? 'los datos de tu cuenta' : 'los datos de tu perfil';
+  const abierto = fase !== 'cerrado';
 
   useEffect(() => {
     if (fase !== 'visto') return;
@@ -129,6 +141,12 @@ export function TarjetaPerfilCliente({
     }, SEGUNDOS_VISIBLES * 1000);
     return () => clearTimeout(t);
   }, [fase]);
+
+  function cerrar() {
+    setDatos(null);
+    setError(null);
+    setFase('cerrado');
+  }
 
   async function mostrar() {
     setCargando(true);
@@ -144,10 +162,33 @@ export function TarjetaPerfilCliente({
     setFase('visto');
   }
 
-  let cuerpo;
+  const miniatura = (
+    <MiniaturaServicio
+      slug={perfil.servicioSlug ?? ''}
+      categoria={perfil.categoria ?? null}
+      nombre={perfil.servicio.nombre}
+      imagen={perfil.servicioImagen ?? null}
+      className="size-10"
+    />
+  );
+  const textos = (
+    <div className="grid min-w-0 gap-0.5 text-left">
+      <h2 id={titulo} className="truncate text-[0.98rem] leading-tight font-semibold">
+        {perfil.servicio.nombre} · {perfil.plan.nombre}
+      </h2>
+      <small className="flex min-w-0 items-center gap-1.5 text-[0.8rem] text-tinta-tenue">
+        {perfil.disponible && (
+          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-exito" />
+        )}
+        <span className="truncate">{detalle}</span>
+      </small>
+    </div>
+  );
+
+  let cuerpo = null;
   if (!perfil.disponible) {
     cuerpo = (
-      <p className="rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3 text-sm text-tinta-suave">
+      <p className="text-sm text-tinta-suave">
         {perfil.estado === 'pendiente_pago'
           ? 'Los datos aparecen aquí cuando confirmemos tu pago.'
           : perfil.estado === 'activa' || perfil.estado === 'en_gracia'
@@ -158,7 +199,7 @@ export function TarjetaPerfilCliente({
   } else if (fase === 'visto' && datos) {
     cuerpo = (
       <>
-        <div className="grid gap-2">
+        <div className="grid">
           <Dato
             etiqueta={datos.miembro ? 'Tu correo (miembro del plan)' : 'Correo o usuario'}
             valor={datos.usuario}
@@ -171,50 +212,51 @@ export function TarjetaPerfilCliente({
               copiar="la clave"
             />
           )}
-          {datos.miembro && (
-            <p className="px-1 text-sm text-tinta-suave">
-              Entras con tu propio correo: acepta la invitación al plan familiar que llega ahí.
-            </p>
-          )}
-          {datos.tipo === 'correo' && (
-            <p className="px-1 text-sm text-tinta-suave">
-              Al entrar te piden un código que llega al correo: pídelo aquí abajo o escríbenos.
-            </p>
-          )}
           {!completa && datos.tipo === 'perfiles' && (
-            <p className="px-1 text-sm text-tinta-suave">
-              Entra en el perfil <b className="text-tinta">{datos.perfil}</b>
-              {datos.pin ? '.' : ' (no tiene PIN).'}
-            </p>
+            <Dato etiqueta={datos.pin ? 'Perfil' : 'Perfil (sin PIN)'} valor={datos.perfil} />
           )}
           {datos.pin && <Dato etiqueta="PIN del perfil" valor={datos.pin} copiar="el PIN" />}
         </div>
-        {datos.contrato && (
-          <div className="grid gap-2 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Contrato – factura de servicio</h3>
-              <BotonCopiar texto={datos.contrato} etiqueta="el contrato" />
-            </div>
-            <pre className="max-h-64 overflow-y-auto font-sans text-[0.8rem] leading-relaxed whitespace-pre-wrap text-tinta-suave">
-              {datos.contrato}
-            </pre>
-          </div>
-        )}
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <p className="text-[0.8rem] text-tinta-tenue">
-            {completa
-              ? 'No cambies la clave ni el correo de la cuenta.'
-              : 'Usa solo tu perfil y no cambies la clave, el correo ni los otros perfiles.'}{' '}
-            Se ocultan solos en dos minutos.
+        {datos.miembro && (
+          <p className="text-[0.84rem] text-tinta-suave">
+            Entras con tu propio correo: acepta la invitación al plan familiar que llega ahí.
           </p>
+        )}
+        {datos.tipo === 'correo' && (
+          <p className="text-[0.84rem] text-tinta-suave">
+            Al entrar te piden un código que llega al correo: pídelo aquí abajo o escríbenos.
+          </p>
+        )}
+        <p className="text-xs text-tinta-tenue">
+          {completa
+            ? 'No cambies la clave ni el correo de la cuenta.'
+            : 'Usa solo tu perfil y no cambies la clave, el correo ni los otros perfiles.'}{' '}
+          Se ocultan solos en dos minutos.
+        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {datos.contrato ? (
+            <details className="group min-w-0 flex-1">
+              <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">
+                Condiciones y contrato
+              </summary>
+              <div className="mt-2.5 grid gap-2 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">Contrato – factura de servicio</h3>
+                  <BotonCopiar texto={datos.contrato} etiqueta="el contrato" />
+                </div>
+                <pre className="max-h-64 overflow-y-auto font-sans text-[0.8rem] leading-relaxed whitespace-pre-wrap text-tinta-suave">
+                  {datos.contrato}
+                </pre>
+              </div>
+            </details>
+          ) : (
+            <span />
+          )}
           <Boton
             tamano="sm"
             variante="fantasma"
             icono={<EyeOff className="size-3.5" aria-hidden="true" />}
-            onClick={() => {
-              setDatos(null);
-              setFase('cerrado');
-            }}
+            onClick={cerrar}
           >
             Ocultar
           </Boton>
@@ -223,50 +265,21 @@ export function TarjetaPerfilCliente({
     );
   } else if (fase === 'confirmar') {
     cuerpo = (
-      <div
-        role="group"
-        aria-label={`¿Mostrar ${que}?`}
-        className="grid gap-2.5 rounded-2xl border border-aviso/40 bg-aviso/[0.06] p-3.5"
-      >
-        <p className="text-[0.84rem]">
-          <b>Estos datos son solo para ti.</b> No los compartas ni los publiques: si otra persona
-          entra, la cuenta se puede caer para todos. Asegúrate de que nadie más vea tu pantalla.
+      <div role="group" aria-label={`¿Mostrar ${que}?`} className="grid gap-2.5">
+        <p className="text-[0.84rem] text-tinta-suave">
+          <b className="text-tinta">Estos datos son solo para ti.</b> No los compartas: si otra
+          persona entra, la cuenta se puede caer para todos. Queda registrado cada vez que se
+          muestran.
         </p>
-        <p className="text-xs text-tinta-tenue">Queda registrado cada vez que se muestran.</p>
         {error && <MensajeError error={error} />}
         <div className="flex flex-wrap items-center gap-2.5">
-          <Boton autoFocus cargando={cargando} onClick={() => void mostrar()}>
-            Mostrar los datos
+          <Boton autoFocus tamano="sm" cargando={cargando} onClick={() => void mostrar()}>
+            Mostrar {completa || perfil.tipo !== 'perfiles' ? 'correo y clave' : 'mis datos'}
           </Boton>
-          <button
-            type="button"
-            className={claseEnlace}
-            disabled={cargando}
-            onClick={() => {
-              setError(null);
-              setFase('cerrado');
-            }}
-          >
-            Volver
+          <button type="button" className={claseEnlace} disabled={cargando} onClick={cerrar}>
+            Cancelar
           </button>
         </div>
-      </div>
-    );
-  } else {
-    cuerpo = (
-      <div className="flex flex-wrap items-center gap-2.5">
-        <Boton
-          variante="secundario"
-          icono={<Eye className="size-4" aria-hidden="true" />}
-          onClick={() => setFase('confirmar')}
-        >
-          Mostrar los datos
-        </Boton>
-        <span className="text-[0.8rem] text-tinta-tenue">
-          {completa || perfil.tipo !== 'perfiles'
-            ? 'Correo y clave de tu cuenta'
-            : 'Correo, clave y PIN de tu perfil'}
-        </span>
       </div>
     );
   }
@@ -274,31 +287,45 @@ export function TarjetaPerfilCliente({
   return (
     <article
       aria-labelledby={titulo}
-      className="grid min-w-0 gap-3 rounded-[1.375rem] border border-borde bg-[rgb(10_14_32/0.6)] p-4"
+      className={clsx(
+        'grid min-w-0 overflow-hidden rounded-[1.125rem] border bg-[rgb(10_14_32/0.6)] transition-colors',
+        abierto ? 'border-borde-fuerte' : 'border-borde',
+      )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="grid min-w-0 gap-0.5">
-          <small className="truncate text-xs text-tinta-suave">{detalle}</small>
-          <h2 id={titulo} className="text-[1.0625rem] leading-tight text-balance">
-            {perfil.servicio.nombre} · {perfil.plan.nombre}
-          </h2>
+      {perfil.disponible ? (
+        <button
+          type="button"
+          aria-expanded={abierto}
+          aria-controls={cuerpoId}
+          onClick={() => (abierto ? cerrar() : setFase('confirmar'))}
+          className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3.5 py-3 hover:bg-white/[0.02] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foco"
+        >
+          {miniatura}
+          {textos}
+          <ChevronDown
+            aria-hidden="true"
+            className={clsx(
+              'size-4.5 text-tinta-tenue transition-transform',
+              abierto && 'rotate-180',
+            )}
+          />
+        </button>
+      ) : (
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3.5 py-3">
+          {miniatura}
+          {textos}
+          <PildoraEstado texto="En espera" tono="cian" />
         </div>
-        <PildoraEstado
-          texto={
-            perfil.disponible
-              ? completa
-                ? 'Cuenta'
-                : perfil.tipo === 'perfiles'
-                  ? 'Perfil'
-                  : 'Cupo'
-              : 'En espera'
-          }
-          tono={perfil.disponible ? 'exito' : 'cian'}
-        />
-      </div>
-      {cuerpo}
-      {perfil.disponible && perfil.pideCodigos && (
-        <PedirCodigo suscripcionId={perfil.suscripcionId} />
+      )}
+      {(abierto || !perfil.disponible) && (
+        <div id={cuerpoId} className="grid gap-3 border-t border-borde px-3.5 pt-1 pb-3.5">
+          <div className="grid gap-3 pt-2.5">{cuerpo}</div>
+          {perfil.disponible && perfil.pideCodigos && (
+            <div className="border-t border-borde pt-3">
+              <PedirCodigo suscripcionId={perfil.suscripcionId} />
+            </div>
+          )}
+        </div>
       )}
     </article>
   );

@@ -6,14 +6,32 @@ import {
   type SuscripcionPublica,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { CircleCheck, Clapperboard, Clock, MessageCircle, Tag, UserRound, Zap } from 'lucide-react';
+import {
+  ChevronUp,
+  CircleCheck,
+  Clapperboard,
+  Clock,
+  Ellipsis,
+  MessageCircle,
+  Tag,
+  UserRound,
+  Zap,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type CSSProperties, type FormEvent, useEffect, useId, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
-import { Mensaje, MensajeError, PildoraEstado, type Validacion } from './pago';
+import { Mensaje, MensajeError, type TonoEstado, type Validacion } from './pago';
 import {
   Aviso,
   claseArea,
@@ -115,6 +133,8 @@ export interface VistaServicio {
   vigencia: string;
   barra: { pct: number; tono: 'normal' | 'ambar' | 'rojo'; desde: string; resta: string } | null;
   venceLargo: string | null;
+  /** Lo que se lee a la derecha de la tarjeta: «18 dic / 27 días», «4,00 USD / por pagar»… */
+  fecha: { principal: string; nota: string } | null;
   pagoEnRevision: boolean;
   puedeRenovar: boolean;
   /** Renovar es la acción principal (en gracia, por vencer o ya vencida). */
@@ -253,6 +273,7 @@ function TarjetaServicio({
   const [cargando, setCargando] = useState<'renovar' | 'mantener' | null>(null);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [cancelando, setCancelando] = useState(false);
+  const [abierto, setAbierto] = useState(false);
   const [estado, tono] = ESTADO_SERVICIO[s.estado];
 
   async function renovar() {
@@ -318,115 +339,174 @@ function TarjetaServicio({
     );
   }
 
+  // Estado en palabras y su color: lo más útil para el cliente primero.
+  let [estadoTexto, tonoEstado] = [estado, tono];
+  if (v.pagoEnRevision) [estadoTexto, tonoEstado] = ['Pago en revisión', 'aviso'];
+  else if (s.cancelarAlVencer && !v.fin) [estadoTexto, tonoEstado] = ['Termina al vencer', 'aviso'];
+  else if (v.grupos.includes('vencer') && s.estado === 'activa')
+    [estadoTexto, tonoEstado] = ['Vence pronto', 'aviso'];
+  const detalleId = `${titulo}-detalle`;
+
   return (
     <article
       id={`servicio-${s.id}`}
       tabIndex={-1}
       aria-labelledby={titulo}
       className={clsx(
-        'grid min-w-0 content-start gap-3.5 rounded-[1.375rem] border bg-[linear-gradient(180deg,rgb(15_21_48/0.8),rgb(8_11_26/0.9))] p-4 transition-[border-color,box-shadow] duration-300 outline-none',
+        'grid min-w-0 content-start overflow-hidden rounded-[1.125rem] border bg-[rgb(10_14_32/0.6)] transition-[border-color,box-shadow] duration-300 outline-none',
         resaltado ? 'border-cian shadow-[0_0_0_3px_rgb(34_211_238/0.25)]' : 'border-borde',
         v.fin && 'opacity-[0.72]',
       )}
     >
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3.5 py-3">
         <MiniaturaServicio
           slug={s.plan.servicioSlug}
           categoria={s.plan.categoria}
           nombre={s.plan.servicio}
           imagen={s.plan.servicioImagen}
+          className="size-10"
         />
         <div className="grid min-w-0 gap-0.5">
-          <small className="truncate text-xs text-tinta-suave">
-            {s.plan.servicio} ·{' '}
-            {v.duracion ? `plan de ${v.duracion}` : NOMBRE_TIPO_PLAN[s.plan.tipo]} · {s.moneda}
-          </small>
-          <h3 id={titulo} className="text-[1.0625rem] leading-tight text-balance">
-            {s.plan.nombre}
+          <h3 id={titulo} className="truncate text-[0.98rem] leading-tight font-semibold">
+            {s.plan.servicio}
+            <span className="sr-only"> · {s.plan.nombre}</span>
           </h3>
-        </div>
-        <span className="col-start-2 -mt-1 sm:col-start-auto sm:mt-0 sm:self-start">
-          <PildoraEstado texto={estado} tono={tono} />
-        </span>
-      </div>
-
-      <div className="grid gap-1.5">
-        {v.vigencia && (
-          <p className="flex items-start gap-2 text-[0.84rem] text-tinta-suave">
-            <Clock className="mt-0.5 size-[0.95rem] shrink-0" aria-hidden="true" />
-            <span>{v.vigencia}</span>
-          </p>
-        )}
-        {v.barra && (
-          <>
-            <div
-              className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]"
-              role="img"
-              aria-label={`Llevas el ${v.barra.pct} % del periodo`}
-            >
-              <i
-                className={clsx('block h-full rounded-full', COLOR_BARRA[v.barra.tono])}
-                style={{ width: `${Math.max(v.barra.pct, 3)}%` } as CSSProperties}
-              />
-            </div>
-            <div className="flex justify-between gap-2.5 text-xs text-tinta-tenue tabular-nums">
-              <span>{v.barra.desde}</span>
-              <span>{v.barra.resta}</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {s.datosCliente.length > 0 && (
-        <dl className="grid gap-x-3 gap-y-0.5 text-[0.8rem] sm:grid-cols-[auto_minmax(0,1fr)]">
-          {s.datosCliente.map((d) => (
-            <div key={d.etiqueta} className="contents">
-              <dt className="text-tinta-tenue">{d.etiqueta}</dt>
-              <dd className="break-words text-tinta-suave">{d.valor}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      {v.admiteCobroAutomatico && <CobroAutomatico s={s} metodos={metodos} vence={v.venceLargo} />}
-
-      {cancelando ? (
-        <FormularioCancelar v={v} alTerminar={() => setCancelando(false)} />
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-          {principal}
-          {v.accesoId && (
-            <Link href={`/cuenta/accesos#acceso-${v.accesoId}`} className={claseEnlace}>
-              Ver mi acceso
-            </Link>
-          )}
-          {v.fin && !gestionada && (
-            <Link href="/catalogo" className={claseEnlace}>
-              Volver a contratar
-            </Link>
-          )}
-          {gestionada && !v.fin && !v.renovacionPendiente && (
-            <span className="text-[0.8rem] text-tinta-tenue">Lo gestiona tu revendedor</span>
-          )}
-          {v.renovacionPendiente && (
-            <span className="flex items-center gap-1.5 text-[0.8rem] text-tinta-suave">
-              <Clock className="size-3.5 shrink-0 text-aviso" aria-hidden="true" />
-              {v.renovacionPendiente}
+          <small className="flex min-w-0 items-center gap-1.5 text-[0.8rem] text-tinta-tenue">
+            <span
+              aria-hidden="true"
+              className={clsx('size-1.5 shrink-0 rounded-full', PUNTO[tonoEstado])}
+            />
+            <span className="truncate">
+              <span>{estadoTexto}</span> · {s.plan.nombre}
             </span>
+          </small>
+        </div>
+        {v.fecha && (
+          <div className="grid justify-items-end gap-0.5 text-right">
+            <b className="text-sm font-semibold whitespace-nowrap">{v.fecha.principal}</b>
+            <small className="text-xs whitespace-nowrap text-tinta-tenue">{v.fecha.nota}</small>
+          </div>
+        )}
+      </div>
+
+      {v.barra && (
+        <div
+          className="h-[3px] bg-white/[0.06]"
+          role="img"
+          aria-label={`Llevas el ${v.barra.pct} % del periodo`}
+        >
+          <i
+            className={clsx('block h-full', COLOR_BARRA[v.barra.tono])}
+            style={{ width: `${Math.max(v.barra.pct, 3)}%` } as CSSProperties}
+          />
+        </div>
+      )}
+
+      {abierto && (
+        <div id={detalleId} className="grid gap-3 border-t border-borde px-3.5 pt-1 pb-3">
+          <dl className="grid text-[0.84rem]">
+            <Fila etiqueta="Plan">
+              {s.plan.nombre}
+              {v.duracion ? ` · ${v.duracion}` : ` · ${NOMBRE_TIPO_PLAN[s.plan.tipo]}`}
+            </Fila>
+            {v.vigencia && <Fila etiqueta="Vigencia">{v.vigencia}</Fila>}
+            {v.barra && (
+              <Fila etiqueta="Periodo">
+                {v.barra.desde} · {v.barra.resta}
+              </Fila>
+            )}
+            {s.precioAcordadoUsd && (
+              <Fila etiqueta="Precio">{s.precioAcordadoUsd} USD por periodo</Fila>
+            )}
+            <Fila etiqueta="Moneda">{s.moneda}</Fila>
+            {s.datosCliente.map((d) => (
+              <Fila key={d.etiqueta} etiqueta={d.etiqueta}>
+                {d.valor}
+              </Fila>
+            ))}
+          </dl>
+          {v.admiteCobroAutomatico && (
+            <CobroAutomatico s={s} metodos={metodos} vence={v.venceLargo} />
           )}
-          {v.puedeCancelar && (
-            <button
-              type="button"
-              className="ml-auto text-sm font-semibold text-tinta-suave hover:text-tinta hover:underline"
-              onClick={() => setCancelando(true)}
-            >
-              {s.estado === 'pendiente_pago' ? 'Cancelar solicitud' : 'Cancelar suscripción'}
-            </button>
+          {cancelando ? (
+            <FormularioCancelar v={v} alTerminar={() => setCancelando(false)} />
+          ) : (
+            v.puedeCancelar && (
+              <button
+                type="button"
+                className="justify-self-start text-sm font-semibold text-peligro hover:underline"
+                onClick={() => setCancelando(true)}
+              >
+                {s.estado === 'pendiente_pago' ? 'Cancelar solicitud' : 'Cancelar suscripción'}
+              </button>
+            )
           )}
         </div>
       )}
-      {error && <MensajeError error={error} />}
+
+      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-t border-borde px-3.5 py-2.5">
+        {principal}
+        {v.accesoId && (
+          <Link href={`/cuenta/accesos#acceso-${v.accesoId}`} className={claseEnlace}>
+            Ver acceso
+          </Link>
+        )}
+        {v.fin && !gestionada && (
+          <Link href="/catalogo" className={claseEnlace}>
+            Volver a contratar
+          </Link>
+        )}
+        {gestionada && !v.fin && !v.renovacionPendiente && (
+          <span className="text-[0.8rem] text-tinta-tenue">Lo gestiona tu revendedor</span>
+        )}
+        {v.renovacionPendiente && (
+          <span className="flex items-center gap-1.5 text-[0.8rem] text-tinta-suave">
+            <Clock className="size-3.5 shrink-0 text-aviso" aria-hidden="true" />
+            {v.renovacionPendiente}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-expanded={abierto}
+          aria-controls={detalleId}
+          aria-label={abierto ? 'Ocultar detalles' : 'Ver detalles y opciones'}
+          title={abierto ? 'Ocultar detalles' : 'Detalles y opciones'}
+          onClick={() => {
+            setAbierto((a) => !a);
+            setCancelando(false);
+          }}
+          className="ml-auto grid size-8 place-items-center rounded-[0.625rem] text-tinta-tenue hover:bg-white/[0.05] hover:text-tinta"
+        >
+          {abierto ? (
+            <ChevronUp className="size-4" aria-hidden="true" />
+          ) : (
+            <Ellipsis className="size-4" aria-hidden="true" />
+          )}
+        </button>
+      </div>
+      {error && (
+        <div className="px-3.5 pb-3">
+          <MensajeError error={error} />
+        </div>
+      )}
     </article>
+  );
+}
+
+const PUNTO: Record<TonoEstado, string> = {
+  exito: 'bg-exito',
+  aviso: 'bg-aviso',
+  peligro: 'bg-peligro',
+  cian: 'bg-cian',
+  neutro: 'bg-tinta-tenue',
+};
+
+function Fila({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-borde py-2 last:border-b-0">
+      <dt className="shrink-0 text-tinta-tenue">{etiqueta}</dt>
+      <dd className="min-w-0 text-right break-words">{children}</dd>
+    </div>
   );
 }
 

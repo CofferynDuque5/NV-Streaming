@@ -216,7 +216,7 @@ export function TarjetaAccesoCliente({
       id={`acceso-${acceso.id}`}
       aria-labelledby={titulo}
       className={clsx(
-        'grid min-w-0 scroll-mt-24 gap-3 rounded-[1.375rem] border border-borde bg-[rgb(10_14_32/0.6)] p-4',
+        'grid min-w-0 scroll-mt-24 gap-3 rounded-[1.125rem] border border-borde bg-[rgb(10_14_32/0.6)] px-3.5 py-3',
         'target:border-cian target:shadow-[0_0_0_3px_rgb(34_211_238/0.2)]',
       )}
     >
@@ -225,13 +225,13 @@ export function TarjetaAccesoCliente({
           slug={acceso.servicioSlug}
           categoria={acceso.categoria}
           nombre={acceso.servicio}
-          className="size-[2.875rem]"
+          className="size-10"
         />
         <div className="grid min-w-0 gap-0.5">
-          <small className="truncate text-xs text-tinta-suave">{detalle}</small>
-          <h2 id={titulo} className="text-[1.0625rem] leading-tight text-balance">
+          <h2 id={titulo} className="truncate text-[0.98rem] leading-tight font-semibold">
             {acceso.servicio} · {acceso.plan}
           </h2>
+          <small className="truncate text-[0.8rem] text-tinta-tenue">{detalle}</small>
         </div>
         <span className="col-start-2 -mt-1 sm:col-start-auto sm:mt-0 sm:self-start">
           <PildoraEstado texto={ESTADO_ACCESO[acceso.estado].texto} tono={TONO[acceso.estado]} />

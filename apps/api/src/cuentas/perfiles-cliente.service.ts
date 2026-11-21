@@ -12,6 +12,7 @@ import {
   type PerfilRevelado,
   type TipoPlataforma,
   tipoPlataforma,
+  urlMedio,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { fechaCaracas, fechaLarga } from '../automatizaciones/horario.js';
@@ -263,7 +264,13 @@ export class PerfilesClienteService {
         nombre: true,
         pinCifrado: true,
         cuenta: {
-          select: { modo: true, estado: true, servicio: { select: { id: true, nombre: true } } },
+          select: {
+            modo: true,
+            estado: true,
+            servicio: {
+              select: { id: true, nombre: true, slug: true, categoria: true, imagenId: true },
+            },
+          },
         },
         suscripcion: {
           select: {
@@ -283,7 +290,12 @@ export class PerfilesClienteService {
         ? [
             {
               suscripcionId: p.suscripcion.id,
-              servicio: p.cuenta.servicio,
+              servicio: { id: p.cuenta.servicio.id, nombre: p.cuenta.servicio.nombre },
+              servicioSlug: p.cuenta.servicio.slug,
+              categoria: p.cuenta.servicio.categoria,
+              servicioImagen: p.cuenta.servicio.imagenId
+                ? urlMedio(p.cuenta.servicio.imagenId)
+                : null,
               plan: p.suscripcion.plan,
               estado: p.suscripcion.estado,
               venceEn: iso(p.suscripcion.venceEn),

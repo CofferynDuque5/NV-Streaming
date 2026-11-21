@@ -1,3 +1,4 @@
+import type { CategoriaServicio } from './categorias.js';
 import type { EstadoCuentaServicio, EstadoPerfil, ModoCuenta } from './esquemas/cuentas.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
 import type { TipoPlataforma } from './plataformas.js';
@@ -214,6 +215,10 @@ export interface BalancePeriodo {
 export interface PerfilDelCliente {
   suscripcionId: string;
   servicio: Referencia;
+  /** Slug, universo y logo subido del servicio: eligen su miniatura. */
+  servicioSlug?: string;
+  categoria?: CategoriaServicio | null;
+  servicioImagen?: string | null;
   plan: Referencia;
   estado: EstadoSuscripcion;
   venceEn: string | null;

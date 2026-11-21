@@ -124,6 +124,8 @@ test('inicio: lo que hay que revisar, filtros y cancelar con motivo', async () =
   // Cancelar la solicitud pendiente: el motivo es obligatorio y se valida al escribir.
   const mensual = servicios.filter({ has: page.getByRole('heading', { name: 'Mensual' }) });
   await expect(mensual.getByRole('link', { name: /^Pagar factura NV-\d+$/ })).toBeVisible();
+  // Las opciones (cancelar, cobro automático, detalles) van en «···».
+  await mensual.getByRole('button', { name: 'Ver detalles y opciones' }).click();
   await mensual.getByRole('button', { name: 'Cancelar solicitud' }).click();
   const motivo = mensual.getByLabel('¿Por qué quieres cancelar?');
   await expect(motivo).toBeFocused();
@@ -143,6 +145,7 @@ test('inicio: lo que hay que revisar, filtros y cancelar con motivo', async () =
 
   // Cancelar una activa la programa al vencer, y se puede mantener.
   const trimestralT = servicios.filter({ has: page.getByRole('heading', { name: 'Trimestral' }) });
+  await trimestralT.getByRole('button', { name: 'Ver detalles y opciones' }).click();
   await trimestralT.getByRole('button', { name: 'Cancelar suscripción' }).click();
   await expect(trimestralT.getByText(/Seguirás teniendo NV Cine hasta el/)).toBeVisible();
   await trimestralT.getByLabel('¿Por qué quieres cancelar?').fill('Lo pruebo más adelante');
@@ -287,6 +290,7 @@ test('un cliente de un revendedor compra con su billetera; lo que activó su rev
 
     const propio = servicios.filter({ has: page.getByRole('heading', { name: 'Trimestral' }) });
     await expect(propio.getByRole('button', { name: 'Renovar ahora' })).toBeVisible();
+    await propio.getByRole('button', { name: 'Ver detalles y opciones' }).click();
     await expect(propio.getByRole('button', { name: 'Cancelar suscripción' })).toBeVisible();
     await expect(propio.getByText('Lo gestiona tu revendedor')).toHaveCount(0);
 
@@ -345,7 +349,10 @@ test('la renovación que paga su revendedor se informa sin pedirle el pago, la t
       .getByRole('article')
       .filter({ has: page.getByRole('heading', { name: 'Individual' }) });
     await expect(tarjeta.getByText(`Renovación pendiente: pídesela a ${tienda}`)).toBeVisible();
-    await expect(tarjeta.getByRole('button')).toHaveCount(0);
+    // Solo «···» (detalles): ni renovar, ni pagar, ni cancelar.
+    await expect(
+      tarjeta.getByRole('button', { name: /Renovar|Pagar|Cancelar|Mantener/ }),
+    ).toHaveCount(0);
     await expect(tarjeta.getByRole('link')).toHaveCount(0);
     await expect(tarjeta.getByText('Lo gestiona tu revendedor')).toHaveCount(0);
     const menu = page.getByRole('navigation', { name: 'Mi cuenta' });

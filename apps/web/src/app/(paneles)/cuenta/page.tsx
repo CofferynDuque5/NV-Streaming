@@ -2,6 +2,7 @@ import {
   type AccesoServicio,
   type BilleteraPublica,
   esCompraUnica,
+  type FacturaPublica,
   formatearMonto,
   type MetodoAutorizadoPublico,
   type Pagina,
@@ -75,6 +76,23 @@ function vigencia(s: SuscripcionPublica): string {
   return `Vence el ${fLarga(s.venceEn)}${cuando}.`;
 }
 
+/** Lo que se lee a la derecha de la tarjeta: la fecha que importa y cuánto falta. */
+function fechaClave(
+  s: SuscripcionPublica,
+  factura: FacturaPublica | undefined,
+): VistaServicio['fecha'] {
+  if (factura && (s.estado === 'pendiente_pago' || !s.venceEn))
+    return { principal: formatearMonto(factura.total, factura.moneda), nota: 'por pagar' };
+  if (s.estado === 'cancelada')
+    return s.canceladaEn ? { principal: fCorta(s.canceladaEn), nota: 'terminó' } : null;
+  if (!s.venceEn || esCompraUnica(s.plan.tipo)) return null;
+  const d = diasHasta(s.venceEn);
+  return {
+    principal: fCorta(s.venceEn),
+    nota: d > 0 ? dias(d) : d === 0 ? 'vence hoy' : `hace ${dias(-d)}`,
+  };
+}
+
 function barra(s: SuscripcionPublica, ahora = Date.now()): VistaServicio['barra'] {
   if (esCompraUnica(s.plan.tipo)) return null;
   if (!s.inicioEn || !s.venceEn || ['cancelada', 'pendiente_pago'].includes(s.estado)) return null;
@@ -139,6 +157,10 @@ export default async function MisServicios() {
       vigencia: vigencia(s),
       barra: barra(s),
       venceLargo: s.venceEn ? fLarga(s.venceEn) : null,
+      fecha: fechaClave(
+        s,
+        facturasPendientes.find((f) => f.id === s.facturaAbierta?.id),
+      ),
       pagoEnRevision: !!s.facturaAbierta && enRevision.has(s.facturaAbierta.id),
       puedeRenovar:
         propia &&
