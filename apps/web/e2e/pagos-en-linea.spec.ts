@@ -86,7 +86,7 @@ test('el cliente paga en línea, guarda el método y autoriza el cobro automáti
   await page.goto('/cuenta');
   const servicio = page
     .getByRole('article')
-    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) });
+    .filter({ has: page.getByRole('heading', { name: / · Trimestral$/ }) });
   await expect(servicio.getByText('Activa', { exact: true })).toBeVisible();
 
   await page.getByRole('link', { name: 'Métodos guardados' }).first().click();
@@ -106,7 +106,13 @@ test('el cliente apaga y vuelve a encender el cobro automático de su suscripci�
   await expect(page).toHaveURL(/\/cuenta$/);
   const servicio = page
     .getByRole('article')
-    .filter({ has: page.getByRole('heading', { name: 'Trimestral', exact: true }) });
+    .filter({ has: page.getByRole('heading', { name: / · Trimestral$/ }) });
+  // El cobro automático va entre las opciones de «···».
+  const abrirOpciones = async () => {
+    const boton = servicio.getByRole('button', { name: 'Ver detalles y opciones' });
+    if (await boton.isVisible()) await boton.click();
+  };
+  await abrirOpciones();
   const control = servicio.getByRole('region', { name: 'Cobro automático' });
   const selector = control.getByLabel('Método para cobrar la renovación');
 
@@ -129,6 +135,7 @@ test('el cliente apaga y vuelve a encender el cobro automático de su suscripci�
   await control.getByRole('button', { name: 'Activar' }).click();
   await expect(control.getByText('Cobro automático activado.')).toBeVisible();
   await page.reload();
+  await abrirOpciones();
   await expect(control.getByText(/^Cobro automático con /)).toBeVisible();
 
   await page.goto('/cuenta/metodos-pago');

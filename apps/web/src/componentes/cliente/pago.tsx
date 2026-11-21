@@ -214,7 +214,16 @@ async function copiarTexto(texto: string): Promise<boolean> {
   }
 }
 
-export function BotonCopiar({ texto, etiqueta }: { texto: string; etiqueta: string }) {
+export function BotonCopiar({
+  texto,
+  etiqueta,
+  soloIcono = false,
+}: {
+  texto: string;
+  etiqueta: string;
+  /** Botón cuadrado con solo el ícono (filas compactas de «Mis accesos»). */
+  soloIcono?: boolean;
+}) {
   const notificar = useNotificar();
   const [copiado, setCopiado] = useState(false);
   return (
@@ -229,7 +238,8 @@ export function BotonCopiar({ texto, etiqueta }: { texto: string; etiqueta: stri
         setTimeout(() => setCopiado(false), 1400);
       }}
       className={clsx(
-        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.625rem] border px-3 text-[0.8rem] font-semibold transition-colors',
+        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.625rem] border text-[0.8rem] font-semibold transition-colors',
+        soloIcono ? 'w-9 justify-center' : 'px-3',
         copiado
           ? 'border-exito text-exito'
           : 'border-borde-fuerte bg-white/[0.03] hover:border-cian',
@@ -240,7 +250,7 @@ export function BotonCopiar({ texto, etiqueta }: { texto: string; etiqueta: stri
       ) : (
         <Copy className="size-3.5" aria-hidden="true" />
       )}
-      {copiado ? 'Copiado' : 'Copiar'}
+      {soloIcono ? null : copiado ? 'Copiado' : 'Copiar'}
     </button>
   );
 }
