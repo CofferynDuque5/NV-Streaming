@@ -65,6 +65,9 @@ function Cuadre({ c }: { c: CuadreGestor }) {
           ...(c.perfiles.clientesCorregidos
             ? [['Cupos que pasan a su cliente', c.perfiles.clientesCorregidos] as const]
             : []),
+          ...(c.perfiles.preciosRecuperados
+            ? [['Precios del Gestor que se guardan', c.perfiles.preciosRecuperados] as const]
+            : []),
           ...(c.cuentas.rellenadas
             ? [
                 ['Cuentas que se vuelven a llenar', c.cuentas.rellenadas] as const,
@@ -192,6 +195,7 @@ function Plataforma({
       (c.clientes.sinPerfil ?? 0) +
       (c.perfiles.miembrosRecuperados ?? 0) +
       (c.perfiles.clientesCorregidos ?? 0) +
+      (c.perfiles.preciosRecuperados ?? 0) +
       (c.cuentas.rellenadas ?? 0) >
     0;
 
@@ -302,7 +306,9 @@ function Plataforma({
                     ? `Importar ${plural(simulado.cuadre.clientes.sinPerfil, 'cliente', 'clientes')}`
                     : simulado.cuadre.perfiles.clientesCorregidos
                       ? `Corregir ${plural(simulado.cuadre.perfiles.clientesCorregidos, 'cupo', 'cupos')}`
-                      : `Recuperar ${plural(simulado.cuadre.perfiles.miembrosRecuperados ?? 0, 'miembro', 'miembros')}`
+                      : simulado.cuadre.perfiles.miembrosRecuperados
+                        ? `Recuperar ${plural(simulado.cuadre.perfiles.miembrosRecuperados, 'miembro', 'miembros')}`
+                        : `Guardar ${plural(simulado.cuadre.perfiles.preciosRecuperados ?? 0, 'precio', 'precios')}`
                 : 'Importar'}
             </Boton>
           </div>

@@ -84,6 +84,7 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
         ? { metodoId: s.metodoAutorizado.id, descripcion: s.metodoAutorizado.descripcion }
         : null,
     gestionadaPorRevendedor: s.revendedorId !== null,
+    precioAcordadoUsd: s.precioUsd ? s.precioUsd.toFixed(2) : null,
   };
 }
 

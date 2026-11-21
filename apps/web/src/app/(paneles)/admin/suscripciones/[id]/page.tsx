@@ -127,6 +127,12 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
               : []),
             ['Estado', <EstadoSuscripcionInsignia key="estado" estado={s.estado} />],
             ['Moneda', `${s.moneda} · ${INFO_MONEDA[s.moneda].nombre}`],
+            [
+              'Precio por periodo',
+              s.precioAcordadoUsd
+                ? `${s.precioAcordadoUsd} USD (acordado; se cobra al renovar)`
+                : 'El del plan',
+            ],
             ['Inicio', s.inicioEn ? formatearFecha(s.inicioEn) : <Tenue>Aún no ha empezado</Tenue>],
             [
               'Vencimiento',

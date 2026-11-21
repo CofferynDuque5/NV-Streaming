@@ -233,12 +233,13 @@ export class CobrosAutomaticosService implements OnModuleInit {
     if (abierta) {
       monto = formatearMonto(abierta.total.toFixed(2), abierta.moneda);
     } else {
-      const c = await this.prisma.$transaction((tx) =>
+      const c = await this.prisma.$transaction(async (tx) =>
         this.facturacion.calcular(tx, {
           plan: s.plan,
           moneda: s.moneda,
           concepto: 'renovacion',
           clienteId: s.clienteId,
+          precioUnitario: await this.facturacion.precioAcordado(tx, s.plan, s.precioUsd, s.moneda),
         }),
       );
       monto = formatearMonto(c.total.toFixed(2), s.moneda);
