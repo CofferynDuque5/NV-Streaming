@@ -148,7 +148,18 @@ export class FacturasService {
       if (!linea || !plan)
         throw new ErrorApp(409, 'FACTURA_SIN_PLAN', 'Esta factura no se puede recalcular.');
       const cupon = f.cuponId ? await tx.cupon.findUnique({ where: { id: f.cuponId } }) : null;
+      // Una renovación con precio acordado lo mantiene en la otra moneda.
+      const acordado =
+        f.concepto === 'renovacion' && f.suscripcionId
+          ? ((
+              await tx.suscripcion.findUnique({
+                where: { id: f.suscripcionId },
+                select: { precioUsd: true },
+              })
+            )?.precioUsd ?? null)
+          : null;
       const c = await this.facturacion.calcular(tx, {
+        precioUnitario: await this.facturacion.precioAcordado(tx, plan, acordado, moneda),
         plan,
         moneda,
         concepto: f.concepto,

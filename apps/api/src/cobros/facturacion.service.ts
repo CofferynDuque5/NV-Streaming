@@ -94,6 +94,21 @@ export class FacturacionService {
     return redondear(usd.mul(precio.tasa), moneda);
   }
 
+  /**
+   * Precio acordado de una suscripción (USD por periodo) en la moneda de la factura.
+   * Nulo si no tiene uno: entonces se cobra el precio del plan.
+   */
+  async precioAcordado(
+    tx: Tx,
+    plan: PlanCompleto,
+    precioUsd: Dec | null,
+    moneda: Moneda,
+  ): Promise<Dec | null> {
+    if (!precioUsd || !precioUsd.gt(0)) return null;
+    if (moneda === 'USD') return precioUsd;
+    return this.enMoneda(tx, plan, precioUsd, moneda);
+  }
+
   cotizacion(c: CalculoFactura): Cotizacion {
     return {
       moneda: c.moneda,

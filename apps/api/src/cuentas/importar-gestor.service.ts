@@ -89,6 +89,11 @@ export function notaCuenta(plataforma: string, c: CuentaGestor, enPanel = false)
   return partes.join(' ').slice(0, 1000);
 }
 
+/** Precio que pagaba el cliente en el Gestor, si tenía uno (por periodo, en USD). */
+export function precioAcordado(c: ClienteGestor): string | null {
+  return Number(c.precioUsd) > 0 ? Number(c.precioUsd).toFixed(2) : null;
+}
+
 /** Nota que acompaña a un cliente que entra sin perfil: por qué y lo que tenía. */
 export function notaClienteSuelto(plataforma: string, s: ClienteSueltoGestor): string {
   const partes = [
@@ -120,6 +125,8 @@ interface Plan {
    * clave del miembro) que hoy no los tienen: se completan, sin tocar lo que ya hay.
    */
   miembros: { perfilId: string; usuario: string | null; clave: string | null }[];
+  /** Suscripciones ya importadas sin precio acordado: guardan el precio que tenían en el Gestor. */
+  precios: { suscripcionId: string; precioUsd: string }[];
   /**
    * Cupos ya importados que quedaron con otro cliente (el importador viejo unía por el
    * número del revendedor): pasan al cliente que tienen en el Gestor, sin borrar nada.
@@ -236,6 +243,13 @@ export class ImportarGestorService {
     if (miembros.length) {
       avisos.push(
         `${miembros.length} ${miembros.length === 1 ? 'cupo ya importado recupera' : 'cupos ya importados recuperan'} el correo y la clave del miembro unido al plan (no se cambia nada más).`,
+      );
+    }
+
+    const precios = await this.preciosPorRecuperar(db, yaImportadasVivas);
+    if (precios.length) {
+      avisos.push(
+        `${precios.length} ${precios.length === 1 ? 'suscripción ya importada guarda' : 'suscripciones ya importadas guardan'} el precio que tenía en el Gestor (solo las que no tenían precio).`,
       );
     }
 
@@ -393,6 +407,7 @@ export class ImportarGestorService {
       porCrear,
       sueltos,
       miembros,
+      precios,
       separar,
       rellenar,
       cuadre: {
@@ -410,6 +425,7 @@ export class ImportarGestorService {
           asignados: conCliente.length,
           miembrosRecuperados: miembros.length,
           clientesCorregidos: separar.length,
+          preciosRecuperados: precios.length,
         },
         clientes: {
           nuevos: porCrear.size,
@@ -423,6 +439,66 @@ export class ImportarGestorService {
         avisos,
       },
     };
+  }
+
+  /**
+   * Suscripciones de cupos ya importados que no tienen precio acordado y cuyo cliente
+   * pagaba un precio en el Gestor. Solo llena lo vacío: nunca cambia un precio guardado.
+   */
+  private async preciosPorRecuperar(
+    db: Tx | PrismaClient,
+    cuentas: CuentaGestor[],
+  ): Promise<Plan['precios']> {
+    const conPrecio = new Map<string, string>();
+    for (const p of cuentas.flatMap((c) => c.perfiles)) {
+      const precio = p.cliente ? precioAcordado(p.cliente) : null;
+      if (precio) conPrecio.set(p.origenId, precio);
+    }
+    if (!conPrecio.size) return [];
+    const registros = await db.registroGestor.findMany({
+      where: { tipo: 'perfil', entidad: 'suscripcion', origenId: { in: [...conPrecio.keys()] } },
+      select: { origenId: true, entidadId: true },
+    });
+    const origenDe = new Map(registros.map((r) => [r.entidadId, r.origenId]));
+    const sinPrecio = await db.suscripcion.findMany({
+      where: { id: { in: [...origenDe.keys()] }, precioUsd: null },
+      select: { id: true },
+    });
+    return sinPrecio.map((s) => ({
+      suscripcionId: s.id,
+      precioUsd: conPrecio.get(origenDe.get(s.id)!)!,
+    }));
+  }
+
+  /** Guarda el precio del Gestor en suscripciones que aún no tienen uno. */
+  private async recuperarPrecios(
+    tx: Tx,
+    precios: Plan['precios'],
+    actor: string,
+    plataforma: string,
+    cliente: InfoCliente,
+  ) {
+    let puestos = 0;
+    for (const x of precios) {
+      const r = await tx.suscripcion.updateMany({
+        where: { id: x.suscripcionId, precioUsd: null },
+        data: { precioUsd: x.precioUsd },
+      });
+      puestos += r.count;
+    }
+    if (puestos) {
+      await this.auditoria.registrar(
+        {
+          actorId: actor,
+          accion: 'gestor.precios_recuperados',
+          entidad: 'suscripcion',
+          entidadId: precios[0]!.suscripcionId,
+          despues: { plataforma, suscripciones: puestos },
+          cliente,
+        },
+        tx,
+      );
+    }
   }
 
   /**
@@ -655,13 +731,15 @@ export class ImportarGestorService {
         const plan = await this.planear(tx, e);
         const actor = auth.usuario.id;
         await this.recuperarMiembros(tx, plan.miembros, actor, e.plataforma.nombre, cliente);
+        await this.recuperarPrecios(tx, plan.precios, actor, e.plataforma.nombre, cliente);
         if (
           !plan.nuevas.length &&
           !plan.sueltos.length &&
           !plan.separar.length &&
           !plan.rellenar.length
         ) {
-          if (plan.miembros.length) return { loteId: null, cuadre: plan.cuadre };
+          if (plan.miembros.length || plan.precios.length)
+            return { loteId: null, cuadre: plan.cuadre };
           throw new ErrorApp(
             409,
             'NADA_QUE_IMPORTAR',
@@ -777,6 +855,7 @@ export class ImportarGestorService {
                 estado: !vence || vence >= hoy ? 'activa' : 'vencida',
                 moneda: e.moneda,
                 venceEn: vence ? new Date(`${vence}T23:59:59Z`) : null,
+                precioUsd: precioAcordado(p.cliente),
                 creadoPorId: actor,
               });
               registrar('perfil', p.origenId, 'suscripcion', suscripcionId);
@@ -833,13 +912,18 @@ export class ImportarGestorService {
               if (x.reusar) {
                 const previa = await tx.suscripcion.findUnique({
                   where: { id: x.reusar },
-                  select: { id: true, clienteId: true },
+                  select: { id: true, clienteId: true, precioUsd: true },
                 });
                 if (previa) {
                   suscripcionId = previa.id;
+                  const precio = previa.precioUsd ? null : precioAcordado(p.cliente);
                   await tx.suscripcion.update({
                     where: { id: previa.id },
-                    data: { planId: e.planId, clienteId: destino },
+                    data: {
+                      planId: e.planId,
+                      clienteId: destino,
+                      ...(precio ? { precioUsd: precio } : {}),
+                    },
                   });
                   if (previa.clienteId !== destino) {
                     await tx.factura.updateMany({
@@ -860,6 +944,7 @@ export class ImportarGestorService {
                     estado: !vence || vence >= hoy ? 'activa' : 'vencida',
                     moneda: e.moneda,
                     venceEn: vence ? new Date(`${vence}T23:59:59Z`) : null,
+                    precioUsd: precioAcordado(p.cliente),
                     creadoPorId: actor,
                   },
                 });

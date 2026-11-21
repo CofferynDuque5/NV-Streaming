@@ -502,6 +502,8 @@ export class SuscripcionesService {
       actorId,
       periodos: opciones.periodos,
       desdeHoy: opciones.desdeHoy,
+      // Precio acordado (p. ej. el que tenía en el Gestor); sin él, el del plan.
+      precioUnitario: await this.facturacion.precioAcordado(tx, plan, s.precioUsd, monedaFactura),
     });
     if (monedaFactura !== s.moneda) {
       await tx.suscripcion.update({ where: { id: s.id }, data: { moneda: monedaFactura } });

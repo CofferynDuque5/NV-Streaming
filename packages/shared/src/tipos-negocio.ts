@@ -280,6 +280,8 @@ export interface SuscripcionPublica {
    * cliente. Lo que el cliente compra directo en la tienda es `false`.
    */
   gestionadaPorRevendedor: boolean;
+  /** Precio acordado por periodo en USD (p. ej. el del Gestor); null = precio del plan. */
+  precioAcordadoUsd?: string | null;
 }
 
 export interface EventoSuscripcionPublico {

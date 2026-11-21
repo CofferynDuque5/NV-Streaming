@@ -861,6 +861,8 @@ export interface CuadreGestor {
     miembrosRecuperados?: number;
     /** Cupos ya importados que pasan al cliente que tienen en el Gestor. */
     clientesCorregidos?: number;
+    /** Suscripciones ya importadas sin precio que guardan el precio que tenían en el Gestor. */
+    preciosRecuperados?: number;
   };
   clientes: { nuevos: number; existentes: number; sinContacto: number; sinPerfil?: number };
   suscripciones: { activas: number; vencidas: number };

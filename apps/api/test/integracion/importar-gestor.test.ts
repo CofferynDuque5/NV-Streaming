@@ -849,6 +849,77 @@ describe('importar el Gestor viejo', () => {
     expect(otra.cuerpo.error.codigo).toBe('NADA_QUE_IMPORTAR');
   });
 
+  it('precios del Gestor: se guardan al importar, se recuperan al volver a importar y se cobran al renovar', async () => {
+    const { admin, cuerpo } = await escenario();
+    // Como la versión anterior: entra sin precio de venta.
+    const sinPrecio = {
+      ...cuerpo,
+      cuentas: cuerpo.cuentas.map((c) => ({
+        ...c,
+        perfiles: c.perfiles.map((p) =>
+          p.cliente ? { ...p, cliente: { ...p.cliente, precioUsd: '0' } } : p,
+        ),
+      })),
+    };
+    expect((await admin.n.post('/cuentas/gestor/importar', sinPrecio)).estado).toBe(201);
+    expect(await ctx.prisma.suscripcion.count({ where: { precioUsd: { not: null } } })).toBe(0);
+    // Uno con precio puesto en el panel: no se cambia.
+    const luis = await ctx.prisma.suscripcion.findFirstOrThrow({
+      where: { cliente: { nombre: { startsWith: 'Luis' } } },
+    });
+    await ctx.prisma.suscripcion.update({ where: { id: luis.id }, data: { precioUsd: '7.50' } });
+    const antes = await conteos();
+
+    const sim = await admin.n.post('/cuentas/gestor/simular', cuerpo);
+    expect(sim.cuerpo).toMatchObject({
+      cuentas: { nuevas: 0 },
+      perfiles: { preciosRecuperados: 2 },
+    });
+    const imp = await admin.n.post('/cuentas/gestor/importar', cuerpo);
+    expect(imp.estado).toBe(201);
+    expect(imp.cuerpo.loteId).toBeNull();
+    expect(await conteos()).toEqual(antes);
+    const ana = await ctx.prisma.suscripcion.findMany({
+      where: { cliente: { nombre: 'Ana Pérez' } },
+    });
+    expect(ana.map((s) => s.precioUsd?.toFixed(2))).toEqual(['3.00', '3.00']);
+    expect(
+      (
+        await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: luis.id } })
+      ).precioUsd?.toFixed(2),
+    ).toBe('7.50');
+    expect(
+      await ctx.prisma.auditoria.count({ where: { accion: 'gestor.precios_recuperados' } }),
+    ).toBe(1);
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).cuerpo.error.codigo).toBe(
+      'NADA_QUE_IMPORTAR',
+    );
+
+    // Renovar cobra el precio del Gestor (3), no el del plan (5).
+    const ren = await admin.n.post(`/suscripciones/${ana[0]!.id}/renovar`, {});
+    expect(ren.estado).toBe(200);
+    const factura = await ctx.prisma.factura.findUniqueOrThrow({
+      where: { id: ren.cuerpo.factura.id },
+    });
+    expect(factura.total.toFixed(2)).toBe('3.00');
+    const detalle = await admin.n.get(`/suscripciones/${ana[0]!.id}`);
+    expect(detalle.cuerpo.precioAcordadoUsd).toBe('3.00');
+  });
+
+  it('una importación nueva guarda el precio de cada cliente', async () => {
+    const { admin, cuerpo } = await escenario();
+    expect((await admin.n.post('/cuentas/gestor/importar', cuerpo)).estado).toBe(201);
+    const subs = await ctx.prisma.suscripcion.findMany({
+      include: { cliente: { select: { nombre: true } } },
+      orderBy: { venceEn: 'asc' },
+    });
+    expect(subs.map((s) => [s.cliente.nombre.split(' ')[0], s.precioUsd?.toFixed(2)])).toEqual([
+      ['Luis', '2.00'],
+      ['Ana', '3.00'],
+      ['Ana', '3.00'],
+    ]);
+  });
+
   it('rechaza un plan de otro servicio', async () => {
     const { admin, cuerpo } = await escenario();
     const otro = await admin.n.post('/catalogo/servicios', {
