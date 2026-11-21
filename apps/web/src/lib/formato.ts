@@ -101,6 +101,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'suscripcion.renovacion_facturada': 'Renovación facturada',
   'suscripcion.pausada': 'Suscripción pausada',
   'suscripcion.reanudada': 'Suscripción reanudada',
+  'suscripcion.vencimiento_cambiado': 'Vencimiento corregido',
   'suscripcion.cancelada': 'Suscripción cancelada',
   'suscripcion.cancelacion_programada': 'Cancelación programada',
   'suscripcion.cancelacion_revertida': 'Cancelación revertida',

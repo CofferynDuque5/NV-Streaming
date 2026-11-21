@@ -8,7 +8,7 @@ import {
   PERIODOS_RENOVACION,
   REGLAS_COBRO,
 } from '@nv/shared';
-import { ArrowRight, Pause, Play, RefreshCw, Undo2 } from 'lucide-react';
+import { ArrowRight, CalendarClock, Pause, Play, RefreshCw, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useState } from 'react';
@@ -19,7 +19,7 @@ import { Casilla, Selector } from '@/componentes/ui/selector';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { formatearDuracion } from '@/lib/formato';
 
-type Accion = 'renovar' | 'pausar' | 'reanudar' | 'cancelar' | 'revertir';
+type Accion = 'renovar' | 'cambiar-vencimiento' | 'pausar' | 'reanudar' | 'cancelar' | 'revertir';
 
 interface Props {
   id: string;
@@ -32,6 +32,8 @@ interface Props {
   duracion: { cantidad: number; unidad: 'dia' | 'mes' };
   /** Vence (o venció) en el pasado: «desde hoy» es lo más probable. */
   vencida: boolean;
+  /** Fecha de vencimiento actual (ISO), para proponerla al corregirla. */
+  venceEn: string | null;
   puedeRenovar: boolean;
   puedeGestionar: boolean;
 }
@@ -56,6 +58,11 @@ function Bloque({
   );
 }
 
+/** Día del calendario venezolano (UTC−4 fijo), «AAAA-MM-DD». */
+function fechaVenezuela(iso: string): string {
+  return new Date(new Date(iso).getTime() - 4 * 3600_000).toISOString().slice(0, 10);
+}
+
 const RENOVABLES: EstadoSuscripcion[] = ['activa', 'en_gracia', 'suspendida', 'vencida'];
 
 /** Acciones sobre una suscripción según su estado y los permisos de quien mira. */
@@ -68,6 +75,7 @@ export function AccionesSuscripcion({
   facturaAbierta,
   duracion,
   vencida,
+  venceEn,
   puedeRenovar,
   puedeGestionar,
 }: Props) {
@@ -214,6 +222,52 @@ export function AccionesSuscripcion({
           </form>
         )}
         {mensajes('renovar')}
+      </Bloque>,
+    );
+  }
+
+  if (puedeGestionar && (estado === 'activa' || estado === 'en_gracia')) {
+    bloques.push(
+      <Bloque
+        key="cambiar-vencimiento"
+        titulo="Cambiar vencimiento"
+        descripcion="Corrige la fecha a mano (día de Venezuela). No emite facturas ni cobra. El motivo queda en el historial."
+      >
+        <form
+          className="flex flex-wrap items-end gap-2"
+          noValidate
+          onSubmit={conMotivo(
+            'cambiar-vencimiento',
+            (d) => ({ venceEn: String(d.get('venceEn') ?? '') }),
+            'Fecha de vencimiento actualizada.',
+          )}
+        >
+          <Campo
+            etiqueta="Nueva fecha"
+            name="venceEn"
+            type="date"
+            required
+            defaultValue={venceEn ? fechaVenezuela(venceEn) : ''}
+            className="min-w-0 flex-1 basis-40"
+            error={campoError('cambiar-vencimiento', 'venceEn')}
+          />
+          <Campo
+            etiqueta="Motivo"
+            name="motivo"
+            required
+            className="min-w-0 flex-[2] basis-56"
+            error={campoError('cambiar-vencimiento', 'motivo')}
+          />
+          <Boton
+            type="submit"
+            variante="secundario"
+            cargando={ocupado === 'cambiar-vencimiento'}
+            icono={<CalendarClock className="size-4" />}
+          >
+            Guardar fecha
+          </Boton>
+        </form>
+        {mensajes('cambiar-vencimiento')}
       </Bloque>,
     );
   }

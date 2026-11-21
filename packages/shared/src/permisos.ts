@@ -83,7 +83,7 @@ export const DESCRIPCION_PERMISO: Record<Permiso, string> = {
   'finanzas.configurar': 'Registrar tasas de cambio y configurar los métodos de cobro',
   'suscripciones.ver': 'Ver suscripciones (ventas: solo de su cartera)',
   'suscripciones.crear': 'Crear y renovar suscripciones',
-  'suscripciones.gestionar': 'Pausar, reanudar y cancelar suscripciones',
+  'suscripciones.gestionar': 'Pausar, reanudar, cancelar y cambiar el vencimiento de suscripciones',
   'facturas.ver': 'Ver facturas (ventas: solo de su cartera)',
   'facturas.anular': 'Anular facturas',
   'pagos.gestionar': 'Registrar pagos y conciliar comprobantes',
