@@ -652,6 +652,16 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
         })
       ).estado,
     ).toBe(403);
+    // Ventas tiene el permiso, pero solo sobre su cartera: este cliente no es suyo.
+    const ventas = await conectar(ctx, 'ventas');
+    expect(
+      (
+        await ventas.n.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+          venceEn: '2027-03-15',
+          motivo: 'prueba',
+        })
+      ).estado,
+    ).toBe(404);
     const sinMotivo = await e.operador.post(`/suscripciones/${id}/cambiar-vencimiento`, {
       venceEn: '2027-03-15',
     });

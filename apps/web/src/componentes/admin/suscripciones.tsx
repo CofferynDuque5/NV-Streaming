@@ -36,6 +36,8 @@ interface Props {
   venceEn: string | null;
   puedeRenovar: boolean;
   puedeGestionar: boolean;
+  /** Admin, operador o ventas (de su cartera): corrige la fecha a mano. */
+  puedeCambiarVencimiento: boolean;
 }
 
 function Bloque({
@@ -78,6 +80,7 @@ export function AccionesSuscripcion({
   venceEn,
   puedeRenovar,
   puedeGestionar,
+  puedeCambiarVencimiento,
 }: Props) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState<Accion | null>(null);
@@ -226,7 +229,7 @@ export function AccionesSuscripcion({
     );
   }
 
-  if (puedeGestionar && (estado === 'activa' || estado === 'en_gracia')) {
+  if (puedeCambiarVencimiento && (estado === 'activa' || estado === 'en_gracia')) {
     bloques.push(
       <Bloque
         key="cambiar-vencimiento"

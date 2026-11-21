@@ -130,7 +130,7 @@ export class SuscripcionesController {
   }
 
   @Post(':id/cambiar-vencimiento')
-  @RequierePermiso('suscripciones.gestionar')
+  @RequierePermiso('suscripciones.vencimiento')
   @HttpCode(200)
   @DocCuerpo(cambiarVencimientoSchema)
   cambiarVencimiento(

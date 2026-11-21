@@ -263,6 +263,7 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
             venceEn={s.venceEn}
             puedeRenovar={puedeRenovar}
             puedeGestionar={puedeGestionar}
+            puedeCambiarVencimiento={sesion.permisos.includes('suscripciones.vencimiento')}
           />
         </Tarjeta>
       </div>

@@ -45,7 +45,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
   const sesion = await requerirSesion({ permiso: 'cuentas.ver' });
   const { id } = await params;
   const puedeGestionar = sesion.permisos.includes('cuentas.gestionar');
-  const puedeCambiarFecha = sesion.permisos.includes('suscripciones.gestionar');
+  const puedeCambiarFecha = sesion.permisos.includes('suscripciones.vencimiento');
   const puedeRevelar = sesion.permisos.includes('cuentas.revelar');
   const puedeAlta = sesion.permisos.includes('suscripciones.crear');
   const verClientes = sesion.permisos.includes('clientes.ver');
