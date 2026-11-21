@@ -69,6 +69,7 @@ import {
   TIPOS_COMPROBANTE,
   type Validacion,
 } from './pago';
+import { EsperarRecargas } from './esperar-confirmacion';
 import { QrMetodo } from './qr-metodo';
 
 /** Recarga de la billetera de un cliente o del saldo de un revendedor (misma forma). */
@@ -301,6 +302,7 @@ function Cabecera({
         nombre={revendedor?.nombreComercial ?? datos.nombre}
         enRevision={enRevision}
       />
+      {enRevision > 0 && <EsperarRecargas enRevision={enRevision} />}
 
       <div className="grid content-start gap-3">
         {pedido && (

@@ -232,6 +232,13 @@ test('elige el método y valida el comprobante en vivo; al enviarlo queda en rev
 });
 
 test('un comprobante rechazado muestra el motivo y deja volver a pagar', async () => {
+  // El cliente deja abierta su factura en revisión: al revisarla el equipo, se actualiza sola.
+  await cliente.goto(urlPedido);
+  await facturas()
+    .getByRole('link', { name: /NV Cine/ })
+    .click();
+  await expect(cliente.getByRole('heading', { name: 'Recibimos tu comprobante' })).toBeVisible();
+
   const lista = await admin.request.get('/api/v1/pagos?estado=en_revision');
   const { elementos } = (await lista.json()) as {
     elementos: { id: string; referenciaExterna: string | null }[];
@@ -243,11 +250,10 @@ test('un comprobante rechazado muestra el motivo y deja volver a pagar', async (
   });
   expect(r.ok()).toBe(true);
 
-  await cliente.goto(urlPedido);
-  await facturas()
-    .getByRole('link', { name: /NV Cine/ })
-    .click();
-  await expect(cliente.getByText('Rechazamos tu comprobante anterior')).toBeVisible();
+  // Sin recargar la página.
+  await expect(cliente.getByText('Rechazamos tu comprobante anterior')).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(
     cliente.getByRole('alert').getByText(/Motivo: La referencia no aparece en el banco\./),
   ).toBeVisible();
