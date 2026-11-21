@@ -31,6 +31,7 @@ import {
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
+import { EsperarConfirmacion } from './esperar-confirmacion';
 import { Mensaje, MensajeError, type TonoEstado, type Validacion } from './pago';
 import {
   Aviso,
@@ -484,6 +485,9 @@ function TarjetaServicio({
           )}
         </button>
       </div>
+      {v.pagoEnRevision && s.facturaAbierta && (
+        <EsperarConfirmacion facturaId={s.facturaAbierta.id} />
+      )}
       {error && (
         <div className="px-3.5 pb-3">
           <MensajeError error={error} />

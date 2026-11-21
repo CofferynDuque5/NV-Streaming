@@ -31,6 +31,7 @@ import {
   PildoraEstado,
   type TonoEstado,
 } from './pago';
+import { EsperarConfirmacion } from './esperar-confirmacion';
 
 /** Datos que la página de pago ya leyó de la API. */
 export interface DatosPago {
@@ -548,7 +549,12 @@ export function VistaPago({ datos }: { datos: DatosPago }) {
       </Aviso>
     );
   } else if (f.pagoEnRevision) {
-    cuerpo = <EnRevision datos={datos} />;
+    cuerpo = (
+      <>
+        <EnRevision datos={datos} />
+        <EsperarConfirmacion facturaId={f.id} />
+      </>
+    );
   } else if (f.vencida && f.plan) {
     cuerpo = (
       <BloquePago titulo="El plazo de esta factura venció">
