@@ -12,6 +12,18 @@ import { claseEnlace, MiniaturaServicio } from './piezas-cuenta';
 /** Segundos que los datos quedan a la vista antes de ocultarse solos. */
 const SEGUNDOS_VISIBLES = 120;
 
+/** Condiciones que ve el cliente al abrir sus datos de acceso. */
+const CONDICIONES_SERVICIO = [
+  'El servicio es válido únicamente para 1 dispositivo.',
+  'Las descargas deben realizarse solo en un mismo dispositivo.',
+  'No modificar perfiles, nombres ni configuraciones.',
+  'No abrir la cuenta en más de un dispositivo.',
+  'No compartir credenciales con terceros.',
+  'El cliente debe reportar fallas de inmediato. Si no se informa a tiempo, no se repondrán días perdidos.',
+  'No se realizan reembolsos ni cambios de suscripción, excepto en casos de falla técnica sin solución.',
+  'El incumplimiento de las condiciones resultará en la suspensión inmediata del servicio sin derecho a reclamo.',
+] as const;
+
 /** Una fila de datos: etiqueta arriba, valor abajo y el botón de copiar a la derecha. */
 function Dato({ etiqueta, valor, copiar }: { etiqueta: string; valor: string; copiar?: string }) {
   return (
@@ -234,24 +246,27 @@ export function TarjetaPerfilCliente({
           Se ocultan solos en dos minutos.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {datos.contrato ? (
-            <details className="group min-w-0 flex-1">
-              <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">
-                Condiciones y contrato
-              </summary>
-              <div className="mt-2.5 grid gap-2 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold">Contrato – factura de servicio</h3>
-                  <BotonCopiar texto={datos.contrato} etiqueta="el contrato" />
-                </div>
-                <pre className="max-h-64 overflow-y-auto font-sans text-[0.8rem] leading-relaxed whitespace-pre-wrap text-tinta-suave">
-                  {datos.contrato}
-                </pre>
+          <details className="group min-w-0 flex-1">
+            <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">
+              Condiciones del Servicio
+            </summary>
+            <div className="mt-2.5 grid gap-2.5 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3 text-[0.8rem] leading-relaxed text-tinta-suave">
+              <ul className="grid list-disc gap-1 pl-4">
+                {CONDICIONES_SERVICIO.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              <div>
+                <h3 className="text-xs font-semibold tracking-wide text-tinta">
+                  ATENCIÓN AL CLIENTE
+                </h3>
+                <p>Horario: 11:00 AM a 11:30 PM.</p>
               </div>
-            </details>
-          ) : (
-            <span />
-          )}
+              <p className="font-medium text-tinta">
+                Al recibir el servicio, el cliente acepta todas las condiciones.
+              </p>
+            </div>
+          </details>
           <Boton
             tamano="sm"
             variante="fantasma"
