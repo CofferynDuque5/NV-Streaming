@@ -13,13 +13,11 @@ export const ETIQUETAS_ROL: Record<Rol, string> = {
 /** Roles del equipo interno (acceden al panel administrativo). */
 export const ROLES_EQUIPO = ['admin', 'operador', 'ventas'] as const satisfies readonly Rol[];
 
-/** Roles que deben tener la verificación en dos pasos activada para operar. */
-export const ROLES_CON_2FA_OBLIGATORIO: readonly Rol[] = [
-  'admin',
-  'operador',
-  'ventas',
-  'revendedor',
-];
+/**
+ * Roles que deben tener la verificación en dos pasos activada para operar.
+ * El revendedor la tiene opcional (pedido de Nathan, 22-11-2026).
+ */
+export const ROLES_CON_2FA_OBLIGATORIO: readonly Rol[] = ['admin', 'operador', 'ventas'];
 
 export function exige2fa(rol: Rol): boolean {
   return ROLES_CON_2FA_OBLIGATORIO.includes(rol);

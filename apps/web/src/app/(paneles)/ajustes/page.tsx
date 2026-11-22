@@ -113,7 +113,7 @@ export default async function Ajustes() {
         </CajaPerfil>
         <CajaPerfil
           titulo="Verificación en dos pasos"
-          descripcion="Es obligatoria para revendedores porque manejas saldo y accesos."
+          descripcion="Es opcional, pero te la recomendamos porque manejas saldo y accesos."
         >
           {dosPasos.datos ? (
             <DosPasos estado={dosPasos.datos} />

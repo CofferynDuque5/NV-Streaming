@@ -79,7 +79,7 @@ describe('matriz de permisos', () => {
   });
 
   it('exige 2FA a todos menos a los clientes', () => {
-    expect(ROLES.filter(exige2fa)).toEqual(['admin', 'operador', 'ventas', 'revendedor']);
+    expect(ROLES.filter(exige2fa)).toEqual(['admin', 'operador', 'ventas']);
   });
 
   it('cada rol tiene su panel de inicio', () => {

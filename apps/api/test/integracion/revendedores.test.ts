@@ -156,11 +156,11 @@ describe('solicitud y revisión', () => {
       (await e.admin.post(`/revendedores/${sol.cuerpo.id}/aprobar`, { nivelId: e.nivelId })).estado,
     ).toBe(409);
 
-    // Su sesión quedó cerrada; al volver a entrar debe configurar la verificación en dos pasos.
+    // Su sesión quedó cerrada; al volver a entrar no se le exige la verificación en dos
+    // pasos: para el revendedor es opcional.
     expect((await n.get('/auth/sesion')).estado).toBe(401);
     const entrada = await n.entrar(usuario.correo);
-    expect(entrada.cuerpo.pendiente).toBe('configurar_2fa');
-    await n.entrarCompleto(usuario.correo);
+    expect(entrada.cuerpo.pendiente).toBeNull();
     const sesion = await n.get('/auth/sesion');
     expect(sesion.cuerpo.usuario.rol).toBe('revendedor');
     expect(sesion.cuerpo.permisos).toContain('reventa.usar');
