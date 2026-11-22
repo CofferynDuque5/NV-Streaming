@@ -52,12 +52,16 @@ describe('base en modo ahorro (Neon gratis)', () => {
     const ahorro = new SaludController(prisma as never, { BASE_AHORRO: true } as Entorno);
     expect(await ahorro.salud()).toEqual({ estado: 'ok' });
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
-    await ahorro.salud('1');
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    // Pedida a propósito (infra/estado.sh), mide además cuánto tarda la base.
+    const medida = await ahorro.salud('1');
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(medida).toMatchObject({ estado: 'ok' });
+    expect(medida).toHaveProperty('baseMs');
+    expect(medida).toHaveProperty('consultaMs');
 
     const normal = new SaludController(prisma as never, { BASE_AHORRO: false } as Entorno);
-    await normal.salud();
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(await normal.salud()).toEqual({ estado: 'ok' });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('el trabajador duerme sin trabajo, responde su salud y se despierta con un aviso', async () => {

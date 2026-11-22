@@ -23,6 +23,9 @@ export function crearClientePrisma(urlConexion: string): PrismaClient {
     max: 20,
     idleTimeoutMillis: 240_000,
     connectionTimeoutMillis: 20_000,
+    // Sin esto, una conexión libre que un router o NAT cortó en silencio solo se nota
+    // al usarla: la consulta espera hasta fallar y vuelve a empezar con otra.
+    keepAlive: true,
   });
   return new PrismaClient({
     adapter,
