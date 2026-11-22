@@ -7,6 +7,7 @@ import type {
   ResultadoVincularResponsable,
 } from '@nv/shared';
 import { Check, Pencil, Plus, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
@@ -207,6 +208,110 @@ export function RevisarSolicitud({
         peligro
       />
     </div>
+  );
+}
+
+// ── Revendedor invitado sin ficha ────────────────────────────────────────────
+
+/**
+ * Para una cuenta con rol Revendedor que entró por invitación (sin solicitud): crea su
+ * ficha ya aprobada con el nivel elegido y abre su ficha.
+ */
+export function CompletarFicha({
+  usuarioId,
+  nombre,
+  niveles,
+}: {
+  usuarioId: string;
+  nombre: string;
+  niveles: NivelElegible[];
+}) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const { cargando, error, campos, ejecutar, limpiar } = useAccion();
+  const activos = niveles.filter((n) => n.activo);
+
+  async function completar(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const d = new FormData(e.currentTarget);
+    const r = await ejecutar<{ id: string }>(
+      'POST',
+      `/revendedores/sin-ficha/${usuarioId}/completar`,
+      {
+        nombreComercial: textoDe(d, 'nombreComercial') ?? '',
+        telefono: textoDe(d, 'telefono'),
+        nivelId: textoDe(d, 'nivelId') ?? '',
+        limiteDiarioCompras: leerLimite(d),
+      },
+    );
+    if (r) router.push(`/admin/revendedores/${r.datos.id}`);
+  }
+
+  if (activos.length === 0) {
+    return <p className="text-xs text-aviso">Crea un nivel activo para completar su ficha.</p>;
+  }
+  if (!abierto) {
+    return (
+      <Boton
+        tamano="sm"
+        icono={<Check className="size-4" />}
+        onClick={() => {
+          limpiar();
+          setAbierto(true);
+        }}
+      >
+        Completar ficha
+      </Boton>
+    );
+  }
+  return (
+    <form
+      onSubmit={completar}
+      className="grid w-full gap-3 rounded-xl border border-exito/25 bg-exito-suave/40 p-4"
+      noValidate
+    >
+      <Campo
+        etiqueta="Nombre del negocio"
+        name="nombreComercial"
+        required
+        defaultValue={nombre}
+        error={campos.nombreComercial}
+      />
+      <Campo
+        etiqueta="Teléfono (opcional)"
+        name="telefono"
+        inputMode="tel"
+        error={campos.telefono}
+      />
+      <Selector
+        etiqueta="Nivel"
+        name="nivelId"
+        required
+        defaultValue={activos[0]?.id}
+        error={campos.nivelId}
+      >
+        <OpcionesNivel niveles={activos} />
+      </Selector>
+      <Campo
+        etiqueta="Límite de compras por día (opcional)"
+        name="limiteDiarioCompras"
+        inputMode="numeric"
+        placeholder="Sin límite"
+        error={campos.limiteDiarioCompras}
+      />
+      <p className="text-xs text-tinta-suave">
+        Se crea su ficha ya aprobada. No cambia su contraseña ni cierra sus sesiones.
+      </p>
+      <ErrorGeneral error={error} />
+      <div className="flex flex-wrap gap-2">
+        <Boton type="submit" tamano="sm" cargando={cargando} icono={<Check className="size-4" />}>
+          Crear ficha
+        </Boton>
+        <Boton tamano="sm" variante="fantasma" onClick={() => setAbierto(false)}>
+          Cancelar
+        </Boton>
+      </div>
+    </form>
   );
 }
 

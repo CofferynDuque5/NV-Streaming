@@ -1389,3 +1389,61 @@ describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => 
     expect(accesos.cuerpo.total).toBe(2);
   });
 });
+
+describe('Revendedor invitado sin ficha', () => {
+  it('aparece en «sin ficha» y al completarla queda aprobado con su nivel', async () => {
+    const e = await escenario();
+    const { n, usuario } = await conectar(ctx, 'cliente');
+    // Como si lo hubieran invitado desde Equipo y usuarios con el rol Revendedor.
+    await ctx.prisma.usuario.update({ where: { id: usuario.id }, data: { rol: 'revendedor' } });
+
+    const lista = await e.admin.get('/revendedores/sin-ficha');
+    expect(lista.estado).toBe(200);
+    expect(lista.cuerpo).toEqual([
+      expect.objectContaining({ usuarioId: usuario.id, correo: usuario.correo }),
+    ]);
+
+    // El operador no gestiona revendedores.
+    const op = await e.operador.post(`/revendedores/sin-ficha/${usuario.id}/completar`, {
+      nombreComercial: 'Vibaplay',
+      nivelId: e.nivelId,
+    });
+    expect(op.estado).toBe(403);
+
+    const sinNivel = await e.admin.post(`/revendedores/sin-ficha/${usuario.id}/completar`, {
+      nombreComercial: 'Vibaplay',
+    });
+    expect(sinNivel.estado).toBe(400);
+
+    const ok = await e.admin.post(`/revendedores/sin-ficha/${usuario.id}/completar`, {
+      nombreComercial: 'Vibaplay',
+      nivelId: e.nivelId,
+    });
+    expect(ok.estado).toBe(201);
+    expect(ok.cuerpo).toMatchObject({ nombreComercial: 'Vibaplay', estado: 'aprobado' });
+    expect(
+      (await ctx.prisma.auditoria.findFirst({ where: { accion: 'revendedor.ficha_completada' } }))
+        ?.entidadId,
+    ).toBe(ok.cuerpo.id);
+
+    // Ya no sale como pendiente y no se puede repetir.
+    expect((await e.admin.get('/revendedores/sin-ficha')).cuerpo).toEqual([]);
+    const otraVez = await e.admin.post(`/revendedores/sin-ficha/${usuario.id}/completar`, {
+      nombreComercial: 'Vibaplay',
+      nivelId: e.nivelId,
+    });
+    expect(otraVez.estado).toBe(409);
+
+    // Una cuenta que no es revendedor no se puede completar.
+    const cli = await conectar(ctx, 'cliente');
+    const noApta = await e.admin.post(`/revendedores/sin-ficha/${cli.usuario.id}/completar`, {
+      nombreComercial: 'Otro',
+      nivelId: e.nivelId,
+    });
+    expect(noApta.estado).toBe(409);
+
+    // Su panel ya funciona.
+    await n.entrarCompleto(usuario.correo);
+    expect((await n.get('/revendedor/saldo')).estado).toBe(200);
+  });
+});

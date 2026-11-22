@@ -18,6 +18,7 @@ import {
   actualizarRevendedorSchema,
   ajusteSaldoSchema,
   aprobarRevendedorSchema,
+  completarFichaRevendedorSchema,
   comprarSchema,
   confirmarRecargaSchema,
   listarCarteraSchema,
@@ -372,6 +373,25 @@ export class RevendedoresController {
   @RequierePermiso('revendedores.ver')
   responsablesGestor() {
     return this.revendedores.responsablesGestor();
+  }
+
+  @Get('sin-ficha')
+  @RequierePermiso('revendedores.ver')
+  sinFicha() {
+    return this.revendedores.sinFicha();
+  }
+
+  @Post('sin-ficha/:usuarioId/completar')
+  @RequierePermiso('revendedores.gestionar')
+  @DocCuerpo(completarFichaRevendedorSchema)
+  completarFicha(
+    @Auth() auth: ContextoAuth,
+    @Param('usuarioId', idValido) usuarioId: string,
+    @Body(validar(completarFichaRevendedorSchema))
+    cuerpo: z.output<typeof completarFichaRevendedorSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.revendedores.completarFicha(auth, usuarioId, cuerpo, cliente);
   }
 
   // Un revendedor

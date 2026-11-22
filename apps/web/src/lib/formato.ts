@@ -151,6 +151,8 @@ Object.assign(ACCIONES_AUDITORIA, {
   'revendedor.solicitado': 'Solicitud de revendedor enviada',
   'revendedor.solicitud_reenviada': 'Solicitud de revendedor reenviada',
   'revendedor.aprobado': 'Revendedor aprobado',
+  'revendedor.ficha_completada': 'Ficha de revendedor completada',
+  'revendedor.cartera_vinculada': 'Clientes del Gestor pasados a su cartera',
   'revendedor.rechazado': 'Solicitud de revendedor rechazada',
   'revendedor.suspendido': 'Revendedor suspendido',
   'revendedor.reactivado': 'Revendedor reactivado',

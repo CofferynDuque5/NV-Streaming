@@ -8,6 +8,7 @@ import {
   type RecargaPublica,
   type ResumenProgramaRevendedores,
   type RevendedorResumen,
+  type RevendedorSinFicha,
   type TablaPreciosMayoristas,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -27,6 +28,7 @@ import type { ReactNode } from 'react';
 import { clasesFiltro, FiltroSelector } from '@/componentes/admin/piezas-crm';
 import {
   CeldaPrecio,
+  CompletarFicha,
   ConciliarRecarga,
   EditarNivel,
   NuevoNivel,
@@ -112,6 +114,9 @@ export default async function Revendedores({ searchParams }: { searchParams: Pro
         recargas={resumen?.recargasEnRevision ?? 0}
       />
 
+      {(vista === 'solicitudes' || vista === 'revendedores') && (
+        <SinFicha niveles={niveles} puedeGestionar={puedeGestionar} />
+      )}
       {vista === 'solicitudes' && (
         <Solicitudes crudo={crudo} niveles={niveles} puedeGestionar={puedeGestionar} />
       )}
@@ -183,6 +188,43 @@ function NoCargado() {
 }
 
 // ── Solicitudes ──────────────────────────────────────────────────────────────
+
+/** Cuentas invitadas con rol Revendedor que aún no tienen ficha: solo se muestra si hay. */
+async function SinFicha({
+  niveles,
+  puedeGestionar,
+}: {
+  niveles: NivelPublico[];
+  puedeGestionar: boolean;
+}) {
+  const { datos } = await leerApi<RevendedorSinFicha[]>('/revendedores/sin-ficha');
+  if (!datos || datos.length === 0) return null;
+  return (
+    <Tarjeta>
+      <CabeceraTarjeta
+        titulo="Revendedores sin ficha"
+        descripcion="Tienen el rol Revendedor porque los invitaste desde Equipo y usuarios, pero no pasaron por la solicitud. Completa su ficha para que tengan nivel, saldo y cartera."
+      />
+      <ol className="divide-y divide-borde">
+        {datos.map((u) => (
+          <li
+            key={u.usuarioId}
+            className="grid grid-cols-1 gap-4 px-5 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
+          >
+            <div className="grid content-start gap-1">
+              <p className="font-medium break-words">{u.nombre}</p>
+              <p className="text-sm break-words text-tinta-suave">{u.correo}</p>
+              <p className="text-xs text-tinta-tenue">Invitado {haceCuanto(u.creadoEn)}</p>
+            </div>
+            {puedeGestionar && (
+              <CompletarFicha usuarioId={u.usuarioId} nombre={u.nombre} niveles={niveles} />
+            )}
+          </li>
+        ))}
+      </ol>
+    </Tarjeta>
+  );
+}
 
 async function Solicitudes({
   crudo,

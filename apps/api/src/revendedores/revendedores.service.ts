@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { EstadoRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
 import type {
+  CompletarFichaRevendedorEntrada,
+  RevendedorSinFicha,
   ClienteDeRevendedor,
   ActualizarRevendedorEntrada,
   AprobarRevendedorEntrada,
@@ -398,6 +400,76 @@ export class RevendedoresService {
     });
     // Con el rol nuevo cambian los permisos y se exige la verificación en dos pasos.
     await this.sesiones.revocarTodas(usuarioId);
+    return this.obtener(id);
+  }
+
+  /**
+   * Cuentas con rol Revendedor sin ficha: entraron por una invitación de Equipo y usuarios
+   * (o un cambio de rol) en lugar de solicitar. Sin ficha no tienen nivel, saldo ni cartera.
+   */
+  async sinFicha(): Promise<RevendedorSinFicha[]> {
+    const filas = await this.prisma.usuario.findMany({
+      where: { rol: 'revendedor', revendedor: { is: null } },
+      select: { id: true, nombre: true, correo: true, creadoEn: true },
+      orderBy: { creadoEn: 'asc' },
+    });
+    return filas.map((u) => ({
+      usuarioId: u.id,
+      nombre: u.nombre,
+      correo: u.correo,
+      creadoEn: u.creadoEn.toISOString(),
+    }));
+  }
+
+  /** Crea, ya aprobada, la ficha de una cuenta con rol Revendedor que no la tiene. */
+  async completarFicha(
+    auth: ContextoAuth,
+    usuarioId: string,
+    e: CompletarFichaRevendedorEntrada,
+    cliente: InfoCliente,
+  ): Promise<RevendedorDetalle> {
+    const id = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM usuarios WHERE id = ${usuarioId}::uuid FOR UPDATE`;
+      const usuario = await tx.usuario.findUnique({
+        where: { id: usuarioId },
+        include: { revendedor: { select: { id: true } } },
+      });
+      if (!usuario) throw Errores.noEncontrado('La cuenta');
+      if (usuario.rol !== 'revendedor') {
+        throw new ErrorApp(409, 'CUENTA_NO_APTA', 'Esta cuenta no tiene el rol Revendedor.');
+      }
+      if (usuario.revendedor) {
+        throw new ErrorApp(409, 'SOLICITUD_EXISTENTE', 'Esta cuenta ya tiene su ficha.');
+      }
+      await this.exigirNivelActivo(tx, e.nivelId);
+      const datos = {
+        nombreComercial: e.nombreComercial,
+        telefono: e.telefono ?? null,
+        nivelId: e.nivelId,
+        limiteDiarioCompras: e.limiteDiarioCompras ?? null,
+      };
+      const r = await tx.revendedor.create({
+        data: {
+          ...datos,
+          usuarioId,
+          estado: 'aprobado',
+          revisadoPorId: auth.usuario.id,
+          revisadoEn: new Date(),
+        },
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'revendedor.ficha_completada',
+          entidad: 'revendedor',
+          entidadId: r.id,
+          despues: { ...datos, estado: 'aprobado', usuarioId },
+          cliente,
+        },
+        tx,
+      );
+      return r.id;
+    });
     return this.obtener(id);
   }
 
