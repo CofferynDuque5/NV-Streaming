@@ -297,3 +297,45 @@ export const moderarComentarioSchema = z.object({
   respuesta: textoOpcional(600),
 });
 export type ModerarComentarioEntrada = z.infer<typeof moderarComentarioSchema>;
+
+// ---------------------------------------------------------------------------
+// Crear plataforma: servicio + su primer plan en un solo paso (como en el Gestor)
+
+/** Lo que pide «Crear plataforma»: el resto (proveedor, identificador, plan) se arma solo. */
+export const crearPlataformaSchema = z.object({
+  nombre: z.string().trim().min(2, 'Escribe el nombre.').max(80),
+  /** Precio del plan que se crea; 0 lo deja oculto en la tienda hasta ponerle precio. */
+  precioUsd: montoOCeroSchema,
+  /** Meses que dura el plan que se crea. */
+  meses: z.coerce.number().int().min(1, 'Mínimo 1.').max(12, 'Máximo 12.').default(1),
+  categoria: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z
+      .enum(CATEGORIAS_SERVICIO, { error: 'Elige una categoría de la lista.' })
+      .nullable()
+      .optional(),
+  ),
+});
+export type CrearPlataformaEntrada = z.infer<typeof crearPlataformaSchema>;
+
+export interface PlataformaCreada {
+  servicioId: string;
+  planId: string;
+  nombre: string;
+  /** false: ya existía un servicio con ese nombre y solo se le agregó el plan. */
+  nueva: boolean;
+}
+
+/** «Netflix Premium» → «netflix-premium». */
+export function slugDeNombre(nombre: string): string {
+  return (
+    nombre
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .toLowerCase()
+      .replace(/\+/g, ' plus ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 70) || 'plataforma'
+  );
+}
