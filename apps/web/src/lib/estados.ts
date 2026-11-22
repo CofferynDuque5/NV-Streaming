@@ -85,6 +85,7 @@ export const EVENTO_SUSCRIPCION: Record<string, string> = {
   vencimiento: 'Vencimiento',
   suspension: 'Suspensión',
   recuperacion: 'Recuperación',
+  ajuste_vencimiento: 'Vencimiento corregido',
 };
 
 export const ESTADO_CUENTA_SERVICIO: Etiquetas<EstadoCuentaServicio> = {

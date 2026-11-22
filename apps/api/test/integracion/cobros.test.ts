@@ -641,6 +641,63 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
     expect(Math.abs(new Date(r.cuerpo.venceEn).getTime() - vence)).toBeLessThan(5_000);
   });
 
+  it('el equipo cambia el vencimiento a mano (día de Venezuela, con historial); el cliente no', async () => {
+    const e = await escenario();
+    const id = await activa(e);
+    expect(
+      (
+        await e.cliente.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+          venceEn: '2027-03-15',
+          motivo: 'prueba',
+        })
+      ).estado,
+    ).toBe(403);
+    // Ventas tiene el permiso, pero solo sobre su cartera: este cliente no es suyo.
+    const ventas = await conectar(ctx, 'ventas');
+    expect(
+      (
+        await ventas.n.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+          venceEn: '2027-03-15',
+          motivo: 'prueba',
+        })
+      ).estado,
+    ).toBe(404);
+    const sinMotivo = await e.operador.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+      venceEn: '2027-03-15',
+    });
+    expect(sinMotivo.estado).toBe(400);
+    const r = await e.operador.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+      venceEn: '2027-03-15',
+      motivo: 'Corrección de fecha',
+    });
+    expect(r.estado).toBe(200);
+    const vence = new Date(r.cuerpo.venceEn);
+    // El día en Venezuela (UTC−4) es el pedido.
+    expect(new Date(vence.getTime() - 4 * 3600_000).toISOString().slice(0, 10)).toBe('2027-03-15');
+    const eventos = await ctx.prisma.eventoSuscripcion.findMany({ where: { suscripcionId: id } });
+    expect(eventos.some((x) => x.tipo === 'ajuste_vencimiento')).toBe(true);
+    // En gracia con fecha futura: vuelve a activa.
+    await ctx.prisma.suscripcion.update({
+      where: { id },
+      data: { estado: 'en_gracia', venceEn: new Date(Date.now() - DIA) },
+    });
+    const g = await e.operador.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+      venceEn: '2030-01-01',
+      motivo: 'Pagó por fuera',
+    });
+    expect(g.cuerpo.estado).toBe('activa');
+    // Pausada: no se cambia.
+    await e.operador.post(`/suscripciones/${id}/pausar`, { motivo: 'viaje' });
+    expect(
+      (
+        await e.operador.post(`/suscripciones/${id}/cambiar-vencimiento`, {
+          venceEn: '2030-02-01',
+          motivo: 'prueba',
+        })
+      ).cuerpo.error.codigo,
+    ).toBe('TRANSICION_NO_PERMITIDA');
+  });
+
   it('la cancelación del cliente espera al vencimiento y la pasada de vencimientos la aplica', async () => {
     const e = await escenario();
     const id = await activa(e);

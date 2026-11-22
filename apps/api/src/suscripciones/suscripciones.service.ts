@@ -9,7 +9,9 @@ import type {
   TipoEventoSuscripcion,
 } from '@nv/db';
 import {
+  type CambiarVencimientoEntrada,
   type CancelarSuscripcionEntrada,
+  ESTADOS_CAMBIO_VENCIMIENTO,
   type Cotizacion,
   DATOS_ACTIVACION,
   type ListarSuscripcionesEntrada,
@@ -41,7 +43,7 @@ import { ErrorApp, Errores } from '../comun/errores.js';
 import { numeroFactura } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { type Dec, sumarDuracion } from '../dinero/dinero.js';
-import { inicioDiaCaracas } from '../automatizaciones/horario.js';
+import { DESFASE_CARACAS_MS, inicioDiaCaracas } from '../automatizaciones/horario.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
@@ -546,6 +548,45 @@ export class SuscripcionesService {
         motivo,
         accion: 'suscripcion.pausada',
         datos: { segundosRestantes: restantes },
+      };
+    });
+  }
+
+  /**
+   * El equipo corrige a mano la fecha de vencimiento (día de Venezuela). Conserva la
+   * hora que tenía; no emite facturas ni cobra. Si estaba en gracia y la nueva fecha
+   * es futura, vuelve a activa. Queda en el historial y en la auditoría.
+   */
+  async cambiarVencimiento(
+    auth: ContextoAuth,
+    id: string,
+    e: CambiarVencimientoEntrada,
+    cliente: InfoCliente,
+  ) {
+    return this.transicion(auth, id, cliente, async (tx, s) => {
+      exigirGestionDelCliente(auth, s);
+      if (!(ESTADOS_CAMBIO_VENCIMIENTO as readonly string[]).includes(s.estado)) {
+        throw transicionInvalida(
+          'Solo se cambia la fecha de suscripciones activas o en periodo de gracia.',
+        );
+      }
+      const [a, m, d] = e.venceEn.split('-').map(Number) as [number, number, number];
+      // Hora del día (Caracas) que ya tenía; sin fecha previa, al final del día.
+      const horaDelDia = s.venceEn
+        ? (((s.venceEn.getTime() + DESFASE_CARACAS_MS) % DIA_MS) + DIA_MS) % DIA_MS
+        : DIA_MS - 1000;
+      const venceEn = new Date(Date.UTC(a, m - 1, d) - DESFASE_CARACAS_MS + horaDelDia);
+      const estado = s.estado === 'en_gracia' && venceEn > new Date() ? 'activa' : s.estado;
+      await tx.suscripcion.update({ where: { id }, data: { venceEn, estado } });
+      return {
+        tipo: 'ajuste_vencimiento',
+        motivo: e.motivo,
+        accion: 'suscripcion.vencimiento_cambiado',
+        datos: {
+          venceAntes: s.venceEn?.toISOString() ?? null,
+          venceEn: venceEn.toISOString(),
+          estado,
+        },
       };
     });
   }

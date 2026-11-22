@@ -14,6 +14,7 @@ import {
   cancelarSuscripcionSchema,
   crearSuscripcionSchema,
   listarSuscripcionesSchema,
+  cambiarVencimientoSchema,
   motivoSchema,
   renovarSchema,
   uuidSchema,
@@ -126,6 +127,19 @@ export class SuscripcionesController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.suscripciones.pausar(auth, id, cuerpo.motivo, cliente);
+  }
+
+  @Post(':id/cambiar-vencimiento')
+  @RequierePermiso('suscripciones.vencimiento')
+  @HttpCode(200)
+  @DocCuerpo(cambiarVencimientoSchema)
+  cambiarVencimiento(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(cambiarVencimientoSchema)) cuerpo: z.output<typeof cambiarVencimientoSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.cambiarVencimiento(auth, id, cuerpo, cliente);
   }
 
   @Post(':id/reanudar')

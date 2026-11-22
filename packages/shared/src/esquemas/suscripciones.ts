@@ -63,3 +63,19 @@ export const renovarSchema = z.object({
   /** Desde cuándo cuenta: su vencimiento (no pierde días) o hoy (si ya venció o se repuso). */
   desde: z.enum(['vencimiento', 'hoy']).default('vencimiento'),
 });
+
+/** Estados en los que el equipo puede corregir la fecha de vencimiento a mano. */
+export const ESTADOS_CAMBIO_VENCIMIENTO = ['activa', 'en_gracia'] as const;
+
+/** Corrige a mano la fecha de vencimiento (día de Venezuela). No emite facturas ni cobra. */
+export const cambiarVencimientoSchema = z.object({
+  venceEn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD.')
+    .refine((d) => {
+      const f = new Date(`${d}T00:00:00Z`);
+      return !Number.isNaN(f.getTime()) && f.toISOString().startsWith(d);
+    }, 'La fecha no existe.'),
+  motivo: z.string().trim().min(3, 'Indica el motivo.').max(500, 'El motivo es demasiado largo.'),
+});
+export type CambiarVencimientoEntrada = z.infer<typeof cambiarVencimientoSchema>;

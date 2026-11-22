@@ -28,6 +28,7 @@ const TONO_EVENTO: Record<string, string> = {
   recuperacion: 'bg-exito',
   cancelacion_revertida: 'bg-exito',
   pausa: 'bg-tinta-tenue',
+  ajuste_vencimiento: 'bg-marca',
   cancelacion_programada: 'bg-aviso',
   vencimiento: 'bg-aviso',
   cancelacion: 'bg-peligro',
@@ -259,8 +260,10 @@ export default async function DetalleSuscripcion({ params }: { params: Promise<{
             facturaAbierta={s.facturaAbierta}
             duracion={{ cantidad: s.plan.duracionCantidad, unidad: s.plan.duracionUnidad }}
             vencida={!s.venceEn || diasHasta(s.venceEn) <= 0}
+            venceEn={s.venceEn}
             puedeRenovar={puedeRenovar}
             puedeGestionar={puedeGestionar}
+            puedeCambiarVencimiento={sesion.permisos.includes('suscripciones.vencimiento')}
           />
         </Tarjeta>
       </div>

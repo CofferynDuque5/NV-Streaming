@@ -682,6 +682,7 @@ enum TipoEventoSuscripcion {
   vencimiento
   suspension
   recuperacion
+  ajuste_vencimiento
 }
 
 model Suscripcion {
