@@ -69,6 +69,30 @@ export const aprobarRevendedorSchema = z.object({
 });
 export type AprobarRevendedorEntrada = z.infer<typeof aprobarRevendedorSchema>;
 
+/**
+ * Crea la ficha (aprobada) de alguien que ya tiene el rol Revendedor pero entró por una
+ * invitación de Equipo y usuarios, sin pasar por la solicitud.
+ */
+export const completarFichaRevendedorSchema = z.object({
+  nombreComercial: z
+    .string({ error: 'Escribe el nombre del negocio.' })
+    .trim()
+    .min(2, 'Escribe el nombre del negocio.')
+    .max(120, 'El nombre es demasiado largo.'),
+  telefono: opcional(telefonoSchema),
+  nivelId: uuidSchema,
+  limiteDiarioCompras: limiteDiarioSchema.optional(),
+});
+export type CompletarFichaRevendedorEntrada = z.infer<typeof completarFichaRevendedorSchema>;
+
+/** Cuenta con rol Revendedor que todavía no tiene ficha. */
+export interface RevendedorSinFicha {
+  usuarioId: string;
+  nombre: string;
+  correo: string;
+  creadoEn: string;
+}
+
 export const actualizarRevendedorSchema = z
   .object({
     nivelId: uuidSchema.optional(),

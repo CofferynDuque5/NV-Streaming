@@ -44,19 +44,9 @@ const medioPublico = (m: Medio & { archivo: Archivo }): MedioSitio => ({
   creadoEn: iso(m.creadoEn)!,
 });
 
-/** Cuántas imágenes recuerda la API sin preguntar a la base (cada una ocupa unos bytes). */
-const MAX_UBICACIONES = 2000;
-
 /** Biblioteca de imágenes del sitio. Se sirven públicamente y nunca cambian. */
 @Injectable()
 export class MediosService {
-  /**
-   * Dónde está cada imagen ya servida (tipo y archivo en el almacén). Una imagen nunca
-   * cambia ni se borra, así que no hace falta volver a preguntarlo a la base: con la
-   * base lejos (Neon) o dormida, cada imagen de la portada costaba una consulta.
-   */
-  private readonly ubicaciones = new Map<string, { tipoMime: string; clave: string }>();
-
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(AlmacenService) private readonly almacen: AlmacenService,
@@ -202,14 +192,8 @@ export class MediosService {
 
   /** Contenido de una imagen del sitio (solo archivos de la biblioteca, nunca comprobantes). */
   async contenido(id: string): Promise<{ tipoMime: string; contenido: Buffer }> {
-    let ubicacion = this.ubicaciones.get(id);
-    if (!ubicacion) {
-      const m = await this.prisma.medio.findUnique({ where: { id }, include: { archivo: true } });
-      if (!m || !m.archivo.tipoMime.startsWith('image/')) throw Errores.noEncontrado('La imagen');
-      ubicacion = { tipoMime: m.archivo.tipoMime, clave: m.archivo.clave };
-      if (this.ubicaciones.size >= MAX_UBICACIONES) this.ubicaciones.clear();
-      this.ubicaciones.set(id, ubicacion);
-    }
-    return { tipoMime: ubicacion.tipoMime, contenido: await this.almacen.leer(ubicacion) };
+    const m = await this.prisma.medio.findUnique({ where: { id }, include: { archivo: true } });
+    if (!m || !m.archivo.tipoMime.startsWith('image/')) throw Errores.noEncontrado('La imagen');
+    return { tipoMime: m.archivo.tipoMime, contenido: await this.almacen.leer(m.archivo) };
   }
 }
