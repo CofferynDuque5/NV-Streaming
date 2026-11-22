@@ -1,6 +1,11 @@
 'use client';
 
-import type { NivelPublico, RecargaPublica } from '@nv/shared';
+import type {
+  NivelPublico,
+  RecargaPublica,
+  ResponsableGestor,
+  ResultadoVincularResponsable,
+} from '@nv/shared';
 import { Check, Pencil, Plus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
@@ -686,3 +691,124 @@ export function CeldaPrecio({
     </form>
   );
 }
+
+// ── Clientes que ya tenía en el Gestor ───────────────────────────────────────
+
+/**
+ * Pasa a la cartera del revendedor los clientes que en el Gestor tenían su nombre como
+ * responsable. Primero cuenta (vista previa) y luego aplica.
+ */
+export function TraerClientesGestor({
+  revendedorId,
+  responsables,
+  sugerido,
+}: {
+  revendedorId: string;
+  responsables: ResponsableGestor[];
+  /** Nombre comercial del revendedor: marca los responsables que se le parecen. */
+  sugerido: string;
+}) {
+  const { cargando, error, ejecutar, limpiar } = useAccion();
+  const parecido = (r: string) => {
+    const a = comparable(r);
+    const b = comparable(sugerido);
+    return a.length > 2 && b.length > 2 && (a.includes(b) || b.includes(a));
+  };
+  const [elegidos, setElegidos] = useState<string[]>(() =>
+    responsables.filter((r) => parecido(r.responsable)).map((r) => r.responsable),
+  );
+  const [previa, setPrevia] = useState<ResultadoVincularResponsable | null>(null);
+  const [hecho, setHecho] = useState<ResultadoVincularResponsable | null>(null);
+
+  async function enviar(aplicar: boolean) {
+    const r = await ejecutar<ResultadoVincularResponsable>(
+      'POST',
+      `/revendedores/${revendedorId}/vincular-responsable`,
+      { responsables: elegidos, aplicar },
+    );
+    if (!r) return;
+    if (aplicar) {
+      setHecho(r.datos);
+      setPrevia(null);
+      setElegidos([]);
+    } else setPrevia(r.datos);
+  }
+
+  if (responsables.length === 0) {
+    return (
+      <p className="text-sm text-tinta-suave">No quedan clientes del Gestor sin revendedor.</p>
+    );
+  }
+  return (
+    <div className="grid gap-3">
+      <p className="text-sm text-tinta-suave">
+        Marca el nombre con el que aparecía en el Gestor (campo «Responsable»). Sus clientes y sus
+        suscripciones pasan a su panel y ve sus accesos al entrar. No se borra nada.
+      </p>
+      <div className="grid max-h-56 gap-1 overflow-y-auto rounded-xl border border-borde p-2">
+        {responsables.map((r) => (
+          <Casilla
+            key={r.responsable}
+            etiqueta={`${r.responsable} · ${r.clientes} ${r.clientes === 1 ? 'cliente' : 'clientes'}`}
+            checked={elegidos.includes(r.responsable)}
+            onChange={(e) => {
+              limpiar();
+              setPrevia(null);
+              setHecho(null);
+              const marcado = e.currentTarget.checked;
+              setElegidos((l) =>
+                marcado ? [...l, r.responsable] : l.filter((x) => x !== r.responsable),
+              );
+            }}
+          />
+        ))}
+      </div>
+      {previa && (
+        <p className="rounded-xl border border-borde bg-hundida/60 p-3 text-sm">
+          Pasarán <strong>{previa.clientes}</strong>{' '}
+          {previa.clientes === 1 ? 'cliente' : 'clientes'} y <strong>{previa.suscripciones}</strong>{' '}
+          {previa.suscripciones === 1 ? 'suscripción' : 'suscripciones'}.
+          {previa.deOtroRevendedor > 0 &&
+            ` ${previa.deOtroRevendedor} ya son de otro revendedor y no se tocan.`}
+        </p>
+      )}
+      {hecho && (
+        <p className="rounded-xl border border-exito/25 bg-exito-suave/40 p-3 text-sm">
+          Listo: {hecho.clientes} {hecho.clientes === 1 ? 'cliente pasó' : 'clientes pasaron'} a su
+          cartera con {hecho.suscripciones}{' '}
+          {hecho.suscripciones === 1 ? 'suscripción' : 'suscripciones'}.
+        </p>
+      )}
+      <ErrorGeneral error={error} />
+      <div className="flex flex-wrap gap-2">
+        <Boton
+          tamano="sm"
+          variante="secundario"
+          disabled={elegidos.length === 0}
+          cargando={cargando && !previa}
+          onClick={() => void enviar(false)}
+        >
+          Ver cuántos son
+        </Boton>
+        {previa && previa.clientes > 0 && (
+          <Boton
+            tamano="sm"
+            icono={<Check className="size-4" />}
+            cargando={cargando}
+            onClick={() => void enviar(true)}
+          >
+            Pasar a su cartera
+          </Boton>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const comparable = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\bstr\.?$/, '')
+    .replace(/[^a-z0-9]/g, '');

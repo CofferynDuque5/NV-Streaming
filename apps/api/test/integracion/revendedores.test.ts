@@ -156,11 +156,11 @@ describe('solicitud y revisión', () => {
       (await e.admin.post(`/revendedores/${sol.cuerpo.id}/aprobar`, { nivelId: e.nivelId })).estado,
     ).toBe(409);
 
-    // Su sesión quedó cerrada; al volver a entrar debe configurar la verificación en dos pasos.
+    // Su sesión quedó cerrada; al volver a entrar no se le exige la verificación en dos
+    // pasos: para el revendedor es opcional.
     expect((await n.get('/auth/sesion')).estado).toBe(401);
     const entrada = await n.entrar(usuario.correo);
-    expect(entrada.cuerpo.pendiente).toBe('configurar_2fa');
-    await n.entrarCompleto(usuario.correo);
+    expect(entrada.cuerpo.pendiente).toBeNull();
     const sesion = await n.get('/auth/sesion');
     expect(sesion.cuerpo.usuario.rol).toBe('revendedor');
     expect(sesion.cuerpo.permisos).toContain('reventa.usar');
@@ -1261,5 +1261,131 @@ describe('ventas, cartera y renovaciones del panel', () => {
       claveIdempotencia: randomUUID(),
     });
     expect(lote.cuerpo.error.codigo).toBe('NO_RENOVABLE');
+  });
+});
+
+describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => {
+  async function clienteGestor(responsable: string, planId: string, revendedorId?: string) {
+    const c = await ctx.prisma.cliente.create({
+      data: { nombre: `Cliente de ${responsable}`, responsable, origen: 'gestor', revendedorId },
+    });
+    await ctx.prisma.suscripcion.create({
+      data: {
+        clienteId: c.id,
+        planId,
+        moneda: 'USD',
+        estado: 'activa',
+        inicioEn: new Date(Date.now() - 10 * DIA),
+        venceEn: new Date(Date.now() + 20 * DIA),
+      },
+    });
+    return c;
+  }
+
+  it('cuenta, pasa a su cartera y le pone el revendedor a las suscripciones', async () => {
+    const e = await escenario();
+    const otro = await nuevoRevendedor(e);
+    const a = await clienteGestor('Vibaplay', e.planId);
+    const b = await clienteGestor('vibaplay', e.planId);
+    const ajeno = await clienteGestor('VIBAPLAY', e.planId, otro.id);
+    const sinTocar = await clienteGestor('Felix Str.', e.planId);
+
+    const lista = await e.admin.get('/revendedores/responsables-gestor');
+    expect(lista.estado).toBe(200);
+    expect(lista.cuerpo).toEqual(
+      expect.arrayContaining([
+        { responsable: 'Vibaplay', clientes: 1 },
+        { responsable: 'vibaplay', clientes: 1 },
+        { responsable: 'Felix Str.', clientes: 1 },
+      ]),
+    );
+
+    // Todavía pendiente: no se puede vincular.
+    const { n: nr, usuario } = await conectar(ctx, 'cliente');
+    const sol = await nr.post('/revendedor/solicitud', {
+      nombreComercial: 'Vibaplay',
+      telefono: '+58 414 000 0000',
+    });
+    expect(sol.estado).toBe(201);
+    const id = sol.cuerpo.id as string;
+    // Su propia ficha de cliente, con el mismo responsable, no debe entrar en su cartera.
+    const propia = await ctx.prisma.cliente.upsert({
+      where: { usuarioId: usuario.id },
+      update: { responsable: 'Vibaplay' },
+      create: { nombre: 'Vibaplay', usuarioId: usuario.id, responsable: 'Vibaplay' },
+    });
+    const antes = await e.admin.post(`/revendedores/${id}/vincular-responsable`, {
+      responsables: ['Vibaplay'],
+    });
+    expect(antes.estado).toBe(409);
+
+    expect((await e.admin.post(`/revendedores/${id}/aprobar`, { nivelId: e.nivelId })).estado).toBe(
+      200,
+    );
+
+    // Permisos: el operador no gestiona revendedores.
+    const op = await e.operador.post(`/revendedores/${id}/vincular-responsable`, {
+      responsables: ['Vibaplay'],
+      aplicar: true,
+    });
+    expect(op.estado).toBe(403);
+
+    const vista = await e.admin.post(`/revendedores/${id}/vincular-responsable`, {
+      responsables: ['Vibaplay', 'vibaplay'],
+    });
+    expect(vista.estado).toBe(200);
+    expect(vista.cuerpo).toEqual({
+      aplicado: false,
+      clientes: 2,
+      suscripciones: 2,
+      deOtroRevendedor: 1,
+    });
+    expect(await ctx.prisma.cliente.count({ where: { revendedorId: id } })).toBe(0);
+
+    const ok = await e.admin.post(`/revendedores/${id}/vincular-responsable`, {
+      responsables: ['Vibaplay', 'vibaplay'],
+      aplicar: true,
+    });
+    expect(ok.cuerpo).toEqual({
+      aplicado: true,
+      clientes: 2,
+      suscripciones: 2,
+      deOtroRevendedor: 1,
+    });
+    for (const c of [a, b]) {
+      expect(
+        (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: c.id } })).revendedorId,
+      ).toBe(id);
+      expect(
+        await ctx.prisma.suscripcion.count({ where: { clienteId: c.id, revendedorId: id } }),
+      ).toBe(1);
+    }
+    // El cliente de otro revendedor y el de otro responsable no se tocan.
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: ajeno.id } })).revendedorId,
+    ).toBe(otro.id);
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: sinTocar.id } })).revendedorId,
+    ).toBeNull();
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: propia.id } })).revendedorId,
+    ).toBeNull();
+
+    const audit = await ctx.prisma.auditoria.findFirst({
+      where: { accion: 'revendedor.cartera_vinculada' },
+    });
+    expect(audit?.entidadId).toBe(id);
+
+    const despues = await e.admin.get('/revendedores/responsables-gestor');
+    expect(despues.cuerpo).toEqual([
+      { responsable: 'Felix Str.', clientes: 1 },
+      { responsable: 'Vibaplay', clientes: 1 },
+    ]);
+
+    // Lo ve en su panel al entrar.
+    await nr.entrarCompleto(usuario.correo);
+    const accesos = await nr.get('/revendedor/clientes');
+    expect(accesos.estado).toBe(200);
+    expect(accesos.cuerpo.total).toBe(2);
   });
 });

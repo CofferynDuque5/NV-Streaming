@@ -38,6 +38,7 @@ import {
   resumenVentasSchema,
   solicitudRevendedorSchema,
   uuidSchema,
+  vincularResponsableSchema,
 } from '@nv/shared';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -367,7 +368,26 @@ export class RevendedoresController {
     return this.compras.reembolsar(auth, id, cuerpo.motivo, cliente);
   }
 
+  @Get('responsables-gestor')
+  @RequierePermiso('revendedores.ver')
+  responsablesGestor() {
+    return this.revendedores.responsablesGestor();
+  }
+
   // Un revendedor
+
+  @Post(':id/vincular-responsable')
+  @RequierePermiso('revendedores.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(vincularResponsableSchema)
+  vincularResponsable(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(vincularResponsableSchema)) cuerpo: z.output<typeof vincularResponsableSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.revendedores.vincularResponsable(auth, id, cuerpo, cliente);
+  }
 
   @Get(':id/clientes')
   @RequierePermiso('revendedores.ver')

@@ -9,8 +9,11 @@ import type {
   Pagina,
   ResumenProgramaRevendedores,
   RevendedorDetalle,
+  ResponsableGestor,
+  ResultadoVincularResponsable,
   RevendedorResumen,
   SolicitudRevendedorEntrada,
+  VincularResponsableEntrada,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { SesionesService } from '../auth/sesiones.service.js';
@@ -184,6 +187,76 @@ export class RevendedoresService {
   }
 
   /** Clientes finales del revendedor con sus suscripciones (la «lista por responsable» del Gestor). */
+  /** Responsables del Gestor (texto libre de cada cliente) que aún tienen clientes sin revendedor. */
+  async responsablesGestor(): Promise<ResponsableGestor[]> {
+    const filas = await this.prisma.cliente.groupBy({
+      by: ['responsable'],
+      where: { responsable: { not: null }, revendedorId: null },
+      _count: { _all: true },
+    });
+    return filas
+      .filter((f): f is typeof f & { responsable: string } => Boolean(f.responsable?.trim()))
+      .map((f) => ({ responsable: f.responsable, clientes: f._count._all }))
+      .sort((a, b) => a.responsable.localeCompare(b.responsable, 'es'));
+  }
+
+  /**
+   * Pasa a la cartera del revendedor los clientes que en el Gestor tenían como
+   * responsable alguno de los nombres dados (sin importar mayúsculas), y les pone el
+   * revendedor a sus suscripciones. Así ve sus accesos al entrar. No toca clientes que ya
+   * son de otro revendedor, ni borra ni cambia otros datos. Con `aplicar: false` solo cuenta.
+   */
+  async vincularResponsable(
+    auth: ContextoAuth,
+    id: string,
+    e: VincularResponsableEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoVincularResponsable> {
+    return this.prisma.$transaction(async (tx) => {
+      const r = await bloquearRevendedor(tx, id);
+      if (r.estado !== 'aprobado') {
+        throw transicionInvalida('Primero aprueba al revendedor.');
+      }
+      const nombres = [...new Set(e.responsables.map((n) => n.trim()))];
+      const delResponsable: Prisma.ClienteWhereInput = {
+        AND: [
+          { OR: nombres.map((n) => ({ responsable: { equals: n, mode: 'insensitive' } })) },
+          // Su propia ficha de cliente no entra en su cartera (los importados no tienen usuario).
+          { OR: [{ usuarioId: null }, { usuarioId: { not: r.usuarioId } }] },
+        ],
+      };
+      const [libres, deOtro] = await Promise.all([
+        tx.cliente.findMany({
+          where: { ...delResponsable, revendedorId: null },
+          select: { id: true },
+        }),
+        tx.cliente.count({
+          where: { ...delResponsable, revendedorId: { not: null, notIn: [id] } },
+        }),
+      ]);
+      const ids = libres.map((c) => c.id);
+      const susc: Prisma.SuscripcionWhereInput = { clienteId: { in: ids }, revendedorId: null };
+      const suscripciones = ids.length ? await tx.suscripcion.count({ where: susc }) : 0;
+      if (!e.aplicar || ids.length === 0) {
+        return { aplicado: false, clientes: ids.length, suscripciones, deOtroRevendedor: deOtro };
+      }
+      await tx.cliente.updateMany({ where: { id: { in: ids } }, data: { revendedorId: id } });
+      await tx.suscripcion.updateMany({ where: susc, data: { revendedorId: id } });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'revendedor.cartera_vinculada',
+          entidad: 'revendedor',
+          entidadId: id,
+          despues: { responsables: nombres, clientes: ids, suscripciones },
+          cliente,
+        },
+        tx,
+      );
+      return { aplicado: true, clientes: ids.length, suscripciones, deOtroRevendedor: deOtro };
+    });
+  }
+
   async clientes(id: string): Promise<ClienteDeRevendedor[]> {
     const r = await this.prisma.revendedor.findUnique({ where: { id }, select: { id: true } });
     if (!r) throw Errores.noEncontrado('El revendedor');

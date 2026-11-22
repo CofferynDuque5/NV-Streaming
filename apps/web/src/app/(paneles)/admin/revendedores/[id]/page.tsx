@@ -7,6 +7,7 @@ import {
   type Pagina,
   paginacionSchema,
   type RecargaPublica,
+  type ResponsableGestor,
   type RevendedorDetalle,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -22,6 +23,7 @@ import {
   AjustarSaldo,
   EditarCondiciones,
   RevisarSolicitud,
+  TraerClientesGestor,
 } from '@/componentes/admin/revendedores';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import {
@@ -55,14 +57,18 @@ export default async function FichaRevendedor({
   const ruta = encodeURIComponent(id);
   const { consulta } = leerFiltro(paginacionSchema, await searchParams, { porPagina: 20 });
 
-  const [revendedorR, movimientosR, comprasR, recargasR, niveles, clientesR] = await Promise.all([
-    leerApi<RevendedorDetalle>(`/revendedores/${ruta}`),
-    leerApi<Pagina<MovimientoSaldoPublico>>(`/revendedores/${ruta}/movimientos?${consulta}`),
-    leerApi<Pagina<CompraPublica>>(`/revendedores/${ruta}/compras?porPagina=20`),
-    leerApi<Pagina<RecargaPublica>>(`/revendedores/${ruta}/recargas?porPagina=10`),
-    leerApi<NivelPublico[]>('/revendedores/niveles').then((r) => r.datos ?? []),
-    leerApi<ClienteDeRevendedor[]>(`/revendedores/${ruta}/clientes`),
-  ]);
+  const [revendedorR, movimientosR, comprasR, recargasR, niveles, clientesR, responsables] =
+    await Promise.all([
+      leerApi<RevendedorDetalle>(`/revendedores/${ruta}`),
+      leerApi<Pagina<MovimientoSaldoPublico>>(`/revendedores/${ruta}/movimientos?${consulta}`),
+      leerApi<Pagina<CompraPublica>>(`/revendedores/${ruta}/compras?porPagina=20`),
+      leerApi<Pagina<RecargaPublica>>(`/revendedores/${ruta}/recargas?porPagina=10`),
+      leerApi<NivelPublico[]>('/revendedores/niveles').then((r) => r.datos ?? []),
+      leerApi<ClienteDeRevendedor[]>(`/revendedores/${ruta}/clientes`),
+      puedeGestionar
+        ? leerApi<ResponsableGestor[]>('/revendedores/responsables-gestor').then((x) => x.datos)
+        : Promise.resolve(null),
+    ]);
   const r = revendedorR.datos;
   if (revendedorR.estado === 404 || revendedorR.estado === 400 || !r) notFound();
   const libro = movimientosR.datos;
@@ -330,6 +336,22 @@ export default async function FichaRevendedor({
               )}
             </div>
           </Tarjeta>
+
+          {puedeGestionar && r.estado === 'aprobado' && responsables && (
+            <Tarjeta>
+              <CabeceraTarjeta
+                titulo="Clientes del Gestor"
+                descripcion="Trae a su panel los clientes que ya tenía contigo."
+              />
+              <div className="px-5 py-5 sm:px-6">
+                <TraerClientesGestor
+                  revendedorId={r.id}
+                  responsables={responsables}
+                  sugerido={r.nombreComercial}
+                />
+              </div>
+            </Tarjeta>
+          )}
 
           <Tarjeta>
             <CabeceraTarjeta titulo="Datos" />

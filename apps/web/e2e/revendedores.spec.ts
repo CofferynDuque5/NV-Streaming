@@ -15,14 +15,14 @@ const PNG_1X1 = Buffer.from(
 
 const usd = (v: number) => formatearMonto(v.toFixed(2), 'USD');
 
-/** Entra con la verificación en dos pasos que configuró roles.spec.ts. */
+/** Entra (la administración usa la verificación en dos pasos que configuró roles.spec.ts). */
 async function entrar(page: Page, correo: string, destino: RegExp) {
   await entrarEquipo(page, correo);
   await expect(page).toHaveURL(destino);
 }
 
 // Se ejecuta después de roles.spec.ts (proyecto propio en playwright.config.ts):
-// el revendedor y la administración ya tienen la verificación en dos pasos.
+// la administración ya tiene la verificación en dos pasos (el revendedor la tiene opcional).
 test('el revendedor recarga saldo, el equipo lo confirma, vende una activación y la renueva en lote', async ({
   browser,
 }) => {

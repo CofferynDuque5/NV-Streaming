@@ -47,9 +47,9 @@ test('ventas: panel de administración sin gestión de usuarios', async ({ page 
   await expect(page.getByRole('link', { name: 'Equipo y usuarios' })).toHaveCount(0);
 });
 
-test('revendedor: 2FA obligatoria y su propio panel', async ({ page }) => {
+test('revendedor: 2FA opcional y su propio panel', async ({ page }) => {
   await ingresar(page, 'revendedor@nv.test');
-  await configurarDosPasos(page, 'revendedor@nv.test');
+  // Para el revendedor la verificación en dos pasos es opcional: entra directo a su panel.
   await expect(page).toHaveURL(/\/revendedor$/);
   await expect(page.getByText('Saldo disponible')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Panel de revendedor' })).toBeVisible();
