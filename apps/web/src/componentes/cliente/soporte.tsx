@@ -5,6 +5,7 @@ import { Send } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useId, useRef, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
+import { ElegirImagen } from '@/componentes/ui/imagen-adjunta';
 import { useNotificar } from '@/componentes/ui/notificaciones';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { CATEGORIA_TICKET } from '@/lib/estados';
@@ -55,6 +56,7 @@ export function NuevaSolicitud({
   const [asunto, setAsunto] = useState('');
   const [servicio, setServicio] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [imagen, setImagen] = useState<File | null>(null);
   const [intento, setIntento] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
@@ -93,6 +95,15 @@ export function NuevaSolicitud({
     if (!r.ok) {
       setCargando(false);
       return setError(r.error);
+    }
+    if (imagen) {
+      const d = new FormData();
+      d.append('imagen', imagen);
+      const conImagen = await llamarApi('POST', `/mi/tickets/${r.datos.id}/imagen`, d);
+      if (!conImagen.ok) {
+        notificar('Abrimos tu solicitud, pero no pudimos adjuntar la imagen. Envíala de nuevo.');
+        return router.push(`${base}/${r.datos.id}`);
+      }
     }
     notificar(`Recibimos tu solicitud #${r.datos.numero}. Te respondemos por aquí y por correo.`);
     router.push(`${base}/${r.datos.id}`);
@@ -194,6 +205,8 @@ export function NuevaSolicitud({
         </p>
       </div>
 
+      <ElegirImagen archivo={imagen} onCambio={setImagen} />
+
       {error && !error.campos && <MensajeError error={error} />}
       <Boton
         type="submit"
@@ -214,6 +227,7 @@ export function ResponderTicket({ ticketId, resuelto }: { ticketId: string; resu
   const id = useId();
   const area = useRef<HTMLTextAreaElement>(null);
   const [texto, setTexto] = useState('');
+  const [imagen, setImagen] = useState<File | null>(null);
   const [intento, setIntento] = useState(false);
   const [cargando, setCargando] = useState<'responder' | 'cerrar' | null>(null);
   const [error, setError] = useState<ErrorLlamada | null>(null);
@@ -222,8 +236,8 @@ export function ResponderTicket({ ticketId, resuelto }: { ticketId: string; resu
   const n = texto.trim().length;
   const v: Validacion = campos.texto
     ? ['mal', campos.texto]
-    : intento && n < 2
-      ? ['mal', 'Escribe tu respuesta.']
+    : intento && n < 2 && !imagen
+      ? ['mal', 'Escribe tu respuesta o adjunta una imagen.']
       : n > 5000
         ? ['mal', 'Máximo 5.000 caracteres.']
         : ['', ''];
@@ -231,13 +245,22 @@ export function ResponderTicket({ ticketId, resuelto }: { ticketId: string; resu
   async function responder(e: FormEvent) {
     e.preventDefault();
     setIntento(true);
-    if (n < 2 || n > 5000) return area.current?.focus();
+    if ((n < 2 && !imagen) || n > 5000) return area.current?.focus();
     setCargando('responder');
     setError(null);
-    const r = await llamarApi('POST', `/mi/tickets/${ticketId}/mensajes`, { texto: texto.trim() });
+    let r;
+    if (imagen) {
+      const d = new FormData();
+      d.append('texto', texto.trim());
+      d.append('imagen', imagen);
+      r = await llamarApi('POST', `/mi/tickets/${ticketId}/imagen`, d);
+    } else {
+      r = await llamarApi('POST', `/mi/tickets/${ticketId}/mensajes`, { texto: texto.trim() });
+    }
     setCargando(null);
     if (!r.ok) return setError(r.error);
     setTexto('');
+    setImagen(null);
     setIntento(false);
     notificar('Enviamos tu respuesta.');
     router.refresh();
@@ -277,6 +300,7 @@ export function ResponderTicket({ ticketId, resuelto }: { ticketId: string; resu
         />
         <Mensaje id={`${id}-ayuda`} estado={v[0]} texto={v[1]} />
       </div>
+      <ElegirImagen archivo={imagen} onCambio={setImagen} error={campos.imagen} />
       {error && !error.campos && <MensajeError error={error} />}
       <div className="flex flex-wrap items-center gap-3">
         <Boton

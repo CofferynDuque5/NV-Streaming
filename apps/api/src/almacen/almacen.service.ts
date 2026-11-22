@@ -81,9 +81,32 @@ export class AlmacenService {
     return this.escribir(tx, 'medios', tipo, archivo, subidoPorId, 'imagen');
   }
 
+  /** Captura adjunta en Soporte (JPG, PNG o WebP). Privada: solo se sirve con permiso. */
+  async guardarAdjunto(
+    tx: Prisma.TransactionClient,
+    archivo: ArchivoRecibido,
+    subidoPorId: string,
+  ): Promise<Archivo> {
+    const tipo = detectarTipo(archivo.buffer);
+    if (!tipo || !tipo.startsWith('image/')) {
+      throw new ErrorApp(415, 'TIPO_NO_ADMITIDO', 'Adjunta la imagen en JPG, PNG o WebP.', {
+        imagen: ['Adjunta la imagen en JPG, PNG o WebP.'],
+      });
+    }
+    if (archivo.buffer.length === 0 || archivo.buffer.length > this.tamanoMaximo) {
+      throw new ErrorApp(
+        413,
+        'CONTENIDO_DEMASIADO_GRANDE',
+        `La imagen no puede superar ${this.entorno.COMPROBANTE_MAX_MB} MB.`,
+        { imagen: [`La imagen no puede superar ${this.entorno.COMPROBANTE_MAX_MB} MB.`] },
+      );
+    }
+    return this.escribir(tx, 'soporte', tipo, archivo, subidoPorId, 'captura');
+  }
+
   private async escribir(
     tx: Prisma.TransactionClient,
-    carpeta: 'comprobantes' | 'medios',
+    carpeta: 'comprobantes' | 'medios' | 'soporte',
     tipo: TipoComprobante,
     archivo: ArchivoRecibido,
     subidoPorId: string,
@@ -118,7 +141,7 @@ export class AlmacenService {
   }
 
   async leer(archivo: Pick<Archivo, 'clave'>): Promise<Buffer> {
-    if (!/^(comprobantes|medios|whatsapp)\/[0-9a-f-]{36}$/.test(archivo.clave)) {
+    if (!/^(comprobantes|medios|soporte|whatsapp)\/[0-9a-f-]{36}$/.test(archivo.clave)) {
       throw new ErrorApp(404, 'NO_ENCONTRADO', 'El archivo no existe.');
     }
     try {
