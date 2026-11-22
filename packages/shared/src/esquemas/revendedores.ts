@@ -304,3 +304,33 @@ export function inicioDiaVenezuela(ahora = new Date()): Date {
     Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + desfase,
   );
 }
+
+/**
+ * Trae a la cartera del revendedor los clientes que en el Gestor tenían su nombre como
+ * «responsable» (sin importar mayúsculas). `aplicar: false` solo cuenta (vista previa).
+ */
+export const vincularResponsableSchema = z.object({
+  responsables: z
+    .array(z.string().trim().min(1).max(60))
+    .min(1, 'Elige al menos un responsable.')
+    .max(10),
+  aplicar: z.boolean().default(false),
+});
+export type VincularResponsableEntrada = z.infer<typeof vincularResponsableSchema>;
+
+/** Resultado de traer (o contar) los clientes de un responsable del Gestor. */
+export interface ResultadoVincularResponsable {
+  aplicado: boolean;
+  /** Clientes que pasan (o pasaron) a la cartera del revendedor. */
+  clientes: number;
+  /** Suscripciones de esos clientes que quedan a su nombre. */
+  suscripciones: number;
+  /** Clientes con ese responsable que ya son de otro revendedor: no se tocan. */
+  deOtroRevendedor: number;
+}
+
+/** Responsables del Gestor con clientes que aún no están en la cartera de ningún revendedor. */
+export interface ResponsableGestor {
+  responsable: string;
+  clientes: number;
+}
