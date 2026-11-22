@@ -44,7 +44,7 @@ const TEXTO_ENLACE = {
 } as const;
 
 /** El último código o enlace que llegó al correo de la cuenta (Netflix, Disney+…). */
-function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
+function PedirCodigo({ suscripcionId, ruta }: { suscripcionId: string; ruta: string }) {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [resultado, setResultado] = useState<{ codigo: CodigoDelCliente | null } | null>(null);
@@ -54,7 +54,7 @@ function PedirCodigo({ suscripcionId }: { suscripcionId: string }) {
     setError(null);
     const r = await llamarApi<{ codigo: CodigoDelCliente | null }>(
       'POST',
-      `/mi/perfiles/${suscripcionId}/codigo`,
+      `${ruta}/${suscripcionId}/codigo`,
       {},
     );
     setCargando(false);
@@ -337,7 +337,7 @@ export function TarjetaPerfilCliente({
           <div className="grid gap-3 pt-2.5">{cuerpo}</div>
           {perfil.disponible && perfil.pideCodigos && (
             <div className="border-t border-borde pt-3">
-              <PedirCodigo suscripcionId={perfil.suscripcionId} />
+              <PedirCodigo suscripcionId={perfil.suscripcionId} ruta={ruta} />
             </div>
           )}
         </div>

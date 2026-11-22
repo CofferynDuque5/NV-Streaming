@@ -159,3 +159,22 @@ export class MisCodigosController {
     return { codigo: await this.codigos.buscarMio(auth, suscripcionId, cliente) };
   }
 }
+
+/** El revendedor pide el código de un perfil que vendió, desde «Accesos de clientes». */
+@ApiTags('Revendedores: panel')
+@Controller('revendedor/perfiles')
+export class CodigosRevendedorController {
+  constructor(@Inject(CodigosService) private readonly codigos: CodigosService) {}
+
+  @Post(':suscripcionId/codigo')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('reventa.usar')
+  async codigo(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return { codigo: await this.codigos.buscarDeRevendedor(auth, suscripcionId, cliente) };
+  }
+}
