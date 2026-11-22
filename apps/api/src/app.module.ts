@@ -30,7 +30,11 @@ import { AltaPerfilService } from './cuentas/alta-perfil.service.js';
 import { CuentasService } from './cuentas/cuentas.service.js';
 import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
 import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
-import { CodigosController, MisCodigosController } from './codigos/codigos.controller.js';
+import {
+  CodigosController,
+  CodigosRevendedorController,
+  MisCodigosController,
+} from './codigos/codigos.controller.js';
 import { CodigosService } from './codigos/codigos.service.js';
 import { LectorImap } from './codigos/lector-imap.js';
 import { InventarioCuentasService } from './cuentas/inventario-cuentas.service.js';
@@ -123,6 +127,7 @@ export class AppModule {
         PerfilesRevendedorController,
         CodigosController,
         MisCodigosController,
+        CodigosRevendedorController,
         PagosCuentaController,
         BalanceController,
         TicketsController,

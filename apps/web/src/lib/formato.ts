@@ -136,6 +136,7 @@ Object.assign(ACCIONES_AUDITORIA, {
   'asunto_codigo.eliminado': 'Asunto de códigos quitado',
   'codigo.consultado': 'Código consultado por el equipo',
   'codigo.consultado_por_cliente': 'Código consultado por el cliente',
+  'codigo.consultado_por_revendedor': 'Código consultado por el revendedor',
   'cupon.creado': 'Cupón creado',
   'cupon.activado': 'Cupón activado',
   'cupon.desactivado': 'Cupón desactivado',

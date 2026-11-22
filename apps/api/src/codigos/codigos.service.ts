@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import type { BuzonCodigos, PrismaClient } from '@nv/db';
+import type { BuzonCodigos, Prisma, PrismaClient } from '@nv/db';
 import {
   type ActualizarBuzonEntrada,
   type AsuntoCodigoEntrada,
@@ -23,6 +23,7 @@ import { esUnicoDuplicado, iso } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { contextoUsuario, pistaUsuario } from '../cuentas/cuentas.service.js';
 import { LimitesService } from '../limites/limites.service.js';
+import { revendedorPropio } from '../revendedores/libro-mayor.js';
 import { coincideAsunto, leerCorreo } from './extraer.js';
 import { type ConexionBuzon, type CorreoLeido, ErrorBuzon, LectorImap } from './lector-imap.js';
 
@@ -461,14 +462,46 @@ export class CodigosService {
   }
 
   /** El cliente pide el último código de su propio perfil (suscripción vigente). */
-  async buscarMio(
+  buscarMio(
     auth: ContextoAuth,
     suscripcionId: string,
     cliente: InfoCliente,
   ): Promise<CodigoDelCliente | null> {
+    return this.buscarDe(
+      auth,
+      suscripcionId,
+      { cliente: { usuarioId: auth.usuario.id } },
+      'codigo.consultado_por_cliente',
+      cliente,
+    );
+  }
+
+  /** El revendedor pide el código de un perfil de su cartera (lo que vendió a sus clientes). */
+  async buscarDeRevendedor(
+    auth: ContextoAuth,
+    suscripcionId: string,
+    cliente: InfoCliente,
+  ): Promise<CodigoDelCliente | null> {
+    const r = await revendedorPropio(auth, this.prisma);
+    return this.buscarDe(
+      auth,
+      suscripcionId,
+      { revendedorId: r.id },
+      'codigo.consultado_por_revendedor',
+      cliente,
+    );
+  }
+
+  private async buscarDe(
+    auth: ContextoAuth,
+    suscripcionId: string,
+    dueno: Prisma.SuscripcionWhereInput,
+    accion: string,
+    cliente: InfoCliente,
+  ): Promise<CodigoDelCliente | null> {
     await this.limites.consumir(`codigos_cliente:${auth.usuario.id}`, LIMITE_CODIGOS_CLIENTE);
     const s = await this.prisma.suscripcion.findFirst({
-      where: { id: suscripcionId, cliente: { usuarioId: auth.usuario.id } },
+      where: { id: suscripcionId, ...dueno },
       select: {
         estado: true,
         perfilCuenta: {
@@ -499,7 +532,7 @@ export class CodigosService {
       await this.registrarConsulta(auth.usuario.id, c.id, r);
       await this.auditoria.registrar({
         actorId: auth.usuario.id,
-        accion: 'codigo.consultado_por_cliente',
+        accion,
         entidad: 'cuenta_servicio',
         entidadId: c.id,
         despues: { suscripcionId, encontrado: Boolean(r?.mensajes.length) },

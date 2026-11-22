@@ -308,4 +308,52 @@ describe('correos de códigos', () => {
     for (let i = 0; i < 3; i++) await cliente.n.post(ruta);
     expect((await cliente.n.post(ruta)).estado).toBe(429);
   });
+
+  it('el revendedor pide el código de los perfiles de su cartera, no de otros', async () => {
+    const e = await escenario();
+    const cliente = await conectar(ctx, 'cliente');
+    const alta = await cliente.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    await e.operador.post(
+      `/cuentas/${e.cuenta.id}/perfiles/${e.cuenta.listaPerfiles[0].id}/asignar`,
+      { suscripcionId },
+    );
+    await e.admin.post('/codigos/buzones', {
+      nombre: 'Dominio',
+      host: 'mail.midominio.com',
+      usuario: 'todo@midominio.com',
+      clave: CLAVE_BUZON,
+    });
+    await e.admin.post('/codigos/asuntos', { servicioId: e.servicioId, asunto: 'Código' });
+    const vende = await conectar(ctx, 'revendedor');
+    const r = await ctx.prisma.revendedor.create({
+      data: { usuarioId: vende.usuario.id, estado: 'aprobado', nombreComercial: 'Tienda Uno' },
+    });
+    const ruta = `/revendedor/perfiles/${suscripcionId}/codigo`;
+    // Todavía no es de su cartera.
+    expect((await vende.n.post(ruta)).estado).toBe(404);
+
+    await ctx.prisma.suscripcion.update({
+      where: { id: suscripcionId },
+      data: { estado: 'activa', revendedorId: r.id },
+    });
+    const lista = await vende.n.get('/revendedor/perfiles');
+    expect(lista.cuerpo[0]).toMatchObject({ suscripcionId, pideCodigos: true });
+    vi.spyOn(lector, 'buscar').mockResolvedValue([
+      correo({ asunto: 'Tu código de acceso', fecha: hace(2), texto: 'Código:\n7350' }),
+    ]);
+    const pedido = await vende.n.post(ruta);
+    expect(pedido.estado).toBe(200);
+    expect(pedido.cuerpo.codigo).toMatchObject({ codigo: '7350' });
+    expect(
+      await ctx.prisma.auditoria.count({ where: { accion: 'codigo.consultado_por_revendedor' } }),
+    ).toBe(1);
+
+    // Otro revendedor no puede pedirlo.
+    const otro = await conectar(ctx, 'revendedor');
+    await ctx.prisma.revendedor.create({
+      data: { usuarioId: otro.usuario.id, estado: 'aprobado', nombreComercial: 'Tienda Dos' },
+    });
+    expect((await otro.n.post(ruta)).estado).toBe(404);
+  });
 });
