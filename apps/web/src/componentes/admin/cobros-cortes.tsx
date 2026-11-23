@@ -607,22 +607,18 @@ function cuandoMensaje(d: number): string {
   if (d === 0) return 'vence hoy';
   if (d === -1) return 'vence mañana';
   if (d < -1) return `vence en ${-d} días`;
-  if (d === 1) return 'venció ayer';
-  return `venció hace ${d} días`;
+  return d === 1 ? 'venció hace 1 día' : `venció hace ${d} días`;
 }
 
 /** El mensaje de cobro del Gestor, con la plataforma, el cliente y el día. */
 export function mensajeCobro(s: SuscripcionConLugar): string {
-  const vencida = s.diasVencida > 0;
   return [
-    `Hola, *${s.cliente.nombre}*.`,
+    `Hola, ${s.cliente.nombre}.`,
     '',
-    `Su suscripción de *${s.plan.servicio.toUpperCase()}* ${cuandoMensaje(s.diasVencida)}.`,
-    vencida
-      ? 'Si desea renovar, por favor avísenos para reactivar su suscripción.'
-      : 'Si desea renovar, por favor avísenos con tiempo para mantener activa la suscripción.',
+    `Su suscripción de ${s.plan.servicio} ${cuandoMensaje(s.diasVencida)}.`,
+    'Si desea renovar, por favor avísenos con tiempo para mantener activa la suscripción.',
     '',
-    '*¡Gracias por confiar en NV Streaming!*',
+    '¡Gracias por confiar en NV Streaming!',
   ].join('\n');
 }
 
