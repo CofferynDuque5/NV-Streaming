@@ -2297,6 +2297,11 @@ model PerfilCuenta {
   claveMiembroCifrada   String?      @map("clave_miembro_cifrada") @db.VarChar(1000)
   suscripcionId         String?      @unique @map("suscripcion_id") @db.Uuid
   asignadoEn            DateTime?    @map("asignado_en") @db.Timestamptz(3)
+  /// Revisado a mano y apto para que la web lo entregue sola. Un disparador lo
+  /// apaga cuando el perfil cambia de estado (hay que revisarlo otra vez).
+  aptoWeb               Boolean      @default(false) @map("apto_web")
+  aptoRevisadoEn        DateTime?    @map("apto_revisado_en") @db.Timestamptz(3)
+  aptoRevisadoPorId     String?      @map("apto_revisado_por_id") @db.Uuid
   creadoEn              DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn         DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
@@ -2305,6 +2310,7 @@ model PerfilCuenta {
 
   @@unique([cuentaId, numero])
   @@index([cuentaId, estado])
+  @@index([aptoWeb, estado])
   @@map("perfiles_cuenta")
 }
 

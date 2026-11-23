@@ -14,6 +14,10 @@ import { ErrorApp } from '../comun/errores.js';
  * Solo cuentan los lugares libres de cuentas activas y VIGENTES: con fecha de
  * vencimiento (próximo cobro del proveedor) de hoy en adelante, en hora de
  * Venezuela. Una cuenta vencida o sin fecha nunca se entrega por la web.
+ *
+ * Y solo los que el equipo revisó a mano y marcó como APTOS (`apto_web`). Un
+ * lugar deja de estar apto cuando cambia de estado (disparador de la base):
+ * al liberarse después de un corte hay que revisarlo otra vez.
  */
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -35,6 +39,12 @@ interface FilaLibre {
   servicio: string;
   numero: number;
   individual: boolean;
+  nombre: string;
+  pista: string;
+  factura_en: Date;
+  con_pin: boolean;
+  apto_web: boolean;
+  apto_revisado_en: Date | null;
 }
 
 /** Condición del tipo de lugar que se vende por la web (ver `sirveVentaWeb`). */
@@ -52,8 +62,13 @@ function ordenTipo(tipo: TipoPlataforma): Prisma.Sql {
   return Prisma.sql`(c.modo = 'completa' OR (SELECT count(*) FROM perfiles_cuenta x WHERE x.cuenta_id = c.id) = 1),`;
 }
 
-const libresVigentes = (servicioIds: string[], hoy: string) => Prisma.sql`
-  SELECT p.id, p.cuenta_id, c.servicio_id, s.nombre AS servicio, p.numero,
+/** Aptos: solo los marcados. Por revisar: los que no. Todos: sin filtrar (para contar). */
+type Revision = 'aptos' | 'por_revisar' | 'todos';
+
+const libresVigentes = (servicioIds: string[], hoy: string, revision: Revision = 'aptos') =>
+  Prisma.sql`
+  SELECT p.id, p.cuenta_id, c.servicio_id, s.nombre AS servicio, p.numero, p.nombre, c.pista,
+         c.factura_en, (p.pin_cifrado IS NOT NULL) AS con_pin, p.apto_web, p.apto_revisado_en,
          (c.modo = 'completa'
            OR (SELECT count(*) FROM perfiles_cuenta x WHERE x.cuenta_id = c.id) = 1) AS individual
   FROM perfiles_cuenta p
@@ -63,7 +78,18 @@ const libresVigentes = (servicioIds: string[], hoy: string) => Prisma.sql`
     AND c.estado = 'activa'
     AND p.estado = 'libre'
     AND c.factura_en IS NOT NULL
-    AND c.factura_en >= ${hoy}::date`;
+    AND c.factura_en >= ${hoy}::date
+    ${
+      revision === 'aptos'
+        ? Prisma.sql`AND p.apto_web`
+        : revision === 'por_revisar'
+          ? Prisma.sql`AND NOT p.apto_web`
+          : Prisma.empty
+    }`;
+
+/** El mismo orden con el que `asignarAutomatico` elige el lugar (el «Mejor perfil»). */
+const ordenEntrega = (tipo: TipoPlataforma) =>
+  Prisma.sql`ORDER BY ${ordenTipo(tipo)} c.factura_en DESC, p.actualizado_en ASC, c.creado_en ASC, p.numero ASC`;
 
 /**
  * Lugares libres y vigentes que la web puede entregar, por servicio. Solo
@@ -154,7 +180,7 @@ export async function asignarAutomatico(
   const [lugar] = await tx.$queryRaw<FilaLibre[]>`
     ${libresVigentes([plan.servicioId], fechaCaracas(ahora))}
     ${condicionTipo(tipo)}
-    ORDER BY ${ordenTipo(tipo)} c.factura_en DESC, p.actualizado_en ASC, c.creado_en ASC, p.numero ASC
+    ${ordenEntrega(tipo)}
     LIMIT 1
     FOR UPDATE OF p SKIP LOCKED`;
   if (!lugar) return null;
@@ -202,4 +228,91 @@ export async function exigirStock(tx: Prisma.TransactionClient, planId: string):
       'Este plan está agotado por ahora. Pídelo por WhatsApp y te avisamos cuando haya.',
     );
   }
+}
+
+/* ───────────────────── Entrega web: revisión y vista previa ───────────────────── */
+
+export interface LugarEntregaFila {
+  perfilId: string;
+  cuentaId: string;
+  pista: string;
+  numero: number;
+  nombre: string;
+  individual: boolean;
+  facturaEn: string;
+  conPin: boolean;
+  aptoRevisadoEn: string | null;
+}
+
+export interface EntregaWebServicioFila {
+  servicioId: string;
+  servicio: string;
+  tipo: TipoPlataforma;
+  /** Lo que entregaría la web ahora mismo y los siguientes, en orden. */
+  siguientes: LugarEntregaFila[];
+  aptos: number;
+  /** Libres y vigentes que la web podría vender pero nadie revisó. */
+  porRevisar: LugarEntregaFila[];
+}
+
+const aLugar = (f: FilaLibre): LugarEntregaFila => ({
+  perfilId: f.id,
+  cuentaId: f.cuenta_id,
+  pista: f.pista,
+  numero: f.numero,
+  nombre: f.nombre,
+  individual: f.individual,
+  facturaEn: fechaCaracas(f.factura_en),
+  conPin: f.con_pin,
+  aptoRevisadoEn: f.apto_revisado_en ? f.apto_revisado_en.toISOString() : null,
+});
+
+/**
+ * Por cada servicio que se vende por la web desde Plataformas: qué lugar se
+ * entregaría si alguien compra ahora, cuáles siguen (con el mismo orden de la
+ * entrega automática) y cuáles faltan por revisar. No bloquea ni cambia nada.
+ */
+export async function entregaWeb(
+  db: Db,
+  ahora = new Date(),
+  siguientes = 5,
+): Promise<EntregaWebServicioFila[]> {
+  const planes = await db.plan.findMany({
+    where: {
+      activo: true,
+      tipo: 'suscripcion',
+      entrega: 'alquiler',
+      servicio: {
+        proveedor: { adaptador: 'manual' },
+        cuentas: { some: { estado: { not: 'retirada' } } },
+      },
+    },
+    select: { servicio: { select: { id: true, nombre: true } } },
+    distinct: ['servicioId'],
+  });
+  const hoy = fechaCaracas(ahora);
+  const servicios = planes
+    .map((p) => p.servicio)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const filas: EntregaWebServicioFila[] = [];
+  for (const sv of servicios) {
+    const tipo = tipoPlataforma(sv.nombre);
+    const aptos = await db.$queryRaw<FilaLibre[]>`
+      ${libresVigentes([sv.id], hoy, 'aptos')}
+      ${condicionTipo(tipo)}
+      ${ordenEntrega(tipo)}`;
+    const porRevisar = await db.$queryRaw<FilaLibre[]>`
+      ${libresVigentes([sv.id], hoy, 'por_revisar')}
+      ${condicionTipo(tipo)}
+      ${ordenEntrega(tipo)}`;
+    filas.push({
+      servicioId: sv.id,
+      servicio: sv.nombre,
+      tipo,
+      siguientes: aptos.slice(0, siguientes).map(aLugar),
+      aptos: aptos.length,
+      porRevisar: porRevisar.map(aLugar),
+    });
+  }
+  return filas;
 }

@@ -2,7 +2,7 @@
 
 import { generarClave, generarPin, type SuscripcionConLugar, TEXTOS_PLATAFORMA } from '@nv/shared';
 import clsx from 'clsx';
-import { CalendarCheck, KeyRound, RefreshCw, Scissors, Search, Wand2 } from 'lucide-react';
+import { CalendarCheck, KeyRound, RefreshCw, Scissors, Search, Trash2, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -254,6 +254,7 @@ function Fila({
         </Link>
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
         {puedeCortar && s.lugar && seccion === 'cortes' && <Cortar s={s} hermanos={hermanos} />}
+        {puedeCortar && s.lugar && seccion === 'cortes' && <Eliminar s={s} />}
       </div>
     </li>
   );
@@ -475,18 +476,14 @@ function CambiarDatos({ s }: { s: SuscripcionConLugar }) {
           {listo ? (
             <>
               <Alerta tono="exito">
-                Guardado. {s.cliente.nombre} y los demás de la cuenta ven los datos nuevos en «Mis
-                accesos».
+                Guardado. {s.cliente.nombre}
+                {!f.miembro && f.nuevaClave && lugar.otrosActivos > 0
+                  ? ` y ${lugar.otrosActivos === 1 ? 'la otra persona' : `las otras ${lugar.otrosActivos}`} de la cuenta`
+                  : ''}{' '}
+                ven los datos nuevos en «Mis accesos» y les avisamos solos por correo y WhatsApp
+                (sin la clave ni el PIN).
               </Alerta>
               <div className="flex flex-wrap justify-end gap-2">
-                {!f.miembro && f.nuevaClave && lugar.otrosActivos > 0 && (
-                  <Link
-                    href={`/admin/cuentas/${lugar.cuentaId}`}
-                    className="inline-flex h-10 items-center rounded-xl border border-borde-fuerte px-4 text-sm font-semibold hover:border-cian"
-                  >
-                    Avisar a los {lugar.otrosActivos + 1} de la cuenta
-                  </Link>
-                )}
                 <Boton variante="fantasma" onClick={cerrar}>
                   Cerrar
                 </Boton>
@@ -599,16 +596,15 @@ function Cortar({ s, hermanos }: { s: SuscripcionConLugar; hermanos: number }) {
                   </li>
                 )}
               </ol>
+              {!f.miembro && f.nuevaClave && lugar.otrosActivos > 0 && (
+                <p className="text-sm text-tinta-suave">
+                  {lugar.otrosActivos === 1
+                    ? 'A la persona que sigue en la cuenta le avisamos sola'
+                    : `A las ${lugar.otrosActivos} personas que siguen en la cuenta les avisamos solas`}{' '}
+                  por correo y WhatsApp para que vean la clave nueva en «Mis accesos».
+                </p>
+              )}
               <div className="flex flex-wrap justify-end gap-2">
-                {!f.miembro && f.nuevaClave && lugar.otrosActivos > 0 && (
-                  <Link
-                    href={`/admin/cuentas/${lugar.cuentaId}`}
-                    className="inline-flex h-10 items-center rounded-xl border border-borde-fuerte px-4 text-sm font-semibold hover:border-cian"
-                  >
-                    Avisar la clave nueva a{' '}
-                    {lugar.otrosActivos === 1 ? '1 persona' : `${lugar.otrosActivos} personas`}
-                  </Link>
-                )}
                 <Boton variante="fantasma" onClick={cerrar}>
                   Cerrar
                 </Boton>
@@ -642,6 +638,8 @@ function Cortar({ s, hermanos }: { s: SuscripcionConLugar; hermanos: number }) {
               <p className="text-sm text-tinta-suave">
                 Corte por vencimiento: el cliente no renovó. Su {textos.lugar.toLowerCase()} queda
                 libre para otro cliente y su suscripción pasa a suspendida (no se borra nada).
+                {f.miembro &&
+                  ' El cupo conserva el correo del miembro; para borrarlo usa «Eliminar».'}
                 {hermanos > 0 &&
                   (hermanos === 1
                     ? ` También se corta su otro ${textos.lugar.toLowerCase()} vencido en esta cuenta.`
@@ -664,6 +662,135 @@ function Cortar({ s, hermanos }: { s: SuscripcionConLugar; hermanos: number }) {
                 </Boton>
                 <Boton variante="peligro" cargando={cargando} onClick={() => void confirmar()}>
                   Confirmar corte
+                </Boton>
+              </div>
+            </>
+          )}
+        </Dialogo>
+      )}
+    </>
+  );
+}
+
+/* ───────────────────────── Eliminar ───────────────────────── */
+
+/**
+ * «Eliminar» del Gestor: a diferencia de cortar, en un plan familiar se borra
+ * también el correo y la clave del miembro, y la suscripción se cancela. El
+ * cliente y su historial se conservan. Pide confirmarlo escribiendo ELIMINAR.
+ */
+function Eliminar({ s }: { s: SuscripcionConLugar }) {
+  const lugar = s.lugar!;
+  const [abierto, setAbierto] = useState(false);
+  const [listo, setListo] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [aviso, setAviso] = useState(false);
+  const [confirmacion, setConfirmacion] = useState('');
+  const router = useRouter();
+  const f = useClavePin(s, true);
+  const miembro = esMiembro(s);
+  const textos = TEXTOS_PLATAFORMA[lugar.tipo];
+  // Al miembro se le borra su clave: solo se elige el PIN (si la plataforma lo usa).
+  const faltaElegir = miembro ? false : f.faltaElegir;
+  const confirmado = confirmacion.trim().toUpperCase() === 'ELIMINAR';
+
+  function cerrar() {
+    if (listo) router.refresh();
+    setAbierto(false);
+    setListo(false);
+    setError(null);
+    setAviso(false);
+    setConfirmacion('');
+    f.reiniciar();
+  }
+
+  async function confirmar() {
+    if (faltaElegir || !confirmado) return setAviso(true);
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi('POST', `/suscripciones/${s.id}/eliminar-del-lugar`, {
+      ...(!miembro && f.nuevaClave ? { nuevaClave: f.nuevaClave } : {}),
+      ...(f.nuevoPin ? { nuevoPin: f.nuevoPin } : {}),
+    });
+    setCargando(false);
+    if (!r.ok) return setError(r.error);
+    setListo(true);
+  }
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="fantasma"
+        icono={<Trash2 className="size-3.5" />}
+        onClick={() => setAbierto(true)}
+        aria-label={`Eliminar a ${s.cliente.nombre} de su ${textos.lugar.toLowerCase()}`}
+      >
+        Eliminar
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo={listo ? 'Cliente eliminado' : 'Eliminar cliente'}
+          icono={<Trash2 className="size-5 text-peligro" aria-hidden="true" />}
+          onCerrar={cerrar}
+          bloquear={cargando}
+        >
+          {listo ? (
+            <>
+              <Alerta tono="exito">
+                {s.cliente.nombre} salió de su {textos.lugar.toLowerCase()}
+                {miembro ? ' y se borró su correo del cupo' : ''}. Su suscripción quedó cancelada;
+                el cliente y su historial se conservan.
+              </Alerta>
+              {miembro && (
+                <p className="text-sm text-tinta-suave">
+                  Saca al miembro del plan familiar en la plataforma.
+                </p>
+              )}
+              <div className="flex justify-end">
+                <Boton variante="fantasma" onClick={cerrar}>
+                  Cerrar
+                </Boton>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-tinta-suave">
+                {s.cliente.nombre} · {s.plan.servicio} · {lugar.etiqueta}
+                {lugar.pistaCuenta ? ` · ${lugar.pistaCuenta}` : ''}.
+              </p>
+              <Alerta tono="aviso">
+                {miembro
+                  ? 'A diferencia de «Cortar», se borra el correo y la clave del miembro de este cupo y su suscripción se cancela. No se puede deshacer.'
+                  : `Su ${textos.lugar.toLowerCase()} queda libre y su suscripción se cancela (se anulan sus facturas abiertas). No se puede deshacer.`}
+              </Alerta>
+              {miembro ? (textos.usaPin ? f.campos(error) : null) : f.campos(error)}
+              <label className="grid gap-1 text-sm">
+                <span>
+                  Escribe <b>ELIMINAR</b> para confirmar
+                </span>
+                <input
+                  value={confirmacion}
+                  onChange={(e) => setConfirmacion(e.currentTarget.value)}
+                  autoComplete="off"
+                  className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
+                />
+              </label>
+              {aviso && (faltaElegir || !confirmado) && (
+                <Alerta tono="aviso">
+                  {faltaElegir
+                    ? `Elige qué hacer con la contraseña${textos.usaPin ? ' y con el PIN' : ''}.`
+                    : 'Escribe ELIMINAR para confirmar.'}
+                </Alerta>
+              )}
+              {error && !error.campos && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Boton variante="fantasma" onClick={cerrar} disabled={cargando}>
+                  Cancelar
+                </Boton>
+                <Boton variante="peligro" cargando={cargando} onClick={() => void confirmar()}>
+                  Eliminar
                 </Boton>
               </div>
             </>

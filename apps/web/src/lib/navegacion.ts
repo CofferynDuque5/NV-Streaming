@@ -457,6 +457,7 @@ export function pestanasSecciones(
     Record<ModuloEquipo, { etiqueta: string; href: string; permiso: Permiso }[]>
   > = {
     existencias: [
+      { etiqueta: 'Entrega web', href: '/admin/cuentas/entrega-web', permiso: 'cuentas.ver' },
       { etiqueta: 'Sin anotar', href: '/admin/cuentas/sin-anotar', permiso: 'cuentas.ver' },
     ],
   };
@@ -528,6 +529,14 @@ const PAGINAS_BUSCADOR: (DestinoBuscadorBase & { permiso: Permiso })[] = [
     icono: 'cuentas',
     detalle: 'Caídas y reposición',
     claves: 'caida caidas reporte proveedor horas',
+    permiso: 'cuentas.ver',
+  },
+  {
+    etiqueta: 'Entrega web: qué se entrega ahora',
+    href: '/admin/cuentas/entrega-web',
+    icono: 'cuentas',
+    detalle: 'Plataformas',
+    claves: 'apto aptos revisar stock siguiente entregar web vender',
     permiso: 'cuentas.ver',
   },
   {

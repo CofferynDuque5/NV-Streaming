@@ -44,6 +44,11 @@ async function escenario() {
     datosPerfiles: [{ nombre: 'Sala', pin: '1357' }, { pin: '' }, { nombre: 'Cuarto' }],
   });
   expect(cuenta.estado).toBe(201);
+  // Revisados y aptos: la web solo vende lo que el equipo marcó.
+  await operador.n.post('/cuentas/entrega-web/aptos', {
+    perfilIds: (cuenta.cuerpo.listaPerfiles as { id: string }[]).map((p) => p.id),
+    apto: true,
+  });
   return { admin: admin.n, operador: operador.n, cuenta: cuenta.cuerpo, ...catalogo };
 }
 

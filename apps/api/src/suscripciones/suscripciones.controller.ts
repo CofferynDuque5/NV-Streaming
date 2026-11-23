@@ -99,6 +99,24 @@ export class SuscripcionesController {
     return this.suscripciones.cortar(auth, id, cuerpo, cliente);
   }
 
+  /**
+   * Eliminar a un cliente de su lugar (como «Eliminar» del Gestor): libera el
+   * perfil o cupo, borra el correo del miembro de un plan familiar y cancela la
+   * suscripción. Cortar, en cambio, conserva el correo del miembro.
+   */
+  @Post(':id/eliminar-del-lugar')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(cortarSuscripcionSchema)
+  eliminarDelLugar(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(cortarSuscripcionSchema)) cuerpo: z.output<typeof cortarSuscripcionSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.eliminarDelLugar(auth, id, cuerpo, cliente);
+  }
+
   /** Cuánto devolver si se cancela hoy (proporcional a los días que le quedan). */
   @Get(':id/devolucion')
   @RequierePermiso('suscripciones.ver')

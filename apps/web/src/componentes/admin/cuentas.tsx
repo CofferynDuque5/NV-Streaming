@@ -53,6 +53,7 @@ import {
 import {
   AltaPerfil,
   CortarPerfil,
+  EliminarPerfil,
   type DatosAlta,
   MoverPerfil,
   pedirAvisoCuenta,
@@ -1385,6 +1386,7 @@ export function AccionesPerfil({
             otrosActivos={otrosActivos}
           />
         )}
+        {perfil.estado === 'asignado' && <EliminarPerfil perfil={perfil} tipo={tipo} />}
         {(perfil.estado === 'libre' || perfil.estado === 'respaldo') && (
           <Boton
             tamano="sm"

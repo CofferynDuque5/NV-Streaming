@@ -281,6 +281,35 @@ export interface VencimientosCortes {
   cortes: SuscripcionConLugar[];
 }
 
+/** Un perfil o cupo libre y vigente que la web podría entregar (sin credenciales). */
+export interface LugarEntregaWeb {
+  perfilId: string;
+  cuentaId: string;
+  /** «ma•••@gmail.com». */
+  pista: string;
+  numero: number;
+  nombre: string;
+  /** Cuenta completa o de un solo lugar. */
+  individual: boolean;
+  /** Próximo cobro del proveedor (AAAA-MM-DD, Caracas). */
+  facturaEn: string;
+  conPin: boolean;
+  aptoRevisadoEn: string | null;
+}
+
+/**
+ * Entrega web de un servicio: qué se entregaría si alguien compra ahora, los
+ * siguientes en orden, y lo libre que falta revisar (no se vende hasta marcarlo).
+ */
+export interface EntregaWebServicio {
+  servicioId: string;
+  servicio: string;
+  tipo: 'perfiles' | 'familiar' | 'correo';
+  siguientes: LugarEntregaWeb[];
+  aptos: number;
+  porRevisar: LugarEntregaWeb[];
+}
+
 export interface SuscripcionPublica {
   id: string;
   cliente: Referencia;

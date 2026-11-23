@@ -9,6 +9,11 @@ export const TRABAJO = {
   vencimientos: 'suscripciones.vencimientos',
   /** Aviso por un cambio de estado de una suscripción. Carga: { automatizacion, suscripcionId }. */
   avisoSuscripcion: 'aviso.suscripcion',
+  /**
+   * Cambió el correo o la clave de una cuenta, o el PIN o los datos de miembro
+   * de un perfil: avisa a quienes la usan. Carga: { cuentaId, perfilId?, cambios }.
+   */
+  avisoDatosAcceso: 'aviso.datos_acceso',
   /** Saldo del revendedor bajo el umbral. Carga: { revendedorId, movimientoId, saldoUsd, umbralUsd }. */
   avisoSaldoBajo: 'aviso.saldo_bajo',
   /** Consulta y vence los pagos en línea abandonados. */

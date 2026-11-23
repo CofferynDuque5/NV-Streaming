@@ -42,7 +42,13 @@ const planEnCatalogo = async (e: Escenario) =>
     (p) => p.id === e.planId,
   )!;
 
-async function cuenta(e: Escenario, usuario: string, facturaEn: string | null, perfiles = 2) {
+async function cuenta(
+  e: Escenario,
+  usuario: string,
+  facturaEn: string | null,
+  perfiles = 2,
+  apta = true,
+) {
   const r = await e.operador.n.post('/cuentas', {
     servicioId: e.servicioId,
     usuario,
@@ -51,7 +57,16 @@ async function cuenta(e: Escenario, usuario: string, facturaEn: string | null, p
     ...(facturaEn ? { facturaEn } : {}),
   });
   expect(r.estado).toBe(201);
-  return r.cuerpo as { id: string; listaPerfiles: { id: string; numero: number }[] };
+  const c = r.cuerpo as { id: string; listaPerfiles: { id: string; numero: number }[] };
+  // La web solo entrega lo revisado: se marcan todos sus lugares como aptos.
+  if (apta) {
+    const m = await e.operador.n.post('/cuentas/entrega-web/aptos', {
+      perfilIds: c.listaPerfiles.map((p) => p.id),
+      apto: true,
+    });
+    expect(m.estado).toBe(200);
+  }
+  return c;
 }
 
 /** El cliente contrata y paga con comprobante; el operador confirma. */
@@ -251,5 +266,88 @@ describe('stock y entrega automática desde Plataformas', () => {
       claveIdempotencia: randomUUID(),
     });
     expect(sinStock.cuerpo.error.codigo).toBe('SIN_STOCK');
+  });
+});
+
+describe('revisión manual: solo se entrega lo marcado como apto', () => {
+  it('lo libre sin revisar no es stock; al marcarlo sí, y se puede desmarcar', async () => {
+    const e = await escenario();
+    const c = await cuenta(e, 'revisar@example.com', dia(30), 2, false);
+    expect((await planEnCatalogo(e)).agotado).toBe(true);
+
+    const vista = await e.operador.n.get('/cuentas/entrega-web');
+    expect(vista.estado).toBe(200);
+    const sv = (
+      vista.cuerpo as {
+        servicioId: string;
+        aptos: number;
+        porRevisar: unknown[];
+        siguientes: unknown[];
+      }[]
+    ).find((x) => x.servicioId === e.servicioId)!;
+    expect(sv.aptos).toBe(0);
+    expect(sv.siguientes).toHaveLength(0);
+    expect(sv.porRevisar).toHaveLength(2);
+    expect(JSON.stringify(vista.cuerpo)).not.toContain('Clave-123');
+
+    // Un cliente no puede marcar.
+    expect(
+      (
+        await e.cliente.post('/cuentas/entrega-web/aptos', {
+          perfilIds: [c.listaPerfiles[0]!.id],
+          apto: true,
+        })
+      ).estado,
+    ).toBe(403);
+
+    const m = await e.operador.n.post('/cuentas/entrega-web/aptos', {
+      perfilIds: [c.listaPerfiles[1]!.id],
+      apto: true,
+    });
+    expect(m.cuerpo).toEqual({ marcados: 1, omitidos: 0 });
+    expect((await planEnCatalogo(e)).agotado).toBeUndefined();
+
+    const quitar = await e.operador.n.post('/cuentas/entrega-web/aptos', {
+      perfilIds: [c.listaPerfiles[1]!.id],
+      apto: false,
+    });
+    expect(quitar.cuerpo.marcados).toBe(1);
+    expect((await planEnCatalogo(e)).agotado).toBe(true);
+    expect(await ctx.prisma.auditoria.count({ where: { accion: 'perfil_cuenta.apto_web' } })).toBe(
+      1,
+    );
+  });
+
+  it('muestra qué se entregaría ahora y el siguiente, en el mismo orden que la entrega', async () => {
+    const e = await escenario();
+    await cuenta(e, 'pronto@example.com', dia(5), 1);
+    const lejos = await cuenta(e, 'lejos@example.com', dia(40));
+    const vista = await e.operador.n.get('/cuentas/entrega-web');
+    const sv = (
+      vista.cuerpo as {
+        servicioId: string;
+        siguientes: { cuentaId: string; perfilId: string; individual: boolean }[];
+      }[]
+    ).find((x) => x.servicioId === e.servicioId)!;
+    // Primero los perfiles compartidos de la cuenta que vence más tarde; la individual, al final.
+    expect(sv.siguientes.map((l) => l.cuentaId)).toEqual([lejos.id, lejos.id, expect.any(String)]);
+    expect(sv.siguientes[2]!.individual).toBe(true);
+
+    const ahora = sv.siguientes[0]!;
+    const suscripcionId = await comprarYPagar(e);
+    const perfil = await ctx.prisma.perfilCuenta.findFirstOrThrow({ where: { suscripcionId } });
+    expect(perfil.id).toBe(ahora.perfilId);
+    // Al asignarse deja de estar apto: si se libera, hay que revisarlo otra vez.
+    expect(perfil.aptoWeb).toBe(false);
+    const despues = await e.operador.n.get('/cuentas/entrega-web');
+    const sv2 = (
+      despues.cuerpo as { servicioId: string; siguientes: { perfilId: string }[] }[]
+    ).find((x) => x.servicioId === e.servicioId)!;
+    expect(sv2.siguientes[0]!.perfilId).toBe(sv.siguientes[1]!.perfilId);
+
+    await e.operador.n.post(`/cuentas/${lejos.id}/perfiles/${perfil.id}/liberar`, {});
+    const liberado = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: perfil.id } });
+    expect(liberado.estado).toBe('libre');
+    expect(liberado.aptoWeb).toBe(false);
   });
 });

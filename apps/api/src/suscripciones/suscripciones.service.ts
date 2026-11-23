@@ -363,6 +363,94 @@ export class SuscripcionesService {
     });
   }
 
+  /**
+   * Eliminar a un cliente de su lugar, como «Eliminar» del Gestor: a diferencia
+   * de cortar, se borra también el correo y la clave propios del miembro (plan
+   * familiar) y la suscripción se cancela (sus facturas abiertas se anulan).
+   * El cliente y su historial se conservan. Se puede hacer aunque no haya
+   * vencido: el panel pide confirmarlo.
+   */
+  async eliminarDelLugar(
+    auth: ContextoAuth,
+    id: string,
+    e: CortarSuscripcionEntrada,
+    cliente: InfoCliente,
+  ): Promise<{ eliminada: true; miembroBorrado: boolean }> {
+    return this.prisma.$transaction(async (tx) => {
+      const s = await tx.suscripcion.findFirst({
+        where: { id, cliente: alcanceClientes(auth) },
+        select: {
+          id: true,
+          estado: true,
+          plan: { select: { servicio: { select: { nombre: true } } } },
+          perfilCuenta: {
+            select: {
+              id: true,
+              numero: true,
+              cuentaId: true,
+              usuarioMiembroCifrado: true,
+              cuenta: { select: { modo: true } },
+            },
+          },
+        },
+      });
+      if (!s) throw Errores.noEncontrado('La suscripción');
+      const p = s.perfilCuenta;
+      if (!p) {
+        throw new ErrorApp(409, 'SIN_LUGAR', 'Este cliente ya no ocupa ningún perfil ni cupo.');
+      }
+      const tipo = tipoPlataforma(s.plan.servicio.nombre);
+      if (!TEXTOS_PLATAFORMA[tipo].usaPin && e.nuevoPin) {
+        throw new ErrorApp(400, 'SIN_PIN', 'Esta plataforma no usa PIN.');
+      }
+      const miembro =
+        tipo === 'familiar' && p.cuenta.modo !== 'completa' && !esTitular(tipo, p.numero);
+      // La clave del miembro se borra con él: la nueva solo aplica a la cuenta.
+      const datos = {
+        ...(e.nuevoPin ? { nuevoPin: e.nuevoPin } : {}),
+        ...(e.nuevaClave && !miembro ? { nuevaClave: e.nuevaClave } : {}),
+      };
+      await this.cuentas.liberarEn(tx, auth, p.cuentaId, p.id, datos, cliente, false);
+      const motivo = 'Eliminado de su lugar';
+      const cancelar = s.estado !== 'cancelada' && s.estado !== 'vencida';
+      if (cancelar) {
+        await this.anularFacturasAbiertas(tx, s.id, motivo, auth.usuario.id);
+        await tx.suscripcion.update({
+          where: { id: s.id },
+          data: { estado: 'cancelada', canceladaEn: new Date(), cancelarAlVencer: false },
+        });
+        await solicitarRevocacion(tx, s.id, motivo);
+      }
+      await this.evento(tx, s.id, 'cancelacion', auth.usuario.id, motivo, {
+        de: s.estado,
+        a: cancelar ? 'cancelada' : s.estado,
+        eliminado: true,
+        miembroBorrado: miembro && Boolean(p.usuarioMiembroCifrado),
+        claveNueva: Boolean(datos.nuevaClave),
+        pinNuevo: Boolean(datos.nuevoPin),
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'suscripcion.eliminada_del_lugar',
+          entidad: 'suscripcion',
+          entidadId: s.id,
+          antes: { estado: s.estado, perfilId: p.id },
+          // Solo qué cambió: nunca correos, claves ni PIN.
+          despues: {
+            estado: cancelar ? 'cancelada' : s.estado,
+            miembroBorrado: miembro && Boolean(p.usuarioMiembroCifrado),
+            claveNueva: Boolean(datos.nuevaClave),
+            pinNuevo: Boolean(datos.nuevoPin),
+          },
+          cliente,
+        },
+        tx,
+      );
+      return { eliminada: true, miembroBorrado: miembro && Boolean(p.usuarioMiembroCifrado) };
+    });
+  }
+
   async obtener(auth: ContextoAuth, id: string): Promise<SuscripcionDetalle> {
     const s = await this.prisma.suscripcion.findFirst({
       where: { id, cliente: alcanceClientes(auth) },

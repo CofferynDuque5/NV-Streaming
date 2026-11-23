@@ -16,6 +16,7 @@ import {
   asignarPerfilSchema,
   avisarCuentaSchema,
   liberarPerfilSchema,
+  marcarAptosSchema,
   moverPerfilSchema,
   ordenarPerfilesSchema,
   pasarAIndividualesSchema,
@@ -71,6 +72,30 @@ export class CuentasController {
   @RequierePermiso('cuentas.ver')
   verInventario(@Query('retiradas') retiradas?: string) {
     return this.inventario.ver(retiradas === 'true');
+  }
+
+  /**
+   * Entrega web: por servicio, qué perfil o cuenta se entregaría si alguien
+   * compra ahora, los que siguen y lo libre que falta revisar (sin secretos).
+   */
+  @Get('entrega-web')
+  @RequierePermiso('cuentas.ver')
+  @Header('Cache-Control', SIN_CACHE)
+  entregaWeb() {
+    return this.cuentas.entregaWeb();
+  }
+
+  /** Marca o desmarca lugares libres como aptos para la entrega web (revisión manual). */
+  @Post('entrega-web/aptos')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(marcarAptosSchema)
+  marcarAptos(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(marcarAptosSchema)) cuerpo: z.output<typeof marcarAptosSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.marcarAptos(auth, cuerpo, cliente);
   }
 
   /** Una plataforma con sus cuentas completas e individuales, como en el Gestor. */

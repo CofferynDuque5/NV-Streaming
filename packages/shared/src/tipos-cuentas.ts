@@ -56,6 +56,8 @@ export interface PerfilCuentaPublico {
   tienePin: boolean;
   /** Plan familiar: el cupo tiene correo propio del miembro. */
   tieneMiembro: boolean;
+  /** Revisado a mano y apto para que la web lo entregue solo (solo los libres). */
+  aptoWeb: boolean;
   nota: string | null;
   asignacion: AsignacionPerfil | null;
 }
