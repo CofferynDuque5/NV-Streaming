@@ -25,6 +25,7 @@ export const TIPOS_AUTOMATIZACION = [
   'alerta_pagos_pendientes',
   'cobro_automatico',
   'stock_bajo_codigos',
+  'aviso_datos_acceso',
 ] as const;
 export type TipoAutomatizacion = (typeof TIPOS_AUTOMATIZACION)[number];
 
@@ -95,6 +96,7 @@ export const PARAMETROS_AUTOMATIZACION = {
     umbral: entero(1, 10000, 'códigos'),
     hora,
   }),
+  aviso_datos_acceso: z.object({}),
 } as const satisfies Record<TipoAutomatizacion, z.ZodType>;
 
 export type ParametrosAutomatizacion<T extends TipoAutomatizacion> = z.output<
@@ -242,6 +244,17 @@ export const AUTOMATIZACIONES: { [T in TipoAutomatizacion]: DefinicionAutomatiza
     canales: ['correo'],
     activaPorDefecto: true,
     parametrosPorDefecto: { umbral: 10, hora: 9 },
+  },
+  aviso_datos_acceso: {
+    tipo: 'aviso_datos_acceso',
+    nombre: 'Aviso de datos de acceso nuevos',
+    descripcion:
+      'Avisa a los clientes de una cuenta cuando cambia su correo, su clave o el PIN de su perfil, para que vean los datos nuevos en «Mis accesos». Nunca lleva la clave ni el PIN. A los clientes de un revendedor les avisa el revendedor.',
+    grupo: 'clientes',
+    disparo: 'evento',
+    canales: ['correo', 'whatsapp'],
+    activaPorDefecto: true,
+    parametrosPorDefecto: {},
   },
 };
 

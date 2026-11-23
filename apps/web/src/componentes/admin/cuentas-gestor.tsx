@@ -27,6 +27,7 @@ import {
   MessageCircle,
   Scissors,
   Send,
+  Trash2,
   UserPlus,
   Wand2,
 } from 'lucide-react';
@@ -94,7 +95,7 @@ export function Dialogo({
 const claseEnlaceBoton =
   'inline-flex items-center gap-1.5 rounded-[0.875rem] border border-borde-fuerte px-3 py-1.5 text-sm font-semibold hover:border-cian';
 
-function Opcion({
+export function Opcion({
   nombre,
   valor,
   actual,
@@ -158,6 +159,8 @@ export function CortarPerfil({
   const campos = erroresPorCampo(error);
   const textos = TEXTOS_PLATAFORMA[tipo];
   const terminada = perfil.asignacion?.terminada ?? false;
+  // Miembro de un plan familiar con su correo: el cupo lo conserva y la clave nueva es la suya.
+  const miembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero) && perfil.tieneMiembro;
 
   function cerrar() {
     if (listo) router.refresh();
@@ -180,7 +183,7 @@ export function CortarPerfil({
     setCargando(false);
     if (!r.ok) return setError(r.error);
     // El aviso se pide antes de refrescar: al refrescar, este perfil queda libre y su botón se va.
-    if (claveNueva && avisar && otrosActivos > 0) {
+    if (claveNueva && !miembro && avisar && otrosActivos > 0) {
       cerrar();
       pedirAvisoCuenta(cuentaId);
       router.refresh();
@@ -212,7 +215,12 @@ export function CortarPerfil({
             <>
               <Alerta tono="exito">
                 {perfil.nombre} quedó libre
-                {modoClave === 'nueva' ? ' y la cuenta tiene la clave nueva guardada' : ''}
+                {miembro ? ' y conserva el correo del miembro' : ''}
+                {modoClave === 'nueva'
+                  ? miembro
+                    ? ', con la clave nueva del miembro guardada'
+                    : ' y la cuenta tiene la clave nueva guardada'
+                  : ''}
                 {modoPin === 'nuevo' ? ', con PIN nuevo' : ''}.
               </Alerta>
               <ol className="grid list-decimal gap-1 pl-5 text-sm text-tinta-suave">
@@ -244,7 +252,9 @@ export function CortarPerfil({
                 cuenta.
               </p>
               <fieldset className="grid gap-2">
-                <legend className="mb-1 text-sm font-medium">Contraseña de la cuenta</legend>
+                <legend className="mb-1 text-sm font-medium">
+                  {miembro ? 'Contraseña del miembro' : 'Contraseña de la cuenta'}
+                </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Opcion nombre="clave" valor="misma" actual={modoClave} onElegir={setModoClave}>
                     Misma contraseña
@@ -283,8 +293,9 @@ export function CortarPerfil({
                 )}
                 {campos.nuevaClave && <p className="text-xs text-peligro">{campos.nuevaClave}</p>}
                 <p className="text-xs text-tinta-tenue">
-                  Cambiarla evita que el cliente cortado siga entrando. Cámbiala también en la
-                  plataforma.
+                  {miembro
+                    ? 'El cupo conserva el correo del miembro (para borrarlo usa «Eliminar»). La cuenta principal no cambia.'
+                    : 'Cambiarla evita que el cliente cortado siga entrando. Cámbiala también en la plataforma. A los que siguen les avisamos solos (sin la clave).'}
                 </p>
               </fieldset>
               {textos.usaPin && (
@@ -329,14 +340,14 @@ export function CortarPerfil({
                   {campos.nuevoPin && <p className="text-xs text-peligro">{campos.nuevoPin}</p>}
                 </fieldset>
               )}
-              {modoClave === 'nueva' && otrosActivos > 0 && (
+              {modoClave === 'nueva' && !miembro && otrosActivos > 0 && (
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={avisar}
                     onChange={(e) => setAvisar(e.currentTarget.checked)}
                   />
-                  Avisar la clave nueva a{' '}
+                  Armar también el mensaje con la clave nueva para{' '}
                   {otrosActivos === 1 ? 'la persona que sigue' : `los ${otrosActivos} que siguen`}
                 </label>
               )}
@@ -347,6 +358,121 @@ export function CortarPerfil({
                 </Boton>
                 <Boton cargando={cargando} onClick={() => void confirmar()}>
                   Confirmar corte
+                </Boton>
+              </div>
+            </>
+          )}
+        </Dialogo>
+      )}
+    </>
+  );
+}
+
+/* ─────────────────────────────── Eliminar ─────────────────────────────── */
+
+/**
+ * «Eliminar» del Gestor: el lugar queda libre, en un plan familiar se borra el
+ * correo y la clave del miembro, y la suscripción se cancela. El cliente y su
+ * historial se conservan. Se confirma escribiendo ELIMINAR.
+ */
+export function EliminarPerfil({
+  perfil,
+  tipo,
+}: {
+  perfil: PerfilCuentaPublico;
+  tipo: TipoPlataforma;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [confirmacion, setConfirmacion] = useState('');
+  const [listo, setListo] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const router = useRouter();
+  const textos = TEXTOS_PLATAFORMA[tipo];
+  const miembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero) && perfil.tieneMiembro;
+  const a = perfil.asignacion;
+  if (!a) return null;
+  const confirmado = confirmacion.trim().toUpperCase() === 'ELIMINAR';
+
+  function cerrar() {
+    if (listo) router.refresh();
+    setAbierto(false);
+    setListo(false);
+    setConfirmacion('');
+    setError(null);
+  }
+
+  async function confirmar() {
+    if (!confirmado || !a) return;
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi('POST', `/suscripciones/${a.suscripcionId}/eliminar-del-lugar`, {});
+    setCargando(false);
+    if (!r.ok) return setError(r.error);
+    setListo(true);
+  }
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="fantasma"
+        icono={<Trash2 className="size-3.5" />}
+        onClick={() => setAbierto(true)}
+        aria-label={`Eliminar a ${a.cliente.nombre} de ${perfil.nombre}`}
+      >
+        Eliminar
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo={listo ? 'Cliente eliminado' : 'Eliminar cliente'}
+          icono={<Trash2 className="size-5 text-peligro" aria-hidden="true" />}
+          onCerrar={cerrar}
+          bloquear={cargando}
+        >
+          {listo ? (
+            <>
+              <Alerta tono="exito">
+                {a.cliente.nombre} salió de {perfil.nombre}
+                {miembro ? ' y se borró el correo del miembro' : ''}. Su suscripción quedó
+                cancelada; el cliente y su historial se conservan.
+              </Alerta>
+              <div className="flex justify-end">
+                <Boton variante="fantasma" onClick={cerrar}>
+                  Cerrar
+                </Boton>
+              </div>
+            </>
+          ) : (
+            <>
+              <Alerta tono="aviso">
+                {miembro
+                  ? 'A diferencia de «Cortar», se borra el correo y la clave del miembro de este cupo y su suscripción se cancela. No se puede deshacer.'
+                  : `${perfil.nombre} queda libre y la suscripción de ${a.cliente.nombre} se cancela (se anulan sus facturas abiertas). No se puede deshacer.`}
+              </Alerta>
+              <label className="grid gap-1 text-sm">
+                <span>
+                  Escribe <b>ELIMINAR</b> para confirmar
+                </span>
+                <input
+                  value={confirmacion}
+                  onChange={(e) => setConfirmacion(e.currentTarget.value)}
+                  autoComplete="off"
+                  className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
+                />
+              </label>
+              {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Boton variante="fantasma" onClick={cerrar} disabled={cargando}>
+                  Cancelar
+                </Boton>
+                <Boton
+                  variante="peligro"
+                  cargando={cargando}
+                  disabled={!confirmado}
+                  onClick={() => void confirmar()}
+                >
+                  Eliminar {textos.lugar === 'Perfil' ? 'del perfil' : 'del cupo'}
                 </Boton>
               </div>
             </>

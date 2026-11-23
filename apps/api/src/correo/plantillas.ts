@@ -277,6 +277,53 @@ export const Plantillas = {
       html: envolver('Servicio reactivado', p, { texto: 'Ver mis servicios', url }, PIE_SERVICIO),
     };
   },
+  /** Cambió el correo, la clave o el PIN: nunca lleva los datos, solo el enlace a «Mis accesos». */
+  datosAccesoActualizados(
+    nombre: string,
+    servicio: string,
+    cambios: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Actualizamos ${cambios} de tu servicio ${servicio}.`,
+      'Entra a «Mis accesos» para ver los datos nuevos. Por seguridad, nunca los enviamos por correo ni por WhatsApp.',
+    ];
+    return {
+      asunto: `Datos nuevos para entrar a ${servicio}`,
+      texto: texto(p, url),
+      html: envolver(
+        'Tus datos de acceso cambiaron',
+        p,
+        { texto: 'Ver mis accesos', url },
+        PIE_SERVICIO,
+      ),
+    };
+  },
+  /** Al revendedor: cambiaron los datos de acceso de clientes suyos. */
+  datosAccesoRevendedor(
+    nombre: string,
+    servicio: string,
+    cambios: string,
+    clientes: string,
+    url: string,
+  ): CorreoRenderizado {
+    const p = [
+      `Hola, ${nombre}.`,
+      `Actualizamos ${cambios} de ${servicio} que usan tus clientes: ${clientes}.`,
+      'Mira los datos nuevos en tu panel y avísales.',
+    ];
+    return {
+      asunto: `Datos nuevos de ${servicio} para tus clientes`,
+      texto: texto(p, url),
+      html: envolver(
+        'Datos de acceso actualizados',
+        p,
+        { texto: 'Ver mis clientes', url },
+        PIE_SERVICIO,
+      ),
+    };
+  },
   saldoBajoRevendedor(
     nombre: string,
     saldo: string,

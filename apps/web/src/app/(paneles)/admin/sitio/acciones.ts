@@ -26,3 +26,14 @@ export async function refrescarTienda(): Promise<boolean> {
   updateTag(ETIQUETA_SITIO);
   return true;
 }
+
+/**
+ * Tras marcar o quitar lugares aptos para la entrega web, la tienda muestra en la
+ * siguiente visita si el plan está disponible o agotado sin esperar a su caché.
+ */
+export async function refrescarExistencias(): Promise<boolean> {
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.pendiente || !sesion.permisos.includes('cuentas.gestionar')) return false;
+  updateTag(ETIQUETA_SITIO);
+  return true;
+}

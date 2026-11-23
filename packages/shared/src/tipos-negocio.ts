@@ -245,6 +245,71 @@ export interface VencimientosEquipo {
   semana: SuscripcionPublica[];
 }
 
+/** Perfil o cupo que ocupa una suscripción (para cortar o cambiar la clave desde Cobros). */
+export interface LugarSuscripcion {
+  cuentaId: string;
+  perfilId: string;
+  numero: number;
+  /** «Perfil 3» o el nombre del cupo. */
+  etiqueta: string;
+  tipo: 'perfiles' | 'familiar' | 'correo';
+  /** Cuenta individual (un solo lugar). */
+  individual: boolean;
+  /** Pista del correo de la cuenta (sin datos completos). */
+  pistaCuenta: string | null;
+  /** Otros clientes vigentes que siguen en la misma cuenta. */
+  otrosActivos: number;
+}
+
+export interface SuscripcionConLugar extends SuscripcionPublica {
+  lugar: LugarSuscripcion | null;
+  /** Días desde el vencimiento (0 = hoy, 1 = ayer…; negativo = aún no vence). */
+  diasVencida: number;
+}
+
+/**
+ * Cobros → Vencimientos y Cortes (como en el Gestor), por día de Caracas.
+ * Vencimientos: vencen hoy y mañana. Los de hoy pasan a Cortes a la hora de
+ * corte (21:00 de Caracas). Cortes: vencidos que todavía ocupan un perfil o cupo.
+ */
+export interface VencimientosCortes {
+  /** Hora de Caracas en que los que vencen hoy pasan a Cortes. */
+  horaCorte: number;
+  /** Ya pasó la hora de corte de hoy. */
+  pasoHoraCorte: boolean;
+  vencimientos: SuscripcionConLugar[];
+  cortes: SuscripcionConLugar[];
+}
+
+/** Un perfil o cupo libre y vigente que la web podría entregar (sin credenciales). */
+export interface LugarEntregaWeb {
+  perfilId: string;
+  cuentaId: string;
+  /** «ma•••@gmail.com». */
+  pista: string;
+  numero: number;
+  nombre: string;
+  /** Cuenta completa o de un solo lugar. */
+  individual: boolean;
+  /** Próximo cobro del proveedor (AAAA-MM-DD, Caracas). */
+  facturaEn: string;
+  conPin: boolean;
+  aptoRevisadoEn: string | null;
+}
+
+/**
+ * Entrega web de un servicio: qué se entregaría si alguien compra ahora, los
+ * siguientes en orden, y lo libre que falta revisar (no se vende hasta marcarlo).
+ */
+export interface EntregaWebServicio {
+  servicioId: string;
+  servicio: string;
+  tipo: 'perfiles' | 'familiar' | 'correo';
+  siguientes: LugarEntregaWeb[];
+  aptos: number;
+  porRevisar: LugarEntregaWeb[];
+}
+
 export interface SuscripcionPublica {
   id: string;
   cliente: Referencia;

@@ -9,9 +9,11 @@ import type {
   DestinoMover,
   EditarCuentaEntrada,
   EditarPerfilEntrada,
+  EntregaWebServicio,
   EstadoSuscripcion,
   LiberarPerfilEntrada,
   ListarCuentasEntrada,
+  MarcarAptosEntrada,
   PaginaCuentas,
   PerfilCuentaPublico,
   PerfilPorReponer,
@@ -20,9 +22,11 @@ import type {
   ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
-import { MAX_PERFILES_CUENTA, tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
+import { esTitular, MAX_PERFILES_CUENTA, tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
 import { fechaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
+import { type CambioAcceso, encolarAvisoDatos } from './aviso-datos.js';
+import { entregaWeb } from './stock-cuentas.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { Cifrador } from '../comun/cripto.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
@@ -150,6 +154,7 @@ function detalle(c: FilaDetalle): CuentaServicioDetalle {
       estado: p.estado,
       tienePin: Boolean(p.pinCifrado),
       tieneMiembro: Boolean(p.usuarioMiembroCifrado),
+      aptoWeb: p.aptoWeb,
       nota: p.nota,
       asignacion: p.suscripcion
         ? {
@@ -465,6 +470,11 @@ export class CuentasService {
           cambios.push('perfiles');
         }
         await tx.cuentaServicio.update({ where: { id }, data });
+        // Correo o clave nuevos: se avisa a quienes usan la cuenta (sin los datos).
+        await encolarAvisoDatos(tx, id, null, [
+          ...(cambios.includes('usuario') ? (['correo'] as const) : []),
+          ...(cambios.includes('clave') ? (['clave'] as const) : []),
+        ]);
         await this.auditoria.registrar(
           {
             actorId: auth.usuario.id,
@@ -580,6 +590,13 @@ export class CuentasService {
         cambios.push(e.bloqueado ? 'bloqueado' : 'desbloqueado');
       }
       await tx.perfilCuenta.update({ where: { id: p.id }, data });
+      if (p.estado === 'asignado') {
+        const avisar: CambioAcceso[] = [];
+        if (e.pin) avisar.push('pin');
+        if (e.usuarioMiembro) avisar.push('correo_miembro');
+        if (e.claveMiembro) avisar.push('clave_miembro');
+        await encolarAvisoDatos(tx, cuentaId, p.id, avisar);
+      }
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
@@ -780,8 +797,9 @@ export class CuentasService {
 
   /**
    * Cortar: libera el perfil. Con clave nueva se guarda en la cuenta (para que
-   * el cliente cortado no siga entrando) y con PIN nuevo, en el perfil. El
-   * correo y la clave propios de un miembro (plan familiar) se borran del cupo.
+   * el cliente cortado no siga entrando) y con PIN nuevo, en el perfil. Como en
+   * el Gestor, el cupo de un miembro de plan familiar conserva su correo y la
+   * clave nueva va al miembro (para borrarlo está «Eliminar»).
    */
   async liberar(
     auth: ContextoAuth,
@@ -791,48 +809,125 @@ export class CuentasService {
     cliente: InfoCliente,
   ): Promise<CuentaServicioDetalle> {
     return this.prisma.$transaction(async (tx) => {
-      const p = await this.perfil(tx, cuentaId, perfilId);
-      if (p.estado !== 'asignado') {
-        throw new ErrorApp(409, 'PERFIL_NO_ASIGNADO', 'Este perfil no está asignado.');
-      }
-      await tx.perfilCuenta.update({
-        where: { id: p.id },
-        data: {
-          estado: 'libre',
-          suscripcionId: null,
-          asignadoEn: null,
-          usuarioMiembroCifrado: null,
-          claveMiembroCifrada: null,
-          ...(e.nuevoPin
-            ? { pinCifrado: this.cifrador.cifrar(e.nuevoPin, contextoPin(p.id)) }
-            : {}),
+      const p = await tx.perfilCuenta.findFirst({
+        where: { id: perfilId, cuentaId },
+        select: {
+          numero: true,
+          cuenta: { select: { modo: true, servicio: { select: { nombre: true } } } },
         },
       });
-      if (e.nuevaClave) {
-        await tx.cuentaServicio.update({
-          where: { id: cuentaId },
-          data: { claveCifrada: this.cifrador.cifrar(e.nuevaClave, contextoClave(cuentaId)) },
-        });
-      }
+      const tipo = p ? tipoPlataforma(p.cuenta.servicio.nombre) : 'perfiles';
+      const miembro =
+        p !== null &&
+        tipo === 'familiar' &&
+        p.cuenta.modo !== 'completa' &&
+        !esTitular(tipo, p.numero);
+      await this.liberarEn(tx, auth, cuentaId, perfilId, e, cliente, miembro);
+      return this.ver(cuentaId, tx);
+    });
+  }
+
+  /** Lo mismo que `liberar`, dentro de una transacción ya abierta (lo usa Cobros → Cortes). */
+  async liberarEn(
+    tx: Tx,
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilId: string,
+    e: LiberarPerfilEntrada,
+    cliente: InfoCliente,
+    /**
+     * Cupo de un miembro de plan familiar (como el corte del Gestor): conserva su
+     * correo para volver a alquilarlo y la clave nueva va al miembro, no a la cuenta.
+     */
+    miembroFamiliar = false,
+  ): Promise<void> {
+    const p = await this.perfil(tx, cuentaId, perfilId);
+    if (p.estado !== 'asignado') {
+      throw new ErrorApp(409, 'PERFIL_NO_ASIGNADO', 'Este perfil no está asignado.');
+    }
+    // Un miembro sin correo propio entra con los datos de la cuenta: se trata como un perfil.
+    const conserva = miembroFamiliar && Boolean(p.usuarioMiembroCifrado);
+    await tx.perfilCuenta.update({
+      where: { id: p.id },
+      data: {
+        estado: 'libre',
+        suscripcionId: null,
+        asignadoEn: null,
+        ...(conserva
+          ? e.nuevaClave
+            ? {
+                claveMiembroCifrada: this.cifrador.cifrar(e.nuevaClave, contextoClaveMiembro(p.id)),
+              }
+            : {}
+          : { usuarioMiembroCifrado: null, claveMiembroCifrada: null }),
+        ...(e.nuevoPin ? { pinCifrado: this.cifrador.cifrar(e.nuevoPin, contextoPin(p.id)) } : {}),
+      },
+    });
+    if (e.nuevaClave && !conserva) {
+      await tx.cuentaServicio.update({
+        where: { id: cuentaId },
+        data: { claveCifrada: this.cifrador.cifrar(e.nuevaClave, contextoClave(cuentaId)) },
+      });
+      // Los demás clientes de la cuenta reciben el aviso de la clave nueva.
+      await encolarAvisoDatos(tx, cuentaId, null, ['clave']);
+    }
+    await this.auditoria.registrar(
+      {
+        actorId: auth.usuario.id,
+        accion: 'perfil_cuenta.liberado',
+        entidad: 'perfil_cuenta',
+        entidadId: p.id,
+        // Solo qué cambió, nunca la clave ni el PIN.
+        despues: {
+          cuentaId,
+          numero: p.numero,
+          suscripcionId: p.suscripcionId,
+          claveNueva: Boolean(e.nuevaClave),
+          pinNuevo: Boolean(e.nuevoPin),
+          ...(conserva ? { miembroConservado: true } : {}),
+        },
+        cliente,
+      },
+      tx,
+    );
+  }
+
+  /** Entrega web: qué se entregaría ahora, los siguientes y lo que falta revisar. */
+  async entregaWeb(ahora = new Date()): Promise<EntregaWebServicio[]> {
+    return entregaWeb(this.prisma, ahora);
+  }
+
+  /**
+   * Revisión manual de la entrega web: solo un lugar libre se marca como apto
+   * (se desmarca en cualquier estado). No toca `actualizado_en`, que ordena la
+   * entrega por el tiempo que el lugar lleva libre.
+   */
+  async marcarAptos(
+    auth: ContextoAuth,
+    e: MarcarAptosEntrada,
+    cliente: InfoCliente,
+  ): Promise<{ marcados: number; omitidos: number }> {
+    const ids = [...new Set(e.perfilIds)];
+    return this.prisma.$transaction(async (tx) => {
+      const marcados = e.apto
+        ? await tx.$executeRaw`UPDATE perfiles_cuenta
+            SET apto_web = true, apto_revisado_en = now(), apto_revisado_por_id = ${auth.usuario.id}::uuid
+            WHERE id = ANY(${ids}::uuid[]) AND estado = 'libre' AND NOT apto_web`
+        : await tx.$executeRaw`UPDATE perfiles_cuenta
+            SET apto_web = false, apto_revisado_en = now(), apto_revisado_por_id = ${auth.usuario.id}::uuid
+            WHERE id = ANY(${ids}::uuid[]) AND apto_web`;
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
-          accion: 'perfil_cuenta.liberado',
+          accion: e.apto ? 'perfil_cuenta.apto_web' : 'perfil_cuenta.no_apto_web',
           entidad: 'perfil_cuenta',
-          entidadId: p.id,
-          // Solo qué cambió, nunca la clave ni el PIN.
-          despues: {
-            cuentaId,
-            numero: p.numero,
-            suscripcionId: p.suscripcionId,
-            claveNueva: Boolean(e.nuevaClave),
-            pinNuevo: Boolean(e.nuevoPin),
-          },
+          entidadId: ids.length === 1 ? ids[0]! : null,
+          despues: { perfilIds: ids.slice(0, 300), cambiados: marcados },
           cliente,
         },
         tx,
       );
-      return this.ver(cuentaId, tx);
+      return { marcados, omitidos: ids.length - marcados };
     });
   }
 
@@ -946,6 +1041,8 @@ export class CuentasService {
           },
         });
       }
+      // En otro lugar cambian sus datos de acceso: se le avisa.
+      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, ['correo', 'clave', 'pin']);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
@@ -1162,6 +1259,7 @@ export class CuentasService {
             WHERE id = ${suscripcionId}::uuid AND vence_en IS NOT NULL`;
         }
       }
+      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, ['correo', 'clave', 'pin']);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,

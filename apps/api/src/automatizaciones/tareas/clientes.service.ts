@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import type { Factura, PrismaClient, Suscripcion } from '@nv/db';
-import { formatearMonto, REGLAS_COBRO } from '@nv/shared';
+import { esTitular, formatearMonto, REGLAS_COBRO, tipoPlataforma } from '@nv/shared';
 import { NotificacionesService, type ResultadoAviso } from '../../avisos/notificaciones.service.js';
 import { numeroFactura } from '../../comun/formato.js';
 import { PRISMA } from '../../comun/tokens.js';
@@ -55,6 +55,14 @@ export class TareasClientesService implements OnModuleInit {
       await this.avisoSuscripcion(
         String(carga['automatizacion']) as AvisoSuscripcion,
         String(carga['suscripcionId']),
+      );
+    });
+    this.trabajos.registrar(TRABAJO.avisoDatosAcceso, async (carga, trabajo) => {
+      await this.avisoDatosAcceso(
+        String(carga['cuentaId']),
+        typeof carga['perfilId'] === 'string' ? carga['perfilId'] : null,
+        Array.isArray(carga['cambios']) ? carga['cambios'].map(String) : [],
+        trabajo.id,
       );
     });
   }
@@ -284,6 +292,150 @@ export class TareasClientesService implements OnModuleInit {
     });
     return r;
   }
+
+  /**
+   * Aviso de datos de acceso nuevos. Si cambió la cuenta (correo o clave), va a
+   * todos los que la usan con sus datos (no a los miembros de un plan familiar
+   * que entran con su propio correo); si cambió un perfil (PIN o datos del
+   * miembro), solo a quien lo tiene. Nunca lleva la clave ni el PIN: el cliente
+   * los ve en «Mis accesos». Los clientes de un revendedor no reciben el aviso
+   * (les avisa él): se le manda uno al revendedor con sus nombres.
+   */
+  async avisoDatosAcceso(
+    cuentaId: string,
+    perfilId: string | null,
+    cambios: string[],
+    claveTrabajo: string,
+  ): Promise<Recuento> {
+    const r = new Recuento();
+    const config = await this.config.leer('aviso_datos_acceso');
+    if (!config.activa || !cambios.length) return r;
+    const cuenta = await this.prisma.cuentaServicio.findUnique({
+      where: { id: cuentaId },
+      select: {
+        modo: true,
+        servicio: { select: { nombre: true } },
+        perfiles: {
+          where: {
+            estado: 'asignado',
+            ...(perfilId ? { id: perfilId } : {}),
+            suscripcion: { estado: { in: ['activa', 'en_gracia'] } },
+          },
+          select: {
+            id: true,
+            numero: true,
+            usuarioMiembroCifrado: true,
+            suscripcion: {
+              select: {
+                id: true,
+                clienteId: true,
+                revendedorId: true,
+                cliente: { select: { nombre: true } },
+                plan: { select: { nombre: true, servicio: { select: { nombre: true } } } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!cuenta) return r;
+    const tipo = tipoPlataforma(cuenta.servicio.nombre);
+    const deCuenta = cambios.some((c) => c === 'correo' || c === 'clave');
+    const porRevendedor = new Map<string, string[]>();
+    for (const p of cuenta.perfiles) {
+      const s = p.suscripcion;
+      if (!s) continue;
+      const miembroPropio = Boolean(p.usuarioMiembroCifrado) && !esTitular(tipo, p.numero);
+      // Un miembro con su propio correo no usa el correo ni la clave de la cuenta.
+      if (deCuenta && !perfilId && miembroPropio) {
+        r.omitidos += 1;
+        continue;
+      }
+      // El PIN solo se usa en las plataformas por perfiles.
+      if (cambios.every((c) => c === 'pin') && tipo !== 'perfiles') {
+        r.omitidos += 1;
+        continue;
+      }
+      if (s.revendedorId) {
+        const nombres = porRevendedor.get(s.revendedorId) ?? [];
+        nombres.push(s.cliente.nombre);
+        porRevendedor.set(s.revendedorId, nombres);
+        continue;
+      }
+      try {
+        const servicio = nombreServicio(s);
+        const que = textoCambios(cambios, tipo);
+        const url = this.correo.urlWeb('/cuenta/accesos');
+        r.aviso(
+          await this.avisos.avisar({
+            plantilla: 'datosAccesoActualizados',
+            destinatario: { clienteId: s.clienteId },
+            claveUnica: `datos_acceso:${claveTrabajo}:${s.id}`,
+            automatizacion: 'aviso_datos_acceso',
+            canales: config.canales,
+            entidad: { tipo: 'suscripcion', id: s.id },
+            contenido: (nombre) => ({
+              correo: Plantillas.datosAccesoActualizados(nombre, servicio, que, url),
+              whatsapp: [nombre, servicio, que, url],
+            }),
+          }),
+        );
+      } catch (e) {
+        r.error(`Suscripción ${s.id}: ${mensajeError(e)}`);
+      }
+    }
+    if (porRevendedor.size) {
+      const revendedores = await this.prisma.revendedor.findMany({
+        where: { id: { in: [...porRevendedor.keys()] } },
+        select: { id: true, usuarioId: true },
+      });
+      for (const rv of revendedores) {
+        const nombres = porRevendedor.get(rv.id) ?? [];
+        try {
+          const que = textoCambios(cambios, tipo);
+          const url = this.correo.urlWeb('/revendedor/accesos');
+          const servicio = cuenta.servicio.nombre;
+          r.aviso(
+            await this.avisos.avisar({
+              plantilla: 'datosAccesoRevendedor',
+              destinatario: { usuarioId: rv.usuarioId },
+              claveUnica: `datos_acceso:${claveTrabajo}:revendedor:${rv.id}`,
+              automatizacion: 'aviso_datos_acceso',
+              canales: ['correo'],
+              entidad: { tipo: 'cuenta_servicio', id: cuentaId },
+              contenido: (nombre) => ({
+                correo: Plantillas.datosAccesoRevendedor(
+                  nombre,
+                  servicio,
+                  que,
+                  nombres.slice(0, 20).join(', ') + (nombres.length > 20 ? '…' : ''),
+                  url,
+                ),
+              }),
+            }),
+          );
+        } catch (e) {
+          r.error(`Revendedor ${rv.id}: ${mensajeError(e)}`);
+        }
+      }
+    }
+    await this.prisma.automatizacion.update({
+      where: { tipo: 'aviso_datos_acceso' },
+      data: { ultimaEjecucionEn: new Date() },
+    });
+    return r;
+  }
+}
+
+/** Lo que cambió, en palabras del cliente. */
+function textoCambios(cambios: string[], tipo: string): string {
+  const partes: string[] = [];
+  if (cambios.includes('correo') || cambios.includes('correo_miembro')) partes.push('el correo');
+  if (cambios.includes('clave') || cambios.includes('clave_miembro')) partes.push('la clave');
+  if (cambios.includes('pin') && tipo === 'perfiles') partes.push('el PIN de tu perfil');
+  if (!partes.length) return 'los datos de acceso';
+  if (partes.length === 1) return partes[0]!;
+  return `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)!}`;
 }
 
 export function resumenAvisos(r: Recuento, uno: string, varios: string): string {

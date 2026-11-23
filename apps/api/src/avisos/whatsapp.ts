@@ -57,6 +57,10 @@ export const PLANTILLAS_WHATSAPP: Record<
     nombre: 'nv_aviso_reactivacion',
     parametros: ['nombre', 'servicio', 'fecha de vencimiento'],
   },
+  datosAccesoActualizados: {
+    nombre: 'nv_datos_acceso',
+    parametros: ['nombre', 'servicio', 'qué cambió', 'enlace'],
+  },
   // Plantilla de ejemplo que Meta crea en toda cuenta nueva (en inglés, sin parámetros).
   avisoPrueba: { nombre: 'hello_world', parametros: [], idioma: 'en_US' },
 };

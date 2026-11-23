@@ -64,7 +64,9 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
   const corte = page.getByRole('dialog', { name: 'Cortar y liberar' });
   await corte.getByText('Nueva contraseña').click();
   await expect(corte.getByLabel('Contraseña nueva')).not.toHaveValue('');
-  await expect(corte.getByText('Avisar la clave nueva a la persona que sigue')).toBeVisible();
+  await expect(
+    corte.getByText(/mensaje con la clave nueva para la persona que sigue/),
+  ).toBeVisible();
   await corte.getByRole('button', { name: 'Confirmar corte' }).click();
   const aviso = page.getByRole('dialog', { name: 'Avisar datos nuevos' });
   await expect(aviso.getByText('Cambiaste la contraseña de esta cuenta')).toBeVisible();

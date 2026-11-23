@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { TrabajosService } from '../../src/automatizaciones/trabajos.service.js';
 import { conectar, type Contexto, crearContexto, limpiar, prepararCatalogo } from './ayudas.js';
 
 let ctx: Contexto;
@@ -29,6 +30,11 @@ async function escenario() {
     metodoPago: 'Tarjeta ···· 1234',
   });
   expect(cuenta.estado).toBe(201);
+  // Revisados y aptos para la web (si no, el plan queda agotado).
+  await operador.n.post('/cuentas/entrega-web/aptos', {
+    perfilIds: (cuenta.cuerpo.listaPerfiles as { id: string }[]).map((p) => p.id),
+    apto: true,
+  });
   return { admin, operador, cliente: cliente.n, cuenta: cuenta.cuerpo, ...catalogo };
 }
 
@@ -199,7 +205,7 @@ describe('cuentas de servicio', () => {
     );
 
     const acciones = await ctx.prisma.auditoria.findMany({
-      where: { entidad: 'perfil_cuenta' },
+      where: { entidad: 'perfil_cuenta', accion: { not: 'perfil_cuenta.apto_web' } },
       select: { accion: true },
       orderBy: { fecha: 'asc' },
     });
@@ -585,6 +591,10 @@ describe('cuentas de servicio', () => {
       perfiles: 6,
       facturaEn: '2099-11-05',
     });
+    await e.operador.n.post('/cuentas/entrega-web/aptos', {
+      perfilIds: (cuenta.cuerpo.listaPerfiles as { id: string }[]).map((p) => p.id),
+      apto: true,
+    });
     const alta = await e.cliente.post('/mi/suscripciones', {
       planId: plan.cuerpo.id,
       moneda: 'USD',
@@ -620,9 +630,9 @@ describe('cuentas de servicio', () => {
     const fila = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: cupo.id } });
     expect(fila.usuarioMiembroCifrado).not.toContain('miembro');
 
-    // Al cortar, el cupo queda sin el correo del miembro.
+    // Al cortar, el cupo queda libre y conserva el correo del miembro (como en el Gestor).
     const corte = await e.operador.n.post(`${rutaCupo}/liberar`);
-    expect(corte.cuerpo.listaPerfiles[2]).toMatchObject({ estado: 'libre', tieneMiembro: false });
+    expect(corte.cuerpo.listaPerfiles[2]).toMatchObject({ estado: 'libre', tieneMiembro: true });
   });
 
   it('da de alta desde un perfil libre: cliente nuevo, suscripción activa, venta en Caja y perfil asignado', async () => {
@@ -768,5 +778,237 @@ describe('cuentas de servicio', () => {
       'Lucía Gestor',
     ]);
     expect(filtrado.cuerpo.elementos[0].responsable).toBe('Pedro Reventa');
+  });
+});
+
+describe('Cobros: vencimientos y cortes', () => {
+  const DIA = 24 * 3600_000;
+
+  it('separa vencimientos de cortes, corta con clave y PIN nuevos y deja el historial', async () => {
+    const e = await escenario();
+    // Tres clientes: uno vence mañana, uno venció hace 3 días y otro con dos perfiles vencidos.
+    const subs: string[] = [];
+    const clientes: Awaited<ReturnType<typeof conectar>>[] = [];
+    for (let i = 0; i < 3; i++) {
+      const c = await conectar(ctx, 'cliente');
+      clientes.push(c);
+      const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+      subs.push(alta.cuerpo.suscripcion.id as string);
+    }
+    // El tercer cliente tiene una segunda suscripción (otro perfil en la misma cuenta).
+    const extra = await clientes[2]!.n.post('/mi/suscripciones', {
+      planId: e.planId,
+      moneda: 'USD',
+    });
+    subs.push(extra.cuerpo.suscripcion.id as string);
+    const ahora = Date.now();
+    const vence = [ahora + 1.2 * DIA, ahora - 3 * DIA, ahora - 3 * DIA, ahora - 3 * DIA];
+    for (const [i, id] of subs.entries()) {
+      await ctx.prisma.suscripcion.update({
+        where: { id },
+        data: { estado: i === 0 ? 'activa' : 'en_gracia', venceEn: new Date(vence[i]!) },
+      });
+    }
+    const cuenta = await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { perfiles: 4 });
+    const perfiles = cuenta.cuerpo.listaPerfiles as { id: string }[];
+    for (const [i, id] of subs.entries()) {
+      const r = await e.operador.n.post(
+        `/cuentas/${e.cuenta.id}/perfiles/${perfiles[i]!.id}/asignar`,
+        { suscripcionId: id },
+      );
+      expect(r.estado).toBe(201);
+    }
+
+    const lista = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    expect(lista.estado).toBe(200);
+    expect(lista.cuerpo.horaCorte).toBe(21);
+    const ids = (l: { id: string }[]) => l.map((s) => s.id).sort();
+    expect(ids(lista.cuerpo.cortes)).toEqual(subs.slice(1).sort());
+    expect(lista.cuerpo.cortes[0].lugar).toMatchObject({
+      cuentaId: e.cuenta.id,
+      tipo: 'perfiles',
+      otrosActivos: 1,
+    });
+    expect(lista.cuerpo.cortes[0].diasVencida).toBeGreaterThanOrEqual(3);
+    // El de mañana (o pasado, según la hora) no está en cortes.
+    expect(ids(lista.cuerpo.cortes)).not.toContain(subs[0]);
+
+    // No se corta a quien todavía no vence.
+    const pronto = await e.operador.n.post(`/suscripciones/${subs[0]}/cortar`, {});
+    expect(pronto.cuerpo.error.codigo).toBe('AUN_VIGENTE');
+    // Ventas no tiene permiso para cortar.
+    expect(
+      (await (await conectar(ctx, 'ventas')).n.post(`/suscripciones/${subs[1]}/cortar`)).estado,
+    ).toBe(403);
+
+    // Cortar con clave y PIN nuevos: el perfil queda libre y todos ven la clave nueva.
+    const corte = await e.operador.n.post(`/suscripciones/${subs[1]}/cortar`, {
+      nuevaClave: 'Corte-2468',
+      nuevoPin: '1357',
+    });
+    expect(corte.estado).toBe(200);
+    expect(corte.cuerpo).toEqual({ cortadas: 1 });
+    const cred = await e.operador.n.post(`/cuentas/${e.cuenta.id}/revelar`);
+    expect(cred.cuerpo.clave).toBe('Corte-2468');
+    expect(cred.cuerpo.perfiles[1].pin).toBe('1357');
+    const s1 = await ctx.prisma.suscripcion.findUniqueOrThrow({
+      where: { id: subs[1] },
+      include: { perfilCuenta: true, eventos: true },
+    });
+    expect(s1.estado).toBe('suspendida');
+    expect(s1.perfilCuenta).toBeNull();
+    expect(s1.eventos.find((ev) => ev.motivo?.includes('Cortado'))).toBeTruthy();
+    const aud = await ctx.prisma.auditoria.findMany({ where: { accion: 'suscripcion.cortada' } });
+    expect(aud).toHaveLength(1);
+    expect(JSON.stringify(aud)).not.toContain('Corte-2468');
+
+    // A quien sigue en la cuenta se le avisa solo de la clave nueva (sin la clave).
+    await ctx.app.get(TrabajosService).procesarTodo();
+    const avisos = await ctx.prisma.correoSaliente.findMany({
+      where: { para: clientes[0]!.usuario.correo, plantilla: 'datosAccesoActualizados' },
+    });
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]!.texto).toContain('la clave');
+    expect(avisos[0]!.texto).toContain('/cuenta/accesos');
+    expect(JSON.stringify(avisos)).not.toContain('Corte-2468');
+    const notif = await ctx.prisma.notificacion.findMany({
+      where: { plantilla: 'datosAccesoActualizados' },
+    });
+    expect(JSON.stringify(notif)).not.toContain('Corte-2468');
+
+    // Cortar uno = cortar todos los vencidos del mismo cliente en esa cuenta.
+    const dos = await e.operador.n.post(`/suscripciones/${subs[2]}/cortar`, {});
+    expect(dos.cuerpo).toEqual({ cortadas: 2 });
+    const despues = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    expect(despues.cuerpo.cortes).toEqual([]);
+    expect((await e.operador.n.post(`/suscripciones/${subs[3]}/cortar`)).cuerpo.error.codigo).toBe(
+      'SIN_LUGAR',
+    );
+  });
+});
+
+describe('avisos de datos nuevos y planes familiares', () => {
+  it('cambiar el correo, la clave o el PIN avisa a quienes lo usan, sin los datos', async () => {
+    const e = await escenario();
+    const ana = await conectar(ctx, 'cliente');
+    const beto = await conectar(ctx, 'cliente');
+    const subs: string[] = [];
+    for (const c of [ana, beto]) {
+      const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+      subs.push(alta.cuerpo.suscripcion.id as string);
+    }
+    await ctx.prisma.suscripcion.updateMany({
+      where: { id: { in: subs } },
+      data: { estado: 'activa', venceEn: new Date(Date.now() + 10 * 86_400_000) },
+    });
+    const perfiles = e.cuenta.listaPerfiles as { id: string }[];
+    for (const [i, id] of subs.entries()) {
+      await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${perfiles[i]!.id}/asignar`, {
+        suscripcionId: id,
+      });
+    }
+    const trabajos = ctx.app.get(TrabajosService);
+    const avisosDe = (correo: string) =>
+      ctx.prisma.correoSaliente.findMany({
+        where: { para: correo, plantilla: 'datosAccesoActualizados' },
+        orderBy: { creadoEn: 'asc' },
+      });
+
+    // Correo y clave de la cuenta: les llega a los dos.
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, {
+      usuario: 'nuevo.correo@example.com',
+      clave: 'Nueva-Clave-777',
+    });
+    await trabajos.procesarTodo();
+    const [aAna] = await avisosDe(ana.usuario.correo);
+    expect(aAna?.texto).toContain('el correo y la clave');
+    expect((await avisosDe(beto.usuario.correo)).length).toBe(1);
+    const todo = JSON.stringify(await ctx.prisma.correoSaliente.findMany());
+    expect(todo).not.toContain('Nueva-Clave-777');
+    expect(todo).not.toContain('nuevo.correo@example.com');
+
+    // PIN de un perfil: solo a su dueña.
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${perfiles[0]!.id}`, {
+      pin: '2468',
+    });
+    await trabajos.procesarTodo();
+    const ana2 = await avisosDe(ana.usuario.correo);
+    expect(ana2).toHaveLength(2);
+    expect(ana2[1]!.texto).toContain('el PIN de tu perfil');
+    expect(ana2[1]!.texto).not.toContain('2468');
+    expect(await avisosDe(beto.usuario.correo)).toHaveLength(1);
+
+    // Apagada la automatización, no sale nada.
+    await ctx.prisma.automatizacion.update({
+      where: { tipo: 'aviso_datos_acceso' },
+      data: { activa: false },
+    });
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { clave: 'Otra-Clave-888' });
+    await trabajos.procesarTodo();
+    expect(await avisosDe(beto.usuario.correo)).toHaveLength(1);
+  });
+
+  it('Spotify: cortar conserva el correo del miembro; eliminar lo borra y cancela', async () => {
+    const e = await escenario();
+    await ctx.prisma.servicio.update({ where: { id: e.servicioId }, data: { nombre: 'Spotify' } });
+    const perfiles = e.cuenta.listaPerfiles as { id: string; numero: number }[];
+    const miembroId = perfiles.find((p) => p.numero === 2)!.id;
+    const otroId = perfiles.find((p) => p.numero === 3)!.id;
+    const subs: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const c = await conectar(ctx, 'cliente');
+      const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+      subs.push(alta.cuerpo.suscripcion.id as string);
+    }
+    await ctx.prisma.suscripcion.updateMany({
+      where: { id: { in: subs } },
+      data: { estado: 'en_gracia', venceEn: new Date(Date.now() - 2 * 86_400_000) },
+    });
+    for (const [i, pid] of [miembroId, otroId].entries()) {
+      await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${pid}`, {
+        usuarioMiembro: `miembro${i}@example.com`,
+        claveMiembro: 'Miembro-123',
+      });
+      await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${pid}/asignar`, {
+        suscripcionId: subs[i],
+      });
+    }
+
+    // Cortar desde Plataformas: queda libre, con su correo y la clave nueva del miembro.
+    const corte = await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${miembroId}/liberar`, {
+      nuevaClave: 'Miembro-Nueva-9',
+    });
+    expect(corte.estado).toBe(201);
+    const cortado = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: miembroId } });
+    expect(cortado.estado).toBe('libre');
+    expect(cortado.usuarioMiembroCifrado).not.toBeNull();
+    const cred = await e.operador.n.post(`/cuentas/${e.cuenta.id}/revelar`);
+    expect(cred.cuerpo.clave).toBe(CLAVE);
+
+    // Eliminar: libera, borra el correo y la clave del miembro y cancela la suscripción.
+    const ventas = await conectar(ctx, 'ventas');
+    expect((await ventas.n.post(`/suscripciones/${subs[1]}/eliminar-del-lugar`, {})).estado).toBe(
+      403,
+    );
+    const eliminar = await e.operador.n.post(`/suscripciones/${subs[1]}/eliminar-del-lugar`, {});
+    expect(eliminar.estado).toBe(200);
+    expect(eliminar.cuerpo).toEqual({ eliminada: true, miembroBorrado: true });
+    const vacio = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: otroId } });
+    expect(vacio.estado).toBe('libre');
+    expect(vacio.usuarioMiembroCifrado).toBeNull();
+    expect(vacio.claveMiembroCifrada).toBeNull();
+    const s = await ctx.prisma.suscripcion.findUniqueOrThrow({
+      where: { id: subs[1] },
+      include: { eventos: true, cliente: true },
+    });
+    expect(s.estado).toBe('cancelada');
+    expect(s.eventos.some((ev) => ev.motivo === 'Eliminado de su lugar')).toBe(true);
+    // El cliente y su historial se conservan.
+    expect(s.cliente.estado).not.toBe('archivado');
+    const aud = await ctx.prisma.auditoria.findMany({
+      where: { accion: 'suscripcion.eliminada_del_lugar' },
+    });
+    expect(aud).toHaveLength(1);
+    expect(JSON.stringify(aud)).not.toContain('miembro1@example.com');
   });
 });
