@@ -241,6 +241,11 @@ export const liberarPerfilSchema = z.preprocess(
 );
 export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
 
+/** Marcar que se le cobró a mano desde Vencimientos o Cortes. */
+export const marcarCobradoSchema = z.object({
+  canal: z.enum(['whatsapp', 'telegram']),
+});
+
 /** Cortar desde Cobros → Cortes: libera el lugar de la suscripción y la deja suspendida. */
 export const cortarSuscripcionSchema = z.preprocess(
   (v) => v ?? {},

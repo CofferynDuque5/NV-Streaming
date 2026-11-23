@@ -839,6 +839,29 @@ describe('Cobros: vencimientos y cortes', () => {
     // El de mañana (o pasado, según la hora) no está en cortes.
     expect(ids(lista.cuerpo.cortes)).not.toContain(subs[0]);
 
+    // «Cobrar» lo deja marcado con la fecha y quién; se puede volver a cobrar.
+    expect(lista.cuerpo.cortes.every((s: { cobro: unknown }) => s.cobro === null)).toBe(true);
+    const cobrado = await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, {
+      canal: 'whatsapp',
+    });
+    expect(cobrado.estado).toBe(200);
+    expect(
+      (await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, { canal: 'sms' })).estado,
+    ).toBe(400);
+    const otraVez = await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, {
+      canal: 'telegram',
+    });
+    expect(otraVez.estado).toBe(200);
+    const conCobro = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    const marcada = conCobro.cuerpo.cortes.find((s: { id: string }) => s.id === subs[1]);
+    expect(marcada.cobro).toMatchObject({ en: otraVez.cuerpo.cobradoEn });
+    expect(typeof marcada.cobro.por).toBe('string');
+    expect(
+      await ctx.prisma.auditoria.count({
+        where: { accion: 'suscripcion.cobrada', entidadId: subs[1] },
+      }),
+    ).toBe(2);
+
     // No se corta a quien todavía no vence.
     const pronto = await e.operador.n.post(`/suscripciones/${subs[0]}/cortar`, {});
     expect(pronto.cuerpo.error.codigo).toBe('AUN_VIGENTE');

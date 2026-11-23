@@ -13,6 +13,7 @@ import { ApiTags } from '@nestjs/swagger';
 import {
   cancelarSuscripcionSchema,
   cortarSuscripcionSchema,
+  marcarCobradoSchema,
   crearSuscripcionSchema,
   listarSuscripcionesSchema,
   cambiarVencimientoSchema,
@@ -83,6 +84,20 @@ export class SuscripcionesController {
   @RequierePermiso('suscripciones.ver')
   vencimientosCortes(@Auth() auth: ContextoAuth) {
     return this.suscripciones.vencimientosCortes(auth);
+  }
+
+  /** Marca que se le cobró a mano por WhatsApp o Telegram (se puede volver a cobrar). */
+  @Post(':id/cobrado')
+  @RequierePermiso('suscripciones.ver')
+  @HttpCode(200)
+  @DocCuerpo(marcarCobradoSchema)
+  marcarCobrado(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(marcarCobradoSchema)) cuerpo: z.output<typeof marcarCobradoSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.marcarCobrado(auth, id, cuerpo.canal, cliente);
   }
 
   /** Cortar a quien no renovó: libera su perfil o cupo (clave y PIN nuevos opcionales). */
