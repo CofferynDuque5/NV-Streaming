@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
@@ -483,6 +483,31 @@ function esMiembro(s: SuscripcionConLugar) {
   return !!l && l.tipo === 'familiar' && !l.individual && l.numero !== 1;
 }
 
+/** Botón «Copiar» con texto, como en el Gestor. */
+function BotonCopiar({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <Boton
+      tamano="sm"
+      variante="secundario"
+      icono={copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      disabled={!valor}
+      aria-label={`Copiar ${etiqueta.toLowerCase()}`}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(valor);
+          setCopiado(true);
+          setTimeout(() => setCopiado(false), 1500);
+        } catch {
+          setCopiado(false);
+        }
+      }}
+    >
+      {copiado ? 'Copiado' : 'Copiar'}
+    </Boton>
+  );
+}
+
 function CampoGenerado({
   etiqueta,
   valor,
@@ -521,6 +546,7 @@ function CampoGenerado({
         >
           Generar
         </Boton>
+        <BotonCopiar etiqueta={etiqueta} valor={valor} />
       </div>
       {error && <p className="text-xs text-peligro">{error}</p>}
     </>
@@ -745,16 +771,6 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
 /** Un dato secreto con ver/ocultar y copiar; nunca se guarda fuera de esta pantalla. */
 export function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const [ver, setVer] = useState(false);
-  const [copiado, setCopiado] = useState(false);
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(valor);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 1500);
-    } catch {
-      setCopiado(false);
-    }
-  }
   return (
     <span className="flex min-w-0 items-center gap-1">
       <span className="min-w-0 truncate font-mono" aria-label={etiqueta}>
@@ -768,41 +784,18 @@ export function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }
       >
         {ver ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
       </button>
-      <button
-        type="button"
-        onClick={() => void copiar()}
-        aria-label={`Copiar ${etiqueta.toLowerCase()}`}
-        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
-      >
-        {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      </button>
+      <BotonCopiar etiqueta={etiqueta} valor={valor} />
     </span>
   );
 }
 
 export function Copiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
-  const [copiado, setCopiado] = useState(false);
   return (
     <span className="flex min-w-0 items-center gap-1">
       <span className="min-w-0 truncate font-mono font-medium" title={valor}>
         {valor}
       </span>
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(valor);
-            setCopiado(true);
-            setTimeout(() => setCopiado(false), 1500);
-          } catch {
-            setCopiado(false);
-          }
-        }}
-        aria-label={`Copiar ${etiqueta.toLowerCase()}`}
-        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
-      >
-        {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      </button>
+      <BotonCopiar etiqueta={etiqueta} valor={valor} />
     </span>
   );
 }
@@ -830,6 +823,15 @@ function UbicacionCliente({ s, puedeRevelar }: { s: SuscripcionConLugar; puedeRe
     if (!r.ok) return setError(r.error.mensaje);
     setDatos(r.datos);
   }
+
+  // Como en el Gestor: al abrir el corte ya salen el correo y la clave para copiarlos.
+  const pedido = useRef(false);
+  useEffect(() => {
+    if (!puedeRevelar || pedido.current) return;
+    pedido.current = true;
+    void ver();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puedeRevelar]);
 
   return (
     <div className="grid gap-3 rounded-xl border border-borde bg-hundida p-3 text-sm">
