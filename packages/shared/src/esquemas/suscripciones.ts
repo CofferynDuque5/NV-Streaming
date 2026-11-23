@@ -79,3 +79,43 @@ export const cambiarVencimientoSchema = z.object({
   motivo: z.string().trim().min(3, 'Indica el motivo.').max(500, 'El motivo es demasiado largo.'),
 });
 export type CambiarVencimientoEntrada = z.infer<typeof cambiarVencimientoSchema>;
+
+/** Meses que ofrece «Renovar» en Vencimientos y Cortes (además de «Otro» y una fecha exacta). */
+export const MESES_RENOVACION_RAPIDA = [1, 3, 6, 12] as const;
+
+/**
+ * «Renovar» desde Vencimientos o Cortes, como en el Gestor: por meses o hasta una
+ * fecha exacta (día de Venezuela). La factura queda pagada con el método elegido.
+ */
+export const renovarPagadaSchema = z
+  .object({
+    meses: z.coerce
+      .number()
+      .int('Escribe un número entero de meses.')
+      .min(1, 'Mínimo 1 mes.')
+      .max(36, 'Máximo 36 meses.')
+      .optional(),
+    venceEn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa el formato AAAA-MM-DD.')
+      .refine((d) => {
+        const f = new Date(`${d}T00:00:00Z`);
+        return !Number.isNaN(f.getTime()) && f.toISOString().startsWith(d);
+      }, 'La fecha no existe.')
+      .optional(),
+    metodoCobroId: uuidSchema,
+    referenciaExterna: z.preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+      z
+        .string()
+        .trim()
+        .max(80, 'La referencia es demasiado larga.')
+        .regex(/^[\w\s#./-]+$/, 'La referencia tiene caracteres no válidos.')
+        .optional(),
+    ),
+  })
+  .refine((e) => (e.meses === undefined) !== (e.venceEn === undefined), {
+    message: 'Elige los meses o escribe la fecha nueva.',
+    path: ['meses'],
+  });
+export type RenovarPagadaEntrada = z.infer<typeof renovarPagadaSchema>;

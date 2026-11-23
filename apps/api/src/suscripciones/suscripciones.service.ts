@@ -1331,7 +1331,7 @@ export class SuscripcionesService {
     });
   }
 
-  private async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Suscripcion> {
+  async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Suscripcion> {
     const visible = await tx.suscripcion.findFirst({
       where: { id, cliente: alcanceClientes(auth) },
       select: { id: true },
@@ -1359,7 +1359,7 @@ export class SuscripcionesService {
     return plan;
   }
 
-  private async evento(
+  async evento(
     tx: Tx,
     suscripcionId: string,
     tipo: TipoEventoSuscripcion,

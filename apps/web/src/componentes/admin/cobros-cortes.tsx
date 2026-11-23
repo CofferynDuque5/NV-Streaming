@@ -4,6 +4,8 @@ import {
   type CredencialesCuenta,
   generarClave,
   generarPin,
+  MESES_RENOVACION_RAPIDA,
+  type MetodoCobroPublico,
   type SuscripcionConLugar,
   TEXTOS_PLATAFORMA,
 } from '@nv/shared';
@@ -25,7 +27,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
@@ -94,6 +96,7 @@ export function ListaVencimientosCortes({
   pasoHoraCorte,
   puedeCortar,
   puedeRevelar = false,
+  puedeRenovar = false,
 }: {
   seccion: Seccion;
   lista: SuscripcionConLugar[];
@@ -102,7 +105,18 @@ export function ListaVencimientosCortes({
   puedeCortar: boolean;
   /** Con `cuentas.revelar`: «Ver datos» de la cuenta y el perfil al cortar. */
   puedeRevelar?: boolean;
+  /** Con `pagos.gestionar`: «Renovar» con la factura pagada en el mismo paso. */
+  puedeRenovar?: boolean;
 }) {
+  const [metodos, setMetodos] = useState<MetodoCobroPublico[] | null>(null);
+  // Los métodos de cobro se piden una vez, al abrir el primer «Renovar».
+  const pedirMetodos = useCallback(async () => {
+    if (metodos) return metodos;
+    const r = await llamarApi<MetodoCobroPublico[]>('GET', '/pagos/metodos');
+    const lista = r.ok ? r.datos : [];
+    setMetodos(lista);
+    return lista;
+  }, [metodos]);
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [busqueda, setBusqueda] = useState('');
   const hora = `${horaCorte > 12 ? horaCorte - 12 : horaCorte}:00 ${horaCorte >= 12 ? 'PM' : 'AM'}`;
@@ -203,6 +217,7 @@ export function ListaVencimientosCortes({
                     seccion={seccion}
                     puedeCortar={puedeCortar}
                     puedeRevelar={puedeRevelar}
+                    metodos={puedeRenovar ? pedirMetodos : null}
                     hermanos={
                       s.lugar
                         ? lista.filter(
@@ -229,12 +244,15 @@ function Fila({
   seccion,
   puedeCortar,
   puedeRevelar,
+  metodos,
   hermanos,
 }: {
   s: SuscripcionConLugar;
   seccion: Seccion;
   puedeCortar: boolean;
   puedeRevelar: boolean;
+  /** Pide los métodos de cobro para «Renovar»; null = sin permiso de registrar pagos. */
+  metodos: (() => Promise<MetodoCobroPublico[]>) | null;
   hermanos: number;
 }) {
   const w = cuando(seccion, s.diasVencida);
@@ -287,6 +305,7 @@ function Fila({
           <RefreshCw className="size-3.5" aria-hidden="true" />
           {s.facturaAbierta ? `Factura ${s.facturaAbierta.numero}` : 'Renovar'}
         </Link>
+        {metodos && s.plan.renovable && <Renovar s={s} metodos={metodos} />}
         <Cobrar s={s} />
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
         {puedeCortar && s.lugar && seccion === 'cortes' && (
@@ -295,6 +314,277 @@ function Fila({
         {puedeCortar && s.lugar && seccion === 'cortes' && puedeEliminar(s) && <Eliminar s={s} />}
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────── Renovar ───────────────────────── */
+
+type Plazo = { tipo: 'meses'; meses: number } | { tipo: 'otro' } | { tipo: 'fecha' };
+
+function sumarMeses(base: Date, meses: number): Date {
+  const d = new Date(base);
+  const dia = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + meses);
+  const ultimo = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(dia, ultimo));
+  return d;
+}
+
+/**
+ * «Renovar» como en el Gestor: 1, 3, 6 o 12 meses, otro número de meses o
+ * hasta una fecha. La factura queda pagada con el método elegido (Caja y
+ * Balance) y la suscripción con su fecha nueva, en un solo paso.
+ */
+function Renovar({
+  s,
+  metodos,
+}: {
+  s: SuscripcionConLugar;
+  metodos: () => Promise<MetodoCobroPublico[]>;
+}) {
+  const router = useRouter();
+  const [abierto, setAbierto] = useState(false);
+  const [plazo, setPlazo] = useState<Plazo>({ tipo: 'meses', meses: 1 });
+  const [otro, setOtro] = useState('2');
+  const [fecha, setFecha] = useState('');
+  const [lista, setLista] = useState<MetodoCobroPublico[] | null>(null);
+  const [metodoId, setMetodoId] = useState('');
+  const [referencia, setReferencia] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [listo, setListo] = useState<{
+    numero: string;
+    total: string;
+    moneda: string;
+    venceEn: string;
+  } | null>(null);
+  /** Momento en que se abrió el diálogo (para calcular la fecha nueva sin leer el reloj al pintar). */
+  const [ahoraMs, setAhoraMs] = useState(0);
+  const deMoneda = (lista ?? []).filter((m) => m.moneda === s.moneda);
+  const metodo = deMoneda.find((m) => m.id === metodoId) ?? null;
+  const campos = error ? erroresPorCampo(error) : {};
+
+  async function abrir() {
+    setAhoraMs(Date.now());
+    setAbierto(true);
+    setPlazo({ tipo: 'meses', meses: 1 });
+    setFecha('');
+    setReferencia('');
+    setError(null);
+    setListo(null);
+    const m = await metodos();
+    setLista(m);
+    const propios = m.filter((x) => x.moneda === s.moneda);
+    setMetodoId(propios.length === 1 ? propios[0]!.id : '');
+  }
+
+  function cerrar() {
+    setAbierto(false);
+    if (listo) router.refresh();
+  }
+
+  const meses = plazo.tipo === 'meses' ? plazo.meses : plazo.tipo === 'otro' ? Number(otro) : null;
+  const base =
+    s.venceEn && new Date(s.venceEn).getTime() > ahoraMs ? new Date(s.venceEn) : new Date(ahoraMs);
+  const nueva =
+    meses && Number.isInteger(meses) && meses > 0
+      ? sumarMeses(base, meses).toISOString()
+      : plazo.tipo === 'fecha' && fecha
+        ? new Date(`${fecha}T16:00:00Z`).toISOString()
+        : null;
+
+  async function confirmar() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<{
+      factura: { numero: string; total: string; moneda: string };
+      venceEn: string;
+    }>('POST', `/suscripciones/${s.id}/renovar-pagada`, {
+      ...(plazo.tipo === 'fecha' ? { venceEn: fecha } : { meses }),
+      metodoCobroId: metodoId,
+      ...(referencia.trim() ? { referenciaExterna: referencia.trim() } : {}),
+    });
+    setCargando(false);
+    if (!r.ok) return setError(r.error);
+    setListo({ ...r.datos.factura, venceEn: r.datos.venceEn });
+  }
+
+  const chip = (activo: boolean) =>
+    clsx(
+      'rounded-xl border px-3 py-1.5 text-sm',
+      activo ? 'border-marca bg-marca/15 font-semibold' : 'border-borde hover:border-cian',
+    );
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="secundario"
+        icono={<CalendarCheck className="size-3.5" />}
+        onClick={() => void abrir()}
+        aria-label={`Renovar a ${s.cliente.nombre}`}
+      >
+        Renovar
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo={`Renovar a ${s.cliente.nombre}`}
+          icono={<CalendarCheck className="size-5 text-marca" aria-hidden="true" />}
+          onCerrar={cerrar}
+        >
+          {listo ? (
+            <>
+              <Alerta tono="exito">
+                Renovada hasta el {formatearFecha(listo.venceEn)}. Factura {listo.numero} pagada (
+                {listo.total} {listo.moneda}).
+              </Alerta>
+              <div className="flex justify-end">
+                <Boton onClick={cerrar}>Listo</Boton>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-tinta-suave">
+                {s.plan.servicio} · {s.plan.nombre}
+                {s.venceEn ? ` · vence ${formatearFecha(s.venceEn)}` : ''}
+              </p>
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">¿Cuánto tiempo?</legend>
+                <div className="flex flex-wrap gap-2">
+                  {MESES_RENOVACION_RAPIDA.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      aria-pressed={plazo.tipo === 'meses' && plazo.meses === m}
+                      onClick={() => setPlazo({ tipo: 'meses', meses: m })}
+                      className={chip(plazo.tipo === 'meses' && plazo.meses === m)}
+                    >
+                      {m} {m === 1 ? 'mes' : 'meses'}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    aria-pressed={plazo.tipo === 'otro'}
+                    onClick={() => setPlazo({ tipo: 'otro' })}
+                    className={chip(plazo.tipo === 'otro')}
+                  >
+                    Otro
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={plazo.tipo === 'fecha'}
+                    onClick={() => setPlazo({ tipo: 'fecha' })}
+                    className={chip(plazo.tipo === 'fecha')}
+                  >
+                    Hasta una fecha
+                  </button>
+                </div>
+                {plazo.tipo === 'otro' && (
+                  <label className="grid gap-1 text-sm">
+                    Meses
+                    <input
+                      type="number"
+                      min={1}
+                      max={36}
+                      value={otro}
+                      onChange={(e) => setOtro(e.currentTarget.value)}
+                      className="h-10 w-28 rounded-xl border border-borde bg-hundida px-3 text-sm"
+                    />
+                  </label>
+                )}
+                {plazo.tipo === 'fecha' && (
+                  <label className="grid gap-1 text-sm">
+                    Fecha nueva de vencimiento
+                    <input
+                      type="date"
+                      value={fecha}
+                      onChange={(e) => setFecha(e.currentTarget.value)}
+                      className="h-10 w-48 rounded-xl border border-borde bg-hundida px-3 text-sm"
+                    />
+                  </label>
+                )}
+                {(campos['meses'] ?? campos['venceEn']) && (
+                  <p className="text-xs text-peligro">{campos['meses'] ?? campos['venceEn']}</p>
+                )}
+                {nueva && (
+                  <p className="text-sm">
+                    Nueva fecha: <b>{formatearFecha(nueva)}</b>
+                    {plazo.tipo !== 'fecha' &&
+                      (base.getTime() > ahoraMs + 60_000
+                        ? ' (cuenta desde su vencimiento: no pierde días).'
+                        : ' (cuenta desde hoy).')}
+                  </p>
+                )}
+              </fieldset>
+              <fieldset className="grid gap-2">
+                <legend className="mb-1 text-sm font-medium">Pagó con</legend>
+                {lista === null ? (
+                  <p className="text-xs text-tinta-tenue">Cargando métodos de cobro…</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {deMoneda.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        aria-pressed={metodoId === m.id}
+                        onClick={() => setMetodoId(m.id)}
+                        className={chip(metodoId === m.id)}
+                      >
+                        {m.nombre}
+                      </button>
+                    ))}
+                    {deMoneda.length === 0 && (
+                      <span className="text-xs text-peligro">
+                        No hay métodos de cobro en {s.moneda}: agrégalo en Monedas y cobro.
+                      </span>
+                    )}
+                  </div>
+                )}
+                {campos['metodoCobroId'] && (
+                  <p className="text-xs text-peligro">{campos['metodoCobroId']}</p>
+                )}
+                {metodo && (
+                  <label className="grid gap-1 text-sm">
+                    Referencia {metodo.requiereReferencia ? '' : '(opcional)'}
+                    <input
+                      value={referencia}
+                      onChange={(e) => setReferencia(e.currentTarget.value)}
+                      placeholder={
+                        metodo.referenciaUltimos4 ? 'Últimos 4 dígitos' : 'Número de referencia'
+                      }
+                      className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
+                    />
+                  </label>
+                )}
+                <p className="text-xs text-tinta-tenue">
+                  Se cobra el precio acordado (o el del plan) por el tiempo elegido. La factura
+                  queda pagada y entra en la Caja del día y en el Balance.
+                  {s.facturaAbierta &&
+                    ` La factura pendiente ${s.facturaAbierta.numero} se anula y la reemplaza esta.`}
+                </p>
+              </fieldset>
+              {error && Object.keys(campos).length === 0 && (
+                <Alerta tono="peligro">{error.mensaje}</Alerta>
+              )}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Boton variante="fantasma" onClick={cerrar}>
+                  Cancelar
+                </Boton>
+                <Boton
+                  icono={<CalendarCheck className="size-4" />}
+                  cargando={cargando}
+                  disabled={!metodoId || !nueva}
+                  onClick={() => void confirmar()}
+                >
+                  Renovar y marcar pagada
+                </Boton>
+              </div>
+            </>
+          )}
+        </Dialogo>
+      )}
+    </>
   );
 }
 
