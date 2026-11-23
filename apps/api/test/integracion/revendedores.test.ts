@@ -10,6 +10,8 @@ import {
   PNG_1X1,
   prepararCatalogo,
 } from './ayudas.js';
+import { ConfigAutomatizacionesService } from '../../src/automatizaciones/configuracion.service.js';
+import { TrabajosService } from '../../src/automatizaciones/trabajos.service.js';
 
 let ctx: Contexto;
 beforeAll(async () => {
@@ -1141,6 +1143,163 @@ describe('ventas, cartera y renovaciones del panel', () => {
     }
   });
 
+  it('cobra a su cliente por mensaje y el equipo lo ve como cobrado por el revendedor', async () => {
+    const e = await escenario();
+    const r = await revendedorConSaldo(e, '10');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    // Vence mañana al mediodía de Caracas (UTC-4): sale en Vencimientos.
+    const manana = new Date(Date.now() - 4 * 3600_000);
+    manana.setUTCDate(manana.getUTCDate() + 1);
+    manana.setUTCHours(16, 0, 0, 0);
+    await ctx.prisma.suscripcion.update({ where: { id }, data: { venceEn: manana } });
+
+    const lista = await r.n.get('/revendedor/cobros');
+    expect(lista.estado).toBe(200);
+    const fila = lista.cuerpo.vencimientos.find((f: { id: string }) => f.id === id);
+    expect(fila).toMatchObject({
+      diasVencida: -1,
+      lugar: null,
+      cobro: null,
+      contactos: [{ tipo: 'whatsapp', valor: expect.stringContaining('412') }],
+    });
+
+    // Otro revendedor no puede marcarlo.
+    const ajeno = await revendedorConSaldo(e, '1');
+    expect(
+      (await ajeno.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'copiado' })).estado,
+    ).toBe(404);
+    expect((await ajeno.n.get('/revendedor/cobros')).cuerpo.vencimientos).toHaveLength(0);
+
+    const cobrado = await r.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'copiado' });
+    expect(cobrado.estado).toBe(200);
+    expect(
+      (await r.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'sms' })).estado,
+    ).toBe(400);
+
+    // El revendedor lo ve marcado y el equipo, con su nombre comercial.
+    const suya = (await r.n.get('/revendedor/cobros')).cuerpo.vencimientos[0];
+    expect(suya.cobro).toMatchObject({ en: cobrado.cuerpo.cobradoEn });
+    const equipo = await e.operador.get('/suscripciones/vencimientos-cortes');
+    const vista = equipo.cuerpo.vencimientos.find((f: { id: string }) => f.id === id);
+    expect(vista.cobro).toMatchObject({
+      en: cobrado.cuerpo.cobradoEn,
+      revendedor: expect.stringMatching(/^Tienda /),
+    });
+  });
+
+  it('paga una renovación con un método de pago: al confirmar la recarga se renueva sola', async () => {
+    const e = await escenario();
+    const r = await revendedorConSaldo(e, '4');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    const antes = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+
+    // Un servicio ajeno no se puede ligar a la recarga.
+    const ajeno = await revendedorConSaldo(e, '1');
+    const mala = await recargar(e, ajeno.n, '4', { renovarIds: id });
+    expect(mala.estado).toBe(409);
+    expect(mala.cuerpo.error.codigo).toBe('NO_RENOVABLE');
+
+    const rec = await recargar(e, r.n, '4', { renovarIds: id });
+    expect(rec.estado).toBe(201);
+    expect(rec.cuerpo.renovar).toEqual({ cantidad: 1, resultado: null });
+
+    const ok = await e.operador.post(`/recargas-saldo/${rec.cuerpo.id}/confirmar`, {
+      montoRecibido: '4',
+    });
+    expect(ok.estado).toBe(200);
+    expect(ok.cuerpo.renovar).toEqual({
+      cantidad: 1,
+      resultado: expect.stringMatching(/^Se renovó 1 servicio/),
+    });
+    const despues = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(despues.venceEn!.getTime()).toBeGreaterThan(antes.venceEn!.getTime() + 25 * DIA);
+    // El saldo se usó en la renovación.
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+
+    // Si ya no alcanza (llegó menos), el saldo queda acreditado y se anota por qué.
+    const otra = await recargar(e, r.n, '4', { renovarIds: id });
+    const corta = await e.operador.post(`/recargas-saldo/${otra.cuerpo.id}/confirmar`, {
+      montoRecibido: '1',
+    });
+    expect(corta.cuerpo.renovar.resultado).toMatch(/^No se renovó: .*El saldo quedó acreditado\.$/);
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('1.00');
+  });
+
+  it('paga una renovación en línea (como una compra): al aprobarse se acredita y se renueva', async () => {
+    const e = await escenario();
+    await ctx.app.get(ConfigAutomatizacionesService).asegurar();
+    const metodo = await e.admin.post('/finanzas/metodos-cobro', {
+      nombre: 'Pago en línea (pruebas)',
+      moneda: 'USD',
+      instrucciones: 'Paga con tarjeta de prueba.',
+      tipo: 'pasarela',
+      pasarela: 'sandbox',
+    });
+    expect(metodo.estado).toBe(201);
+    const r = await revendedorConSaldo(e, '4');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    const antes = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+
+    const metodos = await r.n.get('/revendedor/pago-en-linea/metodos');
+    expect(metodos.cuerpo).toEqual([
+      expect.objectContaining({ metodoCobroId: metodo.cuerpo.id, pasarela: 'sandbox' }),
+    ]);
+
+    // Un servicio ajeno no se puede pagar.
+    const ajeno = await revendedorConSaldo(e, '1');
+    const mala = await ajeno.n.post('/revendedor/renovaciones/pago-en-linea', {
+      suscripcionIds: [id],
+      metodoCobroId: metodo.cuerpo.id,
+    });
+    expect(mala.estado).toBe(409);
+    expect(mala.cuerpo.error.codigo).toBe('NO_RENOVABLE');
+
+    const i = await r.n.post('/revendedor/renovaciones/pago-en-linea', {
+      suscripcionIds: [id],
+      metodoCobroId: metodo.cuerpo.id,
+    });
+    expect(i.estado, JSON.stringify(i.cuerpo)).toBe(201);
+    expect(i.cuerpo).toMatchObject({ pasarela: 'sandbox', monto: '4.00', moneda: 'USD' });
+    // Otro revendedor no ve ese pago.
+    expect((await ajeno.n.get(`/revendedor/pagos-en-linea/${i.cuerpo.id}`)).estado).toBe(404);
+
+    const simulado = await new Navegador(ctx.app).post(
+      `/pasarelas/sandbox/intentos/${i.cuerpo.id}/simular`,
+      { resultado: 'aprobar' },
+    );
+    expect(simulado.estado).toBe(200);
+    const vuelta = await r.n.post(`/revendedor/pagos-en-linea/${i.cuerpo.id}/retorno`, {
+      parametros: {},
+    });
+    expect(vuelta.cuerpo.estado).toBe('aprobado');
+
+    // El pago entró a su saldo y se usó en la renovación.
+    const despues = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(despues.venceEn!.getTime()).toBeGreaterThan(antes.venceEn!.getTime() + 25 * DIA);
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+    const recargas = await r.n.get('/revendedor/recargas');
+    expect(recargas.cuerpo.elementos[0]).toMatchObject({
+      estado: 'confirmada',
+      renovar: { cantidad: 1, resultado: expect.stringMatching(/^Se renovó 1 servicio/) },
+    });
+    const factura = await ctx.prisma.factura.findUniqueOrThrow({
+      where: { id: vuelta.cuerpo.facturaId },
+    });
+    expect(factura.estado).toBe('pagada');
+    // En Caja entra una sola vez: como pago de la factura, no como recarga.
+    const caja = await e.admin.get('/caja');
+    expect(caja.estado).toBe(200);
+    expect(JSON.stringify(caja.cuerpo)).not.toContain(recargas.cuerpo.elementos[0].referencia);
+
+    // El trabajo en cola no vuelve a renovar ni a cobrar.
+    await ctx.app.get(TrabajosService).procesarTodo();
+    expect(await ctx.prisma.compraRevendedor.count({ where: { tipo: 'renovacion' } })).toBe(1);
+  });
+
   it('el lote no renueva nada sin saldo, por encima del límite diario o con un servicio ajeno', async () => {
     const e = await escenario();
     const r = await revendedorConSaldo(e, '12', 3);
@@ -1281,6 +1440,77 @@ describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => 
     });
     return c;
   }
+
+  it('busca por nombre los clientes que no se ligaron y los asigna a mano', async () => {
+    const e = await escenario();
+    const r = await nuevoRevendedor(e);
+    const otro = await nuevoRevendedor(e);
+    const suelto = await clienteGestor('Ilegible ##', e.planId);
+    await ctx.prisma.cliente.update({
+      where: { id: suelto.id },
+      data: { nombre: 'María Pérez Suelta' },
+    });
+    await ctx.prisma.contactoCliente.create({
+      data: { clienteId: suelto.id, tipo: 'whatsapp', valor: '+584149998877' },
+    });
+    const ajeno = await clienteGestor('Otro', e.planId, otro.id);
+    await ctx.prisma.cliente.update({
+      where: { id: ajeno.id },
+      data: { nombre: 'María Pérez Ajena' },
+    });
+
+    // Permisos: el operador no gestiona revendedores.
+    expect((await e.operador.get(`/revendedores/${r.id}/clientes-libres?q=maria`)).estado).toBe(
+      403,
+    );
+    expect((await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=m`)).estado).toBe(400);
+
+    const busca = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=pérez`);
+    expect(busca.estado).toBe(200);
+    // Solo el que no tiene revendedor.
+    expect(busca.cuerpo).toEqual([
+      {
+        id: suelto.id,
+        nombre: 'María Pérez Suelta',
+        responsable: 'Ilegible ##',
+        contacto: '+584149998877',
+        servicios: [expect.any(String)],
+      },
+    ]);
+    // También por número.
+    const porNumero = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=9998877`);
+    expect(porNumero.cuerpo.map((c: { id: string }) => c.id)).toEqual([suelto.id]);
+
+    const ok = await e.admin.post(`/revendedores/${r.id}/asignar-clientes`, {
+      clienteIds: [suelto.id, ajeno.id],
+    });
+    expect(ok.estado, JSON.stringify(ok.cuerpo)).toBe(200);
+    expect(ok.cuerpo).toEqual({
+      aplicado: true,
+      clientes: 1,
+      suscripciones: 1,
+      deOtroRevendedor: 1,
+    });
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: suelto.id } })).revendedorId,
+    ).toBe(r.id);
+    expect(
+      await ctx.prisma.suscripcion.count({ where: { clienteId: suelto.id, revendedorId: r.id } }),
+    ).toBe(1);
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: ajeno.id } })).revendedorId,
+    ).toBe(otro.id);
+    const audit = await ctx.prisma.auditoria.findFirst({
+      where: { accion: 'revendedor.cartera_vinculada', entidadId: r.id },
+    });
+    expect(audit).not.toBeNull();
+
+    // Ya no sale en la búsqueda y lo ve en su panel.
+    const despues = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=pérez`);
+    expect(despues.cuerpo).toEqual([]);
+    const accesos = await r.n.get('/revendedor/clientes');
+    expect(accesos.cuerpo.total).toBe(1);
+  });
 
   it('cuenta, pasa a su cartera y le pone el revendedor a las suscripciones', async () => {
     const e = await escenario();

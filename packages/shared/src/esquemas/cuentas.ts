@@ -243,7 +243,8 @@ export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
 
 /** Marcar que se le cobró a mano desde Vencimientos o Cortes. */
 export const marcarCobradoSchema = z.object({
-  canal: z.enum(['whatsapp', 'telegram']),
+  /** Por dónde se cobró: WhatsApp, Telegram o copiando el mensaje. */
+  canal: z.enum(['whatsapp', 'telegram', 'copiado']),
 });
 
 /** Cortar desde Cobros → Cortes: libera el lugar de la suscripción y la deja suspendida. */

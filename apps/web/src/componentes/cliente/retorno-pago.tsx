@@ -14,6 +14,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
+import { type PanelPago, RUTAS_PAGO } from './rutas-pago';
 import { nombrePasarela } from '@/lib/pagos-en-linea';
 
 const CONSULTAS_MAXIMAS = 6;
@@ -30,10 +31,13 @@ const ABIERTOS = new Set(['creado', 'pendiente']);
 export function RetornoPago({
   intentoId,
   parametros,
+  panel = 'cliente',
 }: {
   intentoId: string;
   parametros: Record<string, string>;
+  panel?: PanelPago;
 }) {
+  const rutas = RUTAS_PAGO[panel];
   const [fase, setFase] = useState<Fase>({ tipo: 'confirmando' });
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [consultas, setConsultas] = useState(0);
@@ -42,14 +46,14 @@ export function RetornoPago({
 
   const consultar = useCallback(async () => {
     setConsultando(true);
-    const r = await llamarApi<IntentoPagoPublico>('GET', `/mi/pagos-en-linea/${intentoId}`);
+    const r = await llamarApi<IntentoPagoPublico>('GET', `${rutas.api}/${intentoId}`);
     setConsultando(false);
     setConsultas((n) => n + 1);
     if (r.ok) {
       setError(null);
       setFase({ tipo: 'listo', intento: r.datos });
     } else setError(r.error);
-  }, [intentoId]);
+  }, [intentoId, rutas.api]);
 
   // Confirmación inicial (una sola vez, también con el doble montaje del modo estricto).
   useEffect(() => {
@@ -60,8 +64,8 @@ export function RetornoPago({
       // con la pasarela: si el pago sí se hizo, vuelve aprobado).
       const r =
         parametros.cancelado === '1'
-          ? await llamarApi<IntentoPagoPublico>('POST', `/mi/pagos-en-linea/${intentoId}/cancelar`)
-          : await llamarApi<IntentoPagoPublico>('POST', `/mi/pagos-en-linea/${intentoId}/retorno`, {
+          ? await llamarApi<IntentoPagoPublico>('POST', `${rutas.api}/${intentoId}/cancelar`)
+          : await llamarApi<IntentoPagoPublico>('POST', `${rutas.api}/${intentoId}/retorno`, {
               parametros,
             });
       if (r.ok && r.datos?.estado) setFase({ tipo: 'listo', intento: r.datos });
@@ -72,7 +76,7 @@ export function RetornoPago({
         await consultar();
       }
     })();
-  }, [intentoId, parametros, consultar]);
+  }, [intentoId, parametros, consultar, rutas.api]);
 
   // Pendiente: vuelve a preguntar unas cuantas veces.
   const pendiente = fase.tipo === 'listo' && ABIERTOS.has(fase.intento.estado);
@@ -91,7 +95,7 @@ export function RetornoPago({
           antes de volver a pagar.
         </p>
         <Acciones>
-          <BotonEnlace href="/cuenta/facturas">Facturas y pagos</BotonEnlace>
+          <BotonEnlace href={rutas.facturas.href}>{rutas.facturas.etiqueta}</BotonEnlace>
         </Acciones>
       </Panel>
     );
@@ -106,7 +110,7 @@ export function RetornoPago({
   }
 
   const i = fase.intento;
-  const factura = `/cuenta/facturas/${i.facturaId}`;
+  const factura = rutas.factura(i.facturaId);
   const monto = formatearMonto(i.monto, i.moneda);
   const pasarela = nombrePasarela(i.pasarela);
 
@@ -114,8 +118,10 @@ export function RetornoPago({
     return (
       <Panel icono={CircleCheckBig} tono="exito" titulo="¡Pago aprobado!">
         <p>
-          Recibimos {monto} con {pasarela} (código {i.referencia}). Tu factura quedó pagada y el
-          servicio se activa o renueva al momento. Te enviamos el comprobante por correo.
+          Recibimos {monto} con {pasarela} (código {i.referencia}).{' '}
+          {panel === 'revendedor'
+            ? rutas.listo
+            : 'Tu factura quedó pagada y el servicio se activa o renueva al momento. Te enviamos el comprobante por correo.'}
         </p>
         {i.guardarMetodo && (
           <Alerta tono="info" titulo="Guardamos tu método de pago" className="mt-4 text-left">
@@ -124,14 +130,14 @@ export function RetornoPago({
           </Alerta>
         )}
         <Acciones>
-          <BotonEnlace href={factura}>Ver la factura</BotonEnlace>
+          <BotonEnlace href={factura}>{rutas.verFactura}</BotonEnlace>
           {i.guardarMetodo && (
             <BotonEnlace href="/cuenta/metodos-pago" variante="secundario">
               Mis métodos de pago
             </BotonEnlace>
           )}
-          <BotonEnlace href="/cuenta" variante="secundario">
-            Mis servicios
+          <BotonEnlace href={rutas.inicio.href} variante="secundario">
+            {rutas.inicio.etiqueta}
           </BotonEnlace>
         </Acciones>
       </Panel>
@@ -167,7 +173,7 @@ export function RetornoPago({
             </Boton>
           )}
           <BotonEnlace href={factura} variante={agotado ? 'primario' : 'secundario'}>
-            Volver a la factura
+            {rutas.volverFactura}
           </BotonEnlace>
         </Acciones>
       </Panel>
@@ -187,7 +193,7 @@ export function RetornoPago({
         </p>
         <Acciones>
           <BotonEnlace href={factura}>Volver a intentarlo</BotonEnlace>
-          <BotonEnlace href="/cuenta/soporte/nueva" variante="secundario">
+          <BotonEnlace href={rutas.soporte} variante="secundario">
             Pedir ayuda
           </BotonEnlace>
         </Acciones>
@@ -206,7 +212,7 @@ export function RetornoPago({
         transferencia cuando quieras.
       </p>
       <Acciones>
-        <BotonEnlace href={factura}>Volver a la factura</BotonEnlace>
+        <BotonEnlace href={factura}>{rutas.volverFactura}</BotonEnlace>
       </Acciones>
     </Panel>
   );

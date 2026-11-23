@@ -23,6 +23,7 @@ import { CorreoService } from '../correo/correo.service.js';
 import { Plantillas } from '../correo/plantillas.js';
 import { D } from '../dinero/dinero.js';
 import { LimitesService } from '../limites/limites.service.js';
+import { acreditarPagoRenovacion } from '../revendedores/pago-renovacion.js';
 import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
 import { FacturasService } from './facturas.service.js';
 import { INCLUIR_PAGO, pagoPublico } from './presentacion.js';
@@ -528,6 +529,8 @@ export class PagosService {
       data: { estado: 'pagada', pagadaEn: ahora },
     });
     await this.suscripciones.aplicarPago(tx, actual, actorId);
+    // Renovación de un revendedor pagada en línea: el monto pasa a su saldo y se renueva.
+    await acreditarPagoRenovacion(tx, actual, pagoId, actorId);
     await this.auditoria.registrar(
       {
         actorId,

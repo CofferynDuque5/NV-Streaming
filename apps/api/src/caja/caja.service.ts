@@ -93,8 +93,9 @@ export class CajaService {
         where: { estado: 'confirmada', revisadoEn: rango },
         include: { cliente: { select: { nombre: true } }, metodoCobro: true, revisadoPor: persona },
       }),
+      // La renovación pagada en línea ya entra como pago de su factura.
       this.prisma.recargaSaldo.findMany({
-        where: { estado: 'confirmada', revisadoEn: rango },
+        where: { estado: 'confirmada', revisadoEn: rango, pagoRenovacion: null },
         include: {
           revendedor: { select: { nombreComercial: true } },
           metodoCobro: true,

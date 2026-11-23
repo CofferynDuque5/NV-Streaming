@@ -1,5 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { Cliente, CompraRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
+import type { Cliente, CompraRevendedor, Prisma, PrismaClient, Revendedor, Sesion } from '@nv/db';
 import {
   type CatalogoMayorista,
   type ComprarEntrada,
@@ -13,13 +13,14 @@ import {
   type ResumenRevendedor,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
+import { TrabajosService } from '../automatizaciones/trabajos.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { exigirStock, planesAgotados } from '../cuentas/stock-cuentas.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { solicitarRevocacion } from '../entregas/registro.js';
-import { CERO, type Dec, redondear } from '../dinero/dinero.js';
+import { CERO, D, type Dec, redondear } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { INCLUIR_SUSCRIPCION, suscripcionPublica } from '../suscripciones/presentacion.js';
 import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
@@ -32,11 +33,19 @@ import {
   usd,
 } from './libro-mayor.js';
 import { planRevendible } from './niveles.service.js';
+import { TRABAJO_RENOVAR_PAGO_EN_LINEA } from './pago-renovacion.js';
 import { compraPublica, INCLUIR_COMPRA } from './presentacion.js';
 import { serviciosRenovables, urgente } from './renovables.js';
 import { inicioMesVenezuela, RevendedoresService } from './revendedores.service.js';
 
 const DIA_MS = 24 * 3600_000;
+
+/** Lo que hace el sistema en segundo plano no viene de un navegador. */
+const CLIENTE_SISTEMA: InfoCliente = {
+  ip: null,
+  agenteUsuario: null,
+  idPeticion: 'trabajo-renovar-pago-en-linea',
+};
 
 /**
  * Compras con saldo: el revendedor compra activaciones (altas) o renovaciones
@@ -46,14 +55,23 @@ const DIA_MS = 24 * 3600_000;
  * factura al cliente final: le cobra el revendedor.
  */
 @Injectable()
-export class ComprasService {
+export class ComprasService implements OnModuleInit {
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(AuditoriaService) private readonly auditoria: AuditoriaService,
     @Inject(TasasService) private readonly tasas: TasasService,
     @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
     @Inject(RevendedoresService) private readonly revendedores: RevendedoresService,
+    @Inject(TrabajosService) private readonly trabajos: TrabajosService,
   ) {}
+
+  onModuleInit(): void {
+    // Renovación pagada en línea: el pago ya quedó en su saldo; ahora se renuevan los servicios.
+    this.trabajos.registrar(TRABAJO_RENOVAR_PAGO_EN_LINEA, async (carga) => {
+      const recargaId = typeof carga['recargaId'] === 'string' ? carga['recargaId'] : null;
+      if (recargaId) await this.renovarPorRecarga(null, recargaId, CLIENTE_SISTEMA);
+    });
+  }
 
   // ── Panel del revendedor ───────────────────────────────────────────────────
 
@@ -229,6 +247,68 @@ export class ComprasService {
     cliente: InfoCliente,
   ): Promise<ResultadoRenovacionLote> {
     const propio = await revendedorPropio(auth, this.prisma);
+    return this.loteDe(propio, auth, e, cliente);
+  }
+
+  /**
+   * Tras confirmar una recarga que trae servicios para renovar, los renueva
+   * con el saldo del revendedor (todos o ninguno) y deja anotado el resultado
+   * en la recarga. Si no se puede (ya no se renuevan, no alcanza…), el saldo
+   * queda acreditado y el revendedor renueva luego desde Renovaciones.
+   */
+  async renovarPorRecarga(auth: ContextoAuth | null, recargaId: string, cliente: InfoCliente) {
+    const recarga = await this.prisma.recargaSaldo.findUnique({
+      where: { id: recargaId },
+      select: {
+        estado: true,
+        renovarIds: true,
+        renovacionResultado: true,
+        revendedor: { include: { usuario: true } },
+      },
+    });
+    if (
+      !recarga ||
+      recarga.estado !== 'confirmada' ||
+      recarga.renovarIds.length === 0 ||
+      recarga.renovacionResultado !== null
+    ) {
+      return;
+    }
+    let resultado: string;
+    try {
+      // Sin quien lo pida (pago en línea confirmado solo), se renueva a nombre del revendedor.
+      const actor = auth ?? {
+        usuario: recarga.revendedor.usuario,
+        sesion: null as unknown as Sesion,
+        pendiente: null,
+      };
+      const hecho = await this.loteDe(
+        recarga.revendedor,
+        actor,
+        { suscripcionIds: recarga.renovarIds, claveIdempotencia: `recarga-${recargaId}` },
+        cliente,
+      );
+      const n = hecho.renovadas.length;
+      resultado =
+        n === 1
+          ? `Se renovó 1 servicio (${usd(D(hecho.totalUsd))}).`
+          : `Se renovaron ${n} servicios (${usd(D(hecho.totalUsd))}).`;
+    } catch (error) {
+      if (!(error instanceof ErrorApp)) throw error;
+      resultado = `No se renovó: ${error.message} El saldo quedó acreditado.`.slice(0, 500);
+    }
+    await this.prisma.recargaSaldo.update({
+      where: { id: recargaId },
+      data: { renovacionResultado: resultado },
+    });
+  }
+
+  private async loteDe(
+    propio: Revendedor,
+    auth: ContextoAuth,
+    e: RenovarLoteEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoRenovacionLote> {
     const pedidos = e.suscripcionIds.map((suscripcionId, i) => ({
       tipo: 'renovacion' as const,
       suscripcionId,

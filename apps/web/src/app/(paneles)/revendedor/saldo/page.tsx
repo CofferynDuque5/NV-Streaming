@@ -1,6 +1,8 @@
 import type {
   CatalogoPublico,
+  ListaRenovaciones,
   MetodoCobroPublico,
+  MetodoEnLineaRevendedor,
   Moneda,
   MovimientoSaldoPublico,
   Pagina,
@@ -9,6 +11,7 @@ import type {
 } from '@nv/shared';
 import type { Metadata } from 'next';
 import { VistaBilletera } from '@/componentes/cliente/billetera';
+import { PagarRenovacionEnLinea } from '@/componentes/revendedor/pago-en-linea';
 import { AvisosRevendedor, CabeceraPanel, SinResumen } from '@/componentes/revendedor/panel';
 import { leerApi } from '@/lib/api-servidor';
 import { bloqueoCuenta, leerResumenRevendedor } from '@/lib/panel-revendedor';
@@ -22,8 +25,17 @@ const MAX_MB = Number(process.env.COMPROBANTE_MAX_MB ?? 5);
 const POR_PAGINA_RECARGAS = 10;
 const POR_PAGINA_MOVIMIENTOS = 6;
 
-export default async function Saldo() {
+export default async function Saldo({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const sesion = await requerirSesion({ roles: ['revendedor'] });
+  // Desde Renovaciones: servicios elegidos para renovar con esta recarga.
+  const pedidos = (await searchParams).renovar;
+  const idsRenovar = (typeof pedidos === 'string' ? pedidos.split(',') : [])
+    .map((x) => x.trim())
+    .filter(Boolean);
   const [{ estado, datos: resumen }, saldo, recargas, movimientos, metodos, catalogo, ubicacion] =
     await Promise.all([
       leerResumenRevendedor(),
@@ -38,6 +50,24 @@ export default async function Saldo() {
       leerApi<CatalogoPublico>('/catalogo').then((r) => r.datos),
       ubicacionVisitante(),
     ]);
+  const renovables =
+    idsRenovar.length > 0
+      ? (await leerApi<ListaRenovaciones>('/revendedor/renovaciones?filtro=todos')).datos
+      : null;
+  const elegidos = (renovables?.elementos ?? []).filter(
+    (x) => idsRenovar.includes(x.suscripcion.id) && x.precioUsd !== null,
+  );
+  const renovar =
+    elegidos.length > 0
+      ? {
+          ids: elegidos.map((x) => x.suscripcion.id),
+          cantidad: elegidos.length,
+          totalUsd: elegidos.reduce((t, x) => t + Number(x.precioUsd), 0).toFixed(2),
+        }
+      : null;
+  const enLinea = renovar
+    ? ((await leerApi<MetodoEnLineaRevendedor[]>('/revendedor/pago-en-linea/metodos')).datos ?? [])
+    : [];
   const cabecera = (
     <CabeceraPanel
       titulo="Saldo y recargas"
@@ -63,6 +93,14 @@ export default async function Saldo() {
     <>
       {cabecera}
       <AvisosRevendedor revendedor={r} soloEstado />
+      {renovar && (
+        <PagarRenovacionEnLinea
+          ids={renovar.ids}
+          cantidad={renovar.cantidad}
+          totalUsd={renovar.totalUsd}
+          metodos={enLinea}
+        />
+      )}
       <VistaBilletera
         datos={{
           billetera: {
@@ -75,6 +113,7 @@ export default async function Saldo() {
           metodos,
           tasas,
           pedido: null,
+          renovar,
           monedaSugerida: ubicacion.moneda,
           nombre: sesion.usuario.nombre,
           maxMb: MAX_MB,

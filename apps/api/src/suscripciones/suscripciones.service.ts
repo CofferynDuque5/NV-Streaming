@@ -167,8 +167,12 @@ export class SuscripcionesService {
    *   todavía ocupan un perfil o cupo. Al cortarlos el lugar queda libre y
    *   salen de la lista; si renuevan, su fecha avanza y también salen.
    */
-  async vencimientosCortes(auth: ContextoAuth, ahora = new Date()): Promise<VencimientosCortes> {
-    const cliente = alcanceClientes(auth);
+  async vencimientosCortes(
+    auth: ContextoAuth,
+    ahora = new Date(),
+    /** De quién: por defecto, el alcance del usuario (un revendedor pasa su cartera). */
+    cliente: Prisma.ClienteWhereInput = alcanceClientes(auth),
+  ): Promise<VencimientosCortes> {
     const dia = (n: number) => inicioDiaCaracas(ahora, n);
     const pasoHoraCorte = partesCaracas(ahora).hora >= REGLAS_COBRO.horaCorte;
     const limiteCortes = pasoHoraCorte ? dia(1) : dia(0);
@@ -228,7 +232,7 @@ export class SuscripcionesService {
         perfilCuenta: { isNot: null },
       }),
     ]);
-    // Quién cobró (el nombre del usuario del equipo).
+    // Quién cobró: el nombre del usuario y, si es revendedor, su nombre comercial.
     const idsCobro = [
       ...new Set(
         [...vencimientos, ...cortes].flatMap((f) => (f.cobradoPorId ? [f.cobradoPorId] : [])),
@@ -239,9 +243,12 @@ export class SuscripcionesService {
         ? (
             await this.prisma.usuario.findMany({
               where: { id: { in: idsCobro } },
-              select: { id: true, nombre: true },
+              select: { id: true, nombre: true, revendedor: { select: { nombreComercial: true } } },
             })
-          ).map((u) => [u.id, u.nombre])
+          ).map((u) => [
+            u.id,
+            { nombre: u.nombre, revendedor: u.revendedor?.nombreComercial ?? null },
+          ])
         : [],
     );
     /** El cobro cuenta para este vencimiento si fue desde una semana antes de la fecha. */
@@ -249,7 +256,8 @@ export class SuscripcionesService {
       f.cobradoEn && (!f.venceEn || f.cobradoEn.getTime() >= f.venceEn.getTime() - 7 * DIA_MS)
         ? {
             en: f.cobradoEn.toISOString(),
-            por: f.cobradoPorId ? (nombres.get(f.cobradoPorId) ?? null) : null,
+            por: f.cobradoPorId ? (nombres.get(f.cobradoPorId)?.nombre ?? null) : null,
+            revendedor: f.cobradoPorId ? (nombres.get(f.cobradoPorId)?.revendedor ?? null) : null,
           }
         : null;
     const conLugar = (f: Fila): SuscripcionConLugar => {
@@ -265,6 +273,10 @@ export class SuscripcionesService {
         ...suscripcionPublica({ ...f, cliente }),
         diasVencida,
         contacto: { whatsapp: de('whatsapp', 'telefono'), telegram: de('telegram') },
+        contactos: contactos.map((c) => ({
+          tipo: c.tipo === 'telegram' ? ('telegram' as const) : ('whatsapp' as const),
+          valor: c.valor,
+        })),
         cobro: cobroDe(f),
         lugar: p
           ? {
@@ -297,12 +309,14 @@ export class SuscripcionesService {
   async marcarCobrado(
     auth: ContextoAuth,
     id: string,
-    canal: 'whatsapp' | 'telegram',
+    canal: 'whatsapp' | 'telegram' | 'copiado',
     cliente: InfoCliente,
     ahora = new Date(),
+    /** De quién puede ser: por defecto, el alcance del usuario (un revendedor pasa su cartera). */
+    deCliente: Prisma.ClienteWhereInput = alcanceClientes(auth),
   ): Promise<{ cobradoEn: string }> {
     const s = await this.prisma.suscripcion.findFirst({
-      where: { id, cliente: alcanceClientes(auth) },
+      where: { id, cliente: deCliente },
       select: { id: true, cobradoEn: true },
     });
     if (!s) throw Errores.noEncontrado('La suscripción');

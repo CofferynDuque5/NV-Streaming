@@ -108,6 +108,10 @@ export function recargaPublica(r: RecargaBase, equipo: boolean): RecargaPublica 
     estado: r.estado,
     motivoRechazo: r.motivoRechazo,
     tieneComprobante: r.comprobanteId !== null,
+    renovar:
+      r.renovarIds.length > 0
+        ? { cantidad: r.renovarIds.length, resultado: r.renovacionResultado }
+        : null,
     creadoEn: iso(r.creadoEn)!,
     revisadoEn: iso(r.revisadoEn),
     ...(equipo ? { notas: r.notas, revisadoPor: r.revisadoPor } : {}),

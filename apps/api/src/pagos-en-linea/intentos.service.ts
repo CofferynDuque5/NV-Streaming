@@ -140,6 +140,8 @@ export class IntentosPagoService implements OnModuleInit {
     facturaId: string,
     e: IniciarPagoEnLineaEntrada,
     cliente: InfoCliente,
+    /** A dónde vuelve de la pasarela (el panel del revendedor usa la suya). */
+    rutaRetorno = '/cuenta/pagos/retorno',
   ): Promise<IntentoPagoPublico> {
     const titular = await this.clientes.deUsuario(auth.usuario);
     // 1) Lo que se puede comprobar antes de tocar la pasarela.
@@ -229,7 +231,7 @@ export class IntentosPagoService implements OnModuleInit {
     });
     // 4) La orden en la pasarela (fuera de la transacción: es una llamada de red).
     const adaptador = this.registro.exigir(intento.pasarela);
-    const retorno = this.correo.urlWeb('/cuenta/pagos/retorno', { intento: intento.id });
+    const retorno = this.correo.urlWeb(rutaRetorno, { intento: intento.id });
     const descripcion = `Factura ${numeroFactura(previa.numero)} · NV Streaming`;
     try {
       const orden = await adaptador.crearPago({

@@ -17,6 +17,7 @@ export type IconoCuenta =
   | 'revendedor'
   | 'vender'
   | 'renovaciones'
+  | 'cobros'
   | 'clientes';
 
 export interface ElementoCuenta {
@@ -76,6 +77,7 @@ export const MENU_REVENDEDOR: ElementoCuenta[][] = [
       icono: 'renovaciones',
       contador: 'renovaciones',
     },
+    { etiqueta: 'Cobros', href: '/revendedor/cobros', icono: 'cobros' },
     { etiqueta: 'Clientes', href: '/revendedor/clientes', icono: 'clientes' },
   ],
   [

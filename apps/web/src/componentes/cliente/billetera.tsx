@@ -105,6 +105,11 @@ export interface DatosBilletera {
    * cuando no hay pedido: se ofrece como «Lo que falta» en los montos rápidos.
    */
   faltaUsd?: string | null;
+  /**
+   * Revendedor: servicios elegidos en Renovaciones para renovar con esta
+   * recarga (se renuevan solos cuando el equipo la confirme).
+   */
+  renovar?: { ids: string[]; cantidad: number; totalUsd: string } | null;
   /** Moneda sugerida para pagar (la que eligió antes o la de su país). */
   monedaSugerida: Moneda;
   nombre: string;
@@ -438,6 +443,7 @@ function Reportar({
   montoUsd,
   montoMal,
   pedidoId,
+  renovarIds,
   maxMb,
   revendedor,
   onIntento,
@@ -451,6 +457,8 @@ function Reportar({
   montoUsd: number | null;
   montoMal: boolean;
   pedidoId: string | null;
+  /** Servicios que se renuevan solos al confirmarse (revendedor). */
+  renovarIds: string[] | null;
   maxMb: number;
   revendedor: boolean;
   onIntento: () => void;
@@ -572,6 +580,7 @@ function Reportar({
     d.set('fechaPago', fecha);
     if (referencia.trim()) d.set('referenciaExterna', referencia.trim());
     if (pedidoId) d.set('pedidoId', pedidoId);
+    if (renovarIds?.length) d.set('renovarIds', renovarIds.join(','));
     d.set('comprobante', archivo as File);
     setCargando(true);
     setError(null);
@@ -761,6 +770,7 @@ function Reportar({
 /** Recarga enviada: el código real y lo que pasa después. */
 function Listo({ recarga, onOtra }: { recarga: RecargaVista; onOtra: () => void }) {
   const pedido = 'pedido' in recarga ? recarga.pedido : null;
+  const renueva = 'renovar' in recarga ? recarga.renovar : null;
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -815,7 +825,9 @@ function Listo({ recarga, onOtra }: { recarga: RecargaVista; onOtra: () => void 
             titulo: `Saldo acreditado: +${usd(recarga.montoUsdEstimado)}`,
             texto: pedido
               ? `Y pagamos tu pedido ${pedido.numero} con ese saldo`
-              : 'Lo ves arriba y en tus movimientos',
+              : renueva
+                ? `Y renovamos ${renueva.cantidad === 1 ? 'el servicio' : `los ${renueva.cantidad} servicios`} con ese saldo`
+                : 'Lo ves arriba y en tus movimientos',
           },
         ]}
       />
@@ -1066,7 +1078,13 @@ function ListaRecargas({
                     · <Fecha iso={r.creadoEn} /> · código {r.referencia}
                     {r.referenciaExterna ? ` · ref. ${r.referenciaExterna}` : ''}
                     {'pedido' in r && r.pedido ? ` · para el pedido ${r.pedido.numero}` : ''}
+                    {'renovar' in r && r.renovar
+                      ? ` · para renovar ${r.renovar.cantidad === 1 ? '1 servicio' : `${r.renovar.cantidad} servicios`}`
+                      : ''}
                   </small>
+                  {'renovar' in r && r.renovar?.resultado && (
+                    <small className="text-[0.78rem] text-tinta-suave">{r.renovar.resultado}</small>
+                  )}
                   {r.estado === 'rechazada' && r.motivoRechazo && (
                     <small className="text-[0.78rem] text-peligro">Motivo: {r.motivoRechazo}</small>
                   )}
@@ -1331,11 +1349,14 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
     : monedas.includes('VES')
       ? 'VES'
       : (monedas[0] ?? 'USD');
+  const renovar = datos.renovar ?? null;
   const faltante = pedido
     ? Math.max(0, Number(pedido.pendienteUsd) - Number(billetera.saldoUsd))
-    : 0;
+    : renovar
+      ? Math.max(0, Number(renovar.totalUsd) - Number(billetera.saldoUsd))
+      : 0;
   const montoFaltante =
-    faltante > 0 ? faltante.toFixed(2) : pedido ? null : (datos.faltaUsd ?? null);
+    faltante > 0 ? faltante.toFixed(2) : pedido || renovar ? null : (datos.faltaUsd ?? null);
 
   const [moneda, setMoneda] = useState<Moneda>(monedaInicial);
   const [monto, setMonto] = useState<Monto>({ tipo: 'rapido', usd: montoFaltante ?? '10.00' });
@@ -1466,6 +1487,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
   const ultima = datos.recargas.elementos[0];
   const rechazada = ultima?.estado === 'rechazada' ? ultima : null;
   const pedidoId = pedido && ligar ? pedido.id : null;
+  const renovarIds = renovar && ligar ? renovar.ids : null;
 
   let formulario: ReactNode;
   if (revendedor?.bloqueo) {
@@ -1627,6 +1649,25 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
             </div>
           )}
 
+          {renovar && (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-[0.875rem] border border-aviso/35 bg-aviso/[0.06] px-3.5 py-3 text-sm">
+              <input
+                type="checkbox"
+                checked={ligar}
+                onChange={(e) => setLigar(e.target.checked)}
+                className="mt-0.5 size-4.5 shrink-0 accent-marca"
+              />
+              <span>
+                Usar esta recarga para renovar{' '}
+                {renovar.cantidad === 1 ? '1 servicio' : `${renovar.cantidad} servicios`} (
+                {usd(renovar.totalUsd)})
+                <small className="block text-[0.8rem] text-tinta-suave">
+                  Cuando el equipo la confirme, se renuevan solos con tu saldo.
+                </small>
+              </span>
+            </label>
+          )}
+
           {pedido && (
             <label className="flex cursor-pointer items-start gap-2.5 rounded-[0.875rem] border border-aviso/35 bg-aviso/[0.06] px-3.5 py-3 text-sm">
               <input
@@ -1676,6 +1717,7 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
               montoUsd={montoMal ? null : montoUsd}
               montoMal={montoMal}
               pedidoId={pedidoId}
+              renovarIds={renovarIds}
               maxMb={datos.maxMb}
               revendedor={Boolean(revendedor)}
               onIntento={() => setIntento(true)}

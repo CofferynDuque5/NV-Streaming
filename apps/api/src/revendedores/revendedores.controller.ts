@@ -18,6 +18,8 @@ import {
   actualizarRevendedorSchema,
   ajusteSaldoSchema,
   aprobarRevendedorSchema,
+  asignarClientesSchema,
+  buscarClientesLibresSchema,
   completarFichaRevendedorSchema,
   comprarSchema,
   confirmarRecargaSchema,
@@ -28,6 +30,7 @@ import {
   listarRenovacionesSchema,
   listarRevendedoresSchema,
   listarVentasSchema,
+  marcarCobradoSchema,
   monedaSchema,
   motivoRevendedorSchema,
   nivelRevendedorSchema,
@@ -55,7 +58,11 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { leerFormulario } from '../comun/formulario.js';
 import { validar, ZodPipe } from '../comun/zod.pipe.js';
+import type { PrismaClient } from '@nv/db';
+import { PRISMA } from '../comun/tokens.js';
 import { MetodosCobroService } from '../dinero/metodos-cobro.service.js';
+import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
+import { revendedorPropio } from './libro-mayor.js';
 import { ComprasService } from './compras.service.js';
 import { NivelesService } from './niveles.service.js';
 import { RevendedoresService } from './revendedores.service.js';
@@ -105,7 +112,45 @@ export class PanelRevendedorController {
     @Inject(SaldoService) private readonly saldo: SaldoService,
     @Inject(MetodosCobroService) private readonly metodos: MetodosCobroService,
     @Inject(VentasService) private readonly ventas: VentasService,
+    @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
+    @Inject(PRISMA) private readonly prisma: PrismaClient,
   ) {}
+
+  /**
+   * Vencimientos y Cortes de su cartera, para cobrarles por mensaje. Sin datos
+   * de la cuenta (eso se ve en «Accesos de clientes»).
+   */
+  @Get('cobros')
+  @RequierePermiso('reventa.usar')
+  async cobros(@Auth() auth: ContextoAuth) {
+    const r = await revendedorPropio(auth, this.prisma);
+    const lista = await this.suscripciones.vencimientosCortes(auth, new Date(), {
+      revendedorId: r.id,
+    });
+    const sinLugar = <T extends { lugar: unknown }>(f: T) => ({ ...f, lugar: null });
+    return {
+      ...lista,
+      vencimientos: lista.vencimientos.map(sinLugar),
+      cortes: lista.cortes.map(sinLugar),
+    };
+  }
+
+  /** Marca que le cobró a su cliente (copiando el mensaje o por WhatsApp o Telegram). */
+  @Post('suscripciones/:id/cobrado')
+  @RequierePermiso('reventa.usar')
+  @HttpCode(200)
+  @DocCuerpo(marcarCobradoSchema)
+  async marcarCobrado(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(marcarCobradoSchema)) cuerpo: z.output<typeof marcarCobradoSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    const r = await revendedorPropio(auth, this.prisma);
+    return this.suscripciones.marcarCobrado(auth, id, cuerpo.canal, cliente, new Date(), {
+      revendedorId: r.id,
+    });
+  }
 
   @Get('resumen')
   @RequierePermiso('reventa.usar')
@@ -409,6 +454,31 @@ export class RevendedoresController {
     return this.revendedores.vincularResponsable(auth, id, cuerpo, cliente);
   }
 
+  /** Buscar a mano clientes sin revendedor (los que no se pudieron pasar por su responsable). */
+  @Get(':id/clientes-libres')
+  @RequierePermiso('revendedores.gestionar')
+  @DocConsulta(buscarClientesLibresSchema)
+  clientesLibres(
+    @Param('id', idValido) id: string,
+    @Query(validar(buscarClientesLibresSchema)) filtro: z.output<typeof buscarClientesLibresSchema>,
+  ) {
+    return this.revendedores.buscarClientesLibres(id, filtro.q);
+  }
+
+  /** Pasa a su cartera los clientes elegidos a mano. */
+  @Post(':id/asignar-clientes')
+  @RequierePermiso('revendedores.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(asignarClientesSchema)
+  asignarClientes(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(asignarClientesSchema)) cuerpo: z.output<typeof asignarClientesSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.revendedores.asignarClientes(auth, id, cuerpo, cliente);
+  }
+
   @Get(':id/clientes')
   @RequierePermiso('revendedores.ver')
   clientes(@Param('id', idValido) id: string) {
@@ -534,7 +604,10 @@ export class RevendedoresController {
 @ApiTags('Revendedores: recargas')
 @Controller('recargas-saldo')
 export class RecargasController {
-  constructor(@Inject(SaldoService) private readonly saldo: SaldoService) {}
+  constructor(
+    @Inject(SaldoService) private readonly saldo: SaldoService,
+    @Inject(ComprasService) private readonly compras: ComprasService,
+  ) {}
 
   @Get()
   @RequierePermiso('pagos.gestionar')
@@ -558,13 +631,17 @@ export class RecargasController {
   @RequierePermiso('pagos.gestionar')
   @HttpCode(200)
   @DocCuerpo(confirmarRecargaSchema)
-  confirmar(
+  async confirmar(
     @Auth() auth: ContextoAuth,
     @Param('id', idValido) id: string,
     @Body(validar(confirmarRecargaSchema)) cuerpo: z.output<typeof confirmarRecargaSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.saldo.confirmarRecarga(auth, id, cuerpo, cliente);
+    const recarga = await this.saldo.confirmarRecarga(auth, id, cuerpo, cliente);
+    if (!recarga.renovar) return recarga;
+    // Si traía servicios para renovar, se renuevan ya con el saldo acreditado.
+    await this.compras.renovarPorRecarga(auth, id, cliente);
+    return this.saldo.verRecarga(id);
   }
 
   @Post(':id/rechazar')

@@ -21,6 +21,7 @@ import { nombrePais, VacioCompacto, Volver } from '@/componentes/admin/piezas-cr
 import {
   AccionConMotivo,
   AjustarSaldo,
+  AsignarClientesManual,
   EditarCondiciones,
   RevisarSolicitud,
   TraerClientesGestor,
@@ -350,6 +351,9 @@ export default async function FichaRevendedor({
                   responsables={responsables}
                   sugerido={r.nombreComercial}
                 />
+                <div className="mt-5 border-t border-borde pt-5">
+                  <AsignarClientesManual revendedorId={r.id} />
+                </div>
               </div>
             </Tarjeta>
           )}

@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { EstadoRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
 import type {
+  AsignarClientesEntrada,
+  ClienteLibre,
   CompletarFichaRevendedorEntrada,
   RevendedorSinFicha,
   ClienteDeRevendedor,
@@ -200,6 +202,105 @@ export class RevendedoresService {
       .filter((f): f is typeof f & { responsable: string } => Boolean(f.responsable?.trim()))
       .map((f) => ({ responsable: f.responsable, clientes: f._count._all }))
       .sort((a, b) => a.responsable.localeCompare(b.responsable, 'es'));
+  }
+
+  /**
+   * Clientes sin revendedor cuyo nombre o contacto coincide (sin importar
+   * mayúsculas), para los que no se pudieron pasar por su responsable. No
+   * incluye la ficha de cliente del propio revendedor.
+   */
+  async buscarClientesLibres(id: string, q: string): Promise<ClienteLibre[]> {
+    const r = await this.prisma.revendedor.findUnique({
+      where: { id },
+      select: { usuarioId: true },
+    });
+    if (!r) throw Errores.noEncontrado('El revendedor');
+    const filas = await this.prisma.cliente.findMany({
+      where: {
+        revendedorId: null,
+        OR: [{ usuarioId: null }, { usuarioId: { not: r.usuarioId } }],
+        AND: [
+          {
+            OR: [
+              { nombre: { contains: q, mode: 'insensitive' } },
+              { contactos: { some: { valor: { contains: q, mode: 'insensitive' } } } },
+            ],
+          },
+        ],
+      },
+      select: {
+        id: true,
+        nombre: true,
+        responsable: true,
+        contactos: {
+          where: { tipo: { in: ['whatsapp', 'telefono', 'telegram'] } },
+          select: { valor: true },
+          orderBy: { creadoEn: 'asc' },
+          take: 1,
+        },
+        suscripciones: {
+          where: { estado: { in: ['activa', 'en_gracia', 'suspendida', 'pausada'] } },
+          select: { plan: { select: { servicio: { select: { nombre: true } } } } },
+          take: 10,
+        },
+      },
+      orderBy: { nombre: 'asc' },
+      take: 25,
+    });
+    return filas.map((c) => ({
+      id: c.id,
+      nombre: c.nombre,
+      responsable: c.responsable,
+      contacto: c.contactos[0]?.valor ?? null,
+      servicios: [...new Set(c.suscripciones.map((s) => s.plan.servicio.nombre))],
+    }));
+  }
+
+  /**
+   * Pasa a la cartera del revendedor los clientes elegidos a mano (y les pone
+   * el revendedor a sus suscripciones sin revendedor). No toca clientes que ya
+   * son de otro revendedor ni su propia ficha.
+   */
+  async asignarClientes(
+    auth: ContextoAuth,
+    id: string,
+    e: AsignarClientesEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoVincularResponsable> {
+    return this.prisma.$transaction(async (tx) => {
+      const r = await bloquearRevendedor(tx, id);
+      if (r.estado !== 'aprobado') {
+        throw transicionInvalida('Primero aprueba al revendedor.');
+      }
+      const elegibles: Prisma.ClienteWhereInput = {
+        id: { in: e.clienteIds },
+        OR: [{ usuarioId: null }, { usuarioId: { not: r.usuarioId } }],
+      };
+      const [libres, deOtro] = await Promise.all([
+        tx.cliente.findMany({ where: { ...elegibles, revendedorId: null }, select: { id: true } }),
+        tx.cliente.count({ where: { ...elegibles, revendedorId: { not: null, notIn: [id] } } }),
+      ]);
+      const ids = libres.map((c) => c.id);
+      if (ids.length === 0) {
+        return { aplicado: false, clientes: 0, suscripciones: 0, deOtroRevendedor: deOtro };
+      }
+      const susc: Prisma.SuscripcionWhereInput = { clienteId: { in: ids }, revendedorId: null };
+      const suscripciones = await tx.suscripcion.count({ where: susc });
+      await tx.cliente.updateMany({ where: { id: { in: ids } }, data: { revendedorId: id } });
+      await tx.suscripcion.updateMany({ where: susc, data: { revendedorId: id } });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'revendedor.cartera_vinculada',
+          entidad: 'revendedor',
+          entidadId: id,
+          despues: { manual: true, clientes: ids, suscripciones },
+          cliente,
+        },
+        tx,
+      );
+      return { aplicado: true, clientes: ids.length, suscripciones, deOtroRevendedor: deOtro };
+    });
   }
 
   /**

@@ -269,8 +269,13 @@ export interface SuscripcionConLugar extends SuscripcionPublica {
   diasVencida: number;
   /** Dónde cobrarle a mano (WhatsApp o usuario de Telegram sin @). */
   contacto: { whatsapp: string | null; telegram: string | null };
-  /** Último cobro a mano de este vencimiento (ISO y quién), o null si no se ha cobrado. */
-  cobro: { en: string; por: string | null } | null;
+  /** Todos los WhatsApp (o teléfonos) y Telegram guardados del cliente, para elegir a cuál cobrar. */
+  contactos: { tipo: 'whatsapp' | 'telegram'; valor: string }[];
+  /**
+   * Último cobro a mano de este vencimiento (ISO y quién), o null si no se ha
+   * cobrado. `revendedor`: nombre comercial cuando lo cobró un revendedor.
+   */
+  cobro: { en: string; por: string | null; revendedor: string | null } | null;
 }
 
 /**

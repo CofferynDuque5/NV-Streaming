@@ -123,12 +123,22 @@ test('el revendedor recarga saldo, el equipo lo confirma, vende una activación 
     .check();
   await expect(revendedor.getByText(`1 elegido · ${usd(precio)}`)).toBeVisible();
   await expect(revendedor.getByText(`Te quedan ${usd(saldoFinal - precio)}`)).toBeVisible();
-  await revendedor.getByRole('button', { name: 'Renovar 1' }).click();
+  // También puede pagarla con un método: lleva a la recarga con los servicios elegidos.
+  await expect(revendedor.getByRole('link', { name: 'Pagar con otro método' })).toHaveAttribute(
+    'href',
+    /\/revendedor\/saldo\?renovar=/,
+  );
+  await revendedor.getByRole('button', { name: 'Renovar 1 con saldo' }).click();
   await expect(
     revendedor.getByText(
       `Renovaste 1 servicio por ${usd(precio)}. Saldo: ${usd(saldoFinal - precio)}`,
     ),
   ).toBeVisible();
+
+  // 6. Cobros: sus vencimientos y vencidos con el mensaje de cobro.
+  await revendedor.goto('/revendedor/cobros');
+  await expect(revendedor.getByRole('heading', { name: 'Cobros', level: 1 })).toBeVisible();
+  await expect(revendedor.getByRole('link', { name: /^Vencimientos · \d+$/ })).toBeVisible();
 });
 
 test('el revendedor ve sus precios mayoristas en el sitio público; el resto, los del público', async ({

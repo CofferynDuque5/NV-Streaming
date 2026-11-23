@@ -138,8 +138,34 @@ export type PrecioMayoristaEntrada = z.infer<typeof precioMayoristaSchema>;
 
 // ── Saldo ────────────────────────────────────────────────────────────────────
 
-/** Recarga que reporta el revendedor (el comprobante llega aparte, en el mismo formulario). */
-export const reportarRecargaSchema = reportarPagoSchema.extend({ moneda: monedaSchema });
+/** Máximo de servicios por renovación en lote. */
+export const MAXIMO_LOTE_RENOVACIONES = 50;
+
+/**
+ * Recarga que reporta el revendedor (el comprobante llega aparte, en el mismo
+ * formulario). `renovarIds`: servicios de su cartera que se renuevan solos con
+ * ese saldo cuando el equipo confirme la recarga (en el formulario, separados por coma).
+ */
+export const reportarRecargaSchema = reportarPagoSchema.extend({
+  moneda: monedaSchema,
+  renovarIds: z.preprocess(
+    (v) =>
+      typeof v === 'string'
+        ? v
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : v,
+    z
+      .array(uuidSchema)
+      .max(
+        MAXIMO_LOTE_RENOVACIONES,
+        `Renueva hasta ${MAXIMO_LOTE_RENOVACIONES} servicios a la vez.`,
+      )
+      .refine((ids) => new Set(ids).size === ids.length, 'Un servicio está repetido.')
+      .optional(),
+  ),
+});
 export type ReportarRecargaEntrada = z.infer<typeof reportarRecargaSchema>;
 
 export const confirmarRecargaSchema = z.object({
@@ -295,9 +321,6 @@ export const listarRenovacionesSchema = z.object({
 });
 export type ListarRenovacionesEntrada = z.infer<typeof listarRenovacionesSchema>;
 
-/** Máximo de servicios por renovación en lote. */
-export const MAXIMO_LOTE_RENOVACIONES = 50;
-
 /**
  * Renueva varios servicios de una vez (todo o nada). La clave es más corta que
  * la de una compra porque cada renovación usa `<clave>-<posición>`.
@@ -314,6 +337,21 @@ export const renovarLoteSchema = z.object({
     .regex(/^[A-Za-z0-9_-]{8,56}$/, 'La clave de la renovación no es válida.'),
 });
 export type RenovarLoteEntrada = z.infer<typeof renovarLoteSchema>;
+
+/** Renovar servicios de la cartera pagando en línea (Binance Pay, PayPal…). */
+export const pagarRenovacionEnLineaSchema = z.object({
+  suscripcionIds: renovarLoteSchema.shape.suscripcionIds,
+  metodoCobroId: uuidSchema,
+});
+export type PagarRenovacionEnLineaEntrada = z.infer<typeof pagarRenovacionEnLineaSchema>;
+
+/** Método en línea con el que el revendedor puede pagar una renovación. */
+export interface MetodoEnLineaRevendedor {
+  metodoCobroId: string;
+  nombre: string;
+  pasarela: string;
+  moneda: string;
+}
 
 export const reembolsarCompraSchema = z.object({ motivo });
 
@@ -341,6 +379,32 @@ export const vincularResponsableSchema = z.object({
   aplicar: z.boolean().default(false),
 });
 export type VincularResponsableEntrada = z.infer<typeof vincularResponsableSchema>;
+
+/** Buscar a mano, por nombre o contacto, clientes sin revendedor para pasarlos a una cartera. */
+export const buscarClientesLibresSchema = z.object({
+  q: z.string().trim().min(2, 'Escribe al menos 2 letras.').max(80),
+});
+export type BuscarClientesLibresEntrada = z.infer<typeof buscarClientesLibresSchema>;
+
+/** Pasar a la cartera de un revendedor los clientes elegidos a mano. */
+export const asignarClientesSchema = z.object({
+  clienteIds: z
+    .array(uuidSchema)
+    .min(1, 'Elige al menos un cliente.')
+    .max(50, 'Elige hasta 50 clientes a la vez.')
+    .refine((ids) => new Set(ids).size === ids.length, 'Un cliente está repetido.'),
+});
+export type AsignarClientesEntrada = z.infer<typeof asignarClientesSchema>;
+
+/** Un cliente sin revendedor que coincide con la búsqueda. */
+export interface ClienteLibre {
+  id: string;
+  nombre: string;
+  responsable: string | null;
+  contacto: string | null;
+  /** Servicios vigentes (nombre del servicio), para reconocerlo. */
+  servicios: string[];
+}
 
 /** Resultado de traer (o contar) los clientes de un responsable del Gestor. */
 export interface ResultadoVincularResponsable {

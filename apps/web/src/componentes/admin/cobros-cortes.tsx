@@ -19,9 +19,7 @@ import {
   KeyRound,
   RefreshCw,
   Scissors,
-  MessageCircle,
   Search,
-  Send,
   Trash2,
   Wand2,
 } from 'lucide-react';
@@ -34,7 +32,8 @@ import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
-import { etiquetaDia, formatearFecha, formatearHora } from '@/lib/formato';
+import { formatearFecha } from '@/lib/formato';
+import { Cobrar, cuandoCobro, quienCobro } from '@/componentes/cobro/cobrar';
 import { Dialogo, Opcion } from './cuentas-gestor';
 
 type Seccion = 'vencimientos' | 'cortes';
@@ -290,10 +289,12 @@ function Fila({
         {s.cobro && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-exito-suave px-2 py-0.5 text-xs font-semibold text-exito"
-            title={`Cobrado ${cuandoCobro(s.cobro.en)}${s.cobro.por ? ` por ${s.cobro.por}` : ''}`}
+            title={`Cobrado ${cuandoCobro(s.cobro.en)}${quienCobro(s.cobro) ? ` por ${quienCobro(s.cobro)}` : ''}`}
           >
             <Check className="size-3" aria-hidden="true" />
-            Cobrado {cuandoCobro(s.cobro.en)}
+            {s.cobro.revendedor
+              ? `Cobrado por ${s.cobro.revendedor} ${cuandoCobro(s.cobro.en)}`
+              : `Cobrado ${cuandoCobro(s.cobro.en)}`}
           </span>
         )}
       </div>
@@ -306,7 +307,7 @@ function Fila({
           {s.facturaAbierta ? `Factura ${s.facturaAbierta.numero}` : 'Renovar'}
         </Link>
         {metodos && s.plan.renovable && <Renovar s={s} metodos={metodos} />}
-        <Cobrar s={s} />
+        <Cobrar s={s} ruta={`/suscripciones/${s.id}/cobrado`} />
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
         {puedeCortar && s.lugar && seccion === 'cortes' && (
           <Cortar s={s} hermanos={hermanos} puedeRevelar={puedeRevelar} />
@@ -601,165 +602,6 @@ function puedeEliminar(s: SuscripcionConLugar): boolean {
   const pista = s.lugar?.pistaCuenta?.trim().toLowerCase();
   if (pista && !pista.endsWith(DOMINIO_PROPIO)) return true;
   return /spotify/i.test(s.plan.servicio) && esMiembro(s);
-}
-
-function cuandoMensaje(d: number): string {
-  if (d === 0) return 'vence hoy';
-  if (d === -1) return 'vence mañana';
-  if (d < -1) return `vence en ${-d} días`;
-  return d === 1 ? 'venció hace 1 día' : `venció hace ${d} días`;
-}
-
-/** El mensaje de cobro del Gestor, con la plataforma, el cliente y el día. */
-export function mensajeCobro(s: SuscripcionConLugar): string {
-  return [
-    `Hola, ${s.cliente.nombre}.`,
-    '',
-    `Su suscripción de ${s.plan.servicio} ${cuandoMensaje(s.diasVencida)}.`,
-    'Si desea renovar, por favor avísenos con tiempo para mantener activa la suscripción.',
-    '',
-    '¡Gracias por confiar en NV Streaming!',
-  ].join('\n');
-}
-
-/** «hoy a las 11:58 a. m.», «ayer a las…» o «el 20 nov. a las…». */
-function cuandoCobro(iso: string): string {
-  const dia = etiquetaDia(iso);
-  const prefijo = dia === 'Hoy' ? 'hoy' : dia === 'Ayer' ? 'ayer' : `el ${dia}`;
-  return `${prefijo} a las ${formatearHora(iso)}`;
-}
-
-/** Cobrar a mano por WhatsApp o Telegram con el mensaje ya armado (se puede editar). */
-function Cobrar({ s }: { s: SuscripcionConLugar }) {
-  const router = useRouter();
-  const [abierto, setAbierto] = useState(false);
-  const [marcado, setMarcado] = useState(false);
-  const [errorMarca, setErrorMarca] = useState<string | null>(null);
-  const [texto, setTexto] = useState('');
-  const [numero, setNumero] = useState('');
-  const [copiado, setCopiado] = useState(false);
-  const telegram = s.contacto.telegram?.replace(/^@/, '') ?? null;
-  const digitos = numero.replace(/\D/g, '');
-
-  function abrir() {
-    setTexto(mensajeCobro(s));
-    setNumero(s.contacto.whatsapp ?? '');
-    setCopiado(false);
-    setMarcado(false);
-    setErrorMarca(null);
-    setAbierto(true);
-  }
-
-  /** Queda marcado como cobrado hoy (se puede volver a cobrar otro día). */
-  async function marcar(canal: 'whatsapp' | 'telegram') {
-    const r = await llamarApi('POST', `/suscripciones/${s.id}/cobrado`, { canal });
-    if (r.ok) {
-      setMarcado(true);
-      setErrorMarca(null);
-    } else {
-      setErrorMarca(r.error.mensaje);
-    }
-  }
-
-  function cerrar() {
-    setAbierto(false);
-    if (marcado) router.refresh();
-  }
-
-  async function porTelegram() {
-    void marcar('telegram');
-    try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(true);
-    } catch {
-      setCopiado(false);
-    }
-    window.open(`https://t.me/${telegram}`, '_blank', 'noopener');
-  }
-
-  return (
-    <>
-      <Boton
-        tamano="sm"
-        variante="secundario"
-        icono={<MessageCircle className="size-3.5" />}
-        onClick={abrir}
-        aria-label={`${s.cobro ? 'Volver a cobrar' : 'Cobrar'} a ${s.cliente.nombre}`}
-      >
-        {s.cobro ? 'Volver a cobrar' : 'Cobrar'}
-      </Boton>
-      {abierto && (
-        <Dialogo
-          titulo="Cobrar por mensaje"
-          icono={<MessageCircle className="size-5 text-marca" aria-hidden="true" />}
-          onCerrar={cerrar}
-        >
-          {s.cobro && (
-            <p className="text-sm text-tinta-suave">
-              Ya se le cobró {cuandoCobro(s.cobro.en)}
-              {s.cobro.por ? ` (${s.cobro.por})` : ''}.
-            </p>
-          )}
-          <label className="grid gap-1 text-sm">
-            Mensaje
-            <textarea
-              value={texto}
-              onChange={(e) => setTexto(e.currentTarget.value)}
-              rows={8}
-              className="rounded-xl border border-borde bg-hundida p-3 text-sm"
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
-            WhatsApp
-            <input
-              value={numero}
-              onChange={(e) => setNumero(e.currentTarget.value)}
-              inputMode="tel"
-              placeholder="584121234567"
-              className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
-            />
-          </label>
-          {!s.contacto.whatsapp && !telegram && (
-            <Alerta tono="aviso">
-              Este cliente no tiene WhatsApp ni Telegram guardados: escribe el número.
-            </Alerta>
-          )}
-          {copiado && <Alerta tono="exito">Mensaje copiado: pégalo en el chat de Telegram.</Alerta>}
-          {marcado && <Alerta tono="exito">Quedó marcado como cobrado hoy.</Alerta>}
-          {errorMarca && <Alerta tono="peligro">{errorMarca}</Alerta>}
-          <div className="flex flex-wrap justify-end gap-2">
-            {telegram && (
-              <Boton
-                variante="secundario"
-                icono={<Send className="size-4" />}
-                onClick={() => void porTelegram()}
-              >
-                Telegram (@{telegram})
-              </Boton>
-            )}
-            <a
-              href={
-                digitos.length >= 8
-                  ? `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`
-                  : undefined
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => void marcar('whatsapp')}
-              aria-disabled={digitos.length < 8}
-              className={clsx(
-                'inline-flex h-10 items-center gap-2 rounded-xl bg-[#25D366] px-4 text-sm font-semibold text-black',
-                digitos.length < 8 && 'pointer-events-none opacity-50',
-              )}
-            >
-              <MessageCircle className="size-4" aria-hidden="true" />
-              Enviar por WhatsApp
-            </a>
-          </div>
-        </Dialogo>
-      )}
-    </>
-  );
 }
 
 /* ───────────────────────── Clave y PIN ───────────────────────── */
