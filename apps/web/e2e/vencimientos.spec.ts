@@ -39,7 +39,7 @@ test('vencen mañana, por plataforma, y se renueva por 3 meses', async ({ page }
     .getByRole('button', { name: /^Mañana/ })
     .click();
   const fila = page.getByRole('listitem').filter({ hasText: 'Cliente Vence Mañana' });
-  await expect(fila.getByText('Vence mañana')).toBeVisible();
+  await expect(fila.getByText('Vence mañana', { exact: true })).toBeVisible();
   await fila.getByRole('link', { name: 'Cliente Vence Mañana' }).click();
   await expect(page).toHaveURL(/\/admin\/suscripciones\/[0-9a-f-]+$/);
 
