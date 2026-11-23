@@ -17,10 +17,11 @@ import { AUTOR_SISTEMA, autorMensaje, esTicketDelSistema } from '@/lib/automatiz
 import { CATEGORIA_TICKET, ESTADO_TICKET, PRIORIDAD_TICKET } from '@/lib/estados';
 import { formatearFechaHora, haceCuanto } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { ImagenAdjunta } from '@/componentes/ui/imagen-adjunta';
 
 export const metadata: Metadata = { title: 'Ticket de soporte' };
 
-function Mensaje({ m }: { m: MensajeTicketPublico }) {
+function Mensaje({ m, ticketId }: { m: MensajeTicketPublico; ticketId: string }) {
   const autor = autorMensaje(m);
   const delEquipo = autor.esEquipo;
   return (
@@ -59,6 +60,11 @@ function Mensaje({ m }: { m: MensajeTicketPublico }) {
             </p>
           )}
           {m.texto}
+          {m.imagen && (
+            <div className={m.texto ? 'mt-2' : undefined}>
+              <ImagenAdjunta src={`/api/v1/tickets/${ticketId}/mensajes/${m.id}/imagen`} />
+            </div>
+          )}
         </div>
       </div>
     </li>
@@ -169,7 +175,7 @@ export default async function DetalleTicket({ params }: { params: Promise<{ id: 
           ) : (
             <ol className="grid gap-5 px-4 py-6 sm:px-6" aria-label="Mensajes del ticket">
               {mensajes.map((m) => (
-                <Mensaje key={m.id} m={m} />
+                <Mensaje key={m.id} m={m} ticketId={t.id} />
               ))}
             </ol>
           )}

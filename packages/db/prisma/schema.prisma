@@ -908,6 +908,7 @@ model Archivo {
   recargasBilletera RecargaBilletera[]
   medio             Medio?
   intentosPago      IntentoPago[]
+  mensajesTicket    MensajeTicket[]
 
   @@map("archivos")
 }
@@ -1035,10 +1036,13 @@ model MensajeTicket {
   texto    String   @db.VarChar(5000)
   /// Nota interna del equipo: el cliente no la ve.
   interno  Boolean  @default(false)
+  /// Imagen adjunta (captura de pantalla). Solo se sirve por la API con permiso.
+  imagenId String?  @map("imagen_id") @db.Uuid
   creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
 
   ticket Ticket   @relation(fields: [ticketId], references: [id], onDelete: Restrict)
   autor  Usuario? @relation(fields: [autorId], references: [id], onDelete: Restrict)
+  imagen Archivo? @relation(fields: [imagenId], references: [id], onDelete: Restrict)
 
   @@index([ticketId, creadoEn])
   @@map("mensajes_ticket")

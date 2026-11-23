@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { conectar, type Contexto, crearContexto, limpiar } from './ayudas.js';
+import { conectar, type Contexto, crearContexto, limpiar, PNG_1X1 } from './ayudas.js';
 
 let ctx: Contexto;
 beforeAll(async () => {
@@ -74,6 +74,63 @@ describe('soporte', () => {
       texto: 'Otra cosa más',
     });
     expect(tarde.cuerpo.error.codigo).toBe('TICKET_CERRADO');
+  });
+
+  it('adjunta imágenes: el dueño y el equipo las ven, nadie más; las internas no llegan al cliente', async () => {
+    const cliente = await conectar(ctx, 'cliente');
+    const otro = await conectar(ctx, 'cliente');
+    const op = await conectar(ctx, 'operador');
+    const png = { campo: 'imagen', nombre: 'captura.png', tipo: 'image/png', contenido: PNG_1X1 };
+
+    const t = await cliente.n.post('/mi/tickets', {
+      asunto: 'Error al entrar',
+      categoria: 'acceso',
+      mensaje: 'Te mando la captura.',
+    });
+    const id = t.cuerpo.id as string;
+
+    // Solo la imagen, sin texto.
+    const conImagen = await cliente.n.formulario(`/mi/tickets/${id}/imagen`, {}, png);
+    expect(conImagen.estado).toBe(201);
+    const m = (conImagen.cuerpo.mensajes as { id: string; imagen: boolean }[]).at(-1)!;
+    expect(m.imagen).toBe(true);
+
+    const propia = await cliente.n.descargar(`/mi/tickets/${id}/mensajes/${m.id}/imagen`);
+    expect(propia.estado).toBe(200);
+    expect(propia.cabeceras['content-type']).toContain('image/png');
+    expect((await otro.n.descargar(`/mi/tickets/${id}/mensajes/${m.id}/imagen`)).estado).toBe(404);
+    expect((await op.n.descargar(`/tickets/${id}/mensajes/${m.id}/imagen`)).estado).toBe(200);
+
+    // Sin archivo o con un tipo no admitido, se rechaza.
+    expect((await cliente.n.formulario(`/mi/tickets/${id}/imagen`, { texto: 'hola' })).estado).toBe(
+      400,
+    );
+    const pdf = await cliente.n.formulario(
+      `/mi/tickets/${id}/imagen`,
+      {},
+      {
+        ...png,
+        nombre: 'a.pdf',
+        tipo: 'application/pdf',
+        contenido: Buffer.from('%PDF-1.4\n%prueba\n'),
+      },
+    );
+    expect(pdf.estado).toBe(415);
+
+    // Una nota interna con imagen no se le muestra al cliente.
+    const nota = await op.n.formulario(
+      `/tickets/${id}/imagen`,
+      { texto: 'Captura del panel', interno: 'true' },
+      png,
+    );
+    expect(nota.estado).toBe(201);
+    const interna = (nota.cuerpo.mensajes as { id: string; interno: boolean }[]).at(-1)!;
+    expect(interna.interno).toBe(true);
+    const visto = await cliente.n.get(`/mi/tickets/${id}`);
+    expect(visto.cuerpo.mensajes.some((x: { id: string }) => x.id === interna.id)).toBe(false);
+    expect(
+      (await cliente.n.descargar(`/mi/tickets/${id}/mensajes/${interna.id}/imagen`)).estado,
+    ).toBe(404);
   });
 
   it('cada quien ve solo lo que le toca', async () => {

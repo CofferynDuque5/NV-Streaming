@@ -47,6 +47,19 @@ export const mensajeTicketSchema = z.object({
   interno: z.boolean().default(false),
 });
 
+/** Mensaje con una imagen adjunta (multipart): el texto es opcional. */
+export const mensajeTicketImagenSchema = z.object({
+  texto: z
+    .string()
+    .trim()
+    .max(5000, 'El mensaje es demasiado largo (máximo 5000 caracteres).')
+    .default(''),
+  interno: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+});
+
 export const actualizarTicketSchema = z
   .object({
     estado: z.enum(ESTADOS_TICKET).optional(),

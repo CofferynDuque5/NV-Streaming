@@ -16,6 +16,7 @@ import { leerApi } from '@/lib/api-servidor';
 import { autorMensaje } from '@/lib/automatizaciones';
 import { CATEGORIA_TICKET } from '@/lib/estados';
 import { requerirSesion } from '@/lib/sesion';
+import { ImagenAdjunta } from '@/componentes/ui/imagen-adjunta';
 
 export const metadata: Metadata = { title: 'Solicitud de soporte' };
 
@@ -72,7 +73,10 @@ export default async function Solicitud({ params }: { params: Promise<{ id: stri
                     : autor.nombre}{' '}
                 · {cuando.format(new Date(m.creadoEn))}
               </small>
-              <p className="break-words whitespace-pre-line">{m.texto}</p>
+              {m.texto && <p className="break-words whitespace-pre-line">{m.texto}</p>}
+              {m.imagen && (
+                <ImagenAdjunta src={`/api/v1/mi/tickets/${t.id}/mensajes/${m.id}/imagen`} />
+              )}
             </li>
           );
         })}

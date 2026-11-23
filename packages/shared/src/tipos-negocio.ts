@@ -494,6 +494,8 @@ export interface MensajeTicketPublico {
   id: string;
   texto: string;
   interno: boolean;
+  /** Trae una imagen adjunta (se pide aparte, con permiso). */
+  imagen: boolean;
   autor: { id: string; nombre: string; esEquipo: boolean };
   creadoEn: string;
 }

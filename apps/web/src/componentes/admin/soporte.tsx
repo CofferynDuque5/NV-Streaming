@@ -23,6 +23,7 @@ import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
 import { type ErrorLlamada, erroresPorCampo, llamarApi } from '@/lib/api-cliente';
 import { CATEGORIA_TICKET, ESTADO_TICKET, PRIORIDAD_TICKET } from '@/lib/estados';
 import { clasesFiltro } from './piezas-crm';
+import { ElegirImagen } from '@/componentes/ui/imagen-adjunta';
 
 function ErrorGeneral({ error }: { error: ErrorLlamada | null }) {
   if (!error || error.campos) return null;
@@ -256,6 +257,7 @@ export function NuevoTicket({ clienteInicial }: { clienteInicial: OpcionCliente 
 export function ResponderTicket({ id }: { id: string }) {
   const router = useRouter();
   const [interno, setInterno] = useState(false);
+  const [imagen, setImagen] = useState<File | null>(null);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -265,14 +267,24 @@ export function ResponderTicket({ id }: { id: string }) {
     const d = new FormData(formulario);
     setCargando(true);
     setError(null);
-    const r = await llamarApi('POST', `/tickets/${id}/mensajes`, {
-      texto: texto(d, 'texto'),
-      interno,
-    });
+    let r;
+    if (imagen) {
+      const conImagen = new FormData();
+      conImagen.append('texto', texto(d, 'texto') ?? '');
+      conImagen.append('interno', String(interno));
+      conImagen.append('imagen', imagen);
+      r = await llamarApi('POST', `/tickets/${id}/imagen`, conImagen);
+    } else {
+      r = await llamarApi('POST', `/tickets/${id}/mensajes`, {
+        texto: texto(d, 'texto'),
+        interno,
+      });
+    }
     setCargando(false);
     if (!r.ok) return setError(r.error);
     formulario.reset();
     setInterno(false);
+    setImagen(null);
     router.refresh();
   }
 
@@ -299,6 +311,7 @@ export function ResponderTicket({ id }: { id: string }) {
         }
         error={erroresPorCampo(error).texto}
       />
+      <ElegirImagen archivo={imagen} onCambio={setImagen} error={erroresPorCampo(error).imagen} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Casilla
           checked={interno}

@@ -11,6 +11,7 @@ import {
   type TicketDetalle,
   type TicketResumen,
 } from '@nv/shared';
+import { type ArchivoRecibido, AlmacenService } from '../almacen/almacen.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
 import { alcanceClientes } from '../comun/alcance.js';
@@ -85,6 +86,7 @@ export class TicketsService {
     @Inject(ClientesService) private readonly clientes: ClientesService,
     @Inject(LimitesService) private readonly limites: LimitesService,
     @Inject(CorreoService) private readonly correo: CorreoService,
+    @Inject(AlmacenService) private readonly almacen: AlmacenService,
   ) {}
 
   async listar(auth: ContextoAuth, f: ListarTicketsEntrada): Promise<Pagina<TicketResumen>> {
@@ -135,6 +137,7 @@ export class TicketsService {
         id: m.id,
         texto: m.texto,
         interno: m.interno,
+        imagen: m.imagenId !== null,
         autor: m.autor
           ? { id: m.autor.id, nombre: m.autor.nombre, esEquipo: esEquipo(m.autor.rol) }
           : AUTOR_SISTEMA,
@@ -159,7 +162,7 @@ export class TicketsService {
   async responder(
     auth: ContextoAuth,
     id: string,
-    e: { texto: string; interno: boolean },
+    e: { texto: string; interno: boolean; imagen?: ArchivoRecibido | null },
     cliente: InfoCliente,
   ): Promise<TicketDetalle> {
     const deEquipo = esEquipo(auth.usuario.rol);
@@ -174,8 +177,17 @@ export class TicketsService {
           'Este ticket está cerrado. Abre uno nuevo si lo necesitas.',
         );
       }
+      const imagen = e.imagen
+        ? await this.almacen.guardarAdjunto(tx, e.imagen, auth.usuario.id)
+        : null;
       const m = await tx.mensajeTicket.create({
-        data: { ticketId: id, autorId: auth.usuario.id, texto: e.texto, interno },
+        data: {
+          ticketId: id,
+          autorId: auth.usuario.id,
+          texto: e.texto,
+          interno,
+          imagenId: imagen?.id ?? null,
+        },
       });
       const cambios: Prisma.TicketUpdateInput = {};
       if (deEquipo && !interno) {
@@ -196,6 +208,7 @@ export class TicketsService {
           entidadId: id,
           despues: {
             mensajeId: m.id,
+            ...(imagen ? { imagen: true } : {}),
             ...(cambios.estado ? { estado: cambios.estado as string } : {}),
           },
           cliente,
@@ -276,6 +289,22 @@ export class TicketsService {
       );
     });
     return this.obtener(auth, id);
+  }
+
+  /** Imagen adjunta de un mensaje, con el mismo alcance que ver el ticket. */
+  async imagen(auth: ContextoAuth, ticketId: string, mensajeId: string) {
+    const m = await this.prisma.mensajeTicket.findFirst({
+      where: {
+        id: mensajeId,
+        ticketId,
+        imagenId: { not: null },
+        ticket: { cliente: alcanceTickets(auth) },
+        ...(esEquipo(auth.usuario.rol) ? {} : { interno: false }),
+      },
+      include: { imagen: true },
+    });
+    if (!m?.imagen) throw Errores.noEncontrado('La imagen');
+    return { archivo: m.imagen, contenido: await this.almacen.leer(m.imagen) };
   }
 
   private async crear(

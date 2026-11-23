@@ -196,10 +196,23 @@ test('nueva solicitud de soporte con validación en vivo', async () => {
 
   // Responder vacío avisa; «Ya se resolvió» la cierra.
   await page.getByRole('button', { name: 'Responder' }).click();
-  await expect(page.getByText('Escribe tu respuesta.')).toBeVisible();
+  await expect(page.getByText('Escribe tu respuesta o adjunta una imagen.')).toBeVisible();
   await page.getByLabel('Tu respuesta').fill('Mi número nuevo termina en 1234.');
   await page.getByRole('button', { name: 'Responder' }).click();
   await expect(conversacion.getByText('Mi número nuevo termina en 1234.')).toBeVisible();
+
+  // Solo una imagen, sin texto: se adjunta y aparece en la conversación.
+  await page.getByLabel('Adjuntar imagen').setInputFiles({
+    name: 'captura.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  });
+  await expect(page.getByText('captura.png')).toBeVisible();
+  await page.getByRole('button', { name: 'Responder' }).click();
+  await expect(conversacion.getByRole('img', { name: 'Imagen adjunta' })).toBeVisible();
   await page.getByRole('button', { name: 'Ya se resolvió' }).click();
   await expect(page.getByText('Esta solicitud está cerrada.')).toBeVisible();
   await expect(page.getByText('Cerrada', { exact: true })).toBeVisible();

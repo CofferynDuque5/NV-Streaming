@@ -20,6 +20,7 @@ import {
   listarPagosSchema,
   listarSuscripcionesSchema,
   listarTicketsSchema,
+  mensajeTicketImagenSchema,
   monedaSchema,
   perfilClienteSchema,
   recotizarSchema,
@@ -32,6 +33,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { ClientesService } from '../clientes/clientes.service.js';
+import { ErrorApp } from '../comun/errores.js';
 import { enviarComprobante } from '../cobros/cobros.controller.js';
 import { FacturasService } from '../cobros/facturas.service.js';
 import { PagosService } from '../cobros/pagos.service.js';
@@ -50,6 +52,8 @@ import { TicketsService } from '../soporte/tickets.service.js';
 import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
 
 const idValido = validar(uuidSchema);
+const imagenFaltante = () =>
+  new ErrorApp(400, 'DATOS_INVALIDOS', 'Adjunta una imagen.', { imagen: ['Adjunta una imagen.'] });
 const filtroMetodos = z.object({ moneda: monedaSchema });
 const mensajeCliente = z.object({
   texto: z
@@ -306,6 +310,38 @@ export class AutoservicioController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.tickets.responder(auth, id, { texto: cuerpo.texto, interno: false }, cliente);
+  }
+
+  /** Respuesta con una imagen (multipart: «imagen» y «texto» opcional). */
+  @Post('tickets/:id/imagen')
+  @RequierePermiso('soporte.propio')
+  @ApiConsumes('multipart/form-data')
+  async responderConImagen(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Req() peticion: FastifyRequest,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    const { campos, archivo } = await leerFormulario(peticion, 'imagen');
+    const datos = new ZodPipe(mensajeTicketImagenSchema).transform(campos);
+    if (!archivo) throw imagenFaltante();
+    return this.tickets.responder(
+      auth,
+      id,
+      { texto: datos.texto, interno: false, imagen: archivo },
+      cliente,
+    );
+  }
+
+  @Get('tickets/:id/mensajes/:mensajeId/imagen')
+  @RequierePermiso('soporte.propio')
+  async imagenTicket(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('mensajeId', idValido) mensajeId: string,
+    @Res() respuesta: FastifyReply,
+  ) {
+    enviarComprobante(respuesta, await this.tickets.imagen(auth, id, mensajeId));
   }
 
   @Post('tickets/:id/cerrar')
