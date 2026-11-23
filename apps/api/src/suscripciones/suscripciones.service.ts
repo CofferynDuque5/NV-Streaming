@@ -220,6 +220,7 @@ export class SuscripcionesService {
               perfilId: p.id,
               numero: p.numero,
               etiqueta: etiquetaPerfil(tipo, p.numero, p.nombre),
+              nombre: p.nombre,
               tipo,
               individual: p.cuenta.modo === 'completa',
               pistaCuenta: p.cuenta.pista,

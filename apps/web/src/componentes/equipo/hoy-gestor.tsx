@@ -100,9 +100,14 @@ export function HoyGestor({
       id="titulo-hoy"
       titulo="Hoy en el negocio"
       accion={
-        <Link href="/admin/suscripciones/vencimientos" className={claseEnlace}>
-          Vencimientos y cortes
-        </Link>
+        <span className="flex flex-wrap gap-3">
+          <Link href="/admin/suscripciones/vencimientos" className={claseEnlace}>
+            Vencimientos
+          </Link>
+          <Link href="/admin/suscripciones/cortes" className={claseEnlace}>
+            Cortes
+          </Link>
+        </span>
       }
     >
       <Kpis>

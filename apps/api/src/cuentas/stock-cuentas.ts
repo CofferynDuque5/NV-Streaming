@@ -45,6 +45,7 @@ interface FilaLibre {
   con_pin: boolean;
   apto_web: boolean;
   apto_revisado_en: Date | null;
+  apto_revisado_por: string | null;
 }
 
 /** Condición del tipo de lugar que se vende por la web (ver `sirveVentaWeb`). */
@@ -69,6 +70,7 @@ const libresVigentes = (servicioIds: string[], hoy: string, revision: Revision =
   Prisma.sql`
   SELECT p.id, p.cuenta_id, c.servicio_id, s.nombre AS servicio, p.numero, p.nombre, c.pista,
          c.factura_en, (p.pin_cifrado IS NOT NULL) AS con_pin, p.apto_web, p.apto_revisado_en,
+         (SELECT u.nombre FROM usuarios u WHERE u.id = p.apto_revisado_por_id) AS apto_revisado_por,
          (c.modo = 'completa'
            OR (SELECT count(*) FROM perfiles_cuenta x WHERE x.cuenta_id = c.id) = 1) AS individual
   FROM perfiles_cuenta p
@@ -242,6 +244,7 @@ export interface LugarEntregaFila {
   facturaEn: string;
   conPin: boolean;
   aptoRevisadoEn: string | null;
+  aptoRevisadoPor: string | null;
 }
 
 export interface EntregaWebServicioFila {
@@ -265,6 +268,7 @@ const aLugar = (f: FilaLibre): LugarEntregaFila => ({
   facturaEn: fechaCaracas(f.factura_en),
   conPin: f.con_pin,
   aptoRevisadoEn: f.apto_revisado_en ? f.apto_revisado_en.toISOString() : null,
+  aptoRevisadoPor: f.apto_revisado_por,
 });
 
 /**

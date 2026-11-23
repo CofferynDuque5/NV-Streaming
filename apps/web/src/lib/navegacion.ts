@@ -145,6 +145,7 @@ export type ModuloEquipo =
   | 'notas'
   | 'papelera'
   | 'vencimientos'
+  | 'cortes'
   | 'devoluciones'
   | 'por-pagar'
   | 'caidas';
@@ -181,7 +182,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'cobros',
     grupo: 'atender',
     nombre: 'Cobros',
-    descripcion: 'Pagos por conciliar, recargas, facturas, vencimientos y cortes',
+    descripcion: 'Pagos por conciliar, recargas de billetera, facturas y cobros automáticos',
     color: '#4f8dff',
     href: '/admin/cobros',
     permiso: 'facturas.ver',
@@ -261,10 +262,20 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
   {
     clave: 'vencimientos',
     grupo: 'ventas',
-    nombre: 'Vencimientos y cortes',
-    descripcion: 'Lo que vence hoy, mañana y esta semana, y los cortes pendientes',
+    nombre: 'Vencimientos',
+    descripcion: 'Los que vencen hoy, mañana y esta semana: cobrar o renovar a tiempo',
     color: '#f43f5e',
     href: '/admin/suscripciones/vencimientos',
+    permiso: 'suscripciones.ver',
+    dentroDe: 'suscripciones',
+  },
+  {
+    clave: 'cortes',
+    grupo: 'ventas',
+    nombre: 'Cortes',
+    descripcion: 'Vencidos que siguen en un perfil o cupo: renovar, cortar o eliminar',
+    color: '#ef4444',
+    href: '/admin/suscripciones/cortes',
     permiso: 'suscripciones.ver',
     dentroDe: 'suscripciones',
   },

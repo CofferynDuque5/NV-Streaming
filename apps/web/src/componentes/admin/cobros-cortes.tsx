@@ -1,11 +1,29 @@
 'use client';
 
-import { generarClave, generarPin, type SuscripcionConLugar, TEXTOS_PLATAFORMA } from '@nv/shared';
+import {
+  type CredencialesCuenta,
+  generarClave,
+  generarPin,
+  type SuscripcionConLugar,
+  TEXTOS_PLATAFORMA,
+} from '@nv/shared';
 import clsx from 'clsx';
-import { CalendarCheck, KeyRound, RefreshCw, Scissors, Search, Trash2, Wand2 } from 'lucide-react';
+import {
+  CalendarCheck,
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  KeyRound,
+  RefreshCw,
+  Scissors,
+  Search,
+  Trash2,
+  Wand2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { EstadoSuscripcionInsignia } from '@/componentes/ui/estado';
@@ -63,7 +81,7 @@ function cuando(seccion: Seccion, d: number): { texto: string; tono: string } {
 const sinTildes = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /**
- * Cobros → Vencimientos (vencen hoy y mañana) y Cortes (ya vencidos que siguen
+ * Suscripciones → Vencimientos (vencen hoy y mañana) y Cortes (ya vencidos que siguen
  * ocupando un perfil o cupo), como en el Gestor: buscador, filtros rápidos,
  * agrupado por plataforma y acciones por fila.
  */
@@ -73,12 +91,15 @@ export function ListaVencimientosCortes({
   horaCorte,
   pasoHoraCorte,
   puedeCortar,
+  puedeRevelar = false,
 }: {
   seccion: Seccion;
   lista: SuscripcionConLugar[];
   horaCorte: number;
   pasoHoraCorte: boolean;
   puedeCortar: boolean;
+  /** Con `cuentas.revelar`: «Ver datos» de la cuenta y el perfil al cortar. */
+  puedeRevelar?: boolean;
 }) {
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [busqueda, setBusqueda] = useState('');
@@ -179,6 +200,7 @@ export function ListaVencimientosCortes({
                     s={s}
                     seccion={seccion}
                     puedeCortar={puedeCortar}
+                    puedeRevelar={puedeRevelar}
                     hermanos={
                       s.lugar
                         ? lista.filter(
@@ -204,11 +226,13 @@ function Fila({
   s,
   seccion,
   puedeCortar,
+  puedeRevelar,
   hermanos,
 }: {
   s: SuscripcionConLugar;
   seccion: Seccion;
   puedeCortar: boolean;
+  puedeRevelar: boolean;
   hermanos: number;
 }) {
   const w = cuando(seccion, s.diasVencida);
@@ -253,7 +277,9 @@ function Fila({
           {s.facturaAbierta ? `Factura ${s.facturaAbierta.numero}` : 'Renovar'}
         </Link>
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
-        {puedeCortar && s.lugar && seccion === 'cortes' && <Cortar s={s} hermanos={hermanos} />}
+        {puedeCortar && s.lugar && seccion === 'cortes' && (
+          <Cortar s={s} hermanos={hermanos} puedeRevelar={puedeRevelar} />
+        )}
         {puedeCortar && s.lugar && seccion === 'cortes' && <Eliminar s={s} />}
       </div>
     </li>
@@ -515,6 +541,190 @@ function CambiarDatos({ s }: { s: SuscripcionConLugar }) {
   );
 }
 
+/* ───────────────────────── Ubicación y datos ───────────────────────── */
+
+function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-tinta-tenue">{etiqueta}</dt>
+      <dd className="min-w-0 break-words">{children}</dd>
+    </div>
+  );
+}
+
+/** Un dato secreto con ver/ocultar y copiar; nunca se guarda fuera de esta pantalla. */
+function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  const [ver, setVer] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(valor);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1500);
+    } catch {
+      setCopiado(false);
+    }
+  }
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <span className="min-w-0 truncate font-mono" aria-label={etiqueta}>
+        {ver ? valor : '••••••••'}
+      </span>
+      <button
+        type="button"
+        onClick={() => setVer((v) => !v)}
+        aria-label={ver ? `Ocultar ${etiqueta.toLowerCase()}` : `Ver ${etiqueta.toLowerCase()}`}
+        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
+      >
+        {ver ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => void copiar()}
+        aria-label={`Copiar ${etiqueta.toLowerCase()}`}
+        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
+      >
+        {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </button>
+    </span>
+  );
+}
+
+function Copiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <span className="min-w-0 truncate font-mono font-medium" title={valor}>
+        {valor}
+      </span>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(valor);
+            setCopiado(true);
+            setTimeout(() => setCopiado(false), 1500);
+          } catch {
+            setCopiado(false);
+          }
+        }}
+        aria-label={`Copiar ${etiqueta.toLowerCase()}`}
+        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
+      >
+        {copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Dónde está el cliente que se va a cortar (plataforma, cuenta y perfil o cupo)
+ * y, con permiso, «Ver datos» como en Plataformas: correo, contraseña y PIN
+ * actuales, descifrados al pedirlos (queda en la auditoría).
+ */
+function UbicacionCliente({ s, puedeRevelar }: { s: SuscripcionConLugar; puedeRevelar: boolean }) {
+  const lugar = s.lugar!;
+  const textos = TEXTOS_PLATAFORMA[lugar.tipo];
+  const [datos, setDatos] = useState<CredencialesCuenta | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const perfil = datos?.perfiles.find((p) => p.numero === lugar.numero) ?? null;
+  const miembro = esMiembro(s);
+  const nombre = lugar.nombre && lugar.nombre !== lugar.etiqueta ? ` · «${lugar.nombre}»` : '';
+
+  async function ver() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<CredencialesCuenta>('POST', `/cuentas/${lugar.cuentaId}/revelar`, {});
+    setCargando(false);
+    if (!r.ok) return setError(r.error.mensaje);
+    setDatos(r.datos);
+  }
+
+  return (
+    <div className="grid gap-3 rounded-xl border border-borde bg-hundida p-3 text-sm">
+      <dl className="grid grid-cols-2 gap-2">
+        <Dato etiqueta="Cliente">
+          <span className="font-medium">{s.cliente.nombre}</span>
+        </Dato>
+        <Dato etiqueta="Plataforma">{s.plan.servicio}</Dato>
+        <Dato etiqueta="Cuenta">
+          <Link
+            href={`/admin/cuentas/${lugar.cuentaId}`}
+            className="font-mono hover:text-cian hover:underline"
+          >
+            {datos?.usuario ?? lugar.pistaCuenta ?? 'Ver cuenta'}
+          </Link>
+          {lugar.individual && <span className="text-tinta-tenue"> · individual</span>}
+        </Dato>
+        <Dato etiqueta={`${textos.lugar} donde está`}>
+          <span className="font-medium">
+            {textos.lugar} {lugar.numero}
+            {nombre}
+          </span>
+        </Dato>
+        <Dato etiqueta="Venció">
+          <span className="text-peligro">
+            {s.venceEn ? formatearFecha(s.venceEn) : 'Sin fecha'}
+          </span>
+        </Dato>
+        <Dato etiqueta="Plan">{s.plan.nombre}</Dato>
+      </dl>
+      {datos ? (
+        <dl className="grid gap-2 border-t border-borde pt-3 sm:grid-cols-2">
+          <Dato etiqueta="Correo de la cuenta">
+            <Copiable etiqueta="El correo de la cuenta" valor={datos.usuario} />
+          </Dato>
+          <Dato etiqueta="Contraseña de la cuenta">
+            <Secreto etiqueta="La contraseña de la cuenta" valor={datos.clave} />
+          </Dato>
+          {miembro && perfil?.usuarioMiembro && (
+            <Dato etiqueta="Correo del miembro">
+              <Copiable etiqueta="El correo del miembro" valor={perfil.usuarioMiembro} />
+            </Dato>
+          )}
+          {miembro && perfil?.claveMiembro && (
+            <Dato etiqueta="Contraseña del miembro">
+              <Secreto etiqueta="La contraseña del miembro" valor={perfil.claveMiembro} />
+            </Dato>
+          )}
+          {textos.usaPin && (
+            <Dato etiqueta={`PIN del ${textos.lugar.toLowerCase()} ${lugar.numero}`}>
+              {perfil?.pin ? (
+                <Secreto etiqueta="El PIN" valor={perfil.pin} />
+              ) : (
+                <span className="text-tinta-tenue">Sin PIN</span>
+              )}
+            </Dato>
+          )}
+          {perfil && perfil.nombre && perfil.nombre !== lugar.nombre && (
+            <Dato etiqueta={`Nombre del ${textos.lugar.toLowerCase()}`}>{perfil.nombre}</Dato>
+          )}
+        </dl>
+      ) : (
+        puedeRevelar && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Boton
+              tamano="sm"
+              variante="secundario"
+              icono={<Eye className="size-3.5" />}
+              cargando={cargando}
+              onClick={() => void ver()}
+            >
+              Ver datos
+            </Boton>
+            <span className="text-xs text-tinta-tenue">
+              Correo, contraseña{textos.usaPin ? ' y PIN' : ''} actuales para cortarlo en la
+              plataforma.
+            </span>
+            {error && <span className="text-xs text-peligro">{error}</span>}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────── Cortar ───────────────────────── */
 
 /**
@@ -522,7 +732,15 @@ function CambiarDatos({ s }: { s: SuscripcionConLugar }) {
  * clave y el PIN antes de confirmar. El lugar queda libre y la suscripción
  * suspendida; queda en el historial de la suscripción y en la auditoría.
  */
-function Cortar({ s, hermanos }: { s: SuscripcionConLugar; hermanos: number }) {
+function Cortar({
+  s,
+  hermanos,
+  puedeRevelar,
+}: {
+  s: SuscripcionConLugar;
+  hermanos: number;
+  puedeRevelar: boolean;
+}) {
   const lugar = s.lugar!;
   const [abierto, setAbierto] = useState(false);
   const [listo, setListo] = useState<number | null>(null);
@@ -612,29 +830,7 @@ function Cortar({ s, hermanos }: { s: SuscripcionConLugar; hermanos: number }) {
             </>
           ) : (
             <>
-              <dl className="grid grid-cols-2 gap-2 rounded-xl border border-borde bg-hundida p-3 text-sm">
-                <div>
-                  <dt className="text-tinta-tenue">Cliente</dt>
-                  <dd className="font-medium">{s.cliente.nombre}</dd>
-                </div>
-                <div>
-                  <dt className="text-tinta-tenue">Plataforma</dt>
-                  <dd>{s.plan.servicio}</dd>
-                </div>
-                <div>
-                  <dt className="text-tinta-tenue">{textos.lugar}</dt>
-                  <dd>
-                    {lugar.etiqueta}
-                    {lugar.pistaCuenta ? ` · ${lugar.pistaCuenta}` : ''}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-tinta-tenue">Venció</dt>
-                  <dd className="text-peligro">
-                    {s.venceEn ? formatearFecha(s.venceEn) : 'Sin fecha'}
-                  </dd>
-                </div>
-              </dl>
+              <UbicacionCliente s={s} puedeRevelar={puedeRevelar} />
               <p className="text-sm text-tinta-suave">
                 Corte por vencimiento: el cliente no renovó. Su {textos.lugar.toLowerCase()} queda
                 libre para otro cliente y su suscripción pasa a suspendida (no se borra nada).

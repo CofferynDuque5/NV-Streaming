@@ -4,7 +4,7 @@ import {
   type Pagina,
   type SuscripcionPublica,
 } from '@nv/shared';
-import { CalendarClock, ChevronRight, Repeat, Wand2 } from 'lucide-react';
+import { CalendarClock, ChevronRight, Repeat, Scissors, Wand2 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FiltroSelector, Vencimiento } from '@/componentes/admin/piezas-crm';
@@ -55,7 +55,11 @@ export default async function Suscripciones({
           <>
             <BotonEnlace href="/admin/suscripciones/vencimientos" variante="secundario">
               <CalendarClock className="size-4" aria-hidden="true" />
-              Vencimientos y cortes
+              Vencimientos
+            </BotonEnlace>
+            <BotonEnlace href="/admin/suscripciones/cortes" variante="secundario">
+              <Scissors className="size-4" aria-hidden="true" />
+              Cortes
             </BotonEnlace>
             {sesion.permisos.includes('suscripciones.crear') && (
               <BotonEnlace
