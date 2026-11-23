@@ -1387,6 +1387,33 @@ describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => 
     const accesos = await nr.get('/revendedor/clientes');
     expect(accesos.estado).toBe(200);
     expect(accesos.cuerpo.total).toBe(2);
+
+    // Clientes que el equipo agrega a mano: si el responsable, el WhatsApp o el
+    // Telegram es del revendedor, pasan solos a su cartera.
+    await ctx.prisma.contactoCliente.create({
+      data: { clienteId: a.id, tipo: 'telegram', valor: 'vibaplay_ve' },
+    });
+    const revDe = async (cuerpo: Record<string, string>) => {
+      const r = await e.admin.post('/clientes', { nombre: 'Nuevo a mano', ...cuerpo });
+      expect(r.estado, JSON.stringify(r.cuerpo)).toBe(201);
+      return (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: r.cuerpo.id } }))
+        .revendedorId;
+    };
+    await ctx.prisma.revendedor.update({
+      where: { id },
+      data: { nombreComercial: 'Viba Play Oficial', telefono: '+58 412 777 6655' },
+    });
+    expect(await revDe({ responsable: 'viba play oficial' })).toBe(id);
+    expect(await revDe({ whatsapp: '+584127776655' })).toBe(id);
+    expect(await revDe({ telegram: 'Vibaplay_VE' })).toBe(id);
+    // Sin coincidencias, o con dos revendedores posibles («VIBAPLAY» también está
+    // en la cartera del otro), queda sin revendedor.
+    expect(await revDe({ responsable: 'VIBAPLAY' })).toBeNull();
+    expect(await revDe({ responsable: 'Felix Str.' })).toBeNull();
+    expect(await revDe({ responsable: 'Nadie' })).toBeNull();
+    // «Cliente» es venta directa: no pasa al revendedor aunque el número o el Telegram coincidan.
+    expect(await revDe({ responsable: 'Cliente', whatsapp: '+584127776655' })).toBeNull();
+    expect(await revDe({ responsable: 'cliente', telegram: 'Vibaplay_VE' })).toBeNull();
   });
 });
 

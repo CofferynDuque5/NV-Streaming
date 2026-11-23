@@ -30,6 +30,12 @@ const INCLUIR_DETALLE = {
   contactos: { orderBy: { creadoEn: 'asc' } },
 } as const;
 
+export interface ContactoResponsable {
+  responsable: string;
+  whatsapp: string | null;
+  telegram: string | null;
+}
+
 @Injectable()
 export class ClientesService {
   constructor(
@@ -49,6 +55,48 @@ export class ClientesService {
       take: 200,
     });
     return filas.map((f) => f.responsable).filter((r): r is string => Boolean(r));
+  }
+
+  /**
+   * Como en el Gestor: al escribir el responsable se llena solo su número. Por
+   * cada responsable, el WhatsApp y el Telegram que más se repiten entre sus
+   * clientes (el revendedor suele poner el suyo).
+   */
+  async contactosResponsables(auth: ContextoAuth): Promise<ContactoResponsable[]> {
+    const filas = await this.prisma.cliente.findMany({
+      where: { AND: [alcanceClientes(auth), { responsable: { not: null } }] },
+      select: {
+        responsable: true,
+        contactos: {
+          where: { tipo: { in: ['whatsapp', 'telefono', 'telegram'] } },
+          select: { tipo: true, valor: true },
+        },
+      },
+      take: 20_000,
+    });
+    type Cuenta = { nombre: string; whatsapp: Map<string, number>; telegram: Map<string, number> };
+    const por = new Map<string, Cuenta>();
+    const sumar = (m: Map<string, number>, v: string) => m.set(v, (m.get(v) ?? 0) + 1);
+    for (const f of filas) {
+      const nombre = f.responsable!.trim();
+      if (!nombre) continue;
+      const clave = nombre.toLowerCase();
+      const c = por.get(clave) ?? { nombre, whatsapp: new Map(), telegram: new Map() };
+      por.set(clave, c);
+      for (const x of f.contactos) {
+        if (x.tipo === 'telegram') sumar(c.telegram, x.valor);
+        else sumar(c.whatsapp, x.valor);
+      }
+    }
+    const masUsado = (m: Map<string, number>) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    return [...por.values()]
+      .map((c) => ({
+        responsable: c.nombre,
+        whatsapp: masUsado(c.whatsapp),
+        telegram: masUsado(c.telegram),
+      }))
+      .filter((c) => c.whatsapp || c.telegram);
   }
 
   async listar(auth: ContextoAuth, filtro: ListarClientesEntrada): Promise<Pagina<ClienteResumen>> {
@@ -107,6 +155,86 @@ export class ClientesService {
     return c;
   }
 
+  /**
+   * Cliente agregado a mano por el equipo: si su responsable, su WhatsApp o su Telegram es el
+   * de un revendedor aprobado, pasa a su cartera (él le cobra). Se reconoce por el
+   * nombre comercial o el nombre del revendedor, por los clientes que ya están en
+   * su cartera con ese responsable o ese número, o por el teléfono de su ficha.
+   * Solo si apunta a un único revendedor; si hay dudas queda sin revendedor.
+   * Con responsable «Cliente» es venta directa: nunca pasa a un revendedor, aunque el
+   * número o el Telegram coincidan.
+   */
+  private async revendedorDe(
+    tx: Tx,
+    responsable: string | undefined,
+    whatsapp: string | undefined,
+    telegram: string | undefined,
+  ): Promise<string | null> {
+    const nombre = responsable?.trim();
+    if (nombre?.toLowerCase() === 'cliente') return null;
+    const usuarioTelegram = telegram?.trim().replace(/^@/, '');
+    const digitos = (whatsapp ?? '').replace(/\D/g, '');
+    const ultimos = digitos.length >= 8 ? digitos.slice(-10) : null;
+    if (!nombre && !ultimos && !usuarioTelegram) return null;
+    const aprobado = { estado: 'aprobado' } as const;
+    const candidatos = new Set<string>();
+    if (nombre) {
+      const igual = { equals: nombre, mode: 'insensitive' } as const;
+      const [porNombre, porCartera] = await Promise.all([
+        tx.revendedor.findMany({
+          where: { ...aprobado, OR: [{ nombreComercial: igual }, { usuario: { nombre: igual } }] },
+          select: { id: true },
+        }),
+        tx.cliente.findMany({
+          where: { responsable: igual, revendedor: aprobado },
+          select: { revendedorId: true },
+          distinct: ['revendedorId'],
+          take: 5,
+        }),
+      ]);
+      for (const r of porNombre) candidatos.add(r.id);
+      for (const c of porCartera) if (c.revendedorId) candidatos.add(c.revendedorId);
+    }
+    if (ultimos) {
+      const [conTelefono, porContacto] = await Promise.all([
+        tx.revendedor.findMany({
+          where: { ...aprobado, telefono: { not: null } },
+          select: { id: true, telefono: true },
+        }),
+        tx.contactoCliente.findMany({
+          where: {
+            tipo: { in: ['whatsapp', 'telefono'] },
+            valor: { endsWith: ultimos },
+            cliente: { revendedor: aprobado },
+          },
+          select: { cliente: { select: { revendedorId: true } } },
+          distinct: ['clienteId'],
+          take: 50,
+        }),
+      ]);
+      for (const r of conTelefono) {
+        if ((r.telefono ?? '').replace(/\D/g, '').slice(-10) === ultimos) candidatos.add(r.id);
+      }
+      for (const c of porContacto)
+        if (c.cliente.revendedorId) candidatos.add(c.cliente.revendedorId);
+    }
+    if (usuarioTelegram) {
+      const porTelegram = await tx.contactoCliente.findMany({
+        where: {
+          tipo: 'telegram',
+          valor: { equals: usuarioTelegram, mode: 'insensitive' },
+          cliente: { revendedor: aprobado },
+        },
+        select: { cliente: { select: { revendedorId: true } } },
+        distinct: ['clienteId'],
+        take: 50,
+      });
+      for (const c of porTelegram)
+        if (c.cliente.revendedorId) candidatos.add(c.cliente.revendedorId);
+    }
+    return candidatos.size === 1 ? [...candidatos][0]! : null;
+  }
+
   async crear(
     auth: ContextoAuth,
     entrada: ClienteEntrada,
@@ -127,6 +255,12 @@ export class ClientesService {
       : (entrada.asignadoAId ?? null);
     if (asignadoAId) await this.exigirVendedor(tx, asignadoAId);
     await this.exigirCorreoLibre(tx, entrada.correo);
+    const revendedorId = await this.revendedorDe(
+      tx,
+      entrada.responsable,
+      entrada.whatsapp,
+      entrada.telegram,
+    );
     const c = await tx.cliente.create({
       data: {
         nombre: entrada.nombre,
@@ -136,6 +270,7 @@ export class ClientesService {
         monedaPreferida: entrada.monedaPreferida,
         asignadoAId,
         responsable: entrada.responsable || null,
+        revendedorId,
         origen: 'equipo',
         creadoPorId: auth.usuario.id,
         ...(entrada.whatsapp || entrada.telegram
@@ -167,7 +302,7 @@ export class ClientesService {
         accion: 'cliente.creado',
         entidad: 'cliente',
         entidadId: c.id,
-        despues: { nombre: c.nombre, correo: c.correo, asignadoAId },
+        despues: { nombre: c.nombre, correo: c.correo, asignadoAId, revendedorId },
         cliente,
       },
       tx,

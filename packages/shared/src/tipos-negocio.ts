@@ -252,6 +252,8 @@ export interface LugarSuscripcion {
   numero: number;
   /** «Perfil 3» o el nombre del cupo. */
   etiqueta: string;
+  /** Nombre del perfil o cupo en la plataforma. */
+  nombre: string;
   tipo: 'perfiles' | 'familiar' | 'correo';
   /** Cuenta individual (un solo lugar). */
   individual: boolean;
@@ -265,6 +267,8 @@ export interface SuscripcionConLugar extends SuscripcionPublica {
   lugar: LugarSuscripcion | null;
   /** Días desde el vencimiento (0 = hoy, 1 = ayer…; negativo = aún no vence). */
   diasVencida: number;
+  /** Dónde cobrarle a mano (WhatsApp o usuario de Telegram sin @). */
+  contacto: { whatsapp: string | null; telegram: string | null };
 }
 
 /**
@@ -294,7 +298,9 @@ export interface LugarEntregaWeb {
   /** Próximo cobro del proveedor (AAAA-MM-DD, Caracas). */
   facturaEn: string;
   conPin: boolean;
+  /** Cuándo y quién lo marcó apto (o lo quitó) por última vez. */
   aptoRevisadoEn: string | null;
+  aptoRevisadoPor: string | null;
 }
 
 /**

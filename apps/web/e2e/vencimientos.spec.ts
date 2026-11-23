@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { ejecutarSql, entrarEquipo, reiniciarLimiteIngreso } from './ayudas';
 
 /**
- * Vencimientos y cortes: lo que vence mañana sale agrupado por plataforma y se
+ * Suscripciones → Vencimientos: lo que vence mañana sale agrupado por plataforma y se
  * renueva por varios meses desde su ficha.
  */
 test.beforeAll(() => {
@@ -28,14 +28,19 @@ test('vencen mañana, por plataforma, y se renueva por 3 meses', async ({ page }
   await page.goto('/admin/suscripciones');
   await page
     .locator('#contenido')
-    .getByRole('link', { name: 'Vencimientos y cortes' })
+    .getByRole('link', { name: 'Vencimientos', exact: true })
     .first()
     .click();
   await expect(page).toHaveURL(/\/admin\/suscripciones\/vencimientos$/);
 
-  const manana = page.getByRole('region', { name: 'Vencen mañana' });
-  await expect(manana.getByRole('heading', { name: /^Vencen mañana · \d+/ })).toBeVisible();
-  await manana.getByRole('link', { name: /Cliente Vence Mañana/ }).click();
+  // Como en el Gestor: filtro rápido «Mañana», agrupado por plataforma.
+  await page
+    .getByRole('group', { name: 'Filtrar' })
+    .getByRole('button', { name: /^Mañana/ })
+    .click();
+  const fila = page.getByRole('listitem').filter({ hasText: 'Cliente Vence Mañana' });
+  await expect(fila.getByText('Vence mañana', { exact: true })).toBeVisible();
+  await fila.getByRole('link', { name: 'Cliente Vence Mañana' }).click();
   await expect(page).toHaveURL(/\/admin\/suscripciones\/[0-9a-f-]+$/);
 
   await expect(page.getByLabel('Cuenta desde')).toHaveValue('vencimiento');

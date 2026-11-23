@@ -339,7 +339,9 @@ export function estadoModulo(
     case 'papelera':
       return ok('Nada se borra: se restaura');
     case 'vencimientos':
-      return ok('Hoy, mañana y cortes');
+      return ok('Hoy, mañana y esta semana');
+    case 'cortes':
+      return ok('Vencidos que ocupan un lugar');
     case 'devoluciones':
       return ok('Proporcional a los días sin usar');
     case 'por-pagar':

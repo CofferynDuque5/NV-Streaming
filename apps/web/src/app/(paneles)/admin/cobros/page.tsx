@@ -6,7 +6,6 @@ import {
   listarPagosSchema,
   type Pagina,
   type PagoPublico,
-  type VencimientosCortes,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -19,14 +18,12 @@ import {
   Repeat,
   TriangleAlert,
   Wallet,
-  CalendarClock,
-  Scissors,
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ColaRecargasBilletera } from '@/componentes/admin/billeteras';
-import { ListaVencimientosCortes } from '@/componentes/admin/cobros-cortes';
 import { ConciliarPago } from '@/componentes/admin/cobros';
 import { TablaCobrosAutomaticos } from '@/componentes/admin/cobros-automaticos';
 import { mismoImporte } from '@/componentes/admin/formato-admin';
@@ -49,7 +46,7 @@ import { EnvioAutomatico } from '@/componentes/ui/envio-automatico';
 
 export const metadata: Metadata = { title: 'Cobros' };
 
-type Vista = 'conciliar' | 'billeteras' | 'facturas' | 'automaticos' | 'vencimientos' | 'cortes';
+type Vista = 'conciliar' | 'billeteras' | 'facturas' | 'automaticos';
 type Crudo = Record<string, string | string[] | undefined>;
 
 const FILTRO_ESTADO: Record<EstadoFactura, string> = {
@@ -62,15 +59,10 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
   const sesion = await requerirSesion({ permiso: 'facturas.ver' });
   const puedeConciliar = sesion.permisos.includes('pagos.gestionar');
   const crudo = await searchParams;
-  const puedeVencimientos = sesion.permisos.includes('suscripciones.ver');
-  if (puedeVencimientos && (crudo.vista === 'vencimientos' || crudo.vista === 'cortes')) {
-    return (
-      <VistaVencimientosCortes
-        vista={crudo.vista}
-        puedeConciliar={puedeConciliar}
-        puedeCortar={sesion.permisos.includes('cuentas.gestionar')}
-      />
-    );
+  // Vencimientos y Cortes ahora están en Suscripciones (enlaces viejos siguen sirviendo).
+  if (sesion.permisos.includes('suscripciones.ver')) {
+    if (crudo.vista === 'vencimientos') redirect('/admin/suscripciones/vencimientos');
+    if (crudo.vista === 'cortes') redirect('/admin/suscripciones/cortes');
   }
   const pedida =
     crudo.vista === 'facturas' ||
@@ -117,7 +109,6 @@ export default async function Cobros({ searchParams }: { searchParams: Promise<C
         enRevision={enRevision}
         recargasEnRevision={recargasEnRevision}
         puedeConciliar={puedeConciliar}
-        puedeVencimientos={puedeVencimientos}
       />
       {vista === 'conciliar' && <ColaConciliacion crudo={crudo} />}
       {vista === 'billeteras' && <ColaRecargasBilletera crudo={crudo} ruta="/admin/cobros" />}
@@ -138,16 +129,11 @@ function Pestanas({
   enRevision,
   recargasEnRevision,
   puedeConciliar,
-  puedeVencimientos,
-  cortes = null,
 }: {
   vista: Vista;
   enRevision: number | null;
   recargasEnRevision: number | null;
   puedeConciliar: boolean;
-  puedeVencimientos: boolean;
-  /** Cortes pendientes (se muestra en su pestaña). */
-  cortes?: number | null;
 }) {
   const pestanas: { id: Vista; texto: string; icono: typeof FileSearch }[] = [
     ...(puedeConciliar
@@ -158,12 +144,6 @@ function Pestanas({
       : []),
     { id: 'facturas', texto: 'Facturas', icono: ReceiptText },
     { id: 'automaticos', texto: 'Cobros automáticos', icono: Repeat },
-    ...(puedeVencimientos
-      ? [
-          { id: 'vencimientos' as const, texto: 'Vencimientos', icono: CalendarClock },
-          { id: 'cortes' as const, texto: 'Cortes', icono: Scissors },
-        ]
-      : []),
   ];
   return (
     <nav aria-label="Vistas de cobros" className="-mt-2 max-w-full overflow-x-auto">
@@ -185,14 +165,9 @@ function Pestanas({
                 <Icono className={clsx('size-4', activa && 'text-marca')} aria-hidden="true" />
                 {texto}
                 {((id === 'conciliar' && (enRevision ?? 0) > 0) ||
-                  (id === 'billeteras' && (recargasEnRevision ?? 0) > 0) ||
-                  (id === 'cortes' && (cortes ?? 0) > 0)) && (
+                  (id === 'billeteras' && (recargasEnRevision ?? 0) > 0)) && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-aviso px-1.5 text-[0.7rem] font-semibold text-fondo tabular-nums">
-                    {id === 'conciliar'
-                      ? enRevision
-                      : id === 'cortes'
-                        ? cortes
-                        : recargasEnRevision}
+                    {id === 'conciliar' ? enRevision : recargasEnRevision}
                   </span>
                 )}
               </Link>
@@ -201,52 +176,6 @@ function Pestanas({
         })}
       </ul>
     </nav>
-  );
-}
-
-// ── Vencimientos y Cortes (como en el Gestor) ───────────────────────────────
-
-async function VistaVencimientosCortes({
-  vista,
-  puedeConciliar,
-  puedeCortar,
-}: {
-  vista: 'vencimientos' | 'cortes';
-  puedeConciliar: boolean;
-  puedeCortar: boolean;
-}) {
-  const { datos } = await leerApi<VencimientosCortes>('/suscripciones/vencimientos-cortes');
-  return (
-    <>
-      <CabeceraPagina
-        titulo="Cobros"
-        descripcion={
-          vista === 'vencimientos'
-            ? 'Clientes que vencen hoy y mañana: cóbrales o renuévalos a tiempo.'
-            : 'Clientes vencidos que siguen en un perfil o cupo: renuévalos o córtalos.'
-        }
-      />
-      <Pestanas
-        vista={vista}
-        enRevision={null}
-        recargasEnRevision={null}
-        puedeConciliar={puedeConciliar}
-        puedeVencimientos
-        cortes={datos?.cortes.length ?? null}
-      />
-      {!datos ? (
-        <Alerta tono="peligro">No pudimos cargar los vencimientos. Recarga la página.</Alerta>
-      ) : (
-        <ListaVencimientosCortes
-          key={vista}
-          seccion={vista}
-          lista={vista === 'vencimientos' ? datos.vencimientos : datos.cortes}
-          horaCorte={datos.horaCorte}
-          pasoHoraCorte={datos.pasoHoraCorte}
-          puedeCortar={puedeCortar}
-        />
-      )}
-    </>
   );
 }
 

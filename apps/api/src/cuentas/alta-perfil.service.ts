@@ -98,9 +98,15 @@ export class AltaPerfilService {
         ? new Date(`${e.vence}T23:59:59Z`)
         : sumarDuracion(ahora, e.meses ?? 1, 'mes');
       const periodos = e.vence ? 1 : (e.meses ?? 1);
+      // Cliente de la cartera de un revendedor: la suscripción también es suya (él le cobra).
+      const { revendedorId } = await tx.cliente.findUniqueOrThrow({
+        where: { id: titular.id },
+        select: { revendedorId: true },
+      });
       const s = await tx.suscripcion.create({
         data: {
           clienteId: titular.id,
+          revendedorId,
           planId: plan.id,
           moneda: e.moneda,
           estado: 'activa',

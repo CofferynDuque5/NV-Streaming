@@ -1,7 +1,14 @@
 'use client';
 
 import { type EntregaWebServicio, type LugarEntregaWeb, TEXTOS_PLATAFORMA } from '@nv/shared';
-import { CheckCheck, CircleCheck, CircleSlash, PackageCheck, Search } from 'lucide-react';
+import {
+  CheckCheck,
+  CircleCheck,
+  CircleDashed,
+  CircleSlash,
+  PackageCheck,
+  Search,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -11,7 +18,7 @@ import { Boton } from '@/componentes/ui/boton';
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { llamarApi } from '@/lib/api-cliente';
-import { formatearDia } from '@/lib/formato';
+import { formatearDia, formatearFechaHora } from '@/lib/formato';
 
 /** Qué recibe el cliente: un perfil de una cuenta compartida, la cuenta entera o el cupo titular. */
 function queEs(l: LugarEntregaWeb, tipo: EntregaWebServicio['tipo']): string {
@@ -49,6 +56,38 @@ function Lugar({
         {textos.usaPin ? (l.conPin ? ' · con PIN' : ' · sin PIN') : ''}
       </span>
     </div>
+  );
+}
+
+/**
+ * Estado de revisión de cada lugar, para saber si lo marcó alguien del equipo
+ * (y quién) o si nadie lo ha revisado todavía.
+ */
+function EstadoRevision({ l, apto }: { l: LugarEntregaWeb; apto: boolean }) {
+  const quien = l.aptoRevisadoPor ?? 'alguien del equipo';
+  const cuando = l.aptoRevisadoEn ? ` el ${formatearFechaHora(l.aptoRevisadoEn)}` : '';
+  if (apto) {
+    return (
+      <span className="flex flex-wrap items-center gap-1.5 text-xs text-tinta-tenue">
+        <Insignia tono="exito">
+          <CircleCheck className="size-3" aria-hidden="true" />
+          Apto
+        </Insignia>
+        Marcado por {quien}
+        {cuando}
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-wrap items-center gap-1.5 text-xs text-tinta-tenue">
+      <Insignia tono="aviso">
+        <CircleDashed className="size-3" aria-hidden="true" />
+        Sin revisar
+      </Insignia>
+      {l.aptoRevisadoEn
+        ? `Lo quitó de la web ${quien}${cuando}`
+        : 'Nadie lo ha marcado: la web no lo entrega'}
+    </span>
   );
 }
 
@@ -160,10 +199,17 @@ function ServicioEntrega({
             <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
               Si alguien compra ahora recibe
             </h3>
+            <p className="text-xs text-tinta-suave">
+              Aquí solo salen los que alguien marcó como aptos. Los que nadie ha revisado están
+              abajo, en «Sin revisar».
+            </p>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-exito/30 bg-exito-suave/40 p-3">
               <div className="flex min-w-0 items-center gap-3">
                 <PackageCheck className="size-5 shrink-0 text-exito" aria-hidden="true" />
-                <Lugar l={ahora} tipo={s.tipo} destacado />
+                <div className="grid min-w-0 gap-1">
+                  <Lugar l={ahora} tipo={s.tipo} destacado />
+                  <EstadoRevision l={ahora} apto />
+                </div>
               </div>
               {puedeGestionar && (
                 <Boton
@@ -192,7 +238,10 @@ function ServicioEntrega({
                         <span className="w-5 text-right text-sm text-tinta-tenue tabular-nums">
                           {i + 2}.
                         </span>
-                        <Lugar l={l} tipo={s.tipo} />
+                        <div className="grid min-w-0 gap-1">
+                          <Lugar l={l} tipo={s.tipo} />
+                          <EstadoRevision l={l} apto />
+                        </div>
                       </div>
                       {puedeGestionar && (
                         <Boton
@@ -202,7 +251,7 @@ function ServicioEntrega({
                           cargando={ocupado === l.perfilId}
                           onClick={() => void marcar(l.perfilId, [l.perfilId], false)}
                         >
-                          Quitar
+                          Quitar de la web
                         </Boton>
                       )}
                     </li>
@@ -228,7 +277,7 @@ function ServicioEntrega({
         {s.porRevisar.length > 0 && (
           <section className="grid gap-2" aria-label="Por revisar">
             <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-              Por revisar (libres y vigentes, la web no los entrega)
+              Sin revisar (libres y vigentes; la web no los entrega hasta que los marques)
             </h3>
             {porCuenta.map((grupo) => {
               const c = grupo[0]!;
@@ -250,7 +299,7 @@ function ServicioEntrega({
                           )
                         }
                       >
-                        Toda la cuenta apta ({grupo.length})
+                        Marcar toda la cuenta apta ({grupo.length})
                       </Boton>
                     </div>
                   )}
@@ -260,7 +309,10 @@ function ServicioEntrega({
                         key={l.perfilId}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-1 py-1.5"
                       >
-                        <Lugar l={l} tipo={s.tipo} />
+                        <div className="grid min-w-0 gap-1">
+                          <Lugar l={l} tipo={s.tipo} />
+                          <EstadoRevision l={l} apto={false} />
+                        </div>
                         {puedeGestionar && (
                           <Boton
                             tamano="sm"
@@ -268,8 +320,9 @@ function ServicioEntrega({
                             icono={<CircleCheck className="size-3.5" />}
                             cargando={ocupado === l.perfilId}
                             onClick={() => void marcar(l.perfilId, [l.perfilId], true)}
+                            aria-label={`Marcar apto ${l.pista} ${TEXTOS_PLATAFORMA[s.tipo].lugar} ${l.numero}`}
                           >
-                            Apto
+                            Marcar apto
                           </Boton>
                         )}
                       </li>

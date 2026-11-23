@@ -773,6 +773,12 @@ describe('cuentas de servicio', () => {
     ).toBeGreaterThan(0);
 
     expect((await e.operador.n.get('/clientes/responsables')).cuerpo).toContain('Pedro Reventa');
+    // Al escribir el responsable se llena su número (el más usado entre sus clientes).
+    expect((await e.operador.n.get('/clientes/responsables/contactos')).cuerpo).toContainEqual({
+      responsable: 'Pedro Reventa',
+      whatsapp: '+584121234567',
+      telegram: null,
+    });
     const filtrado = await e.operador.n.get('/clientes?responsable=pedro%20reventa');
     expect(filtrado.cuerpo.elementos.map((c: { nombre: string }) => c.nombre)).toEqual([
       'Lucía Gestor',
