@@ -1141,6 +1141,51 @@ describe('ventas, cartera y renovaciones del panel', () => {
     }
   });
 
+  it('cobra a su cliente por mensaje y el equipo lo ve como cobrado por el revendedor', async () => {
+    const e = await escenario();
+    const r = await revendedorConSaldo(e, '10');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    // Vence mañana al mediodía de Caracas (UTC-4): sale en Vencimientos.
+    const manana = new Date(Date.now() - 4 * 3600_000);
+    manana.setUTCDate(manana.getUTCDate() + 1);
+    manana.setUTCHours(16, 0, 0, 0);
+    await ctx.prisma.suscripcion.update({ where: { id }, data: { venceEn: manana } });
+
+    const lista = await r.n.get('/revendedor/cobros');
+    expect(lista.estado).toBe(200);
+    const fila = lista.cuerpo.vencimientos.find((f: { id: string }) => f.id === id);
+    expect(fila).toMatchObject({
+      diasVencida: -1,
+      lugar: null,
+      cobro: null,
+      contactos: [{ tipo: 'whatsapp', valor: expect.stringContaining('412') }],
+    });
+
+    // Otro revendedor no puede marcarlo.
+    const ajeno = await revendedorConSaldo(e, '1');
+    expect(
+      (await ajeno.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'copiado' })).estado,
+    ).toBe(404);
+    expect((await ajeno.n.get('/revendedor/cobros')).cuerpo.vencimientos).toHaveLength(0);
+
+    const cobrado = await r.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'copiado' });
+    expect(cobrado.estado).toBe(200);
+    expect(
+      (await r.n.post(`/revendedor/suscripciones/${id}/cobrado`, { canal: 'sms' })).estado,
+    ).toBe(400);
+
+    // El revendedor lo ve marcado y el equipo, con su nombre comercial.
+    const suya = (await r.n.get('/revendedor/cobros')).cuerpo.vencimientos[0];
+    expect(suya.cobro).toMatchObject({ en: cobrado.cuerpo.cobradoEn });
+    const equipo = await e.operador.get('/suscripciones/vencimientos-cortes');
+    const vista = equipo.cuerpo.vencimientos.find((f: { id: string }) => f.id === id);
+    expect(vista.cobro).toMatchObject({
+      en: cobrado.cuerpo.cobradoEn,
+      revendedor: expect.stringMatching(/^Tienda /),
+    });
+  });
+
   it('el lote no renueva nada sin saldo, por encima del límite diario o con un servicio ajeno', async () => {
     const e = await escenario();
     const r = await revendedorConSaldo(e, '12', 3);

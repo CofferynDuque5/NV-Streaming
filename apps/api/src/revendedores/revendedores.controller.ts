@@ -28,6 +28,7 @@ import {
   listarRenovacionesSchema,
   listarRevendedoresSchema,
   listarVentasSchema,
+  marcarCobradoSchema,
   monedaSchema,
   motivoRevendedorSchema,
   nivelRevendedorSchema,
@@ -55,7 +56,11 @@ import {
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { leerFormulario } from '../comun/formulario.js';
 import { validar, ZodPipe } from '../comun/zod.pipe.js';
+import type { PrismaClient } from '@nv/db';
+import { PRISMA } from '../comun/tokens.js';
 import { MetodosCobroService } from '../dinero/metodos-cobro.service.js';
+import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
+import { revendedorPropio } from './libro-mayor.js';
 import { ComprasService } from './compras.service.js';
 import { NivelesService } from './niveles.service.js';
 import { RevendedoresService } from './revendedores.service.js';
@@ -105,7 +110,45 @@ export class PanelRevendedorController {
     @Inject(SaldoService) private readonly saldo: SaldoService,
     @Inject(MetodosCobroService) private readonly metodos: MetodosCobroService,
     @Inject(VentasService) private readonly ventas: VentasService,
+    @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
+    @Inject(PRISMA) private readonly prisma: PrismaClient,
   ) {}
+
+  /**
+   * Vencimientos y Cortes de su cartera, para cobrarles por mensaje. Sin datos
+   * de la cuenta (eso se ve en «Accesos de clientes»).
+   */
+  @Get('cobros')
+  @RequierePermiso('reventa.usar')
+  async cobros(@Auth() auth: ContextoAuth) {
+    const r = await revendedorPropio(auth, this.prisma);
+    const lista = await this.suscripciones.vencimientosCortes(auth, new Date(), {
+      revendedorId: r.id,
+    });
+    const sinLugar = <T extends { lugar: unknown }>(f: T) => ({ ...f, lugar: null });
+    return {
+      ...lista,
+      vencimientos: lista.vencimientos.map(sinLugar),
+      cortes: lista.cortes.map(sinLugar),
+    };
+  }
+
+  /** Marca que le cobró a su cliente (copiando el mensaje o por WhatsApp o Telegram). */
+  @Post('suscripciones/:id/cobrado')
+  @RequierePermiso('reventa.usar')
+  @HttpCode(200)
+  @DocCuerpo(marcarCobradoSchema)
+  async marcarCobrado(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(marcarCobradoSchema)) cuerpo: z.output<typeof marcarCobradoSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    const r = await revendedorPropio(auth, this.prisma);
+    return this.suscripciones.marcarCobrado(auth, id, cuerpo.canal, cliente, new Date(), {
+      revendedorId: r.id,
+    });
+  }
 
   @Get('resumen')
   @RequierePermiso('reventa.usar')

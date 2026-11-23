@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   MessageCircle,
   Plus,
+  Send,
   ShieldCheck,
   ShoppingCart,
   Tag,
@@ -39,6 +40,7 @@ export const ICONOS_CUENTA: Record<IconoCuenta, LucideIcon> = {
   revendedor: UserRound,
   vender: Plus,
   renovaciones: Clock,
+  cobros: Send,
   clientes: UsersRound,
 };
 
