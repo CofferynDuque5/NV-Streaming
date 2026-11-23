@@ -161,6 +161,8 @@ export class ClientesService {
    * nombre comercial o el nombre del revendedor, por los clientes que ya están en
    * su cartera con ese responsable o ese número, o por el teléfono de su ficha.
    * Solo si apunta a un único revendedor; si hay dudas queda sin revendedor.
+   * Con responsable «Cliente» es venta directa: nunca pasa a un revendedor, aunque el
+   * número o el Telegram coincidan.
    */
   private async revendedorDe(
     tx: Tx,
@@ -169,6 +171,7 @@ export class ClientesService {
     telegram: string | undefined,
   ): Promise<string | null> {
     const nombre = responsable?.trim();
+    if (nombre?.toLowerCase() === 'cliente') return null;
     const usuarioTelegram = telegram?.trim().replace(/^@/, '');
     const digitos = (whatsapp ?? '').replace(/\D/g, '');
     const ultimos = digitos.length >= 8 ? digitos.slice(-10) : null;

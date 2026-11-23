@@ -1411,6 +1411,9 @@ describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => 
     expect(await revDe({ responsable: 'VIBAPLAY' })).toBeNull();
     expect(await revDe({ responsable: 'Felix Str.' })).toBeNull();
     expect(await revDe({ responsable: 'Nadie' })).toBeNull();
+    // «Cliente» es venta directa: no pasa al revendedor aunque el número o el Telegram coincidan.
+    expect(await revDe({ responsable: 'Cliente', whatsapp: '+584127776655' })).toBeNull();
+    expect(await revDe({ responsable: 'cliente', telegram: 'Vibaplay_VE' })).toBeNull();
   });
 });
 
