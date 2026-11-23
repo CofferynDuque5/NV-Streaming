@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } fr
 import { ApiTags } from '@nestjs/swagger';
 import {
   cambiarEstadoSchema,
+  cambiarMonedaTiendaSchema,
   cambiarRolSchema,
   invitarUsuarioSchema,
   listarUsuariosSchema,
@@ -72,6 +73,18 @@ export class UsuariosController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.usuarios.cambiarRol(auth, id, cuerpo.rol, cliente);
+  }
+
+  @Patch(':id/moneda-tienda')
+  @RequierePermiso('usuarios.gestionar')
+  @DocCuerpo(cambiarMonedaTiendaSchema)
+  cambiarMonedaTienda(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(cambiarMonedaTiendaSchema)) cuerpo: z.output<typeof cambiarMonedaTiendaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.usuarios.cambiarMonedaTienda(auth, id, cuerpo.moneda, cliente);
   }
 
   @Patch(':id/estado')

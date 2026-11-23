@@ -17,7 +17,7 @@ export interface MayoristaTienda {
 export interface PrecioTarjeta {
   /** Precio principal en la moneda elegida (o el mayorista del revendedor). */
   principal: string | null;
-  /** Referencia en dólares si la moneda no es USD. */
+  /** Referencia en dólares del precio mayorista en bolívares (solo revendedores). */
   referencia: string | null;
   /** «Tu precio» para revendedores. */
   etiqueta: string | null;
@@ -48,11 +48,11 @@ export function precioDeTarjeta(
       };
     }
   }
-  const usd = plan.precios.USD;
+  // Clientes y visitas ven solo el precio en su moneda: sin el equivalente en
+  // dólares, que deja ver la tasa a la que se cobra.
   return {
     principal: precioTexto(plan, moneda),
-    referencia:
-      moneda !== 'USD' && usd && Number(usd.precio) > 0 ? formatearMonto(usd.precio, 'USD') : null,
+    referencia: null,
     etiqueta: null,
     compraMayorista: false,
   };

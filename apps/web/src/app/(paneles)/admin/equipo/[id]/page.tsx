@@ -1,9 +1,10 @@
-import { ETIQUETAS_ROL, type UsuarioPublico } from '@nv/shared';
+import { ETIQUETAS_ROL, INFO_MONEDA, type UsuarioPublico } from '@nv/shared';
 import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AccionesUsuario } from '@/componentes/panel/acciones-usuario';
+import { MonedaTiendaUsuario } from '@/componentes/panel/moneda-tienda-usuario';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
@@ -26,6 +27,10 @@ export default async function DetallePersona({ params }: { params: Promise<{ id:
   const datos: [string, string][] = [
     ['Correo', u.correo],
     ['Rol', ETIQUETAS_ROL[u.rol]],
+    [
+      'Moneda predeterminada en la tienda',
+      u.monedaTienda ? `${u.monedaTienda} · ${INFO_MONEDA[u.monedaTienda].nombre}` : 'Automática',
+    ],
     ['Correo confirmado', u.correoVerificado ? 'Sí' : 'No'],
     ['Verificación en dos pasos', u.dosPasosActivo ? 'Activada' : 'Sin activar'],
     ['Sesiones abiertas', String(u.sesionesActivas)],
@@ -69,21 +74,24 @@ export default async function DetallePersona({ params }: { params: Promise<{ id:
             titulo="Administración"
             descripcion="Cada cambio queda registrado en la auditoría con tu nombre."
           />
+          <MonedaTiendaUsuario id={u.id} rol={u.rol} moneda={u.monedaTienda} />
           {esUnoMismo ? (
-            <div className="p-5 sm:p-6">
+            <div className="border-t border-borde p-5 sm:p-6">
               <Alerta tono="info">
                 Para cambiar tus propios datos ve a Perfil y seguridad. Tu rol y estado los cambia
                 otra persona de administración.
               </Alerta>
             </div>
           ) : (
-            <AccionesUsuario
-              id={u.id}
-              rol={u.rol}
-              estado={u.estado}
-              dosPasosActivo={u.dosPasosActivo}
-              invitacionPendiente={u.invitacionPendiente}
-            />
+            <div className="border-t border-borde">
+              <AccionesUsuario
+                id={u.id}
+                rol={u.rol}
+                estado={u.estado}
+                dosPasosActivo={u.dosPasosActivo}
+                invitacionPendiente={u.invitacionPendiente}
+              />
+            </div>
           )}
         </Tarjeta>
       )}

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { PrismaClient } from '@nv/db';
+import type { Moneda, PrismaClient, Usuario } from '@nv/db';
 import {
   exige2fa,
   type InicioSesionEntrada,
@@ -340,5 +340,19 @@ export class AuthService {
         tx,
       );
     });
+  }
+
+  /**
+   * Moneda en la que la persona ve los precios de la tienda: la que le fijó
+   * administración o, en un cliente, su moneda preferida. null = automática.
+   */
+  async monedaTienda(usuario: Usuario): Promise<Moneda | null> {
+    if (usuario.monedaTienda) return usuario.monedaTienda;
+    if (usuario.rol !== 'cliente') return null;
+    const cliente = await this.prisma.cliente.findUnique({
+      where: { usuarioId: usuario.id },
+      select: { monedaPreferida: true },
+    });
+    return cliente?.monedaPreferida ?? null;
   }
 }

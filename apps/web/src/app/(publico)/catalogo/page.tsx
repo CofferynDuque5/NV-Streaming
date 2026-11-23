@@ -10,7 +10,13 @@ import { SinServicio } from '@/componentes/tienda/sin-servicio';
 import { clasesBoton } from '@/componentes/ui/boton';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { nombrePais } from '@/lib/formato';
-import { catalogoTienda, leerTemaPublico, mayoristaTienda, monedaTienda } from '@/lib/tienda';
+import {
+  catalogoTienda,
+  leerTemaPublico,
+  mayoristaTienda,
+  monedaPredeterminadaTienda,
+  monedaTienda,
+} from '@/lib/tienda';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = {
@@ -24,15 +30,17 @@ type Parametros = Record<string, string | string[] | undefined>;
 export default async function Catalogo({ searchParams }: { searchParams: Promise<Parametros> }) {
   const parametros = await searchParams;
   const pedida = typeof parametros.moneda === 'string' ? parametros.moneda : undefined;
-  const [catalogo, moneda, tema, ubicacion] = await Promise.all([
+  const [catalogo, moneda, tema, ubicacion, predeterminada] = await Promise.all([
     catalogoTienda(),
     monedaTienda(pedida),
     leerTemaPublico(),
     ubicacionVisitante(),
+    monedaPredeterminadaTienda(),
   ]);
   // Si la moneda sale del país de la conexión, se dice por qué (y que se puede cambiar).
   const porUbicacion =
     !pedida &&
+    !predeterminada &&
     moneda === ubicacion.moneda &&
     (ubicacion.origen === 'conexion' || ubicacion.origen === 'idioma') &&
     ubicacion.pais !== null;

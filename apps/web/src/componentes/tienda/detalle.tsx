@@ -686,9 +686,7 @@ export function DetalleServicio({
                 ? precio.compraMayorista
                   ? 'Precio mayorista de tu nivel. Se cobra de tu saldo en USD.'
                   : 'Este plan no está disponible para reventa.'
-                : moneda === 'USD'
-                  ? 'Un solo pago. El importe queda fijado en tu factura.'
-                  : 'Un solo pago con la tasa de hoy. El importe exacto queda fijado en tu factura.'}
+                : 'Un solo pago. El importe queda fijado en tu factura.'}
             </p>
             <div ref={acciones} className="grid gap-3">
               <div className="flex flex-wrap gap-2.5">

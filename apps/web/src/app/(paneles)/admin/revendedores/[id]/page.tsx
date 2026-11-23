@@ -25,6 +25,7 @@ import {
   RevisarSolicitud,
   TraerClientesGestor,
 } from '@/componentes/admin/revendedores';
+import { MonedaTiendaUsuario } from '@/componentes/panel/moneda-tienda-usuario';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import {
   EstadoCompraInsignia,
@@ -370,6 +371,17 @@ export default async function FichaRevendedor({
               )}
             </dl>
           </Tarjeta>
+
+          {sesion.permisos.includes('usuarios.gestionar') && (
+            <Tarjeta>
+              <MonedaTiendaUsuario
+                id={r.usuario.id}
+                rol="revendedor"
+                moneda={r.usuario.monedaTienda}
+                compacto
+              />
+            </Tarjeta>
+          )}
 
           {puedeGestionar && (
             <Tarjeta>

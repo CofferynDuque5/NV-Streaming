@@ -15,6 +15,7 @@ import { EstadoVacio } from '@/componentes/ui/estado-vacio';
 import { Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { requerirSesion } from '@/lib/sesion';
+import { monedaPredeterminadaTienda } from '@/lib/tienda';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = { title: 'Contratar' };
@@ -25,18 +26,22 @@ export default async function ContratarPlan({
   searchParams: Promise<{ moneda?: string; plan?: string }>;
 }) {
   await requerirSesion({ roles: ['cliente'] });
-  const [{ datos: catalogo }, { datos: resumen }, filtro, ubicacion] = await Promise.all([
-    leerApi<CatalogoPublico>('/catalogo'),
-    leerApi<ResumenCliente>('/mi/resumen'),
-    searchParams,
-    ubicacionVisitante(),
-  ]);
+  const [{ datos: catalogo }, { datos: resumen }, filtro, ubicacion, predeterminada] =
+    await Promise.all([
+      leerApi<CatalogoPublico>('/catalogo'),
+      leerApi<ResumenCliente>('/mi/resumen'),
+      searchParams,
+      ubicacionVisitante(),
+      monedaPredeterminadaTienda(),
+    ]);
   const monedas = catalogo?.monedas ?? ['USD'];
-  // La moneda del enlace manda; luego la última que eligió, la de su perfil y la de su país.
+  // La moneda del enlace manda; luego la última que eligió, la predeterminada
+  // que le puso administración, la de su perfil y la de su país.
   const moneda = monedaValida(
     monedas,
     filtro.moneda,
     ubicacion.origen === 'eleccion' ? ubicacion.moneda : null,
+    predeterminada,
     resumen?.cliente.monedaPreferida,
     ubicacion.moneda,
   );

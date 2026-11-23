@@ -35,8 +35,11 @@ export function servicioMenu(s: ServicioTienda, moneda: Moneda): ServicioMenu {
   };
 }
 
-/** Opciones del selector de moneda con la tasa vigente que publicó el equipo. */
-export function opcionesMoneda(catalogo: CatalogoPublico | null): OpcionMoneda[] {
+/**
+ * Opciones del selector de moneda. Con `conTasa`, cada una dice la tasa vigente
+ * que publicó el equipo (los clientes ven solo los precios, sin la tasa).
+ */
+export function opcionesMoneda(catalogo: CatalogoPublico | null, conTasa = true): OpcionMoneda[] {
   const monedas = catalogo?.monedas ?? ['USD'];
   return monedas.map((codigo) => {
     const tasa = catalogo?.tasas.find((t) => t.moneda === codigo);
@@ -47,7 +50,7 @@ export function opcionesMoneda(catalogo: CatalogoPublico | null): OpcionMoneda[]
       detalle:
         codigo === 'USD'
           ? 'Moneda base de los precios'
-          : tasa
+          : tasa && conTasa
             ? `1 USD = ${formatearMonto(tasa.valor, codigo)}`
             : null,
     };
@@ -55,7 +58,7 @@ export function opcionesMoneda(catalogo: CatalogoPublico | null): OpcionMoneda[]
 }
 
 /** Lo que necesitan el buscador, el megamenú y el menú lateral (precios ya formateados). */
-export function datosMenu(catalogo: CatalogoPublico | null, moneda: Moneda) {
+export function datosMenu(catalogo: CatalogoPublico | null, moneda: Moneda, conTasa = true) {
   const servicios = catalogo ? serviciosTienda(catalogo) : [];
   const lista = servicios.map((s) => servicioMenu(s, moneda));
   const categorias: CategoriaMenu[] = categoriasTienda(servicios, moneda).map((c) => {
@@ -74,5 +77,5 @@ export function datosMenu(catalogo: CatalogoPublico | null, moneda: Moneda) {
       destacado: masPedido ? servicioMenu(masPedido, moneda) : null,
     };
   });
-  return { servicios, lista, categorias, monedas: opcionesMoneda(catalogo) };
+  return { servicios, lista, categorias, monedas: opcionesMoneda(catalogo, conTasa) };
 }

@@ -276,10 +276,13 @@ export function MenuMonedas({
   monedas,
   actual,
   compacto,
+  conTasa = true,
 }: {
   monedas: OpcionMoneda[];
   actual: OpcionMoneda;
   compacto?: boolean;
+  /** Los clientes ven solo los precios, sin la nota de la tasa del día. */
+  conTasa?: boolean;
 }) {
   const ruta = usePathname();
   const params = useSearchParams();
@@ -343,9 +346,11 @@ export function MenuMonedas({
             </a>
           ))}
         </nav>
-        <p className="px-2 pt-1.5 text-xs text-tinta-tenue">
-          Tasas del día fijadas por el equipo de NV. El monto exacto queda en tu factura.
-        </p>
+        {conTasa && (
+          <p className="px-2 pt-1.5 text-xs text-tinta-tenue">
+            Tasas del día fijadas por el equipo de NV. El monto exacto queda en tu factura.
+          </p>
+        )}
       </div>
     </div>
   );

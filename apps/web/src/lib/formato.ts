@@ -59,6 +59,7 @@ export const ACCIONES_AUDITORIA: Record<string, string> = {
   'usuario.creado_instalador': 'Administración creada desde el servidor',
   'usuario.invitacion_aceptada': 'Invitación aceptada',
   'usuario.rol_cambiado': 'Rol cambiado',
+  'usuario.moneda_tienda': 'Moneda de la tienda cambiada',
   'usuario.suspendido': 'Cuenta suspendida',
   'usuario.reactivado': 'Cuenta reactivada',
   'usuario.perfil_actualizado': 'Perfil actualizado',

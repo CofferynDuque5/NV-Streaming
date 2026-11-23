@@ -447,11 +447,6 @@ export function CarritoLateral({
                             <strong className="font-titulo text-[0.95rem] whitespace-nowrap tabular-nums">
                               {formatearMonto(linea.subtotal, moneda)}
                             </strong>
-                            {moneda !== 'USD' && (
-                              <small className="text-[0.7rem] text-tinta-tenue tabular-nums">
-                                {formatearMonto(linea.totalUsd, 'USD')}
-                              </small>
-                            )}
                           </span>
                         ) : (
                           <strong className="font-titulo text-[0.95rem] whitespace-nowrap text-tinta-suave tabular-nums">
@@ -534,11 +529,6 @@ export function CarritoLateral({
                         <b className="font-titulo text-2xl font-extrabold whitespace-nowrap tabular-nums">
                           {formatearMonto(cotizacion.subtotal, moneda)}
                         </b>
-                        {moneda !== 'USD' && (
-                          <small className="text-xs text-tinta-tenue tabular-nums">
-                            {formatearMonto(cotizacion.totalUsd, 'USD')}
-                          </small>
-                        )}
                       </>
                     ) : (
                       <Esqueleto ancho="w-28" />

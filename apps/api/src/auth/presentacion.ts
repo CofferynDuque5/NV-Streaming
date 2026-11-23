@@ -19,6 +19,7 @@ export function usuarioPublico(u: Usuario): UsuarioPublico {
     dosPasosActivo: u.totpSecreto !== null,
     creadoEn: u.creadoEn.toISOString(),
     ultimoAccesoEn: u.ultimoAccesoEn?.toISOString() ?? null,
+    monedaTienda: u.monedaTienda,
   };
 }
 

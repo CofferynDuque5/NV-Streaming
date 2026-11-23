@@ -22,12 +22,12 @@ import { aUsd } from '../dinero/dinero.js';
 type Ref = { id: string; nombre: string };
 
 export const INCLUIR_REVENDEDOR = {
-  usuario: { select: { id: true, nombre: true, correo: true } },
+  usuario: { select: { id: true, nombre: true, correo: true, monedaTienda: true } },
   nivel: { select: { id: true, nombre: true } },
 } as const;
 
 type RevendedorBase = Revendedor & {
-  usuario: Pick<Usuario, 'id' | 'nombre' | 'correo'>;
+  usuario: Pick<Usuario, 'id' | 'nombre' | 'correo' | 'monedaTienda'>;
   nivel: Ref | null;
 };
 

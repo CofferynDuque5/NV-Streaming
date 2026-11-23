@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, PrismaClient, Rol, Usuario } from '@nv/db';
+import type { Moneda, Prisma, PrismaClient, Rol, Usuario } from '@nv/db';
 import {
   ETIQUETAS_ROL,
   type EstadoUsuario,
@@ -163,6 +163,37 @@ export class UsuariosService {
     });
     // Con otro rol cambian los permisos y quizá la exigencia de 2FA: nueva sesión.
     await this.sesiones.revocarTodas(id);
+    return usuarioPublico(usuario);
+  }
+
+  /**
+   * Fija la moneda en la que la persona ve los precios de la tienda (o la deja
+   * automática con null). Vale para cualquier rol, también para uno mismo.
+   */
+  async cambiarMonedaTienda(
+    auth: ContextoAuth,
+    id: string,
+    moneda: Moneda | null,
+    cliente: InfoCliente,
+  ): Promise<UsuarioPublico> {
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      const actual = await this.bloquearYBuscar(tx, id);
+      if (actual.monedaTienda === moneda) return actual;
+      const usuario = await tx.usuario.update({ where: { id }, data: { monedaTienda: moneda } });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'usuario.moneda_tienda',
+          entidad: 'usuario',
+          entidadId: id,
+          antes: { monedaTienda: actual.monedaTienda },
+          despues: { monedaTienda: moneda },
+          cliente,
+        },
+        tx,
+      );
+      return usuario;
+    });
     return usuarioPublico(usuario);
   }
 
