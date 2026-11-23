@@ -567,6 +567,53 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
     expect(despues.getTime() - antes.getTime()).toBeGreaterThan(27 * DIA);
   });
 
+  it('quien renueva tarde paga desde el día en que venció, no desde hoy', async () => {
+    const e = await escenario();
+    const [a, b] = [await activa(e), await activa(e)];
+    const vencio = new Date(Date.now() - 3 * DIA);
+    await ctx.prisma.suscripcion.update({
+      where: { id: a },
+      data: { estado: 'en_gracia', venceEn: vencio },
+    });
+    // Cortado (suspendido) y vencido hace 3 días: también desde el vencimiento.
+    await ctx.prisma.suscripcion.update({
+      where: { id: b },
+      data: { estado: 'suspendida', venceEn: vencio },
+    });
+    for (const id of [a, b]) {
+      const ren = await e.cliente.post(`/mi/suscripciones/${id}/renovar`, {});
+      await e.operador.formulario(`/facturas/${ren.cuerpo.factura.id}/pagos`, {
+        metodoCobroId: e.zelleId,
+        monto: '5',
+        fechaPago: hoy(),
+      });
+      const s = await e.operador.get(`/suscripciones/${id}`);
+      expect(s.cuerpo.estado).toBe('activa');
+      const nueva = new Date(s.cuerpo.venceEn);
+      expect(nueva.getUTCDate()).toBe(vencio.getUTCDate());
+      expect(nueva.getUTCMonth()).toBe((vencio.getUTCMonth() + 1) % 12);
+    }
+
+    // Más de un mes vencido: el mes pagado ni llega a hoy, así que corre desde hoy.
+    const c = await activa(e);
+    await ctx.prisma.suscripcion.update({
+      where: { id: c },
+      data: { estado: 'vencida', venceEn: new Date(Date.now() - 40 * DIA) },
+    });
+    const ren = await e.cliente.post(`/mi/suscripciones/${c}/renovar`, {});
+    await e.operador.formulario(`/facturas/${ren.cuerpo.factura.id}/pagos`, {
+      metodoCobroId: e.zelleId,
+      monto: '5',
+      fechaPago: hoy(),
+    });
+    const dias =
+      (new Date((await e.operador.get(`/suscripciones/${c}`)).cuerpo.venceEn).getTime() -
+        Date.now()) /
+      DIA;
+    expect(dias).toBeGreaterThan(27);
+    expect(dias).toBeLessThan(32);
+  });
+
   it('el equipo renueva 3 meses de una vez, desde hoy o desde el vencimiento', async () => {
     const e = await escenario();
     const id = await activa(e);

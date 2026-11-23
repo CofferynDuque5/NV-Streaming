@@ -80,6 +80,25 @@ export interface ResultadoAlta {
  * transición bloquea la fila, comprueba el estado actual y deja un evento y
  * una entrada de auditoría en la misma transacción.
  */
+/**
+ * Desde qué fecha corre el período nuevo. Quien renueva tarde paga desde el día
+ * en que venció (vencía el 22 y paga el 23: queda al 22 del mes siguiente).
+ * «Desde hoy» lo elige el equipo a mano cuando el cliente perdió días (caída).
+ * Si ni con el período pagado llega a hoy (lleva más de un período vencido),
+ * corre desde hoy para no dejarlo vencido recién pagado.
+ */
+export function baseRenovacion(
+  venceEn: Date | null,
+  cantidad: number,
+  unidad: 'dia' | 'mes',
+  ahora: Date,
+  desdeHoy: boolean,
+): Date {
+  if (desdeHoy || !venceEn) return ahora;
+  if (venceEn > ahora) return venceEn;
+  return sumarDuracion(venceEn, cantidad, unidad) > ahora ? venceEn : ahora;
+}
+
 @Injectable()
 export class SuscripcionesService {
   private readonly logger = new Logger('Suscripciones');
@@ -1115,17 +1134,17 @@ export class SuscripcionesService {
       tipo = 'activacion';
       inicioPeriodo = ahora;
       data = { estado: 'activa', inicioEn: ahora, venceEn: sumarDuracion(ahora, n, u) };
-    } else if (actual.estado === 'activa' || actual.estado === 'en_gracia') {
-      tipo = 'renovacion';
-      // «Desde hoy»: el equipo lo elige cuando el cliente perdió días (caída, corte).
-      const base =
-        !opciones.desdeHoy && actual.venceEn && actual.venceEn > ahora ? actual.venceEn : ahora;
+    } else if (
+      actual.estado === 'activa' ||
+      actual.estado === 'en_gracia' ||
+      actual.estado === 'suspendida' ||
+      actual.estado === 'vencida'
+    ) {
+      tipo =
+        actual.estado === 'activa' || actual.estado === 'en_gracia' ? 'renovacion' : 'recuperacion';
+      const base = baseRenovacion(actual.venceEn, n, u, ahora, opciones.desdeHoy);
       inicioPeriodo = base;
       data = { estado: 'activa', venceEn: sumarDuracion(base, n, u) };
-    } else if (actual.estado === 'suspendida' || actual.estado === 'vencida') {
-      tipo = 'recuperacion';
-      inicioPeriodo = ahora;
-      data = { estado: 'activa', venceEn: sumarDuracion(ahora, n, u) };
     } else {
       throw transicionInvalida('La suscripción no admite una renovación en su estado actual.');
     }
