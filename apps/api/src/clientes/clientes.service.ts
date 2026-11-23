@@ -155,6 +155,83 @@ export class ClientesService {
     return c;
   }
 
+  /**
+   * Cliente agregado a mano por el equipo: si su responsable, su WhatsApp o su Telegram es el
+   * de un revendedor aprobado, pasa a su cartera (él le cobra). Se reconoce por el
+   * nombre comercial o el nombre del revendedor, por los clientes que ya están en
+   * su cartera con ese responsable o ese número, o por el teléfono de su ficha.
+   * Solo si apunta a un único revendedor; si hay dudas queda sin revendedor.
+   */
+  private async revendedorDe(
+    tx: Tx,
+    responsable: string | undefined,
+    whatsapp: string | undefined,
+    telegram: string | undefined,
+  ): Promise<string | null> {
+    const nombre = responsable?.trim();
+    const usuarioTelegram = telegram?.trim().replace(/^@/, '');
+    const digitos = (whatsapp ?? '').replace(/\D/g, '');
+    const ultimos = digitos.length >= 8 ? digitos.slice(-10) : null;
+    if (!nombre && !ultimos && !usuarioTelegram) return null;
+    const aprobado = { estado: 'aprobado' } as const;
+    const candidatos = new Set<string>();
+    if (nombre) {
+      const igual = { equals: nombre, mode: 'insensitive' } as const;
+      const [porNombre, porCartera] = await Promise.all([
+        tx.revendedor.findMany({
+          where: { ...aprobado, OR: [{ nombreComercial: igual }, { usuario: { nombre: igual } }] },
+          select: { id: true },
+        }),
+        tx.cliente.findMany({
+          where: { responsable: igual, revendedor: aprobado },
+          select: { revendedorId: true },
+          distinct: ['revendedorId'],
+          take: 5,
+        }),
+      ]);
+      for (const r of porNombre) candidatos.add(r.id);
+      for (const c of porCartera) if (c.revendedorId) candidatos.add(c.revendedorId);
+    }
+    if (ultimos) {
+      const [conTelefono, porContacto] = await Promise.all([
+        tx.revendedor.findMany({
+          where: { ...aprobado, telefono: { not: null } },
+          select: { id: true, telefono: true },
+        }),
+        tx.contactoCliente.findMany({
+          where: {
+            tipo: { in: ['whatsapp', 'telefono'] },
+            valor: { endsWith: ultimos },
+            cliente: { revendedor: aprobado },
+          },
+          select: { cliente: { select: { revendedorId: true } } },
+          distinct: ['clienteId'],
+          take: 50,
+        }),
+      ]);
+      for (const r of conTelefono) {
+        if ((r.telefono ?? '').replace(/\D/g, '').slice(-10) === ultimos) candidatos.add(r.id);
+      }
+      for (const c of porContacto)
+        if (c.cliente.revendedorId) candidatos.add(c.cliente.revendedorId);
+    }
+    if (usuarioTelegram) {
+      const porTelegram = await tx.contactoCliente.findMany({
+        where: {
+          tipo: 'telegram',
+          valor: { equals: usuarioTelegram, mode: 'insensitive' },
+          cliente: { revendedor: aprobado },
+        },
+        select: { cliente: { select: { revendedorId: true } } },
+        distinct: ['clienteId'],
+        take: 50,
+      });
+      for (const c of porTelegram)
+        if (c.cliente.revendedorId) candidatos.add(c.cliente.revendedorId);
+    }
+    return candidatos.size === 1 ? [...candidatos][0]! : null;
+  }
+
   async crear(
     auth: ContextoAuth,
     entrada: ClienteEntrada,
@@ -175,6 +252,12 @@ export class ClientesService {
       : (entrada.asignadoAId ?? null);
     if (asignadoAId) await this.exigirVendedor(tx, asignadoAId);
     await this.exigirCorreoLibre(tx, entrada.correo);
+    const revendedorId = await this.revendedorDe(
+      tx,
+      entrada.responsable,
+      entrada.whatsapp,
+      entrada.telegram,
+    );
     const c = await tx.cliente.create({
       data: {
         nombre: entrada.nombre,
@@ -184,6 +267,7 @@ export class ClientesService {
         monedaPreferida: entrada.monedaPreferida,
         asignadoAId,
         responsable: entrada.responsable || null,
+        revendedorId,
         origen: 'equipo',
         creadoPorId: auth.usuario.id,
         ...(entrada.whatsapp || entrada.telegram
@@ -215,7 +299,7 @@ export class ClientesService {
         accion: 'cliente.creado',
         entidad: 'cliente',
         entidadId: c.id,
-        despues: { nombre: c.nombre, correo: c.correo, asignadoAId },
+        despues: { nombre: c.nombre, correo: c.correo, asignadoAId, revendedorId },
         cliente,
       },
       tx,
