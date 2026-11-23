@@ -2,6 +2,7 @@ import type {
   CatalogoPublico,
   ListaRenovaciones,
   MetodoCobroPublico,
+  MetodoEnLineaRevendedor,
   Moneda,
   MovimientoSaldoPublico,
   Pagina,
@@ -10,6 +11,7 @@ import type {
 } from '@nv/shared';
 import type { Metadata } from 'next';
 import { VistaBilletera } from '@/componentes/cliente/billetera';
+import { PagarRenovacionEnLinea } from '@/componentes/revendedor/pago-en-linea';
 import { AvisosRevendedor, CabeceraPanel, SinResumen } from '@/componentes/revendedor/panel';
 import { leerApi } from '@/lib/api-servidor';
 import { bloqueoCuenta, leerResumenRevendedor } from '@/lib/panel-revendedor';
@@ -63,6 +65,9 @@ export default async function Saldo({
           totalUsd: elegidos.reduce((t, x) => t + Number(x.precioUsd), 0).toFixed(2),
         }
       : null;
+  const enLinea = renovar
+    ? ((await leerApi<MetodoEnLineaRevendedor[]>('/revendedor/pago-en-linea/metodos')).datos ?? [])
+    : [];
   const cabecera = (
     <CabeceraPanel
       titulo="Saldo y recargas"
@@ -88,6 +93,14 @@ export default async function Saldo({
     <>
       {cabecera}
       <AvisosRevendedor revendedor={r} soloEstado />
+      {renovar && (
+        <PagarRenovacionEnLinea
+          ids={renovar.ids}
+          cantidad={renovar.cantidad}
+          totalUsd={renovar.totalUsd}
+          metodos={enLinea}
+        />
+      )}
       <VistaBilletera
         datos={{
           billetera: {

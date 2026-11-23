@@ -10,6 +10,8 @@ import {
   PNG_1X1,
   prepararCatalogo,
 } from './ayudas.js';
+import { ConfigAutomatizacionesService } from '../../src/automatizaciones/configuracion.service.js';
+import { TrabajosService } from '../../src/automatizaciones/trabajos.service.js';
 
 let ctx: Contexto;
 beforeAll(async () => {
@@ -1223,6 +1225,79 @@ describe('ventas, cartera y renovaciones del panel', () => {
     });
     expect(corta.cuerpo.renovar.resultado).toMatch(/^No se renovó: .*El saldo quedó acreditado\.$/);
     expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('1.00');
+  });
+
+  it('paga una renovación en línea (como una compra): al aprobarse se acredita y se renueva', async () => {
+    const e = await escenario();
+    await ctx.app.get(ConfigAutomatizacionesService).asegurar();
+    const metodo = await e.admin.post('/finanzas/metodos-cobro', {
+      nombre: 'Pago en línea (pruebas)',
+      moneda: 'USD',
+      instrucciones: 'Paga con tarjeta de prueba.',
+      tipo: 'pasarela',
+      pasarela: 'sandbox',
+    });
+    expect(metodo.estado).toBe(201);
+    const r = await revendedorConSaldo(e, '4');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    const antes = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+
+    const metodos = await r.n.get('/revendedor/pago-en-linea/metodos');
+    expect(metodos.cuerpo).toEqual([
+      expect.objectContaining({ metodoCobroId: metodo.cuerpo.id, pasarela: 'sandbox' }),
+    ]);
+
+    // Un servicio ajeno no se puede pagar.
+    const ajeno = await revendedorConSaldo(e, '1');
+    const mala = await ajeno.n.post('/revendedor/renovaciones/pago-en-linea', {
+      suscripcionIds: [id],
+      metodoCobroId: metodo.cuerpo.id,
+    });
+    expect(mala.estado).toBe(409);
+    expect(mala.cuerpo.error.codigo).toBe('NO_RENOVABLE');
+
+    const i = await r.n.post('/revendedor/renovaciones/pago-en-linea', {
+      suscripcionIds: [id],
+      metodoCobroId: metodo.cuerpo.id,
+    });
+    expect(i.estado, JSON.stringify(i.cuerpo)).toBe(201);
+    expect(i.cuerpo).toMatchObject({ pasarela: 'sandbox', monto: '4.00', moneda: 'USD' });
+    // Otro revendedor no ve ese pago.
+    expect((await ajeno.n.get(`/revendedor/pagos-en-linea/${i.cuerpo.id}`)).estado).toBe(404);
+
+    const simulado = await new Navegador(ctx.app).post(
+      `/pasarelas/sandbox/intentos/${i.cuerpo.id}/simular`,
+      { resultado: 'aprobar' },
+    );
+    expect(simulado.estado).toBe(200);
+    const vuelta = await r.n.post(`/revendedor/pagos-en-linea/${i.cuerpo.id}/retorno`, {
+      parametros: {},
+    });
+    expect(vuelta.cuerpo.estado).toBe('aprobado');
+
+    // El pago entró a su saldo y se usó en la renovación.
+    const despues = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(despues.venceEn!.getTime()).toBeGreaterThan(antes.venceEn!.getTime() + 25 * DIA);
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+    const recargas = await r.n.get('/revendedor/recargas');
+    expect(recargas.cuerpo.elementos[0]).toMatchObject({
+      estado: 'confirmada',
+      renovar: { cantidad: 1, resultado: expect.stringMatching(/^Se renovó 1 servicio/) },
+    });
+    const factura = await ctx.prisma.factura.findUniqueOrThrow({
+      where: { id: vuelta.cuerpo.facturaId },
+    });
+    expect(factura.estado).toBe('pagada');
+    // En Caja entra una sola vez: como pago de la factura, no como recarga.
+    const caja = await e.admin.get('/caja');
+    expect(caja.estado).toBe(200);
+    expect(JSON.stringify(caja.cuerpo)).not.toContain(recargas.cuerpo.elementos[0].referencia);
+
+    // El trabajo en cola no vuelve a renovar ni a cobrar.
+    await ctx.app.get(TrabajosService).procesarTodo();
+    expect(await ctx.prisma.compraRevendedor.count({ where: { tipo: 'renovacion' } })).toBe(1);
   });
 
   it('el lote no renueva nada sin saldo, por encima del límite diario o con un servicio ajeno', async () => {

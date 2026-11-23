@@ -338,6 +338,21 @@ export const renovarLoteSchema = z.object({
 });
 export type RenovarLoteEntrada = z.infer<typeof renovarLoteSchema>;
 
+/** Renovar servicios de la cartera pagando en línea (Binance Pay, PayPal…). */
+export const pagarRenovacionEnLineaSchema = z.object({
+  suscripcionIds: renovarLoteSchema.shape.suscripcionIds,
+  metodoCobroId: uuidSchema,
+});
+export type PagarRenovacionEnLineaEntrada = z.infer<typeof pagarRenovacionEnLineaSchema>;
+
+/** Método en línea con el que el revendedor puede pagar una renovación. */
+export interface MetodoEnLineaRevendedor {
+  metodoCobroId: string;
+  nombre: string;
+  pasarela: string;
+  moneda: string;
+}
+
 export const reembolsarCompraSchema = z.object({ motivo });
 
 /**

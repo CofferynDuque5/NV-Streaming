@@ -8,6 +8,7 @@ import { Boton, BotonEnlace } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { type ErrorLlamada, llamarApi } from '@/lib/api-cliente';
 import { QrMetodo } from './qr-metodo';
+import { type PanelPago, RUTAS_PAGO } from './rutas-pago';
 
 const CADA_MS = 10_000;
 const ABIERTOS = new Set(['creado', 'pendiente']);
@@ -17,7 +18,14 @@ const ABIERTOS = new Set(['creado', 'pendiente']);
  * para decir con qué usuario se pagó. Mientras espera el correo de Binance,
  * consulta el estado cada 10 segundos.
  */
-export function PagoBinance({ intentoId }: { intentoId: string }) {
+export function PagoBinance({
+  intentoId,
+  panel = 'cliente',
+}: {
+  intentoId: string;
+  panel?: PanelPago;
+}) {
+  const rutas = RUTAS_PAGO[panel];
   const [intento, setIntento] = useState<IntentoPagoPublico | null>(null);
   const [error, setError] = useState<ErrorLlamada | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -25,15 +33,15 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
   const [editando, setEditando] = useState(false);
 
   const consultar = useCallback(async () => {
-    const r = await llamarApi<IntentoPagoPublico>('GET', `/mi/pagos-en-linea/${intentoId}`);
+    const r = await llamarApi<IntentoPagoPublico>('GET', `${rutas.api}/${intentoId}`);
     if (r.ok) setIntento(r.datos);
     else setError(r.error);
-  }, [intentoId]);
+  }, [intentoId, rutas.api]);
 
   useEffect(() => {
     let vivo = true;
     void (async () => {
-      const r = await llamarApi<IntentoPagoPublico>('GET', `/mi/pagos-en-linea/${intentoId}`);
+      const r = await llamarApi<IntentoPagoPublico>('GET', `${rutas.api}/${intentoId}`);
       if (!vivo) return;
       if (r.ok) setIntento(r.datos);
       else setError(r.error);
@@ -41,7 +49,7 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
     return () => {
       vivo = false;
     };
-  }, [intentoId]);
+  }, [intentoId, rutas.api]);
 
   const esperando =
     !!intento && ABIERTOS.has(intento.estado) && !!intento.binance?.declaradoEn && !editando;
@@ -66,7 +74,7 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
     setEnviando(true);
     const r = await llamarApi<IntentoPagoPublico>(
       'POST',
-      `/mi/pagos-en-linea/${intentoId}/binance`,
+      `${rutas.api}/${intentoId}/binance`,
       datos.data,
     );
     setEnviando(false);
@@ -89,7 +97,7 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
     );
   }
 
-  const factura = `/cuenta/facturas/${intento.facturaId}`;
+  const factura = rutas.factura(intento.facturaId);
   const b = intento.binance;
 
   if (intento.estado === 'aprobado') {
@@ -98,13 +106,12 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
         <CircleCheckBig className="size-10 text-exito" aria-hidden="true" />
         <h2 className="text-lg font-semibold">¡Pago confirmado!</h2>
         <p className="max-w-md text-sm text-tinta-suave">
-          {intento.error ??
-            'Recibimos tu pago por Binance. Tu servicio se activa al momento: lo verás en «Mis accesos».'}
+          {intento.error ?? `Recibimos tu pago por Binance. ${rutas.listo}`}
         </p>
         <div className="flex flex-wrap justify-center gap-2">
-          <BotonEnlace href="/cuenta">Mis servicios</BotonEnlace>
+          <BotonEnlace href={rutas.inicio.href}>{rutas.inicio.etiqueta}</BotonEnlace>
           <BotonEnlace href={factura} variante="secundario">
-            Ver la factura
+            {rutas.verFactura}
           </BotonEnlace>
         </div>
       </div>
@@ -120,7 +127,7 @@ export function PagoBinance({ intentoId }: { intentoId: string }) {
             : 'Si aún no enviaste el dinero, vuelve a la factura y empieza de nuevo.'}
         </Alerta>
         <BotonEnlace href={factura} className="justify-self-start">
-          Volver a la factura
+          {rutas.volverFactura}
         </BotonEnlace>
       </div>
     );

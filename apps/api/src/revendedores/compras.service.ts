@@ -1,5 +1,5 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { Cliente, CompraRevendedor, Prisma, PrismaClient, Revendedor } from '@nv/db';
+import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
+import type { Cliente, CompraRevendedor, Prisma, PrismaClient, Revendedor, Sesion } from '@nv/db';
 import {
   type CatalogoMayorista,
   type ComprarEntrada,
@@ -13,6 +13,7 @@ import {
   type ResumenRevendedor,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
+import { TrabajosService } from '../automatizaciones/trabajos.service.js';
 import type { ContextoAuth, InfoCliente } from '../comun/contexto.js';
 import { exigirStock, planesAgotados } from '../cuentas/stock-cuentas.js';
 import { ErrorApp, Errores } from '../comun/errores.js';
@@ -32,11 +33,19 @@ import {
   usd,
 } from './libro-mayor.js';
 import { planRevendible } from './niveles.service.js';
+import { TRABAJO_RENOVAR_PAGO_EN_LINEA } from './pago-renovacion.js';
 import { compraPublica, INCLUIR_COMPRA } from './presentacion.js';
 import { serviciosRenovables, urgente } from './renovables.js';
 import { inicioMesVenezuela, RevendedoresService } from './revendedores.service.js';
 
 const DIA_MS = 24 * 3600_000;
+
+/** Lo que hace el sistema en segundo plano no viene de un navegador. */
+const CLIENTE_SISTEMA: InfoCliente = {
+  ip: null,
+  agenteUsuario: null,
+  idPeticion: 'trabajo-renovar-pago-en-linea',
+};
 
 /**
  * Compras con saldo: el revendedor compra activaciones (altas) o renovaciones
@@ -46,14 +55,23 @@ const DIA_MS = 24 * 3600_000;
  * factura al cliente final: le cobra el revendedor.
  */
 @Injectable()
-export class ComprasService {
+export class ComprasService implements OnModuleInit {
   constructor(
     @Inject(PRISMA) private readonly prisma: PrismaClient,
     @Inject(AuditoriaService) private readonly auditoria: AuditoriaService,
     @Inject(TasasService) private readonly tasas: TasasService,
     @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
     @Inject(RevendedoresService) private readonly revendedores: RevendedoresService,
+    @Inject(TrabajosService) private readonly trabajos: TrabajosService,
   ) {}
+
+  onModuleInit(): void {
+    // Renovación pagada en línea: el pago ya quedó en su saldo; ahora se renuevan los servicios.
+    this.trabajos.registrar(TRABAJO_RENOVAR_PAGO_EN_LINEA, async (carga) => {
+      const recargaId = typeof carga['recargaId'] === 'string' ? carga['recargaId'] : null;
+      if (recargaId) await this.renovarPorRecarga(null, recargaId, CLIENTE_SISTEMA);
+    });
+  }
 
   // ── Panel del revendedor ───────────────────────────────────────────────────
 
@@ -238,14 +256,14 @@ export class ComprasService {
    * en la recarga. Si no se puede (ya no se renuevan, no alcanza…), el saldo
    * queda acreditado y el revendedor renueva luego desde Renovaciones.
    */
-  async renovarPorRecarga(auth: ContextoAuth, recargaId: string, cliente: InfoCliente) {
+  async renovarPorRecarga(auth: ContextoAuth | null, recargaId: string, cliente: InfoCliente) {
     const recarga = await this.prisma.recargaSaldo.findUnique({
       where: { id: recargaId },
       select: {
         estado: true,
         renovarIds: true,
         renovacionResultado: true,
-        revendedor: true,
+        revendedor: { include: { usuario: true } },
       },
     });
     if (
@@ -258,9 +276,15 @@ export class ComprasService {
     }
     let resultado: string;
     try {
+      // Sin quien lo pida (pago en línea confirmado solo), se renueva a nombre del revendedor.
+      const actor = auth ?? {
+        usuario: recarga.revendedor.usuario,
+        sesion: null as unknown as Sesion,
+        pendiente: null,
+      };
       const hecho = await this.loteDe(
         recarga.revendedor,
-        auth,
+        actor,
         { suscripcionIds: recarga.renovarIds, claveIdempotencia: `recarga-${recargaId}` },
         cliente,
       );

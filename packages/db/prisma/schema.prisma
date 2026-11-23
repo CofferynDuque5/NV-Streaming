@@ -800,12 +800,12 @@ model Factura {
   creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn     DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  cliente              Cliente               @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  suscripcion          Suscripcion?          @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
-  pedido               Pedido?               @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
-  cupon                Cupon?                @relation(fields: [cuponId], references: [id], onDelete: Restrict)
-  anuladaPor           Usuario?              @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
-  creadoPor            Usuario?              @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  cliente              Cliente                   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  suscripcion          Suscripcion?              @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  pedido               Pedido?                   @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  cupon                Cupon?                    @relation(fields: [cuponId], references: [id], onDelete: Restrict)
+  anuladaPor           Usuario?                  @relation("FacturaAnulador", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  creadoPor            Usuario?                  @relation("FacturaCreador", fields: [creadoPorId], references: [id], onDelete: Restrict)
   lineas               LineaFactura[]
   pagos                Pago[]
   intentosPago         IntentoPago[]
@@ -813,6 +813,7 @@ model Factura {
   canje                CanjeCupon?
   entregas             Entrega[]
   movimientosBilletera MovimientoBilletera[]
+  pagoRenovacion       PagoRenovacionRevendedor?
 
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([estado, venceEn])
@@ -1206,15 +1207,16 @@ model Revendedor {
   creadoEn            DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn       DateTime         @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  usuario       Usuario            @relation("RevendedorUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
-  nivel         NivelRevendedor?   @relation(fields: [nivelId], references: [id], onDelete: Restrict)
-  revisadoPor   Usuario?           @relation("RevendedorRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
-  clientes      Cliente[]
-  suscripciones Suscripcion[]
-  recargas      RecargaSaldo[]
-  movimientos   MovimientoSaldo[]
-  compras       CompraRevendedor[]
-  entregas      Entrega[]
+  usuario         Usuario                    @relation("RevendedorUsuario", fields: [usuarioId], references: [id], onDelete: Restrict)
+  nivel           NivelRevendedor?           @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  revisadoPor     Usuario?                   @relation("RevendedorRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  clientes        Cliente[]
+  suscripciones   Suscripcion[]
+  recargas        RecargaSaldo[]
+  movimientos     MovimientoSaldo[]
+  compras         CompraRevendedor[]
+  entregas        Entrega[]
+  pagosRenovacion PagoRenovacionRevendedor[]
 
   @@index([estado, creadoEn(sort: Desc)])
   @@map("revendedores")
@@ -1266,15 +1268,36 @@ model RecargaSaldo {
   creadoEn            DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn       DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  revendedor  Revendedor       @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
-  metodoCobro MetodoCobro      @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
-  comprobante Archivo?         @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
-  revisadoPor Usuario?         @relation("RecargaRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
-  movimiento  MovimientoSaldo?
+  revendedor     Revendedor                @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  metodoCobro    MetodoCobro               @relation(fields: [metodoCobroId], references: [id], onDelete: Restrict)
+  comprobante    Archivo?                  @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
+  revisadoPor    Usuario?                  @relation("RecargaRevisor", fields: [revisadoPorId], references: [id], onDelete: Restrict)
+  movimiento     MovimientoSaldo?
+  pagoRenovacion PagoRenovacionRevendedor?
 
   @@index([estado, creadoEn])
   @@index([revendedorId, creadoEn(sort: Desc)])
   @@map("recargas_saldo")
+}
+
+/// Renovaciones de la cartera de un revendedor pagadas en línea (Binance Pay, PayPal…)
+/// con una factura a nombre de su ficha. Al pagarse, el monto entra a su saldo y se renuevan.
+model PagoRenovacionRevendedor {
+  id           String   @id @default(uuid()) @db.Uuid
+  revendedorId String   @map("revendedor_id") @db.Uuid
+  facturaId    String   @unique @map("factura_id") @db.Uuid
+  renovarIds   String[] @map("renovar_ids") @db.Uuid
+  totalUsd     Decimal  @map("total_usd") @db.Decimal(14, 2)
+  /// La recarga confirmada que lo acreditó a su saldo al quedar pagada la factura.
+  recargaId    String?  @unique @map("recarga_id") @db.Uuid
+  creadoEn     DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  revendedor Revendedor    @relation(fields: [revendedorId], references: [id], onDelete: Restrict)
+  factura    Factura       @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  recarga    RecargaSaldo? @relation(fields: [recargaId], references: [id], onDelete: Restrict)
+
+  @@index([revendedorId, creadoEn(sort: Desc)])
+  @@map("pagos_renovacion_revendedor")
 }
 
 /// Libro mayor del saldo: solo se insertan filas (un disparador impide editarlas o borrarlas).
