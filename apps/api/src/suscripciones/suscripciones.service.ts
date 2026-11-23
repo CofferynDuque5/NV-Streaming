@@ -174,6 +174,18 @@ export class SuscripcionesService {
     const limiteCortes = pasoHoraCorte ? dia(1) : dia(0);
     const incluir = {
       ...INCLUIR_SUSCRIPCION,
+      // Para «Cobrar» por WhatsApp o Telegram desde la fila.
+      cliente: {
+        select: {
+          id: true,
+          nombre: true,
+          contactos: {
+            where: { tipo: { in: ['whatsapp', 'telefono', 'telegram'] } },
+            select: { tipo: true, valor: true },
+            orderBy: { creadoEn: 'asc' },
+          },
+        },
+      },
       perfilCuenta: {
         select: {
           id: true,
@@ -211,9 +223,13 @@ export class SuscripcionesService {
       const diasVencida = f.venceEn
         ? Math.round((dia(0).getTime() - inicioDiaCaracas(f.venceEn).getTime()) / DIA_MS)
         : 0;
+      const { contactos, ...cliente } = f.cliente;
+      const de = (...tipos: string[]) =>
+        contactos.find((c) => tipos.includes(c.tipo))?.valor ?? null;
       return {
-        ...suscripcionPublica(f),
+        ...suscripcionPublica({ ...f, cliente }),
         diasVencida,
+        contacto: { whatsapp: de('whatsapp', 'telefono'), telegram: de('telegram') },
         lugar: p
           ? {
               cuentaId: p.cuenta.id,

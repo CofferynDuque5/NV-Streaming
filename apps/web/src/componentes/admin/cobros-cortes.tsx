@@ -17,7 +17,9 @@ import {
   KeyRound,
   RefreshCw,
   Scissors,
+  MessageCircle,
   Search,
+  Send,
   Trash2,
   Wand2,
 } from 'lucide-react';
@@ -276,13 +278,157 @@ function Fila({
           <RefreshCw className="size-3.5" aria-hidden="true" />
           {s.facturaAbierta ? `Factura ${s.facturaAbierta.numero}` : 'Renovar'}
         </Link>
+        <Cobrar s={s} />
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
         {puedeCortar && s.lugar && seccion === 'cortes' && (
           <Cortar s={s} hermanos={hermanos} puedeRevelar={puedeRevelar} />
         )}
-        {puedeCortar && s.lugar && seccion === 'cortes' && <Eliminar s={s} />}
+        {puedeCortar && s.lugar && seccion === 'cortes' && puedeEliminar(s) && <Eliminar s={s} />}
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────── Cobrar ───────────────────────── */
+
+/** Correo de las cuentas propias: ahí solo se elimina al miembro de un plan de Spotify. */
+const DOMINIO_PROPIO = '@serviciosnat.com';
+
+/**
+ * «Eliminar» solo en Spotify unido a un plan (el cupo de un miembro) o en
+ * cuentas que no son del dominio propio (el correo es de otra persona).
+ */
+function puedeEliminar(s: SuscripcionConLugar): boolean {
+  const pista = s.lugar?.pistaCuenta?.trim().toLowerCase();
+  if (pista && !pista.endsWith(DOMINIO_PROPIO)) return true;
+  return /spotify/i.test(s.plan.servicio) && esMiembro(s);
+}
+
+function cuandoMensaje(d: number): string {
+  if (d === 0) return 'vence hoy';
+  if (d === -1) return 'vence mañana';
+  if (d < -1) return `vence en ${-d} días`;
+  if (d === 1) return 'venció ayer';
+  return `venció hace ${d} días`;
+}
+
+/** El mensaje de cobro del Gestor, con la plataforma, el cliente y el día. */
+export function mensajeCobro(s: SuscripcionConLugar): string {
+  const vencida = s.diasVencida > 0;
+  const lugar = s.lugar
+    ? `\n${TEXTOS_PLATAFORMA[s.lugar.tipo].lugar}: *${s.lugar.etiqueta}*${s.lugar.individual ? ' (cuenta completa)' : ''}`
+    : '';
+  return [
+    `Hola, *${s.cliente.nombre}*.`,
+    '',
+    `Su suscripción de *${s.plan.servicio.toUpperCase()}* ${cuandoMensaje(s.diasVencida)}.${lugar}`,
+    vencida
+      ? 'Si desea renovar, por favor avísenos para reactivar su suscripción.'
+      : 'Si desea renovar, por favor avísenos con tiempo para mantener activa la suscripción.',
+    '',
+    '*¡Gracias por confiar en NV Streaming!*',
+  ].join('\n');
+}
+
+/** Cobrar a mano por WhatsApp o Telegram con el mensaje ya armado (se puede editar). */
+function Cobrar({ s }: { s: SuscripcionConLugar }) {
+  const [abierto, setAbierto] = useState(false);
+  const [texto, setTexto] = useState('');
+  const [numero, setNumero] = useState('');
+  const [copiado, setCopiado] = useState(false);
+  const telegram = s.contacto.telegram?.replace(/^@/, '') ?? null;
+  const digitos = numero.replace(/\D/g, '');
+
+  function abrir() {
+    setTexto(mensajeCobro(s));
+    setNumero(s.contacto.whatsapp ?? '');
+    setCopiado(false);
+    setAbierto(true);
+  }
+
+  async function porTelegram() {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado(true);
+    } catch {
+      setCopiado(false);
+    }
+    window.open(`https://t.me/${telegram}`, '_blank', 'noopener');
+  }
+
+  return (
+    <>
+      <Boton
+        tamano="sm"
+        variante="secundario"
+        icono={<MessageCircle className="size-3.5" />}
+        onClick={abrir}
+        aria-label={`Cobrar a ${s.cliente.nombre}`}
+      >
+        Cobrar
+      </Boton>
+      {abierto && (
+        <Dialogo
+          titulo="Cobrar por mensaje"
+          icono={<MessageCircle className="size-5 text-marca" aria-hidden="true" />}
+          onCerrar={() => setAbierto(false)}
+        >
+          <label className="grid gap-1 text-sm">
+            Mensaje
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.currentTarget.value)}
+              rows={8}
+              className="rounded-xl border border-borde bg-hundida p-3 text-sm"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            WhatsApp
+            <input
+              value={numero}
+              onChange={(e) => setNumero(e.currentTarget.value)}
+              inputMode="tel"
+              placeholder="584121234567"
+              className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
+            />
+          </label>
+          {!s.contacto.whatsapp && !telegram && (
+            <Alerta tono="aviso">
+              Este cliente no tiene WhatsApp ni Telegram guardados: escribe el número.
+            </Alerta>
+          )}
+          {copiado && <Alerta tono="exito">Mensaje copiado: pégalo en el chat de Telegram.</Alerta>}
+          <div className="flex flex-wrap justify-end gap-2">
+            {telegram && (
+              <Boton
+                variante="secundario"
+                icono={<Send className="size-4" />}
+                onClick={() => void porTelegram()}
+              >
+                Telegram (@{telegram})
+              </Boton>
+            )}
+            <a
+              href={
+                digitos.length >= 8
+                  ? `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`
+                  : undefined
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-disabled={digitos.length < 8}
+              className={clsx(
+                'inline-flex h-10 items-center gap-2 rounded-xl bg-[#25D366] px-4 text-sm font-semibold text-black',
+                digitos.length < 8 && 'pointer-events-none opacity-50',
+              )}
+            >
+              <MessageCircle className="size-4" aria-hidden="true" />
+              Enviar por WhatsApp
+            </a>
+          </div>
+        </Dialogo>
+      )}
+    </>
   );
 }
 

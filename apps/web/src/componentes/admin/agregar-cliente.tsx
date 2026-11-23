@@ -53,6 +53,15 @@ import { Dialogo } from './cuentas-gestor';
 /** Modo de subir al cliente, como en el Gestor (depende del tipo de plataforma). */
 type Modo = 'perfil' | 'individual' | 'alquiler' | 'plan' | 'correo_cliente';
 type Canal = 'whatsapp' | 'telegram' | 'correo';
+
+/** Como en el Gestor: con el responsable «Cliente» y sin número, los cobros van a este WhatsApp. */
+const WHATSAPP_VENTA_DIRECTA = '584225200631';
+
+interface ContactoResponsable {
+  responsable: string;
+  whatsapp: string | null;
+  telegram: string | null;
+}
 const PASOS = ['Cuenta', 'Cliente', 'Plazo y precio', 'Contrato'] as const;
 
 export interface LugarElegido {
@@ -224,6 +233,9 @@ export function AgregarCliente({
   const [nombre, setNombre] = useState('');
   const [responsable, setResponsable] = useState('');
   const [responsables, setResponsables] = useState<string[]>([]);
+  const [contactosResponsables, setContactosResponsables] = useState<ContactoResponsable[]>([]);
+  // El contacto que se llenó solo al escribir el responsable (se cambia si cambia el responsable).
+  const [contactoAuto, setContactoAuto] = useState<string | null>(null);
   const [canal, setCanal] = useState<Canal>('whatsapp');
   const [contacto, setContacto] = useState('');
   const [extras, setExtras] = useState<{ canal: Canal; valor: string }[]>([]);
@@ -266,6 +278,9 @@ export function AgregarCliente({
           : Promise.resolve(null),
         llamarApi<string[]>('GET', '/clientes/responsables'),
       ]);
+      void llamarApi<ContactoResponsable[]>('GET', '/clientes/responsables/contactos').then((r) => {
+        if (r.ok) setContactosResponsables(r.datos);
+      });
       const lista = rp.ok ? rp.datos.filter((p) => p.activo && p.tipo === 'suscripcion') : [];
       setPlanes(lista);
       if (lista[0]) {
@@ -366,8 +381,39 @@ export function AgregarCliente({
     setEncontrados(r.ok ? r.datos.elementos : []);
   }
 
+  /** Al escribir el responsable se llena su número (si el contacto está vacío o lo llenamos antes). */
+  function cambiarResponsable(valor: string) {
+    setResponsable(valor);
+    const clave = valor.trim().toLowerCase();
+    const c = contactosResponsables.find((x) => x.responsable.toLowerCase() === clave);
+    const sugerido: { canal: Canal; valor: string } | null =
+      clave === 'cliente'
+        ? { canal: 'whatsapp', valor: c?.whatsapp ?? WHATSAPP_VENTA_DIRECTA }
+        : c?.whatsapp
+          ? { canal: 'whatsapp', valor: c.whatsapp }
+          : c?.telegram
+            ? { canal: 'telegram', valor: c.telegram }
+            : null;
+    const libre = !contacto.trim() || contacto === contactoAuto;
+    if (!libre) return;
+    if (sugerido) {
+      setCanal(sugerido.canal);
+      setContacto(sugerido.valor);
+      setContactoAuto(sugerido.valor);
+    } else if (contactoAuto) {
+      setContacto('');
+      setContactoAuto(null);
+    }
+  }
+
   function contactoNuevo() {
-    const todos = [{ canal, valor: contacto.trim() }, ...extras].filter((x) => x.valor);
+    const escritos = [{ canal, valor: contacto.trim() }, ...extras].filter((x) => x.valor);
+    // Responsable «Cliente» sin número ni Telegram: el WhatsApp de venta directa.
+    const todos =
+      responsable.trim().toLowerCase() === 'cliente' &&
+      !escritos.some((x) => x.canal === 'whatsapp' || x.canal === 'telegram')
+        ? [...escritos, { canal: 'whatsapp' as Canal, valor: WHATSAPP_VENTA_DIRECTA }]
+        : escritos;
     const de = (k: Canal) => todos.find((x) => x.canal === k)?.valor;
     const whatsapp = de('whatsapp');
     const telegram = de('telegram');
@@ -995,8 +1041,8 @@ export function AgregarCliente({
                       Responsable
                       <input
                         value={responsable}
-                        onChange={(e) => setResponsable(e.currentTarget.value)}
-                        placeholder="Revendedor… (vacío si es venta directa)"
+                        onChange={(e) => cambiarResponsable(e.currentTarget.value)}
+                        placeholder="Revendedor o «Cliente» si es venta directa"
                         list="nv-responsables"
                         maxLength={60}
                         className="h-11 rounded-xl border border-borde bg-hundida px-3"
@@ -1016,13 +1062,21 @@ export function AgregarCliente({
                         {etiquetaCanal(canal)}
                         <input
                           value={contacto}
-                          onChange={(e) => setContacto(e.currentTarget.value)}
+                          onChange={(e) => {
+                            setContacto(e.currentTarget.value);
+                            setContactoAuto(null);
+                          }}
                           placeholder={ejemploCanal(canal)}
                           inputMode={
                             canal === 'whatsapp' ? 'tel' : canal === 'correo' ? 'email' : 'text'
                           }
                           className="h-11 rounded-xl border border-borde bg-hundida px-3"
                         />
+                        {contactoAuto && contacto === contactoAuto && (
+                          <span className="text-xs text-tinta-tenue">
+                            Se llenó con el contacto de {responsable.trim()}. Puedes cambiarlo.
+                          </span>
+                        )}
                       </label>
                       {extras.map((x, i) => (
                         <div key={i} className="grid gap-2 rounded-xl border border-borde p-2">

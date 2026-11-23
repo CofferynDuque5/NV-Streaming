@@ -30,6 +30,12 @@ const INCLUIR_DETALLE = {
   contactos: { orderBy: { creadoEn: 'asc' } },
 } as const;
 
+export interface ContactoResponsable {
+  responsable: string;
+  whatsapp: string | null;
+  telegram: string | null;
+}
+
 @Injectable()
 export class ClientesService {
   constructor(
@@ -49,6 +55,48 @@ export class ClientesService {
       take: 200,
     });
     return filas.map((f) => f.responsable).filter((r): r is string => Boolean(r));
+  }
+
+  /**
+   * Como en el Gestor: al escribir el responsable se llena solo su número. Por
+   * cada responsable, el WhatsApp y el Telegram que más se repiten entre sus
+   * clientes (el revendedor suele poner el suyo).
+   */
+  async contactosResponsables(auth: ContextoAuth): Promise<ContactoResponsable[]> {
+    const filas = await this.prisma.cliente.findMany({
+      where: { AND: [alcanceClientes(auth), { responsable: { not: null } }] },
+      select: {
+        responsable: true,
+        contactos: {
+          where: { tipo: { in: ['whatsapp', 'telefono', 'telegram'] } },
+          select: { tipo: true, valor: true },
+        },
+      },
+      take: 20_000,
+    });
+    type Cuenta = { nombre: string; whatsapp: Map<string, number>; telegram: Map<string, number> };
+    const por = new Map<string, Cuenta>();
+    const sumar = (m: Map<string, number>, v: string) => m.set(v, (m.get(v) ?? 0) + 1);
+    for (const f of filas) {
+      const nombre = f.responsable!.trim();
+      if (!nombre) continue;
+      const clave = nombre.toLowerCase();
+      const c = por.get(clave) ?? { nombre, whatsapp: new Map(), telegram: new Map() };
+      por.set(clave, c);
+      for (const x of f.contactos) {
+        if (x.tipo === 'telegram') sumar(c.telegram, x.valor);
+        else sumar(c.whatsapp, x.valor);
+      }
+    }
+    const masUsado = (m: Map<string, number>) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    return [...por.values()]
+      .map((c) => ({
+        responsable: c.nombre,
+        whatsapp: masUsado(c.whatsapp),
+        telegram: masUsado(c.telegram),
+      }))
+      .filter((c) => c.whatsapp || c.telegram);
   }
 
   async listar(auth: ContextoAuth, filtro: ListarClientesEntrada): Promise<Pagina<ClienteResumen>> {

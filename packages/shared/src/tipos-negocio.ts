@@ -267,6 +267,8 @@ export interface SuscripcionConLugar extends SuscripcionPublica {
   lugar: LugarSuscripcion | null;
   /** Días desde el vencimiento (0 = hoy, 1 = ayer…; negativo = aún no vence). */
   diasVencida: number;
+  /** Dónde cobrarle a mano (WhatsApp o usuario de Telegram sin @). */
+  contacto: { whatsapp: string | null; telegram: string | null };
 }
 
 /**

@@ -55,6 +55,13 @@ export class ClientesController {
     return this.clientes.responsables(auth);
   }
 
+  /** El WhatsApp o Telegram más usado de cada responsable (autocompletar el contacto). */
+  @Get('responsables/contactos')
+  @RequierePermiso('clientes.ver')
+  contactosResponsables(@Auth() auth: ContextoAuth) {
+    return this.clientes.contactosResponsables(auth);
+  }
+
   @Get(':id')
   @RequierePermiso('clientes.ver')
   obtener(@Auth() auth: ContextoAuth, @Param('id', idValido) id: string) {
