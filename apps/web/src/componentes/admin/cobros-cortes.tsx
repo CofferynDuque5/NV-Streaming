@@ -256,7 +256,7 @@ function Fila({
 }) {
   const w = cuando(seccion, s.diasVencida);
   return (
-    <li className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-6">
+    <li className="grid gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
       <div className="min-w-0">
         <Link
           href={`/admin/suscripciones/${s.id}`}
@@ -276,8 +276,8 @@ function Fila({
           {hermanos > 0 && ` · +${hermanos} en la misma cuenta`}
         </p>
       </div>
-      <div className="flex items-center gap-3 text-sm">
-        <span className="grid text-right">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
+        <span className="grid sm:text-right">
           <span className={w.tono}>{w.texto}</span>
           {s.venceEn && (
             <time dateTime={s.venceEn} className="text-xs text-tinta-tenue">
@@ -298,7 +298,7 @@ function Fila({
           </span>
         )}
       </div>
-      <div className="flex flex-wrap gap-2 sm:justify-end">
+      <div className="flex flex-wrap gap-2 sm:col-span-2 sm:justify-end">
         <Link
           href={`/admin/suscripciones/${s.id}`}
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-borde-fuerte px-3 text-sm font-semibold hover:border-cian"
@@ -386,11 +386,15 @@ function Renovar({
   }
 
   const meses = plazo.tipo === 'meses' ? plazo.meses : plazo.tipo === 'otro' ? Number(otro) : null;
-  const base =
-    s.venceEn && new Date(s.venceEn).getTime() > ahoraMs ? new Date(s.venceEn) : new Date(ahoraMs);
+  // Como la API: quien renueva tarde paga desde el día en que venció, salvo que
+  // el período pagado ni llegue a hoy (entonces corre desde hoy).
+  const baseDe = (n: number) =>
+    s.venceEn && sumarMeses(new Date(s.venceEn), n).getTime() > ahoraMs
+      ? new Date(s.venceEn)
+      : new Date(ahoraMs);
   const nueva =
     meses && Number.isInteger(meses) && meses > 0
-      ? sumarMeses(base, meses).toISOString()
+      ? sumarMeses(baseDe(meses), meses).toISOString()
       : plazo.tipo === 'fecha' && fecha
         ? new Date(`${fecha}T16:00:00Z`).toISOString()
         : null;
@@ -512,9 +516,12 @@ function Renovar({
                   <p className="text-sm">
                     Nueva fecha: <b>{formatearFecha(nueva)}</b>
                     {plazo.tipo !== 'fecha' &&
-                      (base.getTime() > ahoraMs + 60_000
-                        ? ' (cuenta desde su vencimiento: no pierde días).'
-                        : ' (cuenta desde hoy).')}
+                      meses &&
+                      (baseDe(meses).getTime() === ahoraMs
+                        ? ' (cuenta desde hoy).'
+                        : baseDe(meses).getTime() < ahoraMs
+                          ? ' (cuenta desde el día en que venció).'
+                          : ' (cuenta desde su vencimiento: no pierde días).')}
                   </p>
                 )}
               </fieldset>
