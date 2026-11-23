@@ -8,6 +8,7 @@ import {
   paginacionSchema,
   type RecargaPublica,
   type ResponsableGestor,
+  type UsuarioPublico,
   type RevendedorDetalle,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -17,6 +18,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ClientesDeRevendedor } from '@/componentes/admin/clientes-revendedor';
+import { CuentaAccesoRevendedor } from '@/componentes/admin/cuenta-acceso-revendedor';
 import { nombrePais, VacioCompacto, Volver } from '@/componentes/admin/piezas-crm';
 import {
   AccionConMotivo,
@@ -73,6 +75,13 @@ export default async function FichaRevendedor({
     ]);
   const r = revendedorR.datos;
   if (revendedorR.estado === 404 || revendedorR.estado === 400 || !r) notFound();
+  const cuenta = sesion.permisos.includes('usuarios.gestionar')
+    ? (
+        await leerApi<UsuarioPublico & { invitacionPendiente: boolean }>(
+          `/usuarios/${encodeURIComponent(r.usuario.id)}`,
+        )
+      ).datos
+    : null;
   const libro = movimientosR.datos;
   const compras = comprasR.datos;
   const recargas = recargasR.datos;
@@ -383,6 +392,20 @@ export default async function FichaRevendedor({
                 rol="revendedor"
                 moneda={r.usuario.monedaTienda}
                 compacto
+              />
+            </Tarjeta>
+          )}
+
+          {cuenta && (
+            <Tarjeta>
+              <CabeceraTarjeta
+                titulo="Acceso a su cuenta"
+                descripcion="Si no puede crear su clave o confirmar su correo, hazlo tú."
+              />
+              <CuentaAccesoRevendedor
+                usuarioId={cuenta.id}
+                correoVerificado={cuenta.correoVerificado}
+                tieneClave={!cuenta.invitacionPendiente}
               />
             </Tarjeta>
           )}

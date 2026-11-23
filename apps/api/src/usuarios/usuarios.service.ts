@@ -8,6 +8,7 @@ import {
   type UsuarioPublico,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
+import { hashContrasena } from '../auth/contrasenas.js';
 import { DosPasosService } from '../auth/dos-pasos.service.js';
 import { usuarioPublico } from '../auth/presentacion.js';
 import { SesionesService } from '../auth/sesiones.service.js';
@@ -252,6 +253,99 @@ export class UsuariosService {
       'dosPasosDesactivados',
       Plantillas.dosPasosDesactivados(usuario.nombre),
     );
+  }
+
+  /**
+   * Para el revendedor que no logra crear su clave o confirmar su correo:
+   * administración le pone una clave. La clave nunca se guarda ni se registra en
+   * claro (solo su hash Argon2id) y la auditoría no la incluye. Deja el correo
+   * verificado, cierra sus sesiones y le avisa por correo (sin la clave).
+   */
+  async ponerContrasena(
+    auth: ContextoAuth,
+    id: string,
+    contrasena: string,
+    cliente: InfoCliente,
+  ): Promise<UsuarioPublico> {
+    this.exigirOtraPersona(auth, id);
+    const actual = await this.buscar(id);
+    await this.exigirRevendedor(actual);
+    const hash = await hashContrasena(contrasena);
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      const usuario = await tx.usuario.update({
+        where: { id },
+        data: { hashContrasena: hash, correoVerificadoEn: actual.correoVerificadoEn ?? new Date() },
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'usuario.contrasena_puesta_por_admin',
+          entidad: 'usuario',
+          entidadId: id,
+          antes: {
+            teniaContrasena: actual.hashContrasena !== null,
+            correoVerificado: actual.correoVerificadoEn !== null,
+          },
+          despues: { teniaContrasena: true, correoVerificado: true },
+          cliente,
+        },
+        tx,
+      );
+      return usuario;
+    });
+    await this.sesiones.revocarTodas(id);
+    await this.correo.enviar(
+      usuario.correo,
+      'contrasenaCambiada',
+      Plantillas.contrasenaCambiada(usuario.nombre),
+    );
+    return usuarioPublico(usuario);
+  }
+
+  /** Marca su correo como confirmado cuando el revendedor no recibe o no puede abrir el enlace. */
+  async verificarCorreo(
+    auth: ContextoAuth,
+    id: string,
+    cliente: InfoCliente,
+  ): Promise<UsuarioPublico> {
+    this.exigirOtraPersona(auth, id);
+    const actual = await this.buscar(id);
+    await this.exigirRevendedor(actual);
+    if (actual.correoVerificadoEn) return usuarioPublico(actual);
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      const usuario = await tx.usuario.update({
+        where: { id },
+        data: { correoVerificadoEn: new Date() },
+      });
+      await this.auditoria.registrar(
+        {
+          actorId: auth.usuario.id,
+          accion: 'usuario.correo_verificado_por_admin',
+          entidad: 'usuario',
+          entidadId: id,
+          cliente,
+        },
+        tx,
+      );
+      return usuario;
+    });
+    return usuarioPublico(usuario);
+  }
+
+  /** Solo cuentas de revendedores (o con solicitud de revendedor), nunca del equipo. */
+  private async exigirRevendedor(usuario: Usuario): Promise<void> {
+    if (usuario.rol === 'revendedor') return;
+    const ficha =
+      usuario.rol === 'cliente'
+        ? await this.prisma.revendedor.count({ where: { usuarioId: usuario.id } })
+        : 0;
+    if (ficha === 0) {
+      throw new ErrorApp(
+        409,
+        'SOLO_REVENDEDORES',
+        'Esta opción es solo para cuentas de revendedores.',
+      );
+    }
   }
 
   private async enviarInvitacion(usuario: Usuario, token: string): Promise<void> {
