@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { monedaSchema } from './dinero.js';
 import { ROLES } from '../roles.js';
 import { correoSchema, nombreSchema, paginacionSchema } from './comunes.js';
 
@@ -22,6 +23,9 @@ export const invitarUsuarioSchema = z.object({
 });
 
 export const cambiarRolSchema = z.object({ rol: rolSchema });
+
+/** Moneda fija de la tienda para una persona; null vuelve a la automática. */
+export const cambiarMonedaTiendaSchema = z.object({ moneda: monedaSchema.nullable() });
 export const cambiarEstadoSchema = z.object({
   estado: estadoUsuarioSchema,
   motivo: z.string().trim().min(3, 'Indica el motivo.').max(500),

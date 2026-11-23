@@ -89,8 +89,11 @@ export class AuthController {
   /** Sesión actual. Con un paso pendiente devuelve `pendiente` y ningún permiso. */
   @PermitePendiente()
   @Get('sesion')
-  sesion(@Auth() auth: ContextoAuth): SesionActual {
-    return sesionActual(auth.usuario, auth.pendiente);
+  async sesion(@Auth() auth: ContextoAuth): Promise<SesionActual> {
+    return {
+      ...sesionActual(auth.usuario, auth.pendiente),
+      monedaTienda: await this.auth.monedaTienda(auth.usuario),
+    };
   }
 
   @PermitePendiente()

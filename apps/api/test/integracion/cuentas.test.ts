@@ -790,6 +790,82 @@ describe('cuentas de servicio', () => {
 describe('Cobros: vencimientos y cortes', () => {
   const DIA = 24 * 3600_000;
 
+  it('«Renovar» por meses o hasta una fecha deja la factura pagada y la fecha nueva', async () => {
+    const e = await escenario();
+    const c = await conectar(ctx, 'cliente');
+    const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const id = alta.cuerpo.suscripcion.id as string;
+    // El alta ya está pagada y vence mañana.
+    await ctx.prisma.factura.updateMany({
+      where: { suscripcionId: id },
+      data: { estado: 'pagada', pagadaEn: new Date() },
+    });
+    const vence = new Date(Date.now() + 1.2 * DIA);
+    await ctx.prisma.suscripcion.update({
+      where: { id },
+      data: { estado: 'activa', inicioEn: new Date(), venceEn: vence },
+    });
+    // La renovación pendiente (aviso automático) se reemplaza por la pagada.
+    const pendiente = await e.operador.n.post(`/suscripciones/${id}/renovar`, {});
+    expect(pendiente.estado).toBe(200);
+    const pendienteId = pendiente.cuerpo.factura.id as string;
+
+    // Meses y fecha a la vez, o ninguno: error.
+    expect(
+      (
+        await e.operador.n.post(`/suscripciones/${id}/renovar-pagada`, {
+          metodoCobroId: e.zelleId,
+        })
+      ).estado,
+    ).toBe(400);
+
+    const r = await e.operador.n.post(`/suscripciones/${id}/renovar-pagada`, {
+      meses: 3,
+      metodoCobroId: e.zelleId,
+    });
+    expect(r.estado, JSON.stringify(r.cuerpo)).toBe(200);
+    const pagada = await ctx.prisma.factura.findUniqueOrThrow({
+      where: { id: r.cuerpo.factura.id },
+    });
+    expect(pagada).toMatchObject({ estado: 'pagada', periodos: 3, concepto: 'renovacion' });
+    expect(
+      await ctx.prisma.pago.count({ where: { facturaId: pagada.id, estado: 'confirmado' } }),
+    ).toBe(1);
+    expect(
+      (await ctx.prisma.factura.findUniqueOrThrow({ where: { id: pendienteId } })).estado,
+    ).toBe('anulada');
+    const tras = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(tras.estado).toBe('activa');
+    // Tres meses desde el vencimiento (no desde hoy): no pierde días.
+    const dias = (tras.venceEn!.getTime() - vence.getTime()) / DIA;
+    expect(dias).toBeGreaterThanOrEqual(89);
+    expect(dias).toBeLessThanOrEqual(92);
+
+    // Hasta una fecha exacta (día de Venezuela).
+    const destino = new Date(tras.venceEn!.getTime() + 45 * DIA);
+    const dia = destino.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+    const conFecha = await e.operador.n.post(`/suscripciones/${id}/renovar-pagada`, {
+      venceEn: dia,
+      metodoCobroId: e.zelleId,
+    });
+    expect(conFecha.estado, JSON.stringify(conFecha.cuerpo)).toBe(200);
+    const final = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(final.venceEn!.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })).toBe(dia);
+    expect(
+      (await ctx.prisma.factura.findUniqueOrThrow({ where: { id: conFecha.cuerpo.factura.id } }))
+        .estado,
+    ).toBe('pagada');
+    // Una fecha que ya pasó no se acepta.
+    expect(
+      (
+        await e.operador.n.post(`/suscripciones/${id}/renovar-pagada`, {
+          venceEn: '2020-01-01',
+          metodoCobroId: e.zelleId,
+        })
+      ).estado,
+    ).toBe(400);
+  });
+
   it('separa vencimientos de cortes, corta con clave y PIN nuevos y deja el historial', async () => {
     const e = await escenario();
     // Tres clientes: uno vence mañana, uno venció hace 3 días y otro con dos perfiles vencidos.
@@ -838,6 +914,29 @@ describe('Cobros: vencimientos y cortes', () => {
     expect(lista.cuerpo.cortes[0].diasVencida).toBeGreaterThanOrEqual(3);
     // El de mañana (o pasado, según la hora) no está en cortes.
     expect(ids(lista.cuerpo.cortes)).not.toContain(subs[0]);
+
+    // «Cobrar» lo deja marcado con la fecha y quién; se puede volver a cobrar.
+    expect(lista.cuerpo.cortes.every((s: { cobro: unknown }) => s.cobro === null)).toBe(true);
+    const cobrado = await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, {
+      canal: 'whatsapp',
+    });
+    expect(cobrado.estado).toBe(200);
+    expect(
+      (await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, { canal: 'sms' })).estado,
+    ).toBe(400);
+    const otraVez = await e.operador.n.post(`/suscripciones/${subs[1]}/cobrado`, {
+      canal: 'telegram',
+    });
+    expect(otraVez.estado).toBe(200);
+    const conCobro = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    const marcada = conCobro.cuerpo.cortes.find((s: { id: string }) => s.id === subs[1]);
+    expect(marcada.cobro).toMatchObject({ en: otraVez.cuerpo.cobradoEn });
+    expect(typeof marcada.cobro.por).toBe('string');
+    expect(
+      await ctx.prisma.auditoria.count({
+        where: { accion: 'suscripcion.cobrada', entidadId: subs[1] },
+      }),
+    ).toBe(2);
 
     // No se corta a quien todavía no vence.
     const pronto = await e.operador.n.post(`/suscripciones/${subs[0]}/cortar`, {});

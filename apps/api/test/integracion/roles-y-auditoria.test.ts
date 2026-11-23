@@ -100,6 +100,45 @@ describe('gestión del equipo', () => {
     expect((await nc.get('/auth/sesion')).estado).toBe(401);
   });
 
+  it('fija la moneda de la tienda de una persona; un cliente sin ella usa su moneda preferida', async () => {
+    const { n } = await adminConectado();
+    const usuario = await crearUsuario(ctx.prisma);
+    await ctx.prisma.cliente.create({
+      data: { nombre: 'Cliente moneda', usuarioId: usuario.id, monedaPreferida: 'COP' },
+    });
+    const nc = new Navegador(ctx.app);
+    await nc.entrar(usuario.correo);
+    expect((await nc.get('/auth/sesion')).cuerpo.monedaTienda).toBe('COP');
+
+    const r = await n.patch(`/usuarios/${usuario.id}/moneda-tienda`, { moneda: 'VES' });
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo.monedaTienda).toBe('VES');
+    expect((await nc.get('/auth/sesion')).cuerpo.monedaTienda).toBe('VES');
+    expect((await n.get(`/usuarios/${usuario.id}`)).cuerpo.monedaTienda).toBe('VES');
+
+    expect((await n.patch(`/usuarios/${usuario.id}/moneda-tienda`, { moneda: 'XYZ' })).estado).toBe(
+      400,
+    );
+    expect(
+      (await nc.patch(`/usuarios/${usuario.id}/moneda-tienda`, { moneda: 'USD' })).estado,
+    ).toBe(403);
+
+    // «Automática»: vuelve a su moneda preferida.
+    await n.patch(`/usuarios/${usuario.id}/moneda-tienda`, { moneda: null });
+    expect((await nc.get('/auth/sesion')).cuerpo.monedaTienda).toBe('COP');
+    expect(
+      await ctx.prisma.auditoria.count({
+        where: { accion: 'usuario.moneda_tienda', entidadId: usuario.id },
+      }),
+    ).toBe(2);
+
+    // Otros roles sin moneda fija: null (eligen ellos).
+    const ventas = await crearUsuario(ctx.prisma, { rol: 'ventas' });
+    const nv = new Navegador(ctx.app);
+    await nv.entrarCompleto(ventas.correo);
+    expect((await nv.get('/auth/sesion')).cuerpo.monedaTienda).toBeNull();
+  });
+
   it('nadie puede cambiar su propio rol ni estado', async () => {
     const { admin, n } = await adminConectado();
     expect(

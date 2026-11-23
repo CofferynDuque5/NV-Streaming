@@ -52,6 +52,7 @@ export default async function Cortes() {
           pasoHoraCorte={datos.pasoHoraCorte}
           puedeCortar={sesion.permisos.includes('cuentas.gestionar')}
           puedeRevelar={sesion.permisos.includes('cuentas.revelar')}
+          puedeRenovar={sesion.permisos.includes('pagos.gestionar')}
         />
       )}
       {vencidas && datos && (

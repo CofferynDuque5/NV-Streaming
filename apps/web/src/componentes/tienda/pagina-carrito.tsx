@@ -678,11 +678,6 @@ function LineaCarrito({
                 <strong className="font-titulo text-[1.05rem] whitespace-nowrap">
                   {formatearMonto(linea.total, moneda)}
                 </strong>
-                {moneda !== 'USD' && (
-                  <small className="text-xs text-tinta-suave">
-                    {formatearMonto(linea.totalUsd, 'USD')}
-                  </small>
-                )}
                 {combo && (
                   <span className="text-xs whitespace-nowrap text-exito">
                     Combo {combo.combo} −{formatearMonto(combo.descuentoCombo, moneda)}
@@ -793,11 +788,6 @@ function Totales({
           )}
         </dd>
       </div>
-      {moneda !== 'USD' && cotizacion && !cotizando && (
-        <div className="flex justify-end text-xs text-tinta-tenue">
-          <dd>Equivale a {formatearMonto(cotizacion.totalUsd, 'USD')} con la tasa de hoy</dd>
-        </div>
-      )}
     </dl>
   );
 }

@@ -47,7 +47,7 @@ export interface MiSolicitudRevendedor {
 
 export interface RevendedorResumen {
   id: string;
-  usuario: { id: string; nombre: string; correo: string };
+  usuario: { id: string; nombre: string; correo: string; monedaTienda: Moneda | null };
   estado: EstadoRevendedor;
   nombreComercial: string;
   pais: string | null;

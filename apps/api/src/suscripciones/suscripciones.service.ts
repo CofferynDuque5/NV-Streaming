@@ -217,6 +217,41 @@ export class SuscripcionesService {
         take: MAX_VENCIMIENTOS,
       });
     type Fila = Awaited<ReturnType<typeof lista>>[number];
+    const [vencimientos, cortes] = await Promise.all([
+      lista({
+        estado: { in: ['activa', 'en_gracia'] },
+        venceEn: { gte: pasoHoraCorte ? dia(1) : dia(0), lt: dia(2) },
+      }),
+      lista({
+        estado: { in: ['activa', 'en_gracia', 'suspendida', 'vencida'] },
+        venceEn: { lt: limiteCortes },
+        perfilCuenta: { isNot: null },
+      }),
+    ]);
+    // Quién cobró (el nombre del usuario del equipo).
+    const idsCobro = [
+      ...new Set(
+        [...vencimientos, ...cortes].flatMap((f) => (f.cobradoPorId ? [f.cobradoPorId] : [])),
+      ),
+    ];
+    const nombres = new Map(
+      idsCobro.length
+        ? (
+            await this.prisma.usuario.findMany({
+              where: { id: { in: idsCobro } },
+              select: { id: true, nombre: true },
+            })
+          ).map((u) => [u.id, u.nombre])
+        : [],
+    );
+    /** El cobro cuenta para este vencimiento si fue desde una semana antes de la fecha. */
+    const cobroDe = (f: Fila) =>
+      f.cobradoEn && (!f.venceEn || f.cobradoEn.getTime() >= f.venceEn.getTime() - 7 * DIA_MS)
+        ? {
+            en: f.cobradoEn.toISOString(),
+            por: f.cobradoPorId ? (nombres.get(f.cobradoPorId) ?? null) : null,
+          }
+        : null;
     const conLugar = (f: Fila): SuscripcionConLugar => {
       const p = f.perfilCuenta;
       const tipo = tipoPlataforma(f.plan.servicio.nombre);
@@ -230,6 +265,7 @@ export class SuscripcionesService {
         ...suscripcionPublica({ ...f, cliente }),
         diasVencida,
         contacto: { whatsapp: de('whatsapp', 'telefono'), telegram: de('telegram') },
+        cobro: cobroDe(f),
         lugar: p
           ? {
               cuentaId: p.cuenta.id,
@@ -245,17 +281,6 @@ export class SuscripcionesService {
           : null,
       };
     };
-    const [vencimientos, cortes] = await Promise.all([
-      lista({
-        estado: { in: ['activa', 'en_gracia'] },
-        venceEn: { gte: pasoHoraCorte ? dia(1) : dia(0), lt: dia(2) },
-      }),
-      lista({
-        estado: { in: ['activa', 'en_gracia', 'suspendida', 'vencida'] },
-        venceEn: { lt: limiteCortes },
-        perfilCuenta: { isNot: null },
-      }),
-    ]);
     return {
       horaCorte: REGLAS_COBRO.horaCorte,
       pasoHoraCorte,
@@ -263,6 +288,38 @@ export class SuscripcionesService {
       // Los más recientes primero, como en el Gestor (lo de hoy arriba).
       cortes: cortes.map(conLugar).reverse(),
     };
+  }
+
+  /**
+   * Marca que se le cobró a mano (WhatsApp o Telegram) desde Vencimientos o
+   * Cortes. Se puede volver a cobrar: queda la fecha del último cobro.
+   */
+  async marcarCobrado(
+    auth: ContextoAuth,
+    id: string,
+    canal: 'whatsapp' | 'telegram',
+    cliente: InfoCliente,
+    ahora = new Date(),
+  ): Promise<{ cobradoEn: string }> {
+    const s = await this.prisma.suscripcion.findFirst({
+      where: { id, cliente: alcanceClientes(auth) },
+      select: { id: true, cobradoEn: true },
+    });
+    if (!s) throw Errores.noEncontrado('La suscripción');
+    await this.prisma.suscripcion.update({
+      where: { id },
+      data: { cobradoEn: ahora, cobradoPorId: auth.usuario.id },
+    });
+    await this.auditoria.registrar({
+      actorId: auth.usuario.id,
+      accion: 'suscripcion.cobrada',
+      entidad: 'suscripcion',
+      entidadId: id,
+      antes: { cobradoEn: s.cobradoEn?.toISOString() ?? null },
+      despues: { cobradoEn: ahora.toISOString(), canal },
+      cliente,
+    });
+    return { cobradoEn: ahora.toISOString() };
   }
 
   /**
@@ -1274,7 +1331,7 @@ export class SuscripcionesService {
     });
   }
 
-  private async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Suscripcion> {
+  async bloquear(tx: Tx, auth: ContextoAuth, id: string): Promise<Suscripcion> {
     const visible = await tx.suscripcion.findFirst({
       where: { id, cliente: alcanceClientes(auth) },
       select: { id: true },
@@ -1302,7 +1359,7 @@ export class SuscripcionesService {
     return plan;
   }
 
-  private async evento(
+  async evento(
     tx: Tx,
     suscripcionId: string,
     tipo: TipoEventoSuscripcion,

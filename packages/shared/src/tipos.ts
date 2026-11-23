@@ -1,5 +1,6 @@
 import type { PasoPendiente } from './esquemas/auth.js';
 import type { EstadoUsuario } from './esquemas/usuarios.js';
+import type { Moneda } from './monedas.js';
 import type { Permiso } from './permisos.js';
 import type { Rol } from './roles.js';
 
@@ -22,6 +23,8 @@ export interface UsuarioPublico {
   dosPasosActivo: boolean;
   creadoEn: string;
   ultimoAccesoEn: string | null;
+  /** Moneda fija de la tienda que le puso administración (null = automática). */
+  monedaTienda: Moneda | null;
 }
 
 export interface SesionActual {
@@ -29,6 +32,11 @@ export interface SesionActual {
   permisos: Permiso[];
   /** Si no está vacío, la sesión solo puede completar estos pasos. */
   pendiente: PasoPendiente | null;
+  /**
+   * Moneda en la que ve los precios de la tienda: la que le fijó administración
+   * o, en un cliente, su moneda preferida. null = la elige él (o la de su país).
+   */
+  monedaTienda?: Moneda | null;
 }
 
 export interface SesionListada {

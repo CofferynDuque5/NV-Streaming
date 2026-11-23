@@ -13,6 +13,7 @@ import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { leerApi } from '@/lib/api-servidor';
 import { formatearFecha } from '@/lib/formato';
 import { requerirSesion } from '@/lib/sesion';
+import { monedaPredeterminadaTienda } from '@/lib/tienda';
 import { ubicacionVisitante } from '@/lib/ubicacion';
 
 export const metadata: Metadata = { title: 'Carrito y pedidos' };
@@ -31,7 +32,14 @@ export default async function Carrito({
       searchParams,
       ubicacionVisitante(),
     ]);
-  const moneda = monedaValida(catalogo?.monedas ?? ['USD'], filtro.moneda, ubicacion.moneda);
+  const predeterminada = await monedaPredeterminadaTienda();
+  const moneda = monedaValida(
+    catalogo?.monedas ?? ['USD'],
+    filtro.moneda,
+    ubicacion.origen === 'eleccion' ? ubicacion.moneda : null,
+    predeterminada,
+    ubicacion.moneda,
+  );
   const pendiente = billetera?.pedidoPendiente ?? null;
 
   return (

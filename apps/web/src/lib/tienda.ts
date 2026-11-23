@@ -60,11 +60,52 @@ export const catalogoTienda = cache(async (): Promise<CatalogoPublico | null> =>
 
 /**
  * Moneda en la que se muestran los precios: la pedida en la URL, la elegida
- * antes (cookie) o la del país de la visita, entre las que tiene el catálogo.
+ * antes en el selector (cookie), la predeterminada de la persona con sesión o
+ * la del país de la visita, entre las que tiene el catálogo.
  */
 export const monedaTienda = cache(async (pedida?: string): Promise<Moneda> => {
-  const [catalogo, ubicacion] = await Promise.all([catalogoTienda(), ubicacionVisitante()]);
-  return monedaValida(catalogo?.monedas ?? ['USD'], pedida, ubicacion.moneda);
+  const [catalogo, ubicacion, predeterminada] = await Promise.all([
+    catalogoTienda(),
+    ubicacionVisitante(),
+    monedaPredeterminadaTienda(),
+  ]);
+  return monedaValida(
+    catalogo?.monedas ?? ['USD'],
+    pedida,
+    ubicacion.origen === 'eleccion' ? ubicacion.moneda : null,
+    predeterminada,
+    ubicacion.moneda,
+  );
+});
+
+/** Sesión completa de quien visita (o null), sin redirigir ni fallar. */
+const sesionVisita = cache(async () => {
+  try {
+    const sesion = await obtenerSesion();
+    return sesion && !sesion.pendiente ? sesion : null;
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * Moneda predeterminada de la persona con sesión: la que le puso administración
+ * o, en un cliente, su moneda preferida. Los precios salen en ella mientras la
+ * persona no elija otra en el selector. null = sin predeterminada.
+ */
+export const monedaPredeterminadaTienda = cache(async (): Promise<Moneda | null> => {
+  const [sesion, catalogo] = await Promise.all([sesionVisita(), catalogoTienda()]);
+  const m = sesion?.monedaTienda ?? null;
+  return m && (catalogo?.monedas ?? ['USD']).includes(m) ? m : null;
+});
+
+/**
+ * Si la tienda muestra la tasa del día. Los clientes (y las visitas) ven el
+ * precio en su moneda, sin la tasa; los revendedores y el equipo sí la ven.
+ */
+export const muestraTasaTienda = cache(async (): Promise<boolean> => {
+  const sesion = await sesionVisita();
+  return !!sesion && sesion.usuario.rol !== 'cliente';
 });
 
 /**

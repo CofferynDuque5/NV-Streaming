@@ -51,6 +51,7 @@ export default async function Vencimientos() {
           pasoHoraCorte={datos.pasoHoraCorte}
           puedeCortar={sesion.permisos.includes('cuentas.gestionar')}
           puedeRevelar={sesion.permisos.includes('cuentas.revelar')}
+          puedeRenovar={sesion.permisos.includes('pagos.gestionar')}
         />
       )}
       {semana && (

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { LogoTienda } from '@/componentes/logo';
 import { clasesBoton } from '@/componentes/ui/boton';
-import { catalogoTienda, monedaTienda, sesionTienda } from '@/lib/tienda';
+import { catalogoTienda, monedaTienda, muestraTasaTienda, sesionTienda } from '@/lib/tienda';
 import {
   BarraInferior,
   BuscadorTienda,
@@ -33,12 +33,13 @@ function MonedaEstatica({ opcion, compacto }: { opcion: OpcionMoneda; compacto?:
  * chips bajo la fila superior, menú lateral y barra de pestañas abajo.
  */
 export async function CabeceraTienda() {
-  const [catalogo, moneda, sesion] = await Promise.all([
+  const [catalogo, moneda, sesion, conTasa] = await Promise.all([
     catalogoTienda(),
     monedaTienda(),
     sesionTienda(),
+    muestraTasaTienda(),
   ]);
-  const { lista, categorias, monedas } = datosMenu(catalogo, moneda);
+  const { lista, categorias, monedas } = datosMenu(catalogo, moneda, conTasa);
   const actual = monedas.find((m) => m.codigo === moneda) ?? monedas[0];
   const sesionMenu: SesionMenu | null = sesion
     ? {
@@ -60,12 +61,12 @@ export async function CabeceraTienda() {
               <>
                 <div className="hidden nav:block">
                   <Suspense fallback={<MonedaEstatica opcion={actual} />}>
-                    <MenuMonedas monedas={monedas} actual={actual} />
+                    <MenuMonedas monedas={monedas} actual={actual} conTasa={conTasa} />
                   </Suspense>
                 </div>
                 <div className="nav:hidden">
                   <Suspense fallback={<MonedaEstatica opcion={actual} compacto />}>
-                    <MenuMonedas monedas={monedas} actual={actual} compacto />
+                    <MenuMonedas monedas={monedas} actual={actual} compacto conTasa={conTasa} />
                   </Suspense>
                 </div>
               </>

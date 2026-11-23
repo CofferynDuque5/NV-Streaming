@@ -62,6 +62,9 @@ model Usuario {
   /// Nula en cuentas creadas por el equipo o antes de versionar el texto.
   terminosVersion      String?       @map("terminos_version") @db.VarChar(20)
   terminosAceptadosEn  DateTime?     @map("terminos_aceptados_en") @db.Timestamptz(3)
+  /// Moneda fija de los precios en la tienda para esta persona (la elige administración).
+  /// Nula = automática (en clientes, su moneda preferida; si no, la que elija o la de su país).
+  monedaTienda         Moneda?       @map("moneda_tienda")
   creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
@@ -707,6 +710,9 @@ model Suscripcion {
   revendedorId       String?           @map("revendedor_id") @db.Uuid
   /// Precio acordado por periodo en USD (p. ej. el que tenía en el Gestor). Nulo = precio del plan.
   precioUsd          Decimal?          @map("precio_usd") @db.Decimal(14, 2)
+  /// Último cobro a mano por WhatsApp o Telegram (Vencimientos y Cortes). Se puede volver a cobrar.
+  cobradoEn          DateTime?         @map("cobrado_en") @db.Timestamptz(3)
+  cobradoPorId       String?           @map("cobrado_por_id") @db.Uuid
   creadoPorId        String?           @map("creado_por_id") @db.Uuid
   creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn      DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)

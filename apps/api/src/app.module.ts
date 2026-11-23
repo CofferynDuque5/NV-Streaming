@@ -27,6 +27,7 @@ import {
   PerfilesRevendedorController,
 } from './cuentas/cuentas.controller.js';
 import { AltaPerfilService } from './cuentas/alta-perfil.service.js';
+import { RenovacionPagadaService } from './suscripciones/renovacion-pagada.service.js';
 import { CuentasService } from './cuentas/cuentas.service.js';
 import { ImportarCuentasService } from './cuentas/importar-cuentas.service.js';
 import { ImportarGestorService } from './cuentas/importar-gestor.service.js';
@@ -167,6 +168,7 @@ export class AppModule {
         CuponesService,
         CuentasService,
         AltaPerfilService,
+        RenovacionPagadaService,
         PerfilesClienteService,
         InventarioCuentasService,
         ReporteCaidasService,

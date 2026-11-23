@@ -13,6 +13,8 @@ import { ApiTags } from '@nestjs/swagger';
 import {
   cancelarSuscripcionSchema,
   cortarSuscripcionSchema,
+  marcarCobradoSchema,
+  renovarPagadaSchema,
   crearSuscripcionSchema,
   listarSuscripcionesSchema,
   cambiarVencimientoSchema,
@@ -30,6 +32,7 @@ import {
 } from '../comun/contexto.js';
 import { DocConsulta, DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
+import { RenovacionPagadaService } from './renovacion-pagada.service.js';
 import { SuscripcionesService } from './suscripciones.service.js';
 
 const idValido = validar(uuidSchema);
@@ -38,7 +41,10 @@ const SIN_CACHE = 'private, no-store, max-age=0';
 @ApiTags('Suscripciones')
 @Controller('suscripciones')
 export class SuscripcionesController {
-  constructor(@Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService) {}
+  constructor(
+    @Inject(SuscripcionesService) private readonly suscripciones: SuscripcionesService,
+    @Inject(RenovacionPagadaService) private readonly renovacionPagada: RenovacionPagadaService,
+  ) {}
 
   @Get()
   @RequierePermiso('suscripciones.ver')
@@ -83,6 +89,37 @@ export class SuscripcionesController {
   @RequierePermiso('suscripciones.ver')
   vencimientosCortes(@Auth() auth: ContextoAuth) {
     return this.suscripciones.vencimientosCortes(auth);
+  }
+
+  /**
+   * «Renovar» desde Vencimientos y Cortes: por meses o hasta una fecha, con la
+   * factura pagada en el mismo paso (método de cobro manual).
+   */
+  @Post(':id/renovar-pagada')
+  @RequierePermiso('pagos.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(renovarPagadaSchema)
+  renovarPagada(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(renovarPagadaSchema)) cuerpo: z.output<typeof renovarPagadaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.renovacionPagada.renovar(auth, id, cuerpo, cliente);
+  }
+
+  /** Marca que se le cobró a mano por WhatsApp o Telegram (se puede volver a cobrar). */
+  @Post(':id/cobrado')
+  @RequierePermiso('suscripciones.ver')
+  @HttpCode(200)
+  @DocCuerpo(marcarCobradoSchema)
+  marcarCobrado(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(marcarCobradoSchema)) cuerpo: z.output<typeof marcarCobradoSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.marcarCobrado(auth, id, cuerpo.canal, cliente);
   }
 
   /** Cortar a quien no renovó: libera su perfil o cupo (clave y PIN nuevos opcionales). */

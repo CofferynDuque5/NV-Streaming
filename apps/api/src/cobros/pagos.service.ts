@@ -429,6 +429,7 @@ export class PagosService {
     factura: Factura,
     e: { metodoCobroId: string; referenciaExterna?: string | undefined },
     cliente: InfoCliente,
+    origen: 'alta_perfil' | 'renovacion_pagada' = 'alta_perfil',
   ): Promise<Pago> {
     const metodo = await tx.metodoCobro.findUnique({ where: { id: e.metodoCobroId } });
     if (!metodo || !metodo.activo || metodo.tipo === 'pasarela') {
@@ -478,7 +479,7 @@ export class PagosService {
           monto: factura.total.toFixed(2),
           moneda: factura.moneda,
           metodo: metodo.nombre,
-          origen: 'alta_perfil',
+          origen,
         },
         cliente,
       },
