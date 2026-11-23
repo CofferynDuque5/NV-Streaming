@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { InstalarApp } from '@/componentes/ui/instalar-app';
+import { InstalarAppDiferido } from '@/componentes/ui/instalar-app-diferido';
 import { ProveedorNotificaciones } from '@/componentes/ui/notificaciones';
 import { fuenteTexto, fuenteTitulo } from '@/lib/fuentes';
 import './globals.css';
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="es" className={`${fuenteTexto.variable} ${fuenteTitulo.variable}`}>
       <body>
         <ProveedorNotificaciones>{children}</ProveedorNotificaciones>
-        <InstalarApp />
+        <InstalarAppDiferido />
       </body>
     </html>
   );
