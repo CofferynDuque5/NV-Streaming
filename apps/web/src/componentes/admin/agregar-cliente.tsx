@@ -388,7 +388,7 @@ export function AgregarCliente({
     const c = contactosResponsables.find((x) => x.responsable.toLowerCase() === clave);
     const sugerido: { canal: Canal; valor: string } | null =
       clave === 'cliente'
-        ? { canal: 'whatsapp', valor: c?.whatsapp ?? WHATSAPP_VENTA_DIRECTA }
+        ? { canal: 'whatsapp', valor: WHATSAPP_VENTA_DIRECTA }
         : c?.whatsapp
           ? { canal: 'whatsapp', valor: c.whatsapp }
           : c?.telegram
