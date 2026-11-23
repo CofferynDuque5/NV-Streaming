@@ -1,23 +1,30 @@
 'use client';
 
-import { type EntregaWebServicio, type LugarEntregaWeb, TEXTOS_PLATAFORMA } from '@nv/shared';
+import {
+  type CredencialesCuenta,
+  type EntregaWebServicio,
+  type LugarEntregaWeb,
+  TEXTOS_PLATAFORMA,
+} from '@nv/shared';
 import {
   CheckCheck,
   CircleCheck,
   CircleDashed,
   CircleSlash,
+  Eye,
+  EyeOff,
   PackageCheck,
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { refrescarExistencias } from '@/app/(paneles)/admin/sitio/acciones';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { llamarApi } from '@/lib/api-cliente';
+import { Copiable, Secreto } from './cobros-cortes';
 import { formatearDia, formatearFechaHora } from '@/lib/formato';
 
 /** Qué recibe el cliente: un perfil de una cuenta compartida, la cuenta entera o el cupo titular. */
@@ -55,7 +62,112 @@ function Lugar({
         vence {formatearDia(l.facturaEn)}
         {textos.usaPin ? (l.conPin ? ' · con PIN' : ' · sin PIN') : ''}
       </span>
+      <VerDatos l={l} tipo={tipo} />
     </div>
+  );
+}
+
+/** Pide (una vez por cuenta) el correo, la contraseña y los PIN descifrados. */
+type Revelar = (cuentaId: string) => Promise<CredencialesCuenta | string>;
+const RevelarContexto = createContext<Revelar | null>(null);
+
+/**
+ * «Ver datos» como en Plataformas: correo, contraseña y PIN del lugar, ahí
+ * mismo, para entrar a la cuenta y revisarla antes de marcarla apta.
+ * Solo se descifran al pedirlos (queda en la auditoría) y no se guardan.
+ */
+function VerDatos({ l, tipo }: { l: LugarEntregaWeb; tipo: EntregaWebServicio['tipo'] }) {
+  const revelar = useContext(RevelarContexto);
+  const [datos, setDatos] = useState<CredencialesCuenta | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!revelar) return null;
+  const textos = TEXTOS_PLATAFORMA[tipo];
+  const perfil = datos?.perfiles.find((p) => p.numero === l.numero) ?? null;
+  const miembro = tipo === 'familiar' && !l.individual && l.numero !== 1;
+
+  async function ver() {
+    if (!revelar) return;
+    setCargando(true);
+    setError(null);
+    const r = await revelar(l.cuentaId);
+    setCargando(false);
+    if (typeof r === 'string') return setError(r);
+    setDatos(r);
+  }
+
+  if (!datos) {
+    return (
+      <span className="flex flex-wrap items-center gap-2 pt-1">
+        <Boton
+          tamano="sm"
+          variante="fantasma"
+          icono={<Eye className="size-3.5" />}
+          cargando={cargando}
+          onClick={() => void ver()}
+          aria-label={`Ver datos de ${l.pista} ${textos.lugar} ${l.numero}`}
+        >
+          Ver datos
+        </Boton>
+        {error && <span className="text-xs text-peligro">{error}</span>}
+      </span>
+    );
+  }
+  return (
+    <dl className="mt-1 grid gap-x-4 gap-y-1 rounded-lg border border-borde bg-hundida p-2 text-xs sm:grid-cols-2">
+      <div className="min-w-0">
+        <dt className="text-tinta-tenue">Correo</dt>
+        <dd>
+          <Copiable etiqueta="El correo de la cuenta" valor={datos.usuario} />
+        </dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-tinta-tenue">Contraseña</dt>
+        <dd>
+          <Secreto etiqueta="La contraseña de la cuenta" valor={datos.clave} />
+        </dd>
+      </div>
+      {miembro && perfil?.usuarioMiembro && (
+        <div className="min-w-0">
+          <dt className="text-tinta-tenue">Correo del miembro</dt>
+          <dd>
+            <Copiable etiqueta="El correo del miembro" valor={perfil.usuarioMiembro} />
+          </dd>
+        </div>
+      )}
+      {miembro && perfil?.claveMiembro && (
+        <div className="min-w-0">
+          <dt className="text-tinta-tenue">Contraseña del miembro</dt>
+          <dd>
+            <Secreto etiqueta="La contraseña del miembro" valor={perfil.claveMiembro} />
+          </dd>
+        </div>
+      )}
+      {textos.usaPin && (
+        <div className="min-w-0">
+          <dt className="text-tinta-tenue">
+            PIN del {textos.lugar.toLowerCase()} {l.numero}
+          </dt>
+          <dd>
+            {perfil?.pin ? (
+              <Secreto etiqueta="El PIN" valor={perfil.pin} />
+            ) : (
+              <span className="text-tinta-tenue">Sin PIN</span>
+            )}
+          </dd>
+        </div>
+      )}
+      <div className="flex items-end sm:col-span-2">
+        <button
+          type="button"
+          onClick={() => setDatos(null)}
+          className="inline-flex items-center gap-1 text-tinta-tenue hover:text-tinta"
+        >
+          <EyeOff className="size-3.5" aria-hidden="true" />
+          Ocultar datos
+        </button>
+      </div>
+    </dl>
   );
 }
 
@@ -97,13 +209,37 @@ function EstadoRevision({ l, apto }: { l: LugarEntregaWeb; apto: boolean }) {
  * revisar. Solo se entrega lo que el equipo marcó como apto.
  */
 export function EntregaWeb({
-  servicios,
+  servicios: iniciales,
   puedeGestionar,
+  puedeRevelar,
 }: {
   servicios: EntregaWebServicio[];
   puedeGestionar: boolean;
+  puedeRevelar: boolean;
 }) {
   const [busqueda, setBusqueda] = useState('');
+  // La lista vive aquí: al marcar o quitar se vuelve a pedir y se ve al momento.
+  const [servicios, setServicios] = useState(iniciales);
+  const recargar = useCallback(async () => {
+    const r = await llamarApi<EntregaWebServicio[]>('GET', '/cuentas/entrega-web');
+    if (r.ok) setServicios(r.datos);
+    return r.ok;
+  }, []);
+  // Una sola consulta por cuenta mientras la página esté abierta (cada una queda auditada).
+  const credenciales = useRef(new Map<string, Promise<CredencialesCuenta | string>>());
+  const revelar = useCallback<Revelar>((cuentaId) => {
+    const ya = credenciales.current.get(cuentaId);
+    if (ya) return ya;
+    const p = llamarApi<CredencialesCuenta>('POST', `/cuentas/${cuentaId}/revelar`, {}).then(
+      (r) => {
+        if (r.ok) return r.datos;
+        credenciales.current.delete(cuentaId);
+        return r.error.mensaje;
+      },
+    );
+    credenciales.current.set(cuentaId, p);
+    return p;
+  }, []);
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return q ? servicios.filter((s) => s.servicio.toLowerCase().includes(q)) : servicios;
@@ -112,46 +248,54 @@ export function EntregaWeb({
   const porRevisar = servicios.reduce((n, s) => n + s.porRevisar.length, 0);
 
   return (
-    <div className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-52 flex-1">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tinta-tenue"
-            aria-hidden="true"
-          />
-          <input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.currentTarget.value)}
-            placeholder="Buscar plataforma"
-            aria-label="Buscar plataforma"
-            className="h-11 w-full rounded-xl border border-borde bg-hundida pr-3 pl-9 text-sm"
-          />
+    <RevelarContexto.Provider value={puedeRevelar ? revelar : null}>
+      <div className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-52 flex-1">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tinta-tenue"
+              aria-hidden="true"
+            />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.currentTarget.value)}
+              placeholder="Buscar plataforma"
+              aria-label="Buscar plataforma"
+              className="h-11 w-full rounded-xl border border-borde bg-hundida pr-3 pl-9 text-sm"
+            />
+          </div>
+          <p className="text-sm text-tinta-suave">
+            {agotados > 0 && (
+              <>
+                <b className="text-aviso">{agotados}</b> {agotados === 1 ? 'agotada' : 'agotadas'}{' '}
+                en la web ·{' '}
+              </>
+            )}
+            <b className="text-tinta">{porRevisar}</b> por revisar
+          </p>
         </div>
-        <p className="text-sm text-tinta-suave">
-          {agotados > 0 && (
-            <>
-              <b className="text-aviso">{agotados}</b> {agotados === 1 ? 'agotada' : 'agotadas'} en
-              la web ·{' '}
-            </>
-          )}
-          <b className="text-tinta">{porRevisar}</b> por revisar
-        </p>
+        {visibles.map((s) => (
+          <ServicioEntrega
+            key={s.servicioId}
+            s={s}
+            puedeGestionar={puedeGestionar}
+            recargar={recargar}
+          />
+        ))}
       </div>
-      {visibles.map((s) => (
-        <ServicioEntrega key={s.servicioId} s={s} puedeGestionar={puedeGestionar} />
-      ))}
-    </div>
+    </RevelarContexto.Provider>
   );
 }
 
 function ServicioEntrega({
   s,
   puedeGestionar,
+  recargar,
 }: {
   s: EntregaWebServicio;
   puedeGestionar: boolean;
+  recargar: () => Promise<boolean>;
 }) {
-  const router = useRouter();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const textos = TEXTOS_PLATAFORMA[s.tipo];
@@ -161,11 +305,15 @@ function ServicioEntrega({
     setOcupado(clave);
     setError(null);
     const r = await llamarApi('POST', '/cuentas/entrega-web/aptos', { perfilIds, apto });
+    if (!r.ok) {
+      setOcupado(null);
+      return setError(r.error.mensaje);
+    }
+    // Se ve al momento, sin salir y volver a entrar.
+    if (!(await recargar())) setError('Se guardó, pero no pudimos actualizar la lista: recarga.');
     setOcupado(null);
-    if (!r.ok) return setError(r.error.mensaje);
     // La tienda deja de mostrar «agotado» (o lo muestra) en la siguiente visita.
-    await refrescarExistencias().catch(() => false);
-    router.refresh();
+    void refrescarExistencias().catch(() => false);
   }
 
   // Lo que falta revisar, junto por cuenta (para marcar la cuenta entera de una vez).

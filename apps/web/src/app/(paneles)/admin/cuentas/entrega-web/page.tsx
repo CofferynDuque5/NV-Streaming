@@ -33,6 +33,7 @@ export default async function EntregaWebPagina() {
         <EntregaWeb
           servicios={datos}
           puedeGestionar={sesion.permisos.includes('cuentas.gestionar')}
+          puedeRevelar={sesion.permisos.includes('cuentas.revelar')}
         />
       )}
     </>

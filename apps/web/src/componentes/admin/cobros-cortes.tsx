@@ -743,7 +743,7 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
 }
 
 /** Un dato secreto con ver/ocultar y copiar; nunca se guarda fuera de esta pantalla. */
-function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+export function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const [ver, setVer] = useState(false);
   const [copiado, setCopiado] = useState(false);
   async function copiar() {
@@ -780,7 +780,7 @@ function Secreto({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   );
 }
 
-function Copiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+export function Copiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const [copiado, setCopiado] = useState(false);
   return (
     <span className="flex min-w-0 items-center gap-1">
