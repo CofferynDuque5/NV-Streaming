@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { InstalarAppDiferido } from '@/componentes/ui/instalar-app-diferido';
 import { ProveedorNotificaciones } from '@/componentes/ui/notificaciones';
 import { fuenteTexto, fuenteTitulo } from '@/lib/fuentes';
 import './globals.css';
@@ -17,6 +18,8 @@ export const metadata: Metadata = {
     siteName: 'NV Streaming',
   },
   twitter: { card: 'summary_large_image' },
+  // En iPhone, «Agregar a inicio» la abre a pantalla completa con su nombre.
+  appleWebApp: { capable: true, title: 'NV Streaming', statusBarStyle: 'black-translucent' },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="es" className={`${fuenteTexto.variable} ${fuenteTitulo.variable}`}>
       <body>
         <ProveedorNotificaciones>{children}</ProveedorNotificaciones>
+        <InstalarAppDiferido />
       </body>
     </html>
   );
