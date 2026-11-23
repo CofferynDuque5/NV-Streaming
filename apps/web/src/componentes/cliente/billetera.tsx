@@ -214,6 +214,7 @@ export function TarjetaSaldo({
   pie,
   nombre,
   enRevision,
+  conTasa = true,
 }: {
   titulo: string;
   saldoUsd: string;
@@ -222,6 +223,8 @@ export function TarjetaSaldo({
   pie: string;
   nombre: string;
   enRevision: number;
+  /** Los clientes ven el equivalente sin la frase de la tasa del día. */
+  conTasa?: boolean;
 }) {
   return (
     <div className="relative isolate grid min-h-44 content-between gap-3.5 overflow-hidden rounded-[1.375rem] border border-white/20 bg-[linear-gradient(135deg,#1d4ed8_0%,#6d28d9_55%,#be185d_100%)] p-5 text-white shadow-[0_30px_60px_-20px_rgb(109_40_217/0.7)] before:absolute before:inset-0 before:-z-10 before:bg-[radial-gradient(60%_50%_at_80%_10%,rgb(255_255_255/0.35),transparent_60%),repeating-linear-gradient(115deg,rgb(255_255_255/0.05)_0_2px,transparent_2px_9px)] md:min-h-[14.375rem]">
@@ -240,7 +243,8 @@ export function TarjetaSaldo({
         </strong>
         {equivalente && (
           <small className="text-[0.8rem] font-medium opacity-85">
-            ≈ {equivalente} con la tasa de hoy
+            ≈ {equivalente}
+            {conTasa && ' con la tasa de hoy'}
           </small>
         )}
       </div>
@@ -299,6 +303,7 @@ function Cabecera({
             : null
         }
         pie={revendedor ? 'Saldo revendedor · USD' : 'NV · USD'}
+        conTasa={Boolean(revendedor)}
         nombre={revendedor?.nombreComercial ?? datos.nombre}
         enRevision={enRevision}
       />
@@ -761,8 +766,9 @@ function Listo({ recarga, onOtra }: { recarga: RecargaVista; onOtra: () => void 
     ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     ref.current?.focus({ preventScroll: true });
   }, []);
+  // Solo el revendedor ve la tasa fijada; el cliente ve lo que pagó en su moneda.
   const tasa =
-    recarga.moneda === 'USD'
+    recarga.moneda === 'USD' || !('revendedor' in recarga)
       ? ''
       : ` · tasa fijada: 1 USD = ${formatearMonto(recarga.tasa, recarga.moneda)}`;
   return (
@@ -1614,7 +1620,9 @@ export function VistaBilletera({ datos }: { datos: DatosBilletera }) {
               <p className="col-span-full text-xs text-tinta-tenue">
                 {moneda === 'USD'
                   ? 'En dólares recibes lo mismo que pagas cuando el equipo confirma el pago.'
-                  : `Estimado con la tasa de hoy: 1 USD = ${formatearMonto(tasa, moneda)}. La tasa queda fijada al reportar la recarga.`}
+                  : revendedor
+                    ? `Estimado con la tasa de hoy: 1 USD = ${formatearMonto(tasa, moneda)}. La tasa queda fijada al reportar la recarga.`
+                    : 'El saldo que recibes queda fijado al reportar la recarga.'}
               </p>
             </div>
           )}

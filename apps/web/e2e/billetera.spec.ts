@@ -175,7 +175,8 @@ test('reportar una recarga: validación en vivo, errores, éxito, rechazo y env�
   await expect(cliente.getByText('Revisa el campo marcado en rojo.')).toHaveCount(0);
   await reportar.click();
   await expect(cliente.getByRole('heading', { name: 'Recibimos tu recarga' })).toBeVisible();
-  await expect(cliente.getByText(`Pago Móvil · ${enBs} · tasa fijada`)).toBeVisible();
+  // El cliente ve lo que pagó en bolívares, sin la tasa.
+  await expect(cliente.getByText(`Pago Móvil · ${enBs}`, { exact: true })).toBeVisible();
   await expect(recargas.getByRole('button', { name: 'En revisión · 1' })).toBeVisible();
 
   // La administración la rechaza con un motivo.
