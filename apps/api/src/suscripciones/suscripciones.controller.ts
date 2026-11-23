@@ -12,6 +12,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import {
   cancelarSuscripcionSchema,
+  cortarSuscripcionSchema,
   crearSuscripcionSchema,
   listarSuscripcionesSchema,
   cambiarVencimientoSchema,
@@ -75,6 +76,27 @@ export class SuscripcionesController {
   @RequierePermiso('suscripciones.ver')
   vencimientos(@Auth() auth: ContextoAuth) {
     return this.suscripciones.vencimientos(auth);
+  }
+
+  /** Cobros → Vencimientos (hoy y mañana) y Cortes (vencidos que ocupan un lugar). */
+  @Get('vencimientos-cortes')
+  @RequierePermiso('suscripciones.ver')
+  vencimientosCortes(@Auth() auth: ContextoAuth) {
+    return this.suscripciones.vencimientosCortes(auth);
+  }
+
+  /** Cortar a quien no renovó: libera su perfil o cupo (clave y PIN nuevos opcionales). */
+  @Post(':id/cortar')
+  @RequierePermiso('cuentas.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(cortarSuscripcionSchema)
+  cortar(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(cortarSuscripcionSchema)) cuerpo: z.output<typeof cortarSuscripcionSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.suscripciones.cortar(auth, id, cuerpo, cliente);
   }
 
   /** Cuánto devolver si se cancela hoy (proporcional a los días que le quedan). */

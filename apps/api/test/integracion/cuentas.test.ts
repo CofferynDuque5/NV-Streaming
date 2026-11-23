@@ -770,3 +770,95 @@ describe('cuentas de servicio', () => {
     expect(filtrado.cuerpo.elementos[0].responsable).toBe('Pedro Reventa');
   });
 });
+
+describe('Cobros: vencimientos y cortes', () => {
+  const DIA = 24 * 3600_000;
+
+  it('separa vencimientos de cortes, corta con clave y PIN nuevos y deja el historial', async () => {
+    const e = await escenario();
+    // Tres clientes: uno vence mañana, uno venció hace 3 días y otro con dos perfiles vencidos.
+    const subs: string[] = [];
+    const clientes: Awaited<ReturnType<typeof conectar>>[] = [];
+    for (let i = 0; i < 3; i++) {
+      const c = await conectar(ctx, 'cliente');
+      clientes.push(c);
+      const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+      subs.push(alta.cuerpo.suscripcion.id as string);
+    }
+    // El tercer cliente tiene una segunda suscripción (otro perfil en la misma cuenta).
+    const extra = await clientes[2]!.n.post('/mi/suscripciones', {
+      planId: e.planId,
+      moneda: 'USD',
+    });
+    subs.push(extra.cuerpo.suscripcion.id as string);
+    const ahora = Date.now();
+    const vence = [ahora + 1.2 * DIA, ahora - 3 * DIA, ahora - 3 * DIA, ahora - 3 * DIA];
+    for (const [i, id] of subs.entries()) {
+      await ctx.prisma.suscripcion.update({
+        where: { id },
+        data: { estado: i === 0 ? 'activa' : 'en_gracia', venceEn: new Date(vence[i]!) },
+      });
+    }
+    const cuenta = await e.operador.n.patch(`/cuentas/${e.cuenta.id}`, { perfiles: 4 });
+    const perfiles = cuenta.cuerpo.listaPerfiles as { id: string }[];
+    for (const [i, id] of subs.entries()) {
+      const r = await e.operador.n.post(
+        `/cuentas/${e.cuenta.id}/perfiles/${perfiles[i]!.id}/asignar`,
+        { suscripcionId: id },
+      );
+      expect(r.estado).toBe(201);
+    }
+
+    const lista = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    expect(lista.estado).toBe(200);
+    expect(lista.cuerpo.horaCorte).toBe(21);
+    const ids = (l: { id: string }[]) => l.map((s) => s.id).sort();
+    expect(ids(lista.cuerpo.cortes)).toEqual(subs.slice(1).sort());
+    expect(lista.cuerpo.cortes[0].lugar).toMatchObject({
+      cuentaId: e.cuenta.id,
+      tipo: 'perfiles',
+      otrosActivos: 1,
+    });
+    expect(lista.cuerpo.cortes[0].diasVencida).toBeGreaterThanOrEqual(3);
+    // El de mañana (o pasado, según la hora) no está en cortes.
+    expect(ids(lista.cuerpo.cortes)).not.toContain(subs[0]);
+
+    // No se corta a quien todavía no vence.
+    const pronto = await e.operador.n.post(`/suscripciones/${subs[0]}/cortar`, {});
+    expect(pronto.cuerpo.error.codigo).toBe('AUN_VIGENTE');
+    // Ventas no tiene permiso para cortar.
+    expect(
+      (await (await conectar(ctx, 'ventas')).n.post(`/suscripciones/${subs[1]}/cortar`)).estado,
+    ).toBe(403);
+
+    // Cortar con clave y PIN nuevos: el perfil queda libre y todos ven la clave nueva.
+    const corte = await e.operador.n.post(`/suscripciones/${subs[1]}/cortar`, {
+      nuevaClave: 'Corte-2468',
+      nuevoPin: '1357',
+    });
+    expect(corte.estado).toBe(200);
+    expect(corte.cuerpo).toEqual({ cortadas: 1 });
+    const cred = await e.operador.n.post(`/cuentas/${e.cuenta.id}/revelar`);
+    expect(cred.cuerpo.clave).toBe('Corte-2468');
+    expect(cred.cuerpo.perfiles[1].pin).toBe('1357');
+    const s1 = await ctx.prisma.suscripcion.findUniqueOrThrow({
+      where: { id: subs[1] },
+      include: { perfilCuenta: true, eventos: true },
+    });
+    expect(s1.estado).toBe('suspendida');
+    expect(s1.perfilCuenta).toBeNull();
+    expect(s1.eventos.find((ev) => ev.motivo?.includes('Cortado'))).toBeTruthy();
+    const aud = await ctx.prisma.auditoria.findMany({ where: { accion: 'suscripcion.cortada' } });
+    expect(aud).toHaveLength(1);
+    expect(JSON.stringify(aud)).not.toContain('Corte-2468');
+
+    // Cortar uno = cortar todos los vencidos del mismo cliente en esa cuenta.
+    const dos = await e.operador.n.post(`/suscripciones/${subs[2]}/cortar`, {});
+    expect(dos.cuerpo).toEqual({ cortadas: 2 });
+    const despues = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    expect(despues.cuerpo.cortes).toEqual([]);
+    expect((await e.operador.n.post(`/suscripciones/${subs[3]}/cortar`)).cuerpo.error.codigo).toBe(
+      'SIN_LUGAR',
+    );
+  });
+});

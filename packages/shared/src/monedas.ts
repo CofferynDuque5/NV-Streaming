@@ -59,6 +59,11 @@ export const REGLAS_COBRO = {
   diasGracia: 5,
   /** Días suspendida antes de darla por vencida. */
   diasSuspension: 30,
+  /**
+   * Hora de Caracas (0–23) en que los que vencen hoy pasan de «Vencimientos»
+   * a «Cortes» en Cobros, como en el Gestor.
+   */
+  horaCorte: 21,
   /** Suscripciones pendientes de pago que un cliente puede tener a la vez. */
   pendientesPorCliente: 3,
   /** Planes distintos que caben en un pedido del carrito. */

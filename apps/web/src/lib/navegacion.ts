@@ -181,7 +181,7 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     clave: 'cobros',
     grupo: 'atender',
     nombre: 'Cobros',
-    descripcion: 'Pagos por conciliar, recargas de billetera y facturas',
+    descripcion: 'Pagos por conciliar, recargas, facturas, vencimientos y cortes',
     color: '#4f8dff',
     href: '/admin/cobros',
     permiso: 'facturas.ver',

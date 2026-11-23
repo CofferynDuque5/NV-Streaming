@@ -94,7 +94,7 @@ export function Dialogo({
 const claseEnlaceBoton =
   'inline-flex items-center gap-1.5 rounded-[0.875rem] border border-borde-fuerte px-3 py-1.5 text-sm font-semibold hover:border-cian';
 
-function Opcion({
+export function Opcion({
   nombre,
   valor,
   actual,

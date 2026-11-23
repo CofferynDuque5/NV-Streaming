@@ -20,6 +20,13 @@ import {
   type SuscripcionDetalle,
   type SuscripcionPublica,
   type VencimientosEquipo,
+  type VencimientosCortes,
+  type SuscripcionConLugar,
+  type CortarSuscripcionEntrada,
+  esTitular,
+  TEXTOS_PLATAFORMA,
+  etiquetaPerfil,
+  tipoPlataforma,
   tienePermiso,
   type DevolucionSugerida,
 } from '@nv/shared';
@@ -33,7 +40,7 @@ import {
 } from '../catalogo/catalogo.service.js';
 import { Cifrador } from '../comun/cripto.js';
 import { descifrarDatosSecretos, valoresDeDatos } from '../comun/datos-cliente.js';
-import { LIMITE_REVELAR_CUENTA } from '../cuentas/cuentas.service.js';
+import { CuentasService, LIMITE_REVELAR_CUENTA } from '../cuentas/cuentas.service.js';
 import { LimitesService } from '../limites/limites.service.js';
 import { ClientesService } from '../clientes/clientes.service.js';
 import { FacturacionService } from '../cobros/facturacion.service.js';
@@ -43,7 +50,11 @@ import { ErrorApp, Errores } from '../comun/errores.js';
 import { numeroFactura } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { type Dec, sumarDuracion } from '../dinero/dinero.js';
-import { DESFASE_CARACAS_MS, inicioDiaCaracas } from '../automatizaciones/horario.js';
+import {
+  DESFASE_CARACAS_MS,
+  inicioDiaCaracas,
+  partesCaracas,
+} from '../automatizaciones/horario.js';
 import { encolarTrabajo, TRABAJO } from '../automatizaciones/trabajos.js';
 import { type OrigenEntrega, registrarEntrega, solicitarRevocacion } from '../entregas/registro.js';
 import { INCLUIR_SUSCRIPCION, suscripcionDetalle, suscripcionPublica } from './presentacion.js';
@@ -80,6 +91,7 @@ export class SuscripcionesService {
     @Inject(ClientesService) private readonly clientes: ClientesService,
     @Inject(Cifrador) private readonly cifrador: Cifrador,
     @Inject(LimitesService) private readonly limites: LimitesService,
+    @Inject(CuentasService) private readonly cuentas: CuentasService,
   ) {}
 
   async listar(
@@ -145,6 +157,210 @@ export class SuscripcionesService {
       activas(dia(2), dia(8)),
     ]);
     return { vencidas, hoy, manana, semana };
+  }
+
+  /**
+   * Cobros → Vencimientos y Cortes, con las reglas del Gestor (día de Caracas):
+   * - Vencimientos: vencen hoy y mañana. Los de hoy se quedan aquí hasta la
+   *   hora de corte (21:00) y después pasan a Cortes.
+   * - Cortes: ya vencidos (o que vencen hoy, pasada la hora de corte) que
+   *   todavía ocupan un perfil o cupo. Al cortarlos el lugar queda libre y
+   *   salen de la lista; si renuevan, su fecha avanza y también salen.
+   */
+  async vencimientosCortes(auth: ContextoAuth, ahora = new Date()): Promise<VencimientosCortes> {
+    const cliente = alcanceClientes(auth);
+    const dia = (n: number) => inicioDiaCaracas(ahora, n);
+    const pasoHoraCorte = partesCaracas(ahora).hora >= REGLAS_COBRO.horaCorte;
+    const limiteCortes = pasoHoraCorte ? dia(1) : dia(0);
+    const incluir = {
+      ...INCLUIR_SUSCRIPCION,
+      perfilCuenta: {
+        select: {
+          id: true,
+          numero: true,
+          nombre: true,
+          cuenta: {
+            select: {
+              id: true,
+              pista: true,
+              modo: true,
+              perfiles: {
+                where: {
+                  estado: 'asignado',
+                  // Los que siguen al día (no los vencidos que esperan corte).
+                  suscripcion: { estado: { in: ['activa', 'en_gracia'] }, venceEn: { gte: ahora } },
+                },
+                select: { id: true },
+              },
+            },
+          },
+        },
+      },
+    } satisfies Prisma.SuscripcionInclude;
+    const lista = (where: Prisma.SuscripcionWhereInput) =>
+      this.prisma.suscripcion.findMany({
+        where: { cliente, ...where },
+        include: incluir,
+        orderBy: [{ venceEn: 'asc' }, { id: 'asc' }],
+        take: MAX_VENCIMIENTOS,
+      });
+    type Fila = Awaited<ReturnType<typeof lista>>[number];
+    const conLugar = (f: Fila): SuscripcionConLugar => {
+      const p = f.perfilCuenta;
+      const tipo = tipoPlataforma(f.plan.servicio.nombre);
+      const diasVencida = f.venceEn
+        ? Math.round((dia(0).getTime() - inicioDiaCaracas(f.venceEn).getTime()) / DIA_MS)
+        : 0;
+      return {
+        ...suscripcionPublica(f),
+        diasVencida,
+        lugar: p
+          ? {
+              cuentaId: p.cuenta.id,
+              perfilId: p.id,
+              numero: p.numero,
+              etiqueta: etiquetaPerfil(tipo, p.numero, p.nombre),
+              tipo,
+              individual: p.cuenta.modo === 'completa',
+              pistaCuenta: p.cuenta.pista,
+              otrosActivos: p.cuenta.perfiles.filter((x) => x.id !== p.id).length,
+            }
+          : null,
+      };
+    };
+    const [vencimientos, cortes] = await Promise.all([
+      lista({
+        estado: { in: ['activa', 'en_gracia'] },
+        venceEn: { gte: pasoHoraCorte ? dia(1) : dia(0), lt: dia(2) },
+      }),
+      lista({
+        estado: { in: ['activa', 'en_gracia', 'suspendida', 'vencida'] },
+        venceEn: { lt: limiteCortes },
+        perfilCuenta: { isNot: null },
+      }),
+    ]);
+    return {
+      horaCorte: REGLAS_COBRO.horaCorte,
+      pasoHoraCorte,
+      vencimientos: vencimientos.map(conLugar),
+      // Los más recientes primero, como en el Gestor (lo de hoy arriba).
+      cortes: cortes.map(conLugar).reverse(),
+    };
+  }
+
+  /**
+   * Cortar a un cliente que no renovó (Cobros → Cortes), como en el Gestor:
+   * - Su perfil o cupo queda libre; con clave nueva, la cuenta la guarda (y
+   *   todos los que siguen en ella la ven al momento en «Mis accesos»); con
+   *   PIN nuevo, el perfil. Todo cifrado.
+   * - En un plan familiar, el cupo del miembro conserva su correo para
+   *   volver a alquilarlo y la clave nueva es la del miembro.
+   * - Si el mismo cliente tiene otros perfiles vencidos en esa cuenta, se
+   *   cortan también (cortar uno = cortar todos, como en el Gestor).
+   * - Las suscripciones pasan a suspendidas, con evento y auditoría. No se
+   *   borra nada: si paga, se renueva y se le asigna un lugar otra vez.
+   */
+  async cortar(
+    auth: ContextoAuth,
+    id: string,
+    e: CortarSuscripcionEntrada,
+    cliente: InfoCliente,
+    ahora = new Date(),
+  ): Promise<{ cortadas: number }> {
+    const manana = inicioDiaCaracas(ahora, 1);
+    return this.prisma.$transaction(async (tx) => {
+      const s = await tx.suscripcion.findFirst({
+        where: { id, cliente: alcanceClientes(auth) },
+        select: {
+          id: true,
+          venceEn: true,
+          clienteId: true,
+          plan: { select: { servicio: { select: { nombre: true } } } },
+          perfilCuenta: {
+            select: { id: true, numero: true, cuentaId: true, cuenta: { select: { modo: true } } },
+          },
+        },
+      });
+      if (!s) throw Errores.noEncontrado('La suscripción');
+      const p = s.perfilCuenta;
+      if (!p) {
+        throw new ErrorApp(409, 'SIN_LUGAR', 'Este cliente ya no ocupa ningún perfil ni cupo.');
+      }
+      if (!s.venceEn || s.venceEn >= manana) {
+        throw new ErrorApp(
+          409,
+          'AUN_VIGENTE',
+          'Este cliente todavía no vence: solo se cortan los vencidos o los que vencen hoy.',
+        );
+      }
+      const tipo = tipoPlataforma(s.plan.servicio.nombre);
+      if (!TEXTOS_PLATAFORMA[tipo].usaPin && e.nuevoPin) {
+        throw new ErrorApp(400, 'SIN_PIN', 'Esta plataforma no usa PIN.');
+      }
+      // El lugar elegido y los otros vencidos del mismo cliente en la misma cuenta.
+      const hermanos = await tx.perfilCuenta.findMany({
+        where: {
+          cuentaId: p.cuentaId,
+          estado: 'asignado',
+          id: { not: p.id },
+          suscripcion: {
+            clienteId: s.clienteId,
+            venceEn: { lt: manana },
+            estado: { in: ['activa', 'en_gracia', 'suspendida', 'vencida'] },
+          },
+        },
+        orderBy: { numero: 'asc' },
+        select: { id: true, numero: true },
+      });
+      const lugares = [{ id: p.id, numero: p.numero }, ...hermanos];
+      const motivo = 'Cortado desde Cobros: no renovó';
+      for (const [n, l] of lugares.entries()) {
+        const miembro =
+          tipo === 'familiar' && p.cuenta.modo !== 'completa' && !esTitular(tipo, l.numero);
+        const actual = await tx.perfilCuenta.findUniqueOrThrow({
+          where: { id: l.id },
+          select: { suscripcion: { select: { id: true, estado: true } } },
+        });
+        const sus = actual.suscripcion;
+        // La clave de la cuenta se cambia una sola vez; la de un miembro, en su cupo.
+        const datos = {
+          ...(e.nuevoPin ? { nuevoPin: e.nuevoPin } : {}),
+          ...(e.nuevaClave && (miembro || n === 0) ? { nuevaClave: e.nuevaClave } : {}),
+        };
+        await this.cuentas.liberarEn(tx, auth, p.cuentaId, l.id, datos, cliente, miembro);
+        if (!sus) continue;
+        const suspender = sus.estado === 'activa' || sus.estado === 'en_gracia';
+        if (suspender) {
+          await tx.suscripcion.update({ where: { id: sus.id }, data: { estado: 'suspendida' } });
+        }
+        await this.evento(tx, sus.id, 'suspension', auth.usuario.id, motivo, {
+          de: sus.estado,
+          a: suspender ? 'suspendida' : sus.estado,
+          corte: true,
+          claveNueva: Boolean(datos.nuevaClave),
+          pinNuevo: Boolean(datos.nuevoPin),
+        });
+        await this.auditoria.registrar(
+          {
+            actorId: auth.usuario.id,
+            accion: 'suscripcion.cortada',
+            entidad: 'suscripcion',
+            entidadId: sus.id,
+            antes: { estado: sus.estado, perfilId: l.id },
+            // Solo qué cambió: nunca la clave ni el PIN.
+            despues: {
+              estado: suspender ? 'suspendida' : sus.estado,
+              claveNueva: Boolean(datos.nuevaClave),
+              pinNuevo: Boolean(datos.nuevoPin),
+              ...(n > 0 ? { junto: s.id } : {}),
+            },
+            cliente,
+          },
+          tx,
+        );
+      }
+      return { cortadas: lugares.length };
+    });
   }
 
   async obtener(auth: ContextoAuth, id: string): Promise<SuscripcionDetalle> {

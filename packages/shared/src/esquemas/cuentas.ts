@@ -241,6 +241,16 @@ export const liberarPerfilSchema = z.preprocess(
 );
 export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
 
+/** Cortar desde Cobros → Cortes: libera el lugar de la suscripción y la deja suspendida. */
+export const cortarSuscripcionSchema = z.preprocess(
+  (v) => v ?? {},
+  z.object({
+    nuevaClave: claveCuentaSchema.optional(),
+    nuevoPin: pinSchema.optional(),
+  }),
+);
+export type CortarSuscripcionEntrada = z.infer<typeof cortarSuscripcionSchema>;
+
 /** Mover al cliente de un perfil a otro libre (de esta u otra cuenta del mismo servicio). */
 export const moverPerfilSchema = z.object({ destinoPerfilId: uuidSchema });
 
