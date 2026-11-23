@@ -75,7 +75,7 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
   await expect(aviso.getByText(dos)).toBeVisible();
   await aviso.getByRole('button', { name: 'Marcar enviado' }).click();
   await expect(aviso.getByText('1 de 1 avisados')).toBeVisible();
-  await aviso.getByRole('button', { name: 'Cerrar' }).click();
+  await aviso.getByRole('button', { name: 'Cerrar', exact: true }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Perfil 1' })).toContainText('Libre');
 });
 

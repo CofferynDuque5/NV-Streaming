@@ -30,6 +30,7 @@ import {
   Trash2,
   UserPlus,
   Wand2,
+  X,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { BotonCopiar } from '@/componentes/accesos';
@@ -82,10 +83,23 @@ export function Dialogo({
       className={`m-auto w-[calc(100%-2rem)] ${ancho} rounded-nv border border-borde bg-elevada p-0 text-left text-tinta shadow-nv backdrop:bg-black/60`}
     >
       <div className="grid max-h-[85dvh] gap-4 overflow-y-auto p-5 sm:p-6">
-        <h2 id={`${id}-titulo`} className="flex items-center gap-2 text-lg font-semibold">
-          {icono}
-          {titulo}
-        </h2>
+        <div className="flex items-start gap-3">
+          <h2 id={`${id}-titulo`} className="flex flex-1 items-center gap-2 text-lg font-semibold">
+            {icono}
+            {titulo}
+          </h2>
+          {!bloquear && (
+            <button
+              type="button"
+              onClick={() => ref.current?.close()}
+              aria-label="Cerrar ventana"
+              title="Cerrar"
+              className="-mt-1 -mr-1 grid size-9 shrink-0 place-items-center rounded-lg text-tinta-tenue hover:bg-white/[0.06] hover:text-tinta"
+            >
+              <X className="size-5" aria-hidden="true" />
+            </button>
+          )}
+        </div>
         {children}
       </div>
     </dialog>
