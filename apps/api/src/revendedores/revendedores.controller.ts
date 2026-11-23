@@ -18,6 +18,8 @@ import {
   actualizarRevendedorSchema,
   ajusteSaldoSchema,
   aprobarRevendedorSchema,
+  asignarClientesSchema,
+  buscarClientesLibresSchema,
   completarFichaRevendedorSchema,
   comprarSchema,
   confirmarRecargaSchema,
@@ -450,6 +452,31 @@ export class RevendedoresController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.revendedores.vincularResponsable(auth, id, cuerpo, cliente);
+  }
+
+  /** Buscar a mano clientes sin revendedor (los que no se pudieron pasar por su responsable). */
+  @Get(':id/clientes-libres')
+  @RequierePermiso('revendedores.gestionar')
+  @DocConsulta(buscarClientesLibresSchema)
+  clientesLibres(
+    @Param('id', idValido) id: string,
+    @Query(validar(buscarClientesLibresSchema)) filtro: z.output<typeof buscarClientesLibresSchema>,
+  ) {
+    return this.revendedores.buscarClientesLibres(id, filtro.q);
+  }
+
+  /** Pasa a su cartera los clientes elegidos a mano. */
+  @Post(':id/asignar-clientes')
+  @RequierePermiso('revendedores.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(asignarClientesSchema)
+  asignarClientes(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(asignarClientesSchema)) cuerpo: z.output<typeof asignarClientesSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.revendedores.asignarClientes(auth, id, cuerpo, cliente);
   }
 
   @Get(':id/clientes')

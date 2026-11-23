@@ -365,6 +365,32 @@ export const vincularResponsableSchema = z.object({
 });
 export type VincularResponsableEntrada = z.infer<typeof vincularResponsableSchema>;
 
+/** Buscar a mano, por nombre o contacto, clientes sin revendedor para pasarlos a una cartera. */
+export const buscarClientesLibresSchema = z.object({
+  q: z.string().trim().min(2, 'Escribe al menos 2 letras.').max(80),
+});
+export type BuscarClientesLibresEntrada = z.infer<typeof buscarClientesLibresSchema>;
+
+/** Pasar a la cartera de un revendedor los clientes elegidos a mano. */
+export const asignarClientesSchema = z.object({
+  clienteIds: z
+    .array(uuidSchema)
+    .min(1, 'Elige al menos un cliente.')
+    .max(50, 'Elige hasta 50 clientes a la vez.')
+    .refine((ids) => new Set(ids).size === ids.length, 'Un cliente está repetido.'),
+});
+export type AsignarClientesEntrada = z.infer<typeof asignarClientesSchema>;
+
+/** Un cliente sin revendedor que coincide con la búsqueda. */
+export interface ClienteLibre {
+  id: string;
+  nombre: string;
+  responsable: string | null;
+  contacto: string | null;
+  /** Servicios vigentes (nombre del servicio), para reconocerlo. */
+  servicios: string[];
+}
+
 /** Resultado de traer (o contar) los clientes de un responsable del Gestor. */
 export interface ResultadoVincularResponsable {
   aplicado: boolean;

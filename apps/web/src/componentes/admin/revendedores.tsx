@@ -1,17 +1,19 @@
 'use client';
 
 import type {
+  ClienteLibre,
   NivelPublico,
   RecargaPublica,
   ResponsableGestor,
   ResultadoVincularResponsable,
 } from '@nv/shared';
-import { Check, Pencil, Plus, X } from 'lucide-react';
+import { Check, Pencil, Plus, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Boton } from '@/componentes/ui/boton';
 import { Campo } from '@/componentes/ui/campo';
 import { AreaTexto, Casilla, Selector } from '@/componentes/ui/selector';
+import { llamarApi } from '@/lib/api-cliente';
 import { formatearMonto } from '@/lib/formato';
 import { ErrorGeneral, PanelFormulario, textoDe, useAccion } from './piezas';
 
@@ -906,6 +908,136 @@ export function TraerClientesGestor({
           </Boton>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Para los clientes del Gestor que no se pudieron leer o ligar solos: buscarlos por
+ * nombre o contacto entre los que no tienen revendedor y pasarlos a su cartera.
+ */
+export function AsignarClientesManual({ revendedorId }: { revendedorId: string }) {
+  const { cargando, error, ejecutar, limpiar } = useAccion();
+  const [q, setQ] = useState('');
+  const [buscando, setBuscando] = useState(false);
+  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
+  const [resultados, setResultados] = useState<ClienteLibre[] | null>(null);
+  const [elegidos, setElegidos] = useState<string[]>([]);
+  const [hecho, setHecho] = useState<ResultadoVincularResponsable | null>(null);
+
+  async function buscar(e: FormEvent) {
+    e.preventDefault();
+    const texto = q.trim();
+    if (texto.length < 2) return;
+    setBuscando(true);
+    setErrorBusqueda(null);
+    limpiar();
+    setHecho(null);
+    const r = await llamarApi<ClienteLibre[]>(
+      'GET',
+      `/revendedores/${revendedorId}/clientes-libres?q=${encodeURIComponent(texto)}`,
+    );
+    setBuscando(false);
+    if (!r.ok) {
+      setErrorBusqueda(r.error.mensaje);
+      return;
+    }
+    setResultados(r.datos);
+    setElegidos([]);
+  }
+
+  async function asignar() {
+    const r = await ejecutar<ResultadoVincularResponsable>(
+      'POST',
+      `/revendedores/${revendedorId}/asignar-clientes`,
+      { clienteIds: elegidos },
+    );
+    if (!r) return;
+    setHecho(r.datos);
+    setResultados((l) => l?.filter((c) => !elegidos.includes(c.id)) ?? null);
+    setElegidos([]);
+  }
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-sm text-tinta-suave">
+        ¿Faltó alguno? Búscalo por nombre o número entre los clientes que no tienen revendedor y
+        pásalo a su cartera con sus suscripciones. No se borra nada.
+      </p>
+      <form onSubmit={(e) => void buscar(e)} className="flex flex-wrap gap-2">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.currentTarget.value)}
+          placeholder="Nombre o número del cliente"
+          aria-label="Buscar cliente sin revendedor"
+          minLength={2}
+          maxLength={80}
+          className="h-10 min-w-0 flex-1 rounded-xl border border-borde bg-hundida px-3 text-sm"
+        />
+        <Boton
+          tamano="sm"
+          variante="secundario"
+          type="submit"
+          icono={<Search className="size-4" />}
+          cargando={buscando}
+          disabled={q.trim().length < 2}
+        >
+          Buscar
+        </Boton>
+      </form>
+      {errorBusqueda && <p className="text-sm text-peligro">{errorBusqueda}</p>}
+      {resultados && resultados.length === 0 && (
+        <p className="text-sm text-tinta-suave">
+          No hay clientes sin revendedor con ese nombre o número.
+        </p>
+      )}
+      {resultados && resultados.length > 0 && (
+        <div className="grid max-h-72 gap-1 overflow-y-auto rounded-xl border border-borde p-2">
+          {resultados.map((c) => (
+            <Casilla
+              key={c.id}
+              etiqueta={[
+                c.nombre,
+                c.contacto,
+                c.responsable ? `Responsable: ${c.responsable}` : null,
+                c.servicios.length > 0 ? c.servicios.join(', ') : 'Sin servicios vigentes',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              checked={elegidos.includes(c.id)}
+              onChange={(e) => {
+                limpiar();
+                setHecho(null);
+                const marcado = e.currentTarget.checked;
+                setElegidos((l) => (marcado ? [...l, c.id] : l.filter((x) => x !== c.id)));
+              }}
+            />
+          ))}
+        </div>
+      )}
+      {hecho && (
+        <p className="rounded-xl border border-exito/25 bg-exito-suave/40 p-3 text-sm">
+          Listo: {hecho.clientes} {hecho.clientes === 1 ? 'cliente pasó' : 'clientes pasaron'} a su
+          cartera con {hecho.suscripciones}{' '}
+          {hecho.suscripciones === 1 ? 'suscripción' : 'suscripciones'}.
+          {hecho.deOtroRevendedor > 0 &&
+            ` ${hecho.deOtroRevendedor} ya eran de otro revendedor y no se tocaron.`}
+        </p>
+      )}
+      <ErrorGeneral error={error} />
+      {elegidos.length > 0 && (
+        <div>
+          <Boton
+            tamano="sm"
+            icono={<Check className="size-4" />}
+            cargando={cargando}
+            onClick={() => void asignar()}
+          >
+            Asignar {elegidos.length} a su cartera
+          </Boton>
+        </div>
+      )}
     </div>
   );
 }

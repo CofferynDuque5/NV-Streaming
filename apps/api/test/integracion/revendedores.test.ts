@@ -1366,6 +1366,77 @@ describe('Clientes del Gestor (responsable) a la cartera del revendedor', () => 
     return c;
   }
 
+  it('busca por nombre los clientes que no se ligaron y los asigna a mano', async () => {
+    const e = await escenario();
+    const r = await nuevoRevendedor(e);
+    const otro = await nuevoRevendedor(e);
+    const suelto = await clienteGestor('Ilegible ##', e.planId);
+    await ctx.prisma.cliente.update({
+      where: { id: suelto.id },
+      data: { nombre: 'María Pérez Suelta' },
+    });
+    await ctx.prisma.contactoCliente.create({
+      data: { clienteId: suelto.id, tipo: 'whatsapp', valor: '+584149998877' },
+    });
+    const ajeno = await clienteGestor('Otro', e.planId, otro.id);
+    await ctx.prisma.cliente.update({
+      where: { id: ajeno.id },
+      data: { nombre: 'María Pérez Ajena' },
+    });
+
+    // Permisos: el operador no gestiona revendedores.
+    expect((await e.operador.get(`/revendedores/${r.id}/clientes-libres?q=maria`)).estado).toBe(
+      403,
+    );
+    expect((await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=m`)).estado).toBe(400);
+
+    const busca = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=pérez`);
+    expect(busca.estado).toBe(200);
+    // Solo el que no tiene revendedor.
+    expect(busca.cuerpo).toEqual([
+      {
+        id: suelto.id,
+        nombre: 'María Pérez Suelta',
+        responsable: 'Ilegible ##',
+        contacto: '+584149998877',
+        servicios: [expect.any(String)],
+      },
+    ]);
+    // También por número.
+    const porNumero = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=9998877`);
+    expect(porNumero.cuerpo.map((c: { id: string }) => c.id)).toEqual([suelto.id]);
+
+    const ok = await e.admin.post(`/revendedores/${r.id}/asignar-clientes`, {
+      clienteIds: [suelto.id, ajeno.id],
+    });
+    expect(ok.estado, JSON.stringify(ok.cuerpo)).toBe(200);
+    expect(ok.cuerpo).toEqual({
+      aplicado: true,
+      clientes: 1,
+      suscripciones: 1,
+      deOtroRevendedor: 1,
+    });
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: suelto.id } })).revendedorId,
+    ).toBe(r.id);
+    expect(
+      await ctx.prisma.suscripcion.count({ where: { clienteId: suelto.id, revendedorId: r.id } }),
+    ).toBe(1);
+    expect(
+      (await ctx.prisma.cliente.findUniqueOrThrow({ where: { id: ajeno.id } })).revendedorId,
+    ).toBe(otro.id);
+    const audit = await ctx.prisma.auditoria.findFirst({
+      where: { accion: 'revendedor.cartera_vinculada', entidadId: r.id },
+    });
+    expect(audit).not.toBeNull();
+
+    // Ya no sale en la búsqueda y lo ve en su panel.
+    const despues = await e.admin.get(`/revendedores/${r.id}/clientes-libres?q=pérez`);
+    expect(despues.cuerpo).toEqual([]);
+    const accesos = await r.n.get('/revendedor/clientes');
+    expect(accesos.cuerpo.total).toBe(1);
+  });
+
   it('cuenta, pasa a su cartera y le pone el revendedor a las suscripciones', async () => {
     const e = await escenario();
     const otro = await nuevoRevendedor(e);
