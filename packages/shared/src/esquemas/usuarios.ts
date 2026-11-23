@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { monedaSchema } from './dinero.js';
 import { ROLES } from '../roles.js';
-import { correoSchema, nombreSchema, paginacionSchema } from './comunes.js';
+import { contrasenaSchema, correoSchema, nombreSchema, paginacionSchema } from './comunes.js';
 
 export const rolSchema = z.enum(ROLES, { error: 'Rol no válido.' });
 
@@ -30,6 +30,9 @@ export const cambiarEstadoSchema = z.object({
   estado: estadoUsuarioSchema,
   motivo: z.string().trim().min(3, 'Indica el motivo.').max(500),
 });
+
+/** Clave que administración le pone a un revendedor que no pudo crearla él mismo. */
+export const ponerContrasenaSchema = z.object({ contrasena: contrasenaSchema });
 
 export const listarAuditoriaSchema = paginacionSchema.extend({
   accion: z.string().trim().max(300).optional(),

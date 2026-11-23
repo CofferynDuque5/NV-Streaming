@@ -10,7 +10,7 @@ import { ErrorApp } from '../comun/errores.js';
 import { numeroFactura } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { exigirGestionDelCliente } from './canal-revendedor.js';
-import { SuscripcionesService } from './suscripciones.service.js';
+import { baseRenovacion, SuscripcionesService } from './suscripciones.service.js';
 
 const DIA_MS = 24 * 3600_000;
 /** Un mes promedio, para saber cuántos meses cobrar al renovar hasta una fecha. */
@@ -69,7 +69,13 @@ export class RenovacionPagadaService {
         if (fechaFinal <= ahora) {
           throw invalido('venceEn', 'La fecha nueva tiene que ser después de hoy.');
         }
-        const base = s.venceEn && s.venceEn > ahora ? s.venceEn : ahora;
+        const base = baseRenovacion(
+          s.venceEn,
+          plan.duracionCantidad,
+          plan.duracionUnidad,
+          ahora,
+          false,
+        );
         const meses = Math.max(1, Math.round((fechaFinal.getTime() - base.getTime()) / MES_MS));
         periodos = mensual ? Math.max(1, Math.ceil(meses / plan.duracionCantidad)) : 1;
       } else {

@@ -182,6 +182,57 @@ describe('solicitud y revisión', () => {
     );
   });
 
+  it('administración le pone clave y le confirma el correo a un revendedor que no pudo hacerlo', async () => {
+    const e = await escenario();
+    const r = await nuevoRevendedor(e);
+    const uid = r.usuario.id;
+    await ctx.prisma.usuario.update({
+      where: { id: uid },
+      data: { correoVerificadoEn: null },
+    });
+    const CLAVE = 'Tienda-Nueva-Clave-77';
+
+    // Solo administración, y solo con cuentas de revendedores.
+    expect(
+      (await e.operador.post(`/usuarios/${uid}/contrasena`, { contrasena: CLAVE })).estado,
+    ).toBe(403);
+    const operador = await ctx.prisma.usuario.findFirstOrThrow({ where: { rol: 'operador' } });
+    expect(
+      (await e.admin.post(`/usuarios/${operador.id}/contrasena`, { contrasena: CLAVE })).cuerpo
+        .error.codigo,
+    ).toBe('SOLO_REVENDEDORES');
+    expect(
+      (await e.admin.post(`/usuarios/${uid}/contrasena`, { contrasena: '123' })).cuerpo.error.campos
+        .contrasena,
+    ).toBeDefined();
+
+    // Confirmar el correo solo.
+    const v = await e.admin.post(`/usuarios/${uid}/verificar-correo`, {});
+    expect(v.estado).toBe(200);
+    expect(v.cuerpo.correoVerificado).toBe(true);
+
+    // Poner clave: cierra sus sesiones y entra con la nueva.
+    const p = await e.admin.post(`/usuarios/${uid}/contrasena`, { contrasena: CLAVE });
+    expect(p.estado).toBe(200);
+    expect(JSON.stringify(p.cuerpo)).not.toContain(CLAVE);
+    expect((await r.n.get('/revendedor/resumen')).estado).toBe(401);
+    const nuevo = new Navegador(ctx.app);
+    expect((await nuevo.entrar(r.usuario.correo, CLAVE)).estado).toBe(200);
+    expect((await nuevo.entrar(r.usuario.correo)).estado).toBe(401);
+
+    // La clave nunca queda en la auditoría ni en el aviso por correo.
+    const auditoria = await ctx.prisma.auditoria.findMany({ where: { entidadId: uid } });
+    expect(auditoria.map((a) => a.accion)).toEqual(
+      expect.arrayContaining([
+        'usuario.correo_verificado_por_admin',
+        'usuario.contrasena_puesta_por_admin',
+      ]),
+    );
+    expect(JSON.stringify(auditoria)).not.toContain(CLAVE);
+    const correos = await ctx.prisma.correoSaliente.findMany({ where: { para: r.usuario.correo } });
+    expect(JSON.stringify(correos)).not.toContain(CLAVE);
+  });
+
   it('un rechazo deja el motivo visible y permite volver a solicitar', async () => {
     const e = await escenario();
     const { usuario, n } = await conectar(ctx, 'cliente');

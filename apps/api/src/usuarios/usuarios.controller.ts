@@ -6,6 +6,7 @@ import {
   cambiarRolSchema,
   invitarUsuarioSchema,
   listarUsuariosSchema,
+  ponerContrasenaSchema,
   uuidSchema,
 } from '@nv/shared';
 import type { z } from 'zod';
@@ -109,5 +110,29 @@ export class UsuariosController {
   ) {
     await this.usuarios.restablecerDosPasos(auth, id, cliente);
     return { mensaje: 'Verificación restablecida. La persona la configurará de nuevo al entrar.' };
+  }
+
+  @Post(':id/contrasena')
+  @RequierePermiso('usuarios.gestionar')
+  @HttpCode(200)
+  @DocCuerpo(ponerContrasenaSchema)
+  ponerContrasena(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Body(validar(ponerContrasenaSchema)) cuerpo: z.output<typeof ponerContrasenaSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.usuarios.ponerContrasena(auth, id, cuerpo.contrasena, cliente);
+  }
+
+  @Post(':id/verificar-correo')
+  @RequierePermiso('usuarios.gestionar')
+  @HttpCode(200)
+  verificarCorreo(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.usuarios.verificarCorreo(auth, id, cliente);
   }
 }
