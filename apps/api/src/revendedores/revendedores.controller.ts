@@ -577,7 +577,10 @@ export class RevendedoresController {
 @ApiTags('Revendedores: recargas')
 @Controller('recargas-saldo')
 export class RecargasController {
-  constructor(@Inject(SaldoService) private readonly saldo: SaldoService) {}
+  constructor(
+    @Inject(SaldoService) private readonly saldo: SaldoService,
+    @Inject(ComprasService) private readonly compras: ComprasService,
+  ) {}
 
   @Get()
   @RequierePermiso('pagos.gestionar')
@@ -601,13 +604,17 @@ export class RecargasController {
   @RequierePermiso('pagos.gestionar')
   @HttpCode(200)
   @DocCuerpo(confirmarRecargaSchema)
-  confirmar(
+  async confirmar(
     @Auth() auth: ContextoAuth,
     @Param('id', idValido) id: string,
     @Body(validar(confirmarRecargaSchema)) cuerpo: z.output<typeof confirmarRecargaSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.saldo.confirmarRecarga(auth, id, cuerpo, cliente);
+    const recarga = await this.saldo.confirmarRecarga(auth, id, cuerpo, cliente);
+    if (!recarga.renovar) return recarga;
+    // Si traía servicios para renovar, se renuevan ya con el saldo acreditado.
+    await this.compras.renovarPorRecarga(auth, id, cliente);
+    return this.saldo.verRecarga(id);
   }
 
   @Post(':id/rechazar')

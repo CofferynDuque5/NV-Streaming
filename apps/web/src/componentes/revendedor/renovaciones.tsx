@@ -239,18 +239,25 @@ export function Renovaciones({
               {queda < 0 ? `Te faltan ${usd(-queda / 100)}` : `Te quedan ${usd(queda / 100)}`}
             </span>
           </div>
-          {queda < 0 ? (
-            <BotonEnlace href="/revendedor/saldo">Recargar saldo</BotonEnlace>
-          ) : (
-            <Boton
-              cargando={cargando}
-              disabled={Boolean(bloqueo)}
-              title={bloqueo ?? undefined}
-              onClick={() => void renovar()}
+          <div className="flex flex-wrap justify-end gap-2">
+            {/* Pagar con un método (Pago Móvil, Zelle…): al confirmarse el pago se renuevan solos. */}
+            <BotonEnlace
+              href={`/revendedor/saldo?renovar=${sel.map((x) => x.suscripcion.id).join(',')}`}
+              variante={queda < 0 ? 'primario' : 'secundario'}
             >
-              {cargando ? `Renovando ${sel.length}…` : `Renovar ${sel.length}`}
-            </Boton>
-          )}
+              {queda < 0 ? 'Pagar y renovar' : 'Pagar con otro método'}
+            </BotonEnlace>
+            {queda >= 0 && (
+              <Boton
+                cargando={cargando}
+                disabled={Boolean(bloqueo)}
+                title={bloqueo ?? undefined}
+                onClick={() => void renovar()}
+              >
+                {cargando ? `Renovando ${sel.length}…` : `Renovar ${sel.length} con saldo`}
+              </Boton>
+            )}
+          </div>
         </div>
       )}
     </>

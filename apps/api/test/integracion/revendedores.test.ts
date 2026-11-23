@@ -1186,6 +1186,45 @@ describe('ventas, cartera y renovaciones del panel', () => {
     });
   });
 
+  it('paga una renovación con un método de pago: al confirmar la recarga se renueva sola', async () => {
+    const e = await escenario();
+    const r = await revendedorConSaldo(e, '4');
+    const c = await r.n.post('/revendedor/compras', alta(e));
+    const id = c.cuerpo.compra.suscripcion.id as string;
+    const antes = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+
+    // Un servicio ajeno no se puede ligar a la recarga.
+    const ajeno = await revendedorConSaldo(e, '1');
+    const mala = await recargar(e, ajeno.n, '4', { renovarIds: id });
+    expect(mala.estado).toBe(409);
+    expect(mala.cuerpo.error.codigo).toBe('NO_RENOVABLE');
+
+    const rec = await recargar(e, r.n, '4', { renovarIds: id });
+    expect(rec.estado).toBe(201);
+    expect(rec.cuerpo.renovar).toEqual({ cantidad: 1, resultado: null });
+
+    const ok = await e.operador.post(`/recargas-saldo/${rec.cuerpo.id}/confirmar`, {
+      montoRecibido: '4',
+    });
+    expect(ok.estado).toBe(200);
+    expect(ok.cuerpo.renovar).toEqual({
+      cantidad: 1,
+      resultado: expect.stringMatching(/^Se renovó 1 servicio/),
+    });
+    const despues = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id } });
+    expect(despues.venceEn!.getTime()).toBeGreaterThan(antes.venceEn!.getTime() + 25 * DIA);
+    // El saldo se usó en la renovación.
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('0.00');
+
+    // Si ya no alcanza (llegó menos), el saldo queda acreditado y se anota por qué.
+    const otra = await recargar(e, r.n, '4', { renovarIds: id });
+    const corta = await e.operador.post(`/recargas-saldo/${otra.cuerpo.id}/confirmar`, {
+      montoRecibido: '1',
+    });
+    expect(corta.cuerpo.renovar.resultado).toMatch(/^No se renovó: .*El saldo quedó acreditado\.$/);
+    expect((await r.n.get('/revendedor/saldo')).cuerpo.saldoUsd).toBe('1.00');
+  });
+
   it('el lote no renueva nada sin saldo, por encima del límite diario o con un servicio ajeno', async () => {
     const e = await escenario();
     const r = await revendedorConSaldo(e, '12', 3);

@@ -19,7 +19,7 @@ import { ErrorApp, Errores } from '../comun/errores.js';
 import { esUnicoDuplicado } from '../comun/formato.js';
 import { PRISMA } from '../comun/tokens.js';
 import { solicitarRevocacion } from '../entregas/registro.js';
-import { CERO, type Dec, redondear } from '../dinero/dinero.js';
+import { CERO, D, type Dec, redondear } from '../dinero/dinero.js';
 import { TasasService } from '../dinero/tasas.service.js';
 import { INCLUIR_SUSCRIPCION, suscripcionPublica } from '../suscripciones/presentacion.js';
 import { SuscripcionesService } from '../suscripciones/suscripciones.service.js';
@@ -229,6 +229,62 @@ export class ComprasService {
     cliente: InfoCliente,
   ): Promise<ResultadoRenovacionLote> {
     const propio = await revendedorPropio(auth, this.prisma);
+    return this.loteDe(propio, auth, e, cliente);
+  }
+
+  /**
+   * Tras confirmar una recarga que trae servicios para renovar, los renueva
+   * con el saldo del revendedor (todos o ninguno) y deja anotado el resultado
+   * en la recarga. Si no se puede (ya no se renuevan, no alcanza…), el saldo
+   * queda acreditado y el revendedor renueva luego desde Renovaciones.
+   */
+  async renovarPorRecarga(auth: ContextoAuth, recargaId: string, cliente: InfoCliente) {
+    const recarga = await this.prisma.recargaSaldo.findUnique({
+      where: { id: recargaId },
+      select: {
+        estado: true,
+        renovarIds: true,
+        renovacionResultado: true,
+        revendedor: true,
+      },
+    });
+    if (
+      !recarga ||
+      recarga.estado !== 'confirmada' ||
+      recarga.renovarIds.length === 0 ||
+      recarga.renovacionResultado !== null
+    ) {
+      return;
+    }
+    let resultado: string;
+    try {
+      const hecho = await this.loteDe(
+        recarga.revendedor,
+        auth,
+        { suscripcionIds: recarga.renovarIds, claveIdempotencia: `recarga-${recargaId}` },
+        cliente,
+      );
+      const n = hecho.renovadas.length;
+      resultado =
+        n === 1
+          ? `Se renovó 1 servicio (${usd(D(hecho.totalUsd))}).`
+          : `Se renovaron ${n} servicios (${usd(D(hecho.totalUsd))}).`;
+    } catch (error) {
+      if (!(error instanceof ErrorApp)) throw error;
+      resultado = `No se renovó: ${error.message} El saldo quedó acreditado.`.slice(0, 500);
+    }
+    await this.prisma.recargaSaldo.update({
+      where: { id: recargaId },
+      data: { renovacionResultado: resultado },
+    });
+  }
+
+  private async loteDe(
+    propio: Revendedor,
+    auth: ContextoAuth,
+    e: RenovarLoteEntrada,
+    cliente: InfoCliente,
+  ): Promise<ResultadoRenovacionLote> {
     const pedidos = e.suscripcionIds.map((suscripcionId, i) => ({
       tipo: 'renovacion' as const,
       suscripcionId,

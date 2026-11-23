@@ -89,6 +89,11 @@ export interface RecargaPublica {
   estado: EstadoRecarga;
   motivoRechazo: string | null;
   tieneComprobante: boolean;
+  /**
+   * Servicios que se renuevan solos al confirmar (cuántos) y qué pasó al
+   * confirmar (null mientras no se confirma). null si es una recarga normal.
+   */
+  renovar: { cantidad: number; resultado: string | null } | null;
   creadoEn: string;
   revisadoEn: string | null;
   /** Solo para el equipo. */

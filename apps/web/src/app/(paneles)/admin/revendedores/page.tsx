@@ -614,6 +614,14 @@ async function Recargas({ crudo }: { crudo: Crudo }) {
                   {x.referencia}
                 </span>,
               ],
+              ...(x.renovar
+                ? ([
+                    [
+                      'Al confirmar',
+                      `Renueva ${x.renovar.cantidad === 1 ? '1 servicio' : `${x.renovar.cantidad} servicios`} con este saldo`,
+                    ],
+                  ] as [string, ReactNode][])
+                : []),
             ];
             return (
               <li

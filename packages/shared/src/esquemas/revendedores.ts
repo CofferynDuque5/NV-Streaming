@@ -138,8 +138,34 @@ export type PrecioMayoristaEntrada = z.infer<typeof precioMayoristaSchema>;
 
 // ── Saldo ────────────────────────────────────────────────────────────────────
 
-/** Recarga que reporta el revendedor (el comprobante llega aparte, en el mismo formulario). */
-export const reportarRecargaSchema = reportarPagoSchema.extend({ moneda: monedaSchema });
+/** Máximo de servicios por renovación en lote. */
+export const MAXIMO_LOTE_RENOVACIONES = 50;
+
+/**
+ * Recarga que reporta el revendedor (el comprobante llega aparte, en el mismo
+ * formulario). `renovarIds`: servicios de su cartera que se renuevan solos con
+ * ese saldo cuando el equipo confirme la recarga (en el formulario, separados por coma).
+ */
+export const reportarRecargaSchema = reportarPagoSchema.extend({
+  moneda: monedaSchema,
+  renovarIds: z.preprocess(
+    (v) =>
+      typeof v === 'string'
+        ? v
+            .split(',')
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : v,
+    z
+      .array(uuidSchema)
+      .max(
+        MAXIMO_LOTE_RENOVACIONES,
+        `Renueva hasta ${MAXIMO_LOTE_RENOVACIONES} servicios a la vez.`,
+      )
+      .refine((ids) => new Set(ids).size === ids.length, 'Un servicio está repetido.')
+      .optional(),
+  ),
+});
 export type ReportarRecargaEntrada = z.infer<typeof reportarRecargaSchema>;
 
 export const confirmarRecargaSchema = z.object({
@@ -294,9 +320,6 @@ export const listarRenovacionesSchema = z.object({
   filtro: z.enum(FILTROS_RENOVACIONES).default('urgentes'),
 });
 export type ListarRenovacionesEntrada = z.infer<typeof listarRenovacionesSchema>;
-
-/** Máximo de servicios por renovación en lote. */
-export const MAXIMO_LOTE_RENOVACIONES = 50;
 
 /**
  * Renueva varios servicios de una vez (todo o nada). La clave es más corta que

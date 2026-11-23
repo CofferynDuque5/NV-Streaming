@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma, PrismaClient } from '@nv/db';
+import type { Prisma, PrismaClient, Revendedor } from '@nv/db';
 import {
   type AjusteSaldoEntrada,
   type ConfirmarRecargaEntrada,
@@ -38,6 +38,7 @@ import {
   movimientoPublico,
   recargaPublica,
 } from './presentacion.js';
+import { serviciosRenovables } from './renovables.js';
 
 /** Sin 0/O ni 1/I/L, para que se pueda dictar por teléfono. */
 const ALFABETO = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -104,6 +105,8 @@ export class SaldoService {
       if (e.referenciaExterna && !metodo.referenciaUltimos4) {
         await exigirReferenciaNueva(tx, metodo.id, e.referenciaExterna);
       }
+      const renovarIds = e.renovarIds ?? [];
+      if (renovarIds.length > 0) await exigirRenovables(tx, r, renovarIds);
       const tasa = e.moneda === 'USD' ? D(1) : await this.tasas.tasaDe(e.moneda, tx);
       const comprobante = await this.almacen.guardar(tx, archivo, auth.usuario.id);
       const monto = D(e.monto);
@@ -116,6 +119,7 @@ export class SaldoService {
         referenciaExterna: e.referenciaExterna ?? null,
         fechaPago: e.fechaPago,
         comprobanteId: comprobante.id,
+        renovarIds,
       });
       await this.auditoria.registrar(
         {
@@ -131,6 +135,7 @@ export class SaldoService {
             tasa: tasa.toFixed(6),
             metodo: metodo.nombre,
             comprobante: comprobante.sha256,
+            ...(renovarIds.length > 0 ? { renovarIds } : {}),
           },
           cliente,
         },
@@ -442,6 +447,11 @@ export class SaldoService {
     };
   }
 
+  /** Una recarga como la ve el equipo (tras confirmarla y renovar lo que traía). */
+  verRecarga(id: string): Promise<RecargaPublica> {
+    return this.cargarRecarga(id, true);
+  }
+
   private async cargarRecarga(id: string, equipo: boolean): Promise<RecargaPublica> {
     const r = await this.prisma.recargaSaldo.findUniqueOrThrow({
       where: { id },
@@ -474,5 +484,25 @@ export class SaldoService {
       }
     }
     throw new Error('No se pudo generar una referencia de recarga única.');
+  }
+}
+
+/**
+ * Los servicios que una recarga renovará al confirmarse tienen que ser de su
+ * cartera y poder renovarse ahora (el saldo se comprueba al confirmar).
+ */
+async function exigirRenovables(tx: Tx, r: Revendedor, ids: string[]) {
+  const encontrados = new Map(
+    (await serviciosRenovables(tx, r, ids)).map((x) => [x.suscripcion.id, x.servicio]),
+  );
+  const malos = ids.filter((id) => (encontrados.get(id)?.precioUsd ?? null) === null);
+  if (malos.length > 0) {
+    throw new ErrorApp(
+      409,
+      'NO_RENOVABLE',
+      malos.length === 1
+        ? 'Uno de los servicios a renovar no está en tu cartera o no se puede renovar ahora.'
+        : `${malos.length} de los servicios a renovar no están en tu cartera o no se pueden renovar ahora.`,
+    );
   }
 }
