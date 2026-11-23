@@ -60,7 +60,7 @@ test('una cuenta nueva ve el estado vacío y el menú de la cuenta', async () =>
     'aria-current',
     'page',
   );
-  for (const nombre of ['Mis accesos', 'Facturas y pagos', 'Billetera', 'Métodos guardados']) {
+  for (const nombre of ['Mis accesos', 'Facturas y pagos', 'Billetera', 'Métodos de pago']) {
     await expect(menu.getByRole('link', { name: nombre })).toBeVisible();
   }
 });
@@ -297,7 +297,7 @@ test('un cliente de un revendedor compra con su billetera; lo que activó su rev
     const menu = page.getByRole('navigation', { name: 'Mi cuenta' });
     for (const nombre of ['Billetera', 'Carrito y pedidos', 'Mis servicios'])
       await expect(menu.getByRole('link', { name: nombre })).toBeVisible();
-    for (const nombre of ['Métodos guardados', 'Ser revendedor'])
+    for (const nombre of ['Métodos de pago', 'Ser revendedor'])
       await expect(menu.getByRole('link', { name: nombre })).toHaveCount(0);
 
     await menu.getByRole('link', { name: 'Billetera' }).click();

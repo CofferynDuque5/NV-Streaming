@@ -44,6 +44,14 @@ export function proxy(peticion: NextRequest) {
  */
 function recordarMoneda(peticion: NextRequest) {
   const moneda = peticion.nextUrl.searchParams.get('moneda');
+  // «Automática»: se olvida la elección y vuelve a mandar el país de la conexión.
+  if (moneda === 'auto') {
+    if (!peticion.cookies.has(COOKIE_MONEDA)) return NextResponse.next();
+    peticion.cookies.delete(COOKIE_MONEDA);
+    const respuesta = NextResponse.next({ request: { headers: peticion.headers } });
+    respuesta.cookies.delete(COOKIE_MONEDA);
+    return respuesta;
+  }
   if (!esMoneda(moneda) || peticion.cookies.get(COOKIE_MONEDA)?.value === moneda) {
     return NextResponse.next();
   }

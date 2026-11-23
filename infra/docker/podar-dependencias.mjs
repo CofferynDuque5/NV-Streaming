@@ -77,7 +77,9 @@ function limpiar(carpeta) {
       limpiar(ruta);
     } else if (
       /^query_compiler_(fast|small)_bg\.(cockroachdb|mysql|sqlite|sqlserver)\./.test(e.name) ||
-      e.name.endsWith('.map')
+      e.name.endsWith('.map') ||
+      // Base de países por IP: la API solo lee las versiones numéricas (-num.csv).
+      /^geo-whois-asn-country-ipv[46]\.csv$/.test(e.name)
     ) {
       rmSync(ruta, { force: true });
     }

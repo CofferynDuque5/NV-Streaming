@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { LogoTienda } from '@/componentes/logo';
 import { clasesBoton } from '@/componentes/ui/boton';
 import { catalogoTienda, monedaTienda, sesionTienda } from '@/lib/tienda';
+import { ubicacionVisitante } from '@/lib/ubicacion';
 import {
   BarraInferior,
   BuscadorTienda,
@@ -33,11 +34,13 @@ function MonedaEstatica({ opcion, compacto }: { opcion: OpcionMoneda; compacto?:
  * chips bajo la fila superior, menú lateral y barra de pestañas abajo.
  */
 export async function CabeceraTienda() {
-  const [catalogo, moneda, sesion] = await Promise.all([
+  const [catalogo, moneda, sesion, ubicacion] = await Promise.all([
     catalogoTienda(),
     monedaTienda(),
     sesionTienda(),
+    ubicacionVisitante(),
   ]);
+  const deteccion = { pais: ubicacion.pais, automatica: ubicacion.origen !== 'eleccion' };
   const { lista, categorias, monedas } = datosMenu(catalogo, moneda);
   const actual = monedas.find((m) => m.codigo === moneda) ?? monedas[0];
   const sesionMenu: SesionMenu | null = sesion
@@ -60,12 +63,12 @@ export async function CabeceraTienda() {
               <>
                 <div className="hidden nav:block">
                   <Suspense fallback={<MonedaEstatica opcion={actual} />}>
-                    <MenuMonedas monedas={monedas} actual={actual} />
+                    <MenuMonedas monedas={monedas} actual={actual} deteccion={deteccion} />
                   </Suspense>
                 </div>
                 <div className="nav:hidden">
                   <Suspense fallback={<MonedaEstatica opcion={actual} compacto />}>
-                    <MenuMonedas monedas={monedas} actual={actual} compacto />
+                    <MenuMonedas monedas={monedas} actual={actual} deteccion={deteccion} compacto />
                   </Suspense>
                 </div>
               </>

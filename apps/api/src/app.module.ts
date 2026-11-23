@@ -98,6 +98,7 @@ import {
 } from './revendedores/revendedores.js';
 import { CONTROLADORES_SITIO, PROVEEDORES_SITIO } from './sitio/sitio.js';
 import { SaludController } from './salud/salud.controller.js';
+import { UbicacionController } from './salud/ubicacion.js';
 import { UsuariosController } from './usuarios/usuarios.controller.js';
 import { UsuariosService } from './usuarios/usuarios.service.js';
 
@@ -109,6 +110,7 @@ export class AppModule {
       imports: [NucleoModule.con(entorno), AuthModule],
       controllers: [
         SaludController,
+        UbicacionController,
         CuentaController,
         UsuariosController,
         AuditoriaController,

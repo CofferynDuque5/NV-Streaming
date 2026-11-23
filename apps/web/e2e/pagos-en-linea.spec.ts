@@ -89,7 +89,7 @@ test('el cliente paga en línea, guarda el método y autoriza el cobro automáti
     .filter({ has: page.getByRole('heading', { name: / · Trimestral$/ }) });
   await expect(servicio.getByText('Activa', { exact: true })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Métodos guardados' }).first().click();
+  await page.getByRole('link', { name: 'Métodos de pago' }).first().click();
   await expect(page).toHaveURL(/\/cuenta\/metodos-pago$/);
   const metodo = page.getByRole('listitem').filter({ hasText: 'Pasarela de pruebas · USD' });
   await expect(metodo).toHaveCount(1);
