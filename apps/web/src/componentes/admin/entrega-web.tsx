@@ -5,6 +5,7 @@ import { CheckCheck, CircleCheck, CircleSlash, PackageCheck, Search } from 'luci
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { refrescarExistencias } from '@/app/(paneles)/admin/sitio/acciones';
 import { Alerta } from '@/componentes/ui/alerta';
 import { Boton } from '@/componentes/ui/boton';
 import { Insignia } from '@/componentes/ui/insignia';
@@ -123,6 +124,8 @@ function ServicioEntrega({
     const r = await llamarApi('POST', '/cuentas/entrega-web/aptos', { perfilIds, apto });
     setOcupado(null);
     if (!r.ok) return setError(r.error.mensaje);
+    // La tienda deja de mostrar «agotado» (o lo muestra) en la siguiente visita.
+    await refrescarExistencias().catch(() => false);
     router.refresh();
   }
 
