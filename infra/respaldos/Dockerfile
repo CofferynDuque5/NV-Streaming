@@ -1,5 +1,5 @@
-# Imagen del servicio de copias de seguridad: cliente de PostgreSQL 16 (el mismo que el
-# servidor), gpg para cifrar (ya viene en la imagen Debian de PostgreSQL) y rclone para
+# Imagen del servicio de copias de seguridad: cliente de PostgreSQL 16 por defecto (el
+# mismo que el servidor; con Supabase, 17 vía RESPALDO_PG_VERSION en docker-compose.prod.yml), gpg para cifrar (ya viene en la imagen Debian de PostgreSQL) y rclone para
 # subir las copias a almacenamiento compatible con S3 (p. ej. Oracle Object Storage,
 # Always Free). No descarga paquetes al compilar. Funciona en amd64 y arm64.
 ARG POSTGRES_IMAGEN=postgres:16-bookworm
