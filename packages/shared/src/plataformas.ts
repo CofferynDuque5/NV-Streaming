@@ -195,6 +195,14 @@ export function recomendarLugar<T extends CandidatoLugar>(
  * Es la de modo «completa» y también la que tiene un solo perfil o cupo.
  * Una cuenta con varios perfiles que se venden por separado NO es individual.
  */
+/**
+ * ¿Se puede poner un cliente en esta cuenta? Solo si está activa (no caída ni
+ * retirada) y vigente: con fecha de factura y que no haya pasado (`hoy` es el
+ * día de Venezuela, AAAA-MM-DD). Las cuentas sin fecha no se venden.
+ */
+export const cuentaVigente = (c: { estado: string; facturaEn: string | null }, hoy: string) =>
+  c.estado === 'activa' && c.facturaEn !== null && c.facturaEn.slice(0, 10) >= hoy;
+
 export const esCuentaIndividual = (modo: 'perfiles' | 'completa', perfiles: number) =>
   modo === 'completa' || perfiles <= 1;
 

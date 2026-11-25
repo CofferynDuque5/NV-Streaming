@@ -5,6 +5,7 @@ import {
   contratoServicio,
   type CredencialesCuenta,
   type CuentaServicioDetalle,
+  cuentaVigente,
   esTitular,
   fechaContrato,
   formatearMonto,
@@ -143,10 +144,11 @@ interface Libre {
 }
 
 /** Qué lugares libres sirven para cada modo. */
-function libresDe(datos: PlataformaCuentas, modo: Modo): Libre[] {
+function libresDe(datos: PlataformaCuentas, modo: Modo, hoy: string): Libre[] {
   const lista: Libre[] = [];
   for (const c of datos.cuentas) {
-    if (c.estado !== 'activa') continue;
+    // Ni caídas ni vencidas (ni sin fecha): no se le da a un cliente una cuenta que no sirve.
+    if (!cuentaVigente(c, hoy)) continue;
     const individual = esIndividual(c);
     for (const p of c.listaPerfiles) {
       if (p.estado !== 'libre') continue;
@@ -261,7 +263,7 @@ export function AgregarCliente({
   const vence = plazo === 'fecha' ? fecha : sumarMeses(hoy, plazo);
   const meses = plazo === 'fecha' ? 1 : plazo;
   const total = Number(precio || 0) * meses;
-  const libres = useMemo(() => libresDe(datos, modo), [datos, modo]);
+  const libres = useMemo(() => libresDe(datos, modo, hoy), [datos, modo, hoy]);
   const recomendado = recomendarLugar(libres, sumarMeses(hoy, 1));
   const cuentaElegida = lugar ? datos.cuentas.find((c) => c.id === lugar.cuentaId) : undefined;
   const perfilElegido = cuentaElegida?.listaPerfiles.find((p) => p.id === lugar?.perfilId);
@@ -669,7 +671,8 @@ export function AgregarCliente({
                   style={{ gridTemplateColumns: `repeat(${modos.length}, minmax(0, 1fr))` }}
                 >
                   {modos.map((m) => {
-                    const n = m.modo === 'correo_cliente' ? null : libresDe(datos, m.modo).length;
+                    const n =
+                      m.modo === 'correo_cliente' ? null : libresDe(datos, m.modo, hoy).length;
                     return (
                       <button
                         key={m.modo}

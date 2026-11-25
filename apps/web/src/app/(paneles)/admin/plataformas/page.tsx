@@ -28,7 +28,7 @@ export default async function Plataformas() {
   const sesion = await requerirSesion({ permiso: 'cuentas.ver' });
   const puede = (p: (typeof sesion.permisos)[number]) => sesion.permisos.includes(p);
   const [{ datos }, catalogo] = await Promise.all([
-    leerApi<Inventario>('/cuentas/inventario'),
+    leerApi<Inventario>('/cuentas/inventario/resumen'),
     puede('catalogo.ver')
       ? leerApi<ServicioPublico[]>('/catalogo/servicios')
       : Promise.resolve({ datos: null }),

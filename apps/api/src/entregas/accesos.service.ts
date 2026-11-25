@@ -43,7 +43,14 @@ export class AccesosService {
   async listar(auth: ContextoAuth, vista: VistaAccesos): Promise<AccesoServicio[]> {
     const donde = await this.alcance(auth, vista);
     const filas = await this.prisma.entrega.findMany({
-      where: { AND: [donde, { estado: { not: 'anulada' } }] },
+      where: {
+        AND: [
+          donde,
+          { estado: { not: 'anulada' } },
+          // Revocada sin nada entregado (solo instrucciones): no le sirve al cliente, no sale.
+          { NOT: { estado: 'revocada', datosCifrados: null } },
+        ],
+      },
       include: INCLUIR_ACCESO,
       orderBy: [{ creadoEn: 'desc' }, { id: 'asc' }],
       take: 200,

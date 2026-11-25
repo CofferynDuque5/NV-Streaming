@@ -25,7 +25,7 @@ export default async function Plataforma({
   const vista = (await searchParams).vista === 'clientes' ? 'clientes' : 'cuentas';
   const [r, inventario] = await Promise.all([
     leerApi<PlataformaCuentas>(`/cuentas/plataforma/${encodeURIComponent(servicioId)}`),
-    leerApi<Inventario>('/cuentas/inventario'),
+    leerApi<Inventario>('/cuentas/inventario/resumen'),
   ]);
   if (r.estado === 404 || r.estado === 400) notFound();
   const puede = (p: (typeof sesion.permisos)[number]) => sesion.permisos.includes(p);

@@ -10,7 +10,14 @@ import { esDatoCifrado, valoresDeDatos } from '../comun/datos-cliente.js';
 import { iso, numeroFactura } from '../comun/formato.js';
 
 export const INCLUIR_SUSCRIPCION = {
-  cliente: { select: { id: true, nombre: true } },
+  cliente: { select: { id: true, nombre: true, usuarioId: true } },
+  // La última cancelación programada: si la hizo el equipo, el cliente no la revierte.
+  eventos: {
+    where: { tipo: 'cancelacion_programada' },
+    orderBy: { creadoEn: 'desc' },
+    take: 1,
+    select: { tipo: true, actorId: true, creadoEn: true },
+  },
   plan: {
     select: {
       id: true,
@@ -35,7 +42,8 @@ export const INCLUIR_SUSCRIPCION = {
 } as const;
 
 export type SuscripcionBase = Suscripcion & {
-  cliente: { id: string; nombre: string };
+  cliente: { id: string; nombre: string; usuarioId?: string | null };
+  eventos?: Pick<EventoSuscripcion, 'tipo' | 'actorId' | 'creadoEn'>[];
   plan: Pick<
     Plan,
     'id' | 'nombre' | 'duracionCantidad' | 'duracionUnidad' | 'renovable' | 'tipo'
@@ -52,11 +60,24 @@ export type SuscripcionBase = Suscripcion & {
   metodoAutorizado?: { id: string; descripcion: string; estado: string } | null;
 };
 
+/**
+ * ¿La cancelación programada la puso el equipo (no el propio cliente)? Entonces
+ * el cliente no ve «Mantener mi suscripción» ni puede revertirla.
+ */
+export function cancelacionDelEquipo(s: SuscripcionBase): boolean {
+  if (!s.cancelarAlVencer) return false;
+  const ultima = (s.eventos ?? [])
+    .filter((e) => e.tipo === 'cancelacion_programada')
+    .sort((a, b) => b.creadoEn.getTime() - a.creadoEn.getTime())[0];
+  if (!ultima) return false;
+  return !ultima.actorId || ultima.actorId !== s.cliente.usuarioId;
+}
+
 export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
   const abierta = s.facturas[0];
   return {
     id: s.id,
-    cliente: s.cliente,
+    cliente: { id: s.cliente.id, nombre: s.cliente.nombre },
     plan: {
       id: s.plan.id,
       nombre: s.plan.nombre,
@@ -76,6 +97,7 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
     venceEn: iso(s.venceEn),
     pausadaEn: iso(s.pausadaEn),
     cancelarAlVencer: s.cancelarAlVencer,
+    cancelacionDelEquipo: cancelacionDelEquipo(s),
     canceladaEn: iso(s.canceladaEn),
     creadoEn: iso(s.creadoEn)!,
     facturaAbierta: abierta ? { id: abierta.id, numero: numeroFactura(abierta.numero) } : null,
@@ -91,7 +113,7 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
 }
 
 export function suscripcionDetalle(
-  s: SuscripcionBase & {
+  s: Omit<SuscripcionBase, 'eventos'> & {
     eventos: (EventoSuscripcion & { actor: { id: string; nombre: string } | null })[];
   },
 ): SuscripcionDetalle {

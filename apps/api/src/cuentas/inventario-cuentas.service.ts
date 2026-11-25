@@ -25,6 +25,78 @@ export const DIAS_POR_VENCER = 3;
 export class InventarioCuentasService {
   constructor(@Inject(PRISMA) private readonly prisma: PrismaClient) {}
 
+  /**
+   * Solo los totales de cada plataforma (las tarjetas de Plataformas), en una
+   * consulta: no trae las cuentas ni sus perfiles. Cuenta igual que `ver`.
+   */
+  async resumen(ahora = new Date()): Promise<Inventario> {
+    const limite = new Date(ahora.getTime() + DIAS_POR_VENCER * DIA_MS);
+    const filas = await this.prisma.$queryRaw<
+      {
+        id: string;
+        nombre: string;
+        imagen_id: string | null;
+        cuentas: bigint;
+        caidas: bigint;
+        perfiles: bigint;
+        libres: bigint;
+        bloqueados: bigint;
+        respaldos: bigint;
+        ocupados: bigint;
+        vencidos: bigint;
+        por_vencer: bigint;
+      }[]
+    >`
+      SELECT s.id, s.nombre, s.imagen_id,
+        COUNT(DISTINCT c.id) AS cuentas,
+        COUNT(DISTINCT c.id) FILTER (WHERE c.estado = 'caida') AS caidas,
+        COUNT(p.id) AS perfiles,
+        COUNT(p.id) FILTER (WHERE p.estado = 'libre') AS libres,
+        COUNT(p.id) FILTER (WHERE p.estado = 'bloqueado') AS bloqueados,
+        COUNT(p.id) FILTER (WHERE p.estado = 'respaldo') AS respaldos,
+        COUNT(p.id) FILTER (WHERE p.estado NOT IN ('libre', 'bloqueado', 'respaldo')) AS ocupados,
+        COUNT(p.id) FILTER (
+          WHERE p.estado NOT IN ('libre', 'bloqueado', 'respaldo')
+            AND su.estado IN ('vencida', 'cancelada')
+        ) AS vencidos,
+        COUNT(p.id) FILTER (
+          WHERE p.estado NOT IN ('libre', 'bloqueado', 'respaldo')
+            AND su.estado NOT IN ('vencida', 'cancelada')
+            AND su.vence_en <= ${limite}
+        ) AS por_vencer
+      FROM cuentas_servicio c
+      JOIN servicios s ON s.id = c.servicio_id
+      LEFT JOIN perfiles_cuenta p ON p.cuenta_id = c.id
+      LEFT JOIN suscripciones su ON su.id = p.suscripcion_id
+      WHERE c.estado NOT IN ('retirada', 'en_espera')
+      GROUP BY s.id, s.nombre, s.imagen_id
+    `;
+    return {
+      servicios: filas
+        .map((f): ServicioInventario => ({
+          servicio: {
+            id: f.id,
+            nombre: f.nombre,
+            logoUrl: f.imagen_id ? urlMedio(f.imagen_id) : null,
+          },
+          cuentas: [],
+          conteo: {
+            cuentas: Number(f.cuentas),
+            caidas: Number(f.caidas),
+            perfiles: Number(f.perfiles),
+            libres: Number(f.libres),
+            ocupados: Number(f.ocupados),
+            bloqueados: Number(f.bloqueados),
+            respaldos: Number(f.respaldos),
+            porVencer: Number(f.por_vencer),
+            vencidos: Number(f.vencidos),
+          },
+        }))
+        .sort((a, b) => a.servicio.nombre.localeCompare(b.servicio.nombre, 'es')),
+      hoy: fechaCaracas(ahora),
+    };
+  }
+
   async ver(incluirRetiradas = false, ahora = new Date()): Promise<Inventario> {
     const filas = await this.prisma.cuentaServicio.findMany({
       // Las que están sin anotar viven en su propia página hasta que se anotan.

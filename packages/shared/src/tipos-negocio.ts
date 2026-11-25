@@ -362,6 +362,8 @@ export interface SuscripcionPublica {
   venceEn: string | null;
   pausadaEn: string | null;
   cancelarAlVencer: boolean;
+  /** La cancelación la programó el equipo (p. ej. al cortarla): el cliente no puede revertirla. */
+  cancelacionDelEquipo?: boolean;
   canceladaEn: string | null;
   creadoEn: string;
   facturaAbierta: { id: string; numero: string } | null;

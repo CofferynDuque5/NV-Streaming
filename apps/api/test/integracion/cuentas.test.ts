@@ -1080,6 +1080,27 @@ describe('Cobros: vencimientos y cortes', () => {
     expect((await e.operador.n.post(`/suscripciones/${subs[3]}/cortar`)).cuerpo.error.codigo).toBe(
       'SIN_LUGAR',
     );
+
+    // Si renueva quien se cortó por vencimiento, vuelve a su mismo perfil (sigue libre).
+    await ctx.prisma.cuentaServicio.update({
+      where: { id: e.cuenta.id },
+      data: { facturaEn: new Date('2099-12-01') },
+    });
+    await ctx.prisma.factura.updateMany({
+      where: { suscripcionId: subs[1] },
+      data: { estado: 'pagada', pagadaEn: new Date() },
+    });
+    const vuelve = await e.operador.n.post(`/suscripciones/${subs[1]}/renovar-pagada`, {
+      meses: 1,
+      metodoCobroId: e.zelleId,
+    });
+    expect(vuelve.estado, JSON.stringify(vuelve.cuerpo)).toBe(200);
+    const s1b = await ctx.prisma.suscripcion.findUniqueOrThrow({
+      where: { id: subs[1] },
+      include: { perfilCuenta: true },
+    });
+    expect(s1b.estado).toBe('activa');
+    expect(s1b.perfilCuenta?.id).toBe(perfiles[1]!.id);
   });
 });
 
@@ -1223,5 +1244,33 @@ describe('avisos de datos nuevos y planes familiares', () => {
     });
     expect(aud).toHaveLength(1);
     expect(JSON.stringify(aud)).not.toContain('miembro1@example.com');
+  });
+});
+
+describe('resumen de Plataformas', () => {
+  it('da los mismos totales que el inventario completo, sin las cuentas', async () => {
+    const e = await escenario();
+    const ana = await conectar(ctx, 'cliente');
+    const alta = await ana.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const id = alta.cuerpo.suscripcion.id as string;
+    await ctx.prisma.suscripcion.update({
+      where: { id },
+      data: { estado: 'activa', venceEn: new Date(Date.now() + 86_400_000) },
+    });
+    const perfiles = e.cuenta.listaPerfiles as { id: string }[];
+    await e.operador.n.post(`/cuentas/${e.cuenta.id}/perfiles/${perfiles[0]!.id}/asignar`, {
+      suscripcionId: id,
+    });
+    const completo = await e.operador.n.get('/cuentas/inventario');
+    const resumen = await e.operador.n.get('/cuentas/inventario/resumen');
+    expect(resumen.estado).toBe(200);
+    type S = { servicio: { id: string }; cuentas: unknown[]; conteo: Record<string, number> };
+    const totales = (l: S[]) => Object.fromEntries(l.map((s) => [s.servicio.id, s.conteo]));
+    expect(totales(resumen.cuerpo.servicios)).toEqual(totales(completo.cuerpo.servicios));
+    expect((resumen.cuerpo.servicios as S[]).every((s) => s.cuentas.length === 0)).toBe(true);
+    const fila = (resumen.cuerpo.servicios as S[]).find((s) =>
+      (completo.cuerpo.servicios as S[]).some((c) => c.servicio.id === s.servicio.id),
+    );
+    expect(fila?.conteo).toMatchObject({ ocupados: 1, porVencer: 1 });
   });
 });

@@ -756,6 +756,27 @@ describe('renovación, pausa, cancelación y vencimientos', () => {
     expect((await e.cliente.get(`/mi/suscripciones/${id}`)).cuerpo.estado).toBe('cancelada');
   });
 
+  it('la cancelación que programa el equipo no la revierte el cliente; la suya sí', async () => {
+    const e = await escenario();
+    const id = await activa(e);
+    const c = await e.operador.post(`/suscripciones/${id}/cancelar`, { motivo: 'Era una prueba' });
+    expect(c.cuerpo).toMatchObject({ cancelarAlVencer: true });
+    const vista = await e.cliente.get(`/mi/suscripciones/${id}`);
+    expect(vista.cuerpo).toMatchObject({ cancelarAlVencer: true, cancelacionDelEquipo: true });
+    const revertir = await e.cliente.post(`/mi/suscripciones/${id}/revertir-cancelacion`, {});
+    expect(revertir.estado).toBe(409);
+    expect(revertir.cuerpo.error.codigo).toBe('TRANSICION_NO_PERMITIDA');
+
+    // La que programó el propio cliente sí la puede mantener.
+    const otra = await activa(e);
+    await e.cliente.post(`/mi/suscripciones/${otra}/cancelar`, { motivo: 'Ya no lo uso' });
+    expect((await e.cliente.get(`/mi/suscripciones/${otra}`)).cuerpo.cancelacionDelEquipo).toBe(
+      false,
+    );
+    const mantener = await e.cliente.post(`/mi/suscripciones/${otra}/revertir-cancelacion`, {});
+    expect(mantener.estado).toBe(200);
+  });
+
   it('sin pago pasa a gracia, luego a suspendida y a vencida; pagar la recupera', async () => {
     const e = await escenario();
     const id = await activa(e);

@@ -200,7 +200,7 @@ function DisponiblesPorCuenta({ s }: { s: EntregaWebServicio }) {
 }
 
 /**
- * «Ver datos» como en Plataformas: correo, contraseña y PIN del lugar, ahí
+ * «Ver datos»: la contraseña y el PIN del lugar (el correo ya se ve arriba), ahí
  * mismo, para entrar a la cuenta y revisarla antes de marcarla apta.
  * Solo se descifran al pedirlos (queda en la auditoría) y no se guardan.
  */
@@ -243,12 +243,7 @@ function VerDatos({ l, tipo }: { l: LugarEntregaWeb; tipo: EntregaWebServicio['t
   }
   return (
     <dl className="mt-1 grid gap-x-4 gap-y-1 rounded-lg border border-borde bg-hundida p-2 text-xs sm:grid-cols-2">
-      <div className="min-w-0">
-        <dt className="text-tinta-tenue">Correo</dt>
-        <dd>
-          <Copiable etiqueta="El correo de la cuenta" valor={datos.usuario} />
-        </dd>
-      </div>
+      {/* El correo ya está a la vista arriba: aquí solo la contraseña y el PIN (si tiene). */}
       <div className="min-w-0">
         <dt className="text-tinta-tenue">Contraseña</dt>
         <dd>
@@ -271,17 +266,13 @@ function VerDatos({ l, tipo }: { l: LugarEntregaWeb; tipo: EntregaWebServicio['t
           </dd>
         </div>
       )}
-      {textos.usaPin && (
+      {textos.usaPin && perfil?.pin && (
         <div className="min-w-0">
           <dt className="text-tinta-tenue">
             PIN del {textos.lugar.toLowerCase()} {l.numero}
           </dt>
           <dd>
-            {perfil?.pin ? (
-              <Secreto etiqueta="El PIN" valor={perfil.pin} />
-            ) : (
-              <span className="text-tinta-tenue">Sin PIN</span>
-            )}
+            <Secreto etiqueta="El PIN" valor={perfil.pin} />
           </dd>
         </div>
       )}
