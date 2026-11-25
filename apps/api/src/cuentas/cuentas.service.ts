@@ -1073,9 +1073,7 @@ export class CuentasService {
     return cuentas.map((c) => ({
       cuentaId: c.id,
       pista: c.pista,
-      correo: verCorreos
-        ? this.cifrador.descifrar(c.usuarioCifrado, contextoUsuario(c.id))
-        : null,
+      correo: verCorreos ? this.cifrador.descifrar(c.usuarioCifrado, contextoUsuario(c.id)) : null,
       plan: c.plan,
       facturaEn: dia(c.facturaEn),
       modo: c.modo,
@@ -1150,7 +1148,9 @@ export class CuentasService {
       const aCupo = tipo === 'familiar' && !esTitular(tipo, destino.numero);
       const nuevoMiembro = aCupo && e.usuarioMiembro ? e.usuarioMiembro : null;
       const viaja =
-        !e.soloCliente && !nuevoMiembro && (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada);
+        !e.soloCliente &&
+        !nuevoMiembro &&
+        (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada);
       if (nuevoMiembro) {
         await tx.perfilCuenta.update({
           where: { id: destino.id },
