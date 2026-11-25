@@ -1040,6 +1040,8 @@ export class CuentasService {
       where: {
         servicioId: p.cuenta.servicioId,
         estado: 'activa',
+        // Solo cuentas vigentes: con fecha y que no haya pasado (día de Venezuela).
+        facturaEn: { gte: new Date(`${fechaCaracas(new Date())}T00:00:00.000Z`) },
         perfiles: { some: { estado: { in: ['libre', 'respaldo'] }, id: { not: p.id } } },
       },
       select: {

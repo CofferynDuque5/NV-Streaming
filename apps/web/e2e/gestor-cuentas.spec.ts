@@ -32,6 +32,7 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
       usuario: `gestor.${sufijo}@example.com`,
       clave: 'Clave-de-prueba-1',
       perfiles: 3,
+      facturaEn: '2099-12-01',
     },
     headers: { origin },
   });

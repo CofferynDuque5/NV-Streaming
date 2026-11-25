@@ -523,7 +523,21 @@ describe('cuentas de servicio', () => {
       usuario: 'otra.cine@example.com',
       clave: 'Otra-123',
       perfiles: 2,
+      facturaEn: '2099-12-01',
     });
+    // Las cuentas vencidas o sin fecha no salen como destino.
+    for (const [usuario, facturaEn] of [
+      ['vencida.cine@example.com', '2020-01-01'],
+      ['sinfecha.cine@example.com', null],
+    ] as const) {
+      await e.operador.n.post('/cuentas', {
+        servicioId: e.servicioId,
+        usuario,
+        clave: 'Vieja-123',
+        perfiles: 2,
+        ...(facturaEn ? { facturaEn } : {}),
+      });
+    }
     const destinos = await e.operador.n.get(ruta(p2!, 'destinos'));
     expect(destinos.cuerpo.map((d: { cuentaId: string }) => d.cuentaId).sort()).toEqual(
       [e.cuenta.id, otra.cuerpo.id].sort(),
