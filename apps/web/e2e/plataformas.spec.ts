@@ -23,6 +23,7 @@ test('abre una plataforma, ve sus cuentas en tarjetas y agrega un cliente en 4 p
       usuario: correo,
       clave: 'Clave-de-prueba-3',
       perfiles: 3,
+      facturaEn: '2099-12-01',
     },
     headers: { origin },
   });

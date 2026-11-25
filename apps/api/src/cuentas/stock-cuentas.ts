@@ -174,6 +174,34 @@ export async function asignarAutomatico(
     },
   });
   if (!s || s.perfilCuenta) return null;
+  // Vuelve a su mismo perfil o cupo si se le cortó y sigue libre (nadie lo usó)
+  // en una cuenta activa y vigente: así renueva y conserva su lugar.
+  const anterior = await lugarAnterior(tx, s.id, fechaCaracas(ahora));
+  if (anterior) {
+    const r = await tx.perfilCuenta.updateMany({
+      where: { id: anterior.id, estado: 'libre', suscripcionId: null },
+      data: { estado: 'asignado', suscripcionId: s.id, asignadoEn: ahora },
+    });
+    if (r.count > 0) {
+      await auditoria.registrar(
+        {
+          actorId: null,
+          accion: 'perfil_cuenta.asignado',
+          entidad: 'perfil_cuenta',
+          entidadId: anterior.id,
+          despues: {
+            cuentaId: anterior.cuentaId,
+            numero: anterior.numero,
+            suscripcionId: s.id,
+            automatico: true,
+            mismoLugar: true,
+          },
+        },
+        tx,
+      );
+      return { perfilId: anterior.id, cuentaId: anterior.cuentaId, numero: anterior.numero };
+    }
+  }
   const plan = s.plan;
   if (!seEntregaDeInventario({ ...plan, adaptador: plan.servicio.proveedor.adaptador })) {
     return null;
@@ -207,6 +235,38 @@ export async function asignarAutomatico(
     tx,
   );
   return { perfilId: lugar.id, cuentaId: lugar.cuenta_id, numero: lugar.numero };
+}
+
+/**
+ * El último perfil o cupo del que se liberó (cortó) esta suscripción, si sigue
+ * libre y su cuenta está activa y vigente (`hoy`, día de Venezuela).
+ */
+async function lugarAnterior(
+  tx: Prisma.TransactionClient,
+  suscripcionId: string,
+  hoy: string,
+): Promise<{ id: string; cuentaId: string; numero: number } | null> {
+  const [ultimo] = await tx.auditoria.findMany({
+    where: {
+      accion: 'perfil_cuenta.liberado',
+      entidad: 'perfil_cuenta',
+      despues: { path: ['suscripcionId'], equals: suscripcionId },
+    },
+    orderBy: { fecha: 'desc' },
+    take: 1,
+    select: { entidadId: true },
+  });
+  if (!ultimo?.entidadId) return null;
+  const p = await tx.perfilCuenta.findFirst({
+    where: {
+      id: ultimo.entidadId,
+      estado: 'libre',
+      suscripcionId: null,
+      cuenta: { estado: 'activa', facturaEn: { gte: new Date(`${hoy}T00:00:00.000Z`) } },
+    },
+    select: { id: true, cuentaId: true, numero: true },
+  });
+  return p;
 }
 
 /** Compras por la web (clientes y revendedores): un plan agotado no se vende. */

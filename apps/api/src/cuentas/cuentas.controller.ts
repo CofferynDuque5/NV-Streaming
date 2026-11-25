@@ -67,6 +67,13 @@ export class CuentasController {
     @Inject(AltaPerfilService) private readonly altas: AltaPerfilService,
   ) {}
 
+  /** Solo los totales de cada plataforma, para las tarjetas (rápido). */
+  @Get('inventario/resumen')
+  @RequierePermiso('cuentas.ver')
+  verResumenInventario() {
+    return this.inventario.resumen();
+  }
+
   /** Todas las cuentas con sus perfiles y quién los usa (sin secretos). */
   @Get('inventario')
   @RequierePermiso('cuentas.ver')

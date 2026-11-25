@@ -316,6 +316,9 @@ function TarjetaServicio({
         Pagar factura {s.facturaAbierta.numero}
       </BotonEnlace>
     );
+  } else if (s.cancelarAlVencer && s.cancelacionDelEquipo) {
+    // La terminamos nosotros (un corte): ni mantener ni renovar desde aquí.
+    principal = null;
   } else if (s.cancelarAlVencer && !v.fin && !gestionada) {
     principal = (
       <Boton

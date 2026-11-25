@@ -4,6 +4,7 @@ import {
   type ContactoPlataforma,
   type CredencialesCuenta,
   type CuentaServicioDetalle,
+  cuentaVigente,
   esTitular,
   type PerfilCuentaPublico,
   type PlataformaCuentas,
@@ -211,6 +212,12 @@ function textoRelativo(iso: string, ahora: number): string {
 }
 
 const esIndividual = (c: CuentaServicioDetalle) => c.modo === 'completa' || c.perfiles.total === 1;
+
+/** Día de Venezuela (AAAA-MM-DD) de un instante en milisegundos. */
+const diaCaracas = (ms: number) =>
+  new Intl.DateTimeFormat('en-CA', { dateStyle: 'short', timeZone: 'America/Caracas' }).format(
+    new Date(ms),
+  );
 
 const vigentesDe = (c: CuentaServicioDetalle) =>
   c.listaPerfiles.filter(
@@ -564,8 +571,9 @@ function Lugar({
   const a = perfil.asignacion;
   const vigentes = vigentesDe(cuenta);
   const activa = Boolean(a && ['activa', 'en_gracia'].includes(a.estado));
+  // Solo en cuentas activas y vigentes: a una caída o vencida no se le agrega nadie.
   const libreParaAgregar =
-    perfil.estado === 'libre' && cuenta.estado === 'activa' && Boolean(permisos.alta);
+    perfil.estado === 'libre' && cuentaVigente(cuenta, diaCaracas(ahora)) && Boolean(permisos.alta);
   const textos = TEXTOS_PLATAFORMA[tipo];
   return (
     <li className="group flex items-center gap-1">

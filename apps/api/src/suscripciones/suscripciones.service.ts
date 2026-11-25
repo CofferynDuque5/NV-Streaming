@@ -1184,6 +1184,19 @@ export class SuscripcionesService {
       if (!s.cancelarAlVencer || !['activa', 'en_gracia'].includes(s.estado)) {
         throw transicionInvalida('No hay una cancelación programada que revertir.');
       }
+      // La que programó el equipo (un corte) no la revierte el cliente por su cuenta.
+      if (auth.usuario.rol === 'cliente') {
+        const ultima = await tx.eventoSuscripcion.findFirst({
+          where: { suscripcionId: id, tipo: 'cancelacion_programada' },
+          orderBy: { creadoEn: 'desc' },
+          select: { actorId: true },
+        });
+        if (ultima && ultima.actorId !== auth.usuario.id) {
+          throw transicionInvalida(
+            'Esta suscripción la terminamos nosotros. Si quieres seguir, escríbenos a soporte.',
+          );
+        }
+      }
       await tx.suscripcion.update({ where: { id }, data: { cancelarAlVencer: false } });
       return {
         tipo: 'cancelacion_revertida',
