@@ -320,6 +320,10 @@ export interface EntregaWebServicio {
   tipo: 'perfiles' | 'familiar' | 'correo';
   siguientes: LugarEntregaWeb[];
   aptos: number;
+  /** De los aptos, cuántos son cuentas completas (el resto, perfiles o cupos). */
+  aptosIndividuales?: number;
+  /** De los aptos, cuántos están en cuentas cuyo cobro al proveedor es en 7 días o menos. */
+  aptosPorVencer?: number;
   porRevisar: LugarEntregaWeb[];
 }
 
@@ -360,6 +364,8 @@ export interface SuscripcionPublica {
   gestionadaPorRevendedor: boolean;
   /** Precio acordado por periodo en USD (p. ej. el del Gestor); null = precio del plan. */
   precioAcordadoUsd?: string | null;
+  /** Se cortó antes de vencer: por qué (solo mientras siga suspendida o vencida). */
+  motivoSuspension?: string | null;
 }
 
 export interface EventoSuscripcionPublico {

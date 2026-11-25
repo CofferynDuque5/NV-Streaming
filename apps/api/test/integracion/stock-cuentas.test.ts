@@ -345,7 +345,9 @@ describe('revisión manual: solo se entrega lo marcado como apto', () => {
     ).find((x) => x.servicioId === e.servicioId)!;
     expect(sv2.siguientes[0]!.perfilId).toBe(sv.siguientes[1]!.perfilId);
 
-    await e.operador.n.post(`/cuentas/${lejos.id}/perfiles/${perfil.id}/liberar`, {});
+    await e.operador.n.post(`/cuentas/${lejos.id}/perfiles/${perfil.id}/liberar`, {
+      motivo: 'Prueba de corte',
+    });
     const liberado = await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: perfil.id } });
     expect(liberado.estado).toBe('libre');
     expect(liberado.aptoWeb).toBe(false);

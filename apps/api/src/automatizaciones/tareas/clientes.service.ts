@@ -351,8 +351,8 @@ export class TareasClientesService implements OnModuleInit {
         r.omitidos += 1;
         continue;
       }
-      // El PIN solo se usa en las plataformas por perfiles.
-      if (cambios.every((c) => c === 'pin') && tipo !== 'perfiles') {
+      // El PIN y el nombre del perfil solo cuentan en las plataformas por perfiles.
+      if (cambios.every((c) => c === 'pin' || c === 'nombre') && tipo !== 'perfiles') {
         r.omitidos += 1;
         continue;
       }
@@ -430,6 +430,10 @@ export class TareasClientesService implements OnModuleInit {
 /** Lo que cambió, en palabras del cliente. */
 function textoCambios(cambios: string[], tipo: string): string {
   const partes: string[] = [];
+  if (cambios.includes('movido')) {
+    return 'el acceso (se pasó a otra cuenta, con correo, clave y perfil nuevos)';
+  }
+  if (cambios.includes('nombre')) partes.push('el nombre de tu perfil');
   if (cambios.includes('correo') || cambios.includes('correo_miembro')) partes.push('el correo');
   if (cambios.includes('clave') || cambios.includes('clave_miembro')) partes.push('la clave');
   if (cambios.includes('pin') && tipo === 'perfiles') partes.push('el PIN de tu perfil');

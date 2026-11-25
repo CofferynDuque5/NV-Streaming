@@ -235,6 +235,8 @@ export interface PerfilDelCliente {
   pideCodigos: boolean;
   /** Solo en el panel del revendedor: para qué cliente es. */
   cliente?: Referencia;
+  /** Último cambio de datos (en los últimos 15 días): cuándo y qué cambió, sin valores. */
+  cambioReciente?: { en: string; cambios: string[] } | null;
 }
 
 /** Datos para entrar al perfil. Solo los ve su dueño mientras la suscripción está vigente. */

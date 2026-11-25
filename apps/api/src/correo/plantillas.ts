@@ -287,7 +287,7 @@ export const Plantillas = {
     const p = [
       `Hola, ${nombre}.`,
       `Actualizamos ${cambios} de tu servicio ${servicio}.`,
-      'Entra a «Mis accesos» para ver los datos nuevos. Por seguridad, nunca los enviamos por correo ni por WhatsApp.',
+      'Entra a «Mis accesos» para ver los datos nuevos y copiarlos completos. Por seguridad, nunca los enviamos por correo ni por WhatsApp.',
     ];
     return {
       asunto: `Datos nuevos para entrar a ${servicio}`,
@@ -311,7 +311,7 @@ export const Plantillas = {
     const p = [
       `Hola, ${nombre}.`,
       `Actualizamos ${cambios} de ${servicio} que usan tus clientes: ${clientes}.`,
-      'Mira los datos nuevos en tu panel y avísales.',
+      'Mira los datos nuevos en «Accesos de clientes»: con «Copiar actualización» copias el mensaje completo para enviárselo.',
     ];
     return {
       asunto: `Datos nuevos de ${servicio} para tus clientes`,

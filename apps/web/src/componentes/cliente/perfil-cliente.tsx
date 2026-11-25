@@ -1,6 +1,11 @@
 'use client';
 
-import type { CodigoDelCliente, PerfilDelCliente, PerfilRevelado } from '@nv/shared';
+import {
+  type CodigoDelCliente,
+  type PerfilDelCliente,
+  type PerfilRevelado,
+  ZONA_HORARIA,
+} from '@nv/shared';
 import clsx from 'clsx';
 import { ChevronDown, ExternalLink, EyeOff, MailSearch } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -117,6 +122,58 @@ function PedirCodigo({ suscripcionId, ruta }: { suscripcionId: string; ruta: str
       </div>
     </div>
   );
+}
+
+const QUE_CAMBIO: Record<string, string> = {
+  correo: 'el correo',
+  clave: 'la clave',
+  pin: 'el PIN',
+  nombre: 'el nombre del perfil',
+  correo_miembro: 'el correo del miembro',
+  clave_miembro: 'la clave del miembro',
+};
+
+/** «Cambió la clave y el PIN» o «Se pasó a otra cuenta (…)». */
+function queCambio(cambios: string[]): string {
+  if (cambios.includes('movido')) return 'Se pasó a otra cuenta (correo, clave y perfil nuevos)';
+  const partes = [...new Set(cambios.map((c) => QUE_CAMBIO[c]).filter(Boolean))] as string[];
+  if (!partes.length) return 'Cambiaron los datos de acceso';
+  const lista =
+    partes.length === 1 ? partes[0]! : `${partes.slice(0, -1).join(', ')} y ${partes.at(-1)!}`;
+  return `Cambió ${lista}`;
+}
+
+const fechaCorta = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: ZONA_HORARIA,
+});
+
+/** Mensaje completo con todos los datos, listo para pegar y enviar. */
+function mensajeCompleto(perfil: PerfilDelCliente, d: PerfilRevelado): string {
+  const completa = perfil.modo === 'completa';
+  const lineas = [
+    perfil.cambioReciente
+      ? `ACTUALIZACIÓN DE DATOS – ${perfil.servicio.nombre}`
+      : `DATOS DE ACCESO – ${perfil.servicio.nombre}`,
+    '',
+  ];
+  if (perfil.cambioReciente) lineas.push(`${queCambio(perfil.cambioReciente.cambios)}.`, '');
+  if (perfil.cliente) lineas.push(`Cliente: ${perfil.cliente.nombre}`);
+  lineas.push(`Plan: ${perfil.plan.nombre}`);
+  lineas.push(`${d.miembro ? 'Correo (miembro del plan)' : 'Correo o usuario'}: ${d.usuario}`);
+  if (d.clave && d.tipo !== 'correo') lineas.push(`Clave: ${d.clave}`);
+  if (!completa && d.tipo === 'perfiles') lineas.push(`Perfil: ${d.perfil}`);
+  if (d.pin) lineas.push(`PIN: ${d.pin}`);
+  lineas.push(
+    '',
+    completa
+      ? 'No cambies la clave ni el correo de la cuenta.'
+      : 'Usa solo tu perfil y no cambies la clave, el correo ni los otros perfiles.',
+  );
+  return lineas.join('\n');
 }
 
 /**
@@ -245,6 +302,16 @@ export function TarjetaPerfilCliente({
             : 'Usa solo tu perfil y no cambies la clave, el correo ni los otros perfiles.'}{' '}
           Se ocultan solos en dos minutos.
         </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <BotonCopiar
+            texto={mensajeCompleto(perfil, datos)}
+            etiqueta="todos los datos de la cuenta"
+            rotulo={perfil.cambioReciente ? 'Copiar actualización' : 'Copiar todo'}
+          />
+          <span className="text-xs text-tinta-tenue">
+            Copia el mensaje completo con todos los datos para enviarlo.
+          </span>
+        </div>
         {datos.contrato && (
           <details className="min-w-0">
             <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">
@@ -346,6 +413,13 @@ export function TarjetaPerfilCliente({
           {textos}
           <PildoraEstado texto="En espera" tono="cian" />
         </div>
+      )}
+      {perfil.cambioReciente && perfil.disponible && (
+        <p className="border-t border-borde bg-cian/[0.06] px-3.5 py-2 text-[0.8rem] text-tinta-suave">
+          <b className="text-tinta">Datos actualizados</b> el{' '}
+          {fechaCorta.format(new Date(perfil.cambioReciente.en))}.{' '}
+          {queCambio(perfil.cambioReciente.cambios)}. Ábrelo para ver los datos nuevos.
+        </p>
       )}
       {(abierto || !perfil.disponible) && (
         <div id={cuerpoId} className="grid gap-3 border-t border-borde px-3.5 pt-1 pb-3.5">

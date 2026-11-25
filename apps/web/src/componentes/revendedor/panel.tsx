@@ -239,6 +239,7 @@ export const claseVence = (t: TonoVence) =>
 
 /** Vencimiento corto para las tablas: «Mañana», «En 3 días», «Venció 2 oct. · gracia». */
 export function venceCorto(s: SuscripcionPublica, ahora = Date.now()): [string, TonoVence] {
+  if (s.motivoSuspension) return [`Suspendida: ${s.motivoSuspension}`, 'ro'];
   if (!s.venceEn) return ['Sin fecha', ''];
   const d = diasHasta(s.venceEn, ahora);
   const f = fechaCorta(s.venceEn);
@@ -258,6 +259,7 @@ export function venceLargo(s: SuscripcionPublica, ahora = Date.now()): [string, 
   if (s.estado === 'cancelada') return ['Cancelado', ''];
   if (s.estado === 'pausada') return ['Pausado por el equipo', ''];
   if (s.estado === 'pendiente_pago') return ['Pendiente de activación', ''];
+  if (s.motivoSuspension) return [`Suspendida por: ${s.motivoSuspension}`, 'ro'];
   if (!s.venceEn) return ['Sin fecha de vencimiento', ''];
   const d = diasHasta(s.venceEn, ahora);
   const fecha = fechaLarga(s.venceEn);

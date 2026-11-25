@@ -85,6 +85,8 @@ export function suscripcionPublica(s: SuscripcionBase): SuscripcionPublica {
         : null,
     gestionadaPorRevendedor: s.revendedorId !== null,
     precioAcordadoUsd: s.precioUsd ? s.precioUsd.toFixed(2) : null,
+    motivoSuspension:
+      s.estado === 'suspendida' || s.estado === 'vencida' ? s.motivoSuspension : null,
   };
 }
 

@@ -393,11 +393,14 @@ export class SuscripcionesService {
       if (!p) {
         throw new ErrorApp(409, 'SIN_LUGAR', 'Este cliente ya no ocupa ningún perfil ni cupo.');
       }
-      if (!s.venceEn || s.venceEn >= manana) {
+      // Antes de tiempo solo con motivo: el cliente lo ve como «Suspendida: <motivo>».
+      const anticipado = !s.venceEn || s.venceEn >= manana;
+      if (anticipado && !e.motivo) {
         throw new ErrorApp(
-          409,
-          'AUN_VIGENTE',
-          'Este cliente todavía no vence: solo se cortan los vencidos o los que vencen hoy.',
+          400,
+          'MOTIVO_REQUERIDO',
+          'Este cliente todavía no vence: escribe el motivo del corte.',
+          { motivo: ['Escribe por qué lo cortas antes de tiempo.'] },
         );
       }
       const tipo = tipoPlataforma(s.plan.servicio.nombre);
@@ -419,8 +422,9 @@ export class SuscripcionesService {
         orderBy: { numero: 'asc' },
         select: { id: true, numero: true },
       });
-      const lugares = [{ id: p.id, numero: p.numero }, ...hermanos];
-      const motivo = 'Cortado desde Cobros: no renovó';
+      // Un corte anticipado es solo de este lugar; el de vencidos lleva a sus hermanos.
+      const lugares = [{ id: p.id, numero: p.numero }, ...(anticipado ? [] : hermanos)];
+      const motivo = e.motivo ?? 'Cortado desde Cobros: no renovó';
       for (const [n, l] of lugares.entries()) {
         const miembro =
           tipo === 'familiar' && p.cuenta.modo !== 'completa' && !esTitular(tipo, l.numero);
@@ -437,13 +441,20 @@ export class SuscripcionesService {
         await this.cuentas.liberarEn(tx, auth, p.cuentaId, l.id, datos, cliente, miembro);
         if (!sus) continue;
         const suspender = sus.estado === 'activa' || sus.estado === 'en_gracia';
-        if (suspender) {
-          await tx.suscripcion.update({ where: { id: sus.id }, data: { estado: 'suspendida' } });
+        if (suspender || e.motivo) {
+          await tx.suscripcion.update({
+            where: { id: sus.id },
+            data: {
+              ...(suspender ? { estado: 'suspendida' as const } : {}),
+              ...(e.motivo ? { motivoSuspension: e.motivo } : {}),
+            },
+          });
         }
         await this.evento(tx, sus.id, 'suspension', auth.usuario.id, motivo, {
           de: sus.estado,
           a: suspender ? 'suspendida' : sus.estado,
           corte: true,
+          ...(anticipado ? { anticipado: true } : {}),
           claveNueva: Boolean(datos.nuevaClave),
           pinNuevo: Boolean(datos.nuevoPin),
         });
@@ -457,6 +468,7 @@ export class SuscripcionesService {
             // Solo qué cambió: nunca la clave ni el PIN.
             despues: {
               estado: suspender ? 'suspendida' : sus.estado,
+              ...(e.motivo ? { motivo: e.motivo } : {}),
               claveNueva: Boolean(datos.nuevaClave),
               pinNuevo: Boolean(datos.nuevoPin),
               ...(n > 0 ? { junto: s.id } : {}),
@@ -856,6 +868,17 @@ export class SuscripcionesService {
     return this.prisma.$transaction(async (tx) => {
       const s = await this.bloquear(tx, auth, id);
       exigirGestionDelCliente(auth, s);
+      // Cortada antes de tiempo por el equipo: solo el equipo la reactiva.
+      if (
+        s.motivoSuspension &&
+        (auth.usuario.rol === 'cliente' || auth.usuario.rol === 'revendedor')
+      ) {
+        throw new ErrorApp(
+          409,
+          'SUSPENDIDA_POR_EQUIPO',
+          `Esta suscripción está suspendida: ${s.motivoSuspension}. Escríbenos para revisarla.`,
+        );
+      }
       const factura = await this.facturarRenovacion(
         tx,
         s,
@@ -1144,7 +1167,7 @@ export class SuscripcionesService {
         actual.estado === 'activa' || actual.estado === 'en_gracia' ? 'renovacion' : 'recuperacion';
       const base = baseRenovacion(actual.venceEn, n, u, ahora, opciones.desdeHoy);
       inicioPeriodo = base;
-      data = { estado: 'activa', venceEn: sumarDuracion(base, n, u) };
+      data = { estado: 'activa', venceEn: sumarDuracion(base, n, u), motivoSuspension: null };
     } else {
       throw transicionInvalida('La suscripción no admite una renovación en su estado actual.');
     }

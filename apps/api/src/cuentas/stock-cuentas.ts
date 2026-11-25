@@ -254,6 +254,8 @@ export interface EntregaWebServicioFila {
   /** Lo que entregaría la web ahora mismo y los siguientes, en orden. */
   siguientes: LugarEntregaFila[];
   aptos: number;
+  aptosIndividuales: number;
+  aptosPorVencer: number;
   /** Libres y vigentes que la web podría vender pero nadie revisó. */
   porRevisar: LugarEntregaFila[];
 }
@@ -295,6 +297,7 @@ export async function entregaWeb(
     distinct: ['servicioId'],
   });
   const hoy = fechaCaracas(ahora);
+  const enUnaSemana = fechaCaracas(new Date(ahora.getTime() + 7 * 86_400_000));
   const servicios = planes
     .map((p) => p.servicio)
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
@@ -315,6 +318,8 @@ export async function entregaWeb(
       tipo,
       siguientes: aptos.slice(0, siguientes).map(aLugar),
       aptos: aptos.length,
+      aptosIndividuales: aptos.filter((f) => f.individual).length,
+      aptosPorVencer: aptos.filter((f) => fechaCaracas(f.factura_en) <= enUnaSemana).length,
       porRevisar: porRevisar.map(aLugar),
     });
   }
