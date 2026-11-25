@@ -125,3 +125,77 @@ describe('lugares que la web entrega sola', () => {
     expect(sirveVentaWeb('correo', false, 4)).toBe(true);
   });
 });
+
+describe('cuentas individuales y completas', () => {
+  it('individual: modo completa o un solo lugar', async () => {
+    const { esCuentaIndividual } = await import('../src/plataformas.js');
+    expect(esCuentaIndividual('completa', 1)).toBe(true);
+    expect(esCuentaIndividual('perfiles', 1)).toBe(true);
+    expect(esCuentaIndividual('perfiles', 5)).toBe(false);
+  });
+
+  it('una persona en todos los perfiles (aunque cambien mayúsculas o puntos)', async () => {
+    const { unaPersonaEnTodos } = await import('../src/plataformas.js');
+    const todos = (n: string[]) => n.map((nombre) => ({ asignado: true, nombre }));
+    expect(unaPersonaEnTodos(todos(['Danyelis Str.', 'danyelis str', 'DANYELIS  STR.']))).toBe(
+      'Danyelis Str.',
+    );
+    expect(unaPersonaEnTodos(todos(['Danyelis Str.', 'Angelo Str.']))).toBeNull();
+    // Falta un perfil por ocupar: no cuenta como completa.
+    expect(
+      unaPersonaEnTodos([
+        ...todos(['Angelo Str.', 'Angelo Str.']),
+        { asignado: false, nombre: null },
+      ]),
+    ).toBeNull();
+    expect(unaPersonaEnTodos(todos(['Angelo Str.']))).toBeNull();
+  });
+
+  it('las de un solo cliente guardadas como «Cuenta completa» se muestran como individuales', async () => {
+    const { etiquetaPerfil } = await import('../src/plataformas.js');
+    expect(etiquetaPerfil('familiar', 1, 'Cuenta completa')).toBe('Cuenta individual');
+    expect(etiquetaPerfil('familiar', 2, 'Cupo 2')).toBe('Cupo 2');
+    expect(etiquetaPerfil('perfiles', 3, 'Ana')).toBe('Perfil 3');
+  });
+});
+
+describe('mensaje con los datos (botón «Mensaje»)', () => {
+  it('sigue el formato de Nathan y omite lo que no aplica', async () => {
+    const { mensajeDatosCuenta } = await import('../src/plataformas.js');
+    expect(
+      mensajeDatosCuenta({
+        cliente: 'Ana María Pérez',
+        servicio: 'Netflix',
+        correo: 'cuenta@nv.com',
+        clave: 'Clave123',
+        perfil: 'Ana María Pérez',
+        pin: '1234',
+        vence: '25/12/2026',
+      }),
+    ).toBe(
+      [
+        'Hola, Ana María Pérez.',
+        'Los datos de su cuenta de Netflix son los siguientes:',
+        '',
+        'Correo: cuenta@nv.com',
+        'Contraseña: Clave123',
+        'Perfil: Ana María Pérez',
+        'PIN: 1234',
+        'Vencimiento: 25/12/2026',
+        '',
+        '¡Gracias por confiar en Nathan Streaming!',
+      ].join('\n'),
+    );
+    const sinPin = mensajeDatosCuenta({
+      cliente: 'Luis',
+      servicio: 'Spotify',
+      correo: 'luis@gmail.com',
+      clave: 'x',
+      perfil: '',
+      pin: '',
+      vence: '01/01/2027',
+    });
+    expect(sinPin).not.toContain('PIN');
+    expect(sinPin).not.toContain('Perfil');
+  });
+});

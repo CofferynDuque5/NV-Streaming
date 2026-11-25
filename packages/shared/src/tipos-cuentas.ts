@@ -106,9 +106,16 @@ export interface AvisosCuenta {
 export interface DestinoMover {
   cuentaId: string;
   pista: string;
+  /** Correo completo de la cuenta (solo con permiso de ver datos). */
+  correo?: string | null;
   plan: string | null;
   facturaEn: string | null;
   modo: ModoCuenta;
+  /** Cuenta individual (completa o de un solo lugar): en planes familiares, «de alquiler». */
+  individual?: boolean;
+  /** Lugares de la cuenta y cuántos están ocupados. */
+  total?: number;
+  ocupados?: number;
   perfiles: { id: string; numero: number; nombre: string; respaldo: boolean }[];
 }
 
@@ -229,6 +236,14 @@ export interface PerfilDelCliente {
   tipo: TipoPlataforma;
   /** «perfiles» o la cuenta entera. */
   modo: ModoCuenta;
+  /**
+   * Cómo se nombra el lugar: «Cuenta individual», «Cuenta completa» (todos los
+   * perfiles de la misma persona), «Perfil 3» (comprado en la web) o
+   * «Perfil: Ana Pérez» (agregado o editado por el equipo).
+   */
+  lugar?: string;
+  /** Nombre y apellidos completos del cliente de la suscripción. */
+  titular?: string;
   /** La cuenta está activa: se pueden ver los datos. Si está caída, el equipo la está revisando. */
   disponible: boolean;
   /** El servicio tiene asuntos de códigos y hay un buzón activo: puede pedir su código. */

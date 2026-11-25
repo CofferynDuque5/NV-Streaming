@@ -83,9 +83,11 @@ export default async function MisAccesos() {
               key={p.suscripcionId}
               perfil={p}
               detalle={[
-                p.modo === 'completa'
-                  ? 'Cuenta completa'
-                  : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre),
+                p.titular ? `A nombre de ${p.titular}` : null,
+                p.lugar ??
+                  (p.modo === 'completa'
+                    ? 'Cuenta individual'
+                    : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre)),
                 p.venceEn && p.estado !== 'pendiente_pago'
                   ? `vence el ${fechaLarga(p.venceEn)}`
                   : null,

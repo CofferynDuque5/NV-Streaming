@@ -23,6 +23,7 @@ import {
   ArrowRightLeft,
   BellRing,
   Check,
+  Copy,
   Mail,
   MessageCircle,
   Scissors,
@@ -533,15 +534,84 @@ export function EliminarPerfil({
 
 /* ─────────────────────────────── Mover ─────────────────────────────── */
 
-/** Pasa al cliente a otro lugar libre del mismo servicio (por ejemplo, si su cuenta se cayó). */
+type OpcionMover = 'perfil' | 'individual' | 'alquiler' | 'cupo' | 'correo_cliente';
+
+/** Las opciones de «Mover» de cada tipo de plataforma, con sus nombres del Gestor. */
+const OPCIONES_MOVER: Record<TipoPlataforma, { opcion: OpcionMover; nombre: string }[]> = {
+  perfiles: [
+    { opcion: 'perfil', nombre: 'Perfil de una cuenta completa' },
+    { opcion: 'individual', nombre: 'Cuenta individual' },
+  ],
+  familiar: [
+    { opcion: 'alquiler', nombre: 'Alquiler' },
+    { opcion: 'cupo', nombre: 'Cupo de una cuenta principal' },
+    { opcion: 'correo_cliente', nombre: 'Correo del cliente' },
+  ],
+  correo: [
+    { opcion: 'alquiler', nombre: 'Alquiler' },
+    { opcion: 'correo_cliente', nombre: 'Correo del cliente' },
+  ],
+};
+
+/** Qué lugares libres de una cuenta sirven para cada opción. */
+function lugaresPara(d: DestinoMover, opcion: OpcionMover, tipo: TipoPlataforma) {
+  const individual = d.individual ?? d.modo === 'completa';
+  return d.perfiles.filter((p) => {
+    const titular = esTitular(tipo, p.numero);
+    if (opcion === 'perfil') return !individual;
+    if (opcion === 'individual') return individual;
+    if (opcion === 'alquiler') return tipo === 'correo' || individual || titular;
+    if (opcion === 'cupo') return !individual && !titular;
+    return false;
+  });
+}
+
+export function CopiarIcono({ valor, que }: { valor: string; que: string }) {
+  const [listo, setListo] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard
+          ?.writeText(valor)
+          .then(() => {
+            setListo(true);
+            setTimeout(() => setListo(false), 1500);
+          })
+          .catch(() => undefined);
+      }}
+      aria-label={`Copiar ${que}`}
+      title={`Copiar ${que}`}
+      className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
+    >
+      {listo ? <Check className="size-3.5 text-exito" /> : <Copy className="size-3.5" />}
+    </button>
+  );
+}
+
+/**
+ * «Mover» como en el Gestor: se ve dónde está ahora y, por opción, las cuentas
+ * con lugares libres con su correo completo y sus perfiles o cupos libres.
+ * - Alquiler: pasa solo el cliente (vencimiento, responsable y precio); su
+ *   correo de miembro no viaja y el lugar donde estaba queda vacío.
+ * - Cupo de una cuenta principal: con el correo del cliente unido al plan.
+ * - Correo del cliente: se crea una cuenta individual con su correo.
+ * Al terminar se abre el mensaje con los datos nuevos para enviárselo.
+ */
 export function MoverPerfil({
   cuentaId,
   perfil,
   tipo,
+  servicioId,
+  correoActual,
 }: {
   cuentaId: string;
   perfil: PerfilCuentaPublico;
   tipo: TipoPlataforma;
+  /** Para «Correo del cliente» (crear su cuenta individual). Sin él no se ofrece. */
+  servicioId?: string | undefined;
+  /** Correo de la cuenta donde está ahora (si se puede ver). */
+  correoActual?: string | null | undefined;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [destinos, setDestinos] = useState<DestinoMover[] | null>(null);
@@ -549,14 +619,28 @@ export function MoverPerfil({
   const [elegido, setElegido] = useState<string | null>(null);
   const [filtro, setFiltro] = useState('');
   const [hoy, setHoy] = useState(0);
+  const opciones = OPCIONES_MOVER[tipo].filter(
+    (o) => o.opcion !== 'correo_cliente' || Boolean(servicioId),
+  );
+  const [opcion, setOpcion] = useState<OpcionMover>(opciones[0]!.opcion);
+  const [correoCliente, setCorreoCliente] = useState('');
+  const [claveCliente, setClaveCliente] = useState('');
+  const [correoMiembro, setCorreoMiembro] = useState('');
+  const [claveMiembro, setClaveMiembro] = useState('');
+  const [errorCrear, setErrorCrear] = useState<ErrorLlamada | null>(null);
+  const [creando, setCreando] = useState(false);
   const { cargando, error, ejecutar } = useAccion();
   const textos = TEXTOS_PLATAFORMA[tipo];
+  const ocupado = cargando || creando;
 
   async function abrir() {
     setAbierto(true);
     setHoy(Date.now());
     setDestinos(null);
     setErrorLista(null);
+    setElegido(null);
+    setErrorCrear(null);
+    setOpcion(opciones[0]!.opcion);
     const r = await llamarApi<DestinoMover[]>(
       'GET',
       `/cuentas/${cuentaId}/perfiles/${perfil.id}/destinos`,
@@ -565,19 +649,74 @@ export function MoverPerfil({
     else setErrorLista(r.error.mensaje);
   }
 
-  async function mover() {
-    if (!elegido) return;
+  async function moverA(destinoPerfilId: string, extra: Record<string, unknown>) {
+    // El mensaje con los datos nuevos se abre solo al volver.
+    recienAsignados.add(destinoPerfilId);
     const r = await ejecutar('POST', `/cuentas/${cuentaId}/perfiles/${perfil.id}/mover`, {
-      destinoPerfilId: elegido,
+      destinoPerfilId,
+      ...extra,
     });
     if (r) setAbierto(false);
+    else recienAsignados.delete(destinoPerfilId);
   }
 
-  const visibles = (destinos ?? []).filter((d) =>
-    d.pista.toLowerCase().includes(filtro.trim().toLowerCase()),
-  );
+  async function mover() {
+    if (opcion === 'correo_cliente') {
+      if (!servicioId) return;
+      setCreando(true);
+      setErrorCrear(null);
+      const rc = await llamarApi<{ id: string; listaPerfiles: { id: string }[] }>(
+        'POST',
+        '/cuentas',
+        {
+          servicioId,
+          usuario: correoCliente.trim(),
+          clave: claveCliente || generarClave(16),
+          modo: 'completa',
+          perfiles: 1,
+          proveedor: 'Correo del cliente',
+          notas: 'Activación en el correo del cliente (no se le paga a un proveedor).',
+        },
+      );
+      setCreando(false);
+      if (!rc.ok) return setErrorCrear(rc.error);
+      await moverA(rc.datos.listaPerfiles[0]!.id, { soloCliente: true });
+      return;
+    }
+    if (!elegido) return;
+    await moverA(
+      elegido,
+      opcion === 'alquiler'
+        ? { soloCliente: true }
+        : opcion === 'cupo' && correoMiembro.trim()
+          ? {
+              usuarioMiembro: correoMiembro.trim(),
+              ...(claveMiembro ? { claveMiembro } : {}),
+            }
+          : {},
+    );
+  }
+
+  const q = filtro.trim().toLowerCase();
+  const visibles = (destinos ?? [])
+    .map((d) => ({ d, libres: lugaresPara(d, opcion, tipo) }))
+    .filter(
+      ({ d, libres }) =>
+        libres.length > 0 && (!q || (d.correo ?? d.pista).toLowerCase().includes(q)),
+    );
+  const contar = (o: OpcionMover) =>
+    (destinos ?? []).reduce((n, d) => n + lugaresPara(d, o, tipo).length, 0);
   const dias = (f: string | null) =>
     f ? Math.round((new Date(`${f}T00:00:00Z`).getTime() - hoy) / 86_400_000) : null;
+  const faltaMiembro =
+    opcion === 'cupo' && !perfil.tieneMiembro && !correoMiembro.trim() && Boolean(elegido);
+  const listo =
+    opcion === 'correo_cliente'
+      ? /^\S+@\S+\.\S+$/.test(correoCliente.trim())
+      : Boolean(elegido) && !faltaMiembro;
+  const ahora = `${correoActual ?? 'Esta cuenta'} · ${
+    tipo === 'perfiles' ? `${textos.lugar} ${perfil.numero}` : perfil.nombre
+  }${perfil.tieneMiembro ? ' · unido a un plan con su correo' : ''}`;
 
   return (
     <>
@@ -598,73 +737,206 @@ export function MoverPerfil({
             setAbierto(false);
             setElegido(null);
           }}
-          bloquear={cargando}
+          bloquear={ocupado}
+          ancho="max-w-2xl"
         >
-          <p className="text-sm text-tinta-suave">
-            Pasa con su suscripción y sus fechas. {perfil.nombre} queda libre y cada{' '}
-            {textos.lugar.toLowerCase()} conserva su PIN. Primero las cuentas que vencen más tarde.
-          </p>
-          <input
-            type="search"
-            value={filtro}
-            onChange={(e) => setFiltro(e.currentTarget.value)}
-            placeholder="Buscar por correo"
-            aria-label="Buscar por correo"
-            className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
-          />
-          {errorLista && <Alerta tono="peligro">{errorLista}</Alerta>}
-          {!destinos && !errorLista && <p className="text-sm text-tinta-tenue">Buscando…</p>}
-          {destinos && visibles.length === 0 && (
-            <Alerta tono="info">
-              No hay {textos.lugares.toLowerCase()} libres de este servicio. Agrega una cuenta o
-              libera uno.
-            </Alerta>
-          )}
-          <ul className="grid gap-2">
-            {visibles.map((d) => {
-              const n = dias(d.facturaEn);
+          <div className="grid gap-1 rounded-xl border border-borde bg-hundida p-3 text-sm">
+            <span className="text-xs text-tinta-tenue">Ahora está en</span>
+            <span className="flex min-w-0 items-center gap-1 font-mono">
+              <span className="truncate">{ahora}</span>
+              {correoActual && !correoActual.includes('•') && (
+                <CopiarIcono valor={correoActual} que="el correo actual" />
+              )}
+            </span>
+          </div>
+          <div role="radiogroup" aria-label="Adónde lo mueves" className="flex flex-wrap gap-2">
+            {opciones.map((o) => {
+              const n = o.opcion === 'correo_cliente' ? null : contar(o.opcion);
               return (
-                <li key={d.cuentaId} className="grid gap-2 rounded-xl border border-borde p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="font-mono">{d.pista}</span>
-                    <span className="text-xs text-tinta-tenue">
-                      {d.perfiles.length} libre{d.perfiles.length === 1 ? '' : 's'}
-                      {d.plan ? ` · ${d.plan}` : ''}
-                      {d.facturaEn
-                        ? ` · vence ${formatearDia(d.facturaEn)}${n !== null ? ` (en ${n} días)` : ''}`
-                        : ''}
-                      {d.cuentaId === cuentaId ? ' · esta cuenta' : ''}
+                <button
+                  key={o.opcion}
+                  type="button"
+                  role="radio"
+                  aria-checked={opcion === o.opcion}
+                  onClick={() => {
+                    setOpcion(o.opcion);
+                    setElegido(null);
+                  }}
+                  className={`rounded-xl border px-3 py-1.5 text-sm ${
+                    opcion === o.opcion
+                      ? 'border-marca bg-marca/15 font-semibold'
+                      : 'border-borde hover:border-cian'
+                  }`}
+                >
+                  {o.nombre}
+                  {n !== null && destinos ? (
+                    <span className="ml-1.5 rounded-full bg-hundida px-1.5 text-xs tabular-nums">
+                      {n}
                     </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {d.perfiles.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setElegido(p.id)}
-                        aria-pressed={elegido === p.id}
-                        className={`rounded-lg border px-2.5 py-1 text-xs ${
-                          elegido === p.id
-                            ? 'border-cian bg-cian/15 font-semibold'
-                            : 'border-borde hover:border-cian'
-                        }`}
-                      >
-                        {p.nombre}
-                        {p.respaldo ? ' · respaldo' : ''}
-                      </button>
-                    ))}
-                  </div>
-                </li>
+                  ) : null}
+                </button>
               );
             })}
-          </ul>
+          </div>
+          <p className="text-sm text-tinta-suave">
+            {opcion === 'alquiler'
+              ? 'Pasa solo el cliente con su fecha de vencimiento, su responsable y su precio. Su correo y clave de miembro no se copian, y el lugar donde estaba queda vacío.'
+              : opcion === 'cupo'
+                ? 'Cupos libres de las cuentas principales. Entra con su propio correo unido al plan.'
+                : opcion === 'correo_cliente'
+                  ? 'Se crea una cuenta individual con el correo del cliente y pasa ahí con su vencimiento, responsable y precio. El lugar donde estaba queda vacío.'
+                  : `Pasa con su suscripción y sus fechas. Donde estaba queda libre y cada ${textos.lugar.toLowerCase()} conserva su PIN. Primero las cuentas que vencen más tarde.`}
+          </p>
+          {opcion === 'correo_cliente' ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">
+                Correo del cliente
+                <input
+                  type="email"
+                  value={correoCliente}
+                  onChange={(e) => setCorreoCliente(e.currentTarget.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="correo.del.cliente@gmail.com"
+                  className="h-10 rounded-xl border border-borde bg-hundida px-3"
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Contraseña (opcional)
+                <input
+                  type="password"
+                  value={claveCliente}
+                  onChange={(e) => setClaveCliente(e.currentTarget.value)}
+                  autoComplete="new-password"
+                  className="h-10 rounded-xl border border-borde bg-hundida px-3"
+                />
+              </label>
+              {errorCrear && (
+                <Alerta tono="peligro" className="sm:col-span-2">
+                  {errorCrear.mensaje}
+                </Alerta>
+              )}
+            </div>
+          ) : (
+            <>
+              <input
+                type="search"
+                value={filtro}
+                onChange={(e) => setFiltro(e.currentTarget.value)}
+                placeholder="Buscar por correo"
+                aria-label="Buscar por correo"
+                className="h-10 rounded-xl border border-borde bg-hundida px-3 text-sm"
+              />
+              {errorLista && <Alerta tono="peligro">{errorLista}</Alerta>}
+              {!destinos && !errorLista && <p className="text-sm text-tinta-tenue">Buscando…</p>}
+              {destinos && visibles.length === 0 && (
+                <Alerta tono="info">
+                  No hay {textos.lugares.toLowerCase()} libres para esta opción. Agrega una cuenta o
+                  libera uno.
+                </Alerta>
+              )}
+              <ul className="grid gap-2">
+                {visibles.map(({ d, libres }) => {
+                  const n = dias(d.facturaEn);
+                  return (
+                    <li key={d.cuentaId} className="grid gap-2 rounded-xl border border-borde p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="flex min-w-0 items-center gap-1 font-mono font-medium">
+                          <span className="truncate" title={d.correo ?? d.pista}>
+                            {d.correo ?? d.pista}
+                          </span>
+                          {d.correo && <CopiarIcono valor={d.correo} que="el correo" />}
+                        </span>
+                        <span className="text-xs text-tinta-tenue">
+                          {d.individual
+                            ? tipo === 'perfiles'
+                              ? 'Individual'
+                              : 'De alquiler'
+                            : `${libres.length} libre${libres.length === 1 ? '' : 's'} de ${d.total ?? '?'}`}
+                          {d.plan ? ` · ${d.plan}` : ''}
+                          {d.facturaEn
+                            ? ` · vence ${formatearDia(d.facturaEn)}${n !== null ? ` (en ${n} días)` : ''}`
+                            : ''}
+                          {d.cuentaId === cuentaId ? ' · esta cuenta' : ''}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {libres.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setElegido(p.id)}
+                            aria-pressed={elegido === p.id}
+                            className={`rounded-lg border px-2.5 py-1 text-xs ${
+                              elegido === p.id
+                                ? 'border-cian bg-cian/15 font-semibold'
+                                : 'border-borde hover:border-cian'
+                            }`}
+                          >
+                            {d.individual
+                              ? 'Cuenta entera'
+                              : tipo === 'perfiles'
+                                ? `${textos.lugar} ${p.numero}`
+                                : esTitular(tipo, p.numero)
+                                  ? `${textos.lugar} ${p.numero} (titular)`
+                                  : `${textos.lugar} ${p.numero}`}
+                            {p.respaldo ? ' · respaldo' : ''}
+                          </button>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {opcion === 'cupo' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm">
+                    {perfil.tieneMiembro
+                      ? 'Otro correo para el plan (opcional)'
+                      : 'Correo del cliente para el plan'}
+                    <input
+                      type="email"
+                      value={correoMiembro}
+                      onChange={(e) => setCorreoMiembro(e.currentTarget.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="correo.del.miembro@gmail.com"
+                      className="h-10 rounded-xl border border-borde bg-hundida px-3"
+                    />
+                    {perfil.tieneMiembro && (
+                      <span className="text-xs text-tinta-tenue">
+                        Vacío: pasa con el correo que ya tiene.
+                      </span>
+                    )}
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Clave del miembro (opcional)
+                    <input
+                      type="password"
+                      value={claveMiembro}
+                      onChange={(e) => setClaveMiembro(e.currentTarget.value)}
+                      autoComplete="new-password"
+                      className="h-10 rounded-xl border border-borde bg-hundida px-3"
+                    />
+                  </label>
+                </div>
+              )}
+            </>
+          )}
+          {faltaMiembro && (
+            <Alerta tono="aviso">Escribe el correo del cliente para unirlo al plan.</Alerta>
+          )}
           {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
           <div className="flex flex-wrap justify-end gap-2">
-            <Boton variante="fantasma" onClick={() => setAbierto(false)} disabled={cargando}>
+            <Boton variante="fantasma" onClick={() => setAbierto(false)} disabled={ocupado}>
               Cancelar
             </Boton>
-            <Boton cargando={cargando} disabled={!elegido} onClick={() => void mover()}>
-              {elegido ? 'Mover' : 'Elige destino'}
+            <Boton cargando={ocupado} disabled={!listo} onClick={() => void mover()}>
+              {listo
+                ? 'Mover y armar mensaje'
+                : opcion === 'correo_cliente'
+                  ? 'Escribe el correo'
+                  : 'Elige destino'}
             </Boton>
           </div>
         </Dialogo>

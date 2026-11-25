@@ -77,7 +77,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
           <p className="flex flex-wrap items-center gap-2 text-sm text-tinta-suave">
             <span className="font-mono">{c.pista}</span>
             <Insignia tono={estado.tono}>{estado.texto}</Insignia>
-            {c.modo === 'completa' && <Insignia>Cuenta completa</Insignia>}
+            {c.modo === 'completa' && <Insignia>Cuenta individual</Insignia>}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -211,6 +211,7 @@ export default async function FichaCuenta({ params }: { params: Promise<{ id: st
                         cuentaActiva={c.estado === 'activa'}
                         puedeRevelar={puedeRevelar}
                         tipo={tipo}
+                        servicioId={c.servicio.id}
                         alta={
                           puedeAlta
                             ? {

@@ -258,6 +258,9 @@ export interface EntregaWebServicioFila {
   aptosPorVencer: number;
   /** Libres y vigentes que la web podría vender pero nadie revisó. */
   porRevisar: LugarEntregaFila[];
+  /** Todos los aptos, en el orden de entrega. */
+  todosAptos: LugarEntregaFila[];
+  correos?: Record<string, string> | null;
 }
 
 const aLugar = (f: FilaLibre): LugarEntregaFila => ({
@@ -321,6 +324,7 @@ export async function entregaWeb(
       aptosIndividuales: aptos.filter((f) => f.individual).length,
       aptosPorVencer: aptos.filter((f) => fechaCaracas(f.factura_en) <= enUnaSemana).length,
       porRevisar: porRevisar.map(aLugar),
+      todosAptos: aptos.map(aLugar),
     });
   }
   return filas;

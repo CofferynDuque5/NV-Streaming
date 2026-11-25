@@ -28,7 +28,9 @@ const normalizar = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
  * para que coincida siempre con el orden real de la cuenta.
  */
 export function etiquetaPerfil(tipo: TipoPlataforma, numero: number, nombre: string): string {
-  return tipo === 'perfiles' ? `Perfil ${numero}` : nombre;
+  if (tipo === 'perfiles') return `Perfil ${numero}`;
+  // Las cuentas de un solo cliente se guardaban como «Cuenta completa»: son individuales.
+  return normalizar(nombre).trim() === 'cuenta completa' ? 'Cuenta individual' : nombre;
 }
 
 export function tipoPlataforma(nombreServicio: string): TipoPlataforma {
@@ -184,4 +186,78 @@ export function recomendarLugar<T extends CandidatoLugar>(
   const fecha = (c: T) => c.facturaEn ?? '9999-12-31';
   const lugar = [...libres].sort((a, b) => fecha(b).localeCompare(fecha(a)))[0]!;
   return { lugar, cubre: fecha(lugar) >= venceCliente };
+}
+
+/* ─────────────────────── Cuentas individuales y completas ─────────────────────── */
+
+/**
+ * Cuenta individual (en el Gestor): la cuenta entera es de un solo cliente.
+ * Es la de modo «completa» y también la que tiene un solo perfil o cupo.
+ * Una cuenta con varios perfiles que se venden por separado NO es individual.
+ */
+export const esCuentaIndividual = (modo: 'perfiles' | 'completa', perfiles: number) =>
+  modo === 'completa' || perfiles <= 1;
+
+/** Un nombre para comparar: sin tildes, mayúsculas, puntos ni espacios de más. */
+export function nombreComparable(nombre: string): string {
+  return normalizar(nombre)
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Cuenta de varios perfiles con TODOS ocupados por la misma persona (por
+ * ejemplo, un revendedor como «Danyelis Str.» en los 5 perfiles). Se trata
+ * como una cuenta completa: un solo contrato, un solo vencimiento y un solo
+ * corte. Si falta un perfil por ocupar o hay otro nombre, no cuenta (aunque
+ * sea cliente del mismo responsable). Devuelve el nombre o null.
+ */
+export function unaPersonaEnTodos(
+  perfiles: readonly { asignado: boolean; nombre: string | null | undefined }[],
+): string | null {
+  if (perfiles.length < 2) return null;
+  const primero = perfiles[0]?.nombre;
+  if (!primero) return null;
+  const clave = nombreComparable(primero);
+  if (!clave) return null;
+  return perfiles.every((p) => p.asignado && p.nombre && nombreComparable(p.nombre) === clave)
+    ? primero
+    : null;
+}
+
+/* ─────────────────────── Mensaje con los datos (botón «Mensaje») ─────────────────────── */
+
+export const MARCA_MENSAJES = 'Nathan Streaming';
+
+export interface DatosMensajeCuenta {
+  cliente: string;
+  servicio: string;
+  correo: string;
+  /** Vacía: no se escribe (cuentas que entran con código). */
+  clave: string;
+  /** Vacío: no se escribe (cupos de planes familiares). */
+  perfil: string;
+  /** Vacío: no se escribe (sin PIN). */
+  pin: string;
+  /** «dd/mm/aaaa». */
+  vence: string;
+}
+
+/** El mensaje que se le envía al cliente con los datos de su cuenta (formato de Nathan). */
+export function mensajeDatosCuenta(d: DatosMensajeCuenta): string {
+  const linea = (etiqueta: string, valor: string) =>
+    valor.trim() ? [`${etiqueta}: ${valor.trim()}`] : [];
+  return [
+    `Hola, ${d.cliente.trim()}.`,
+    `Los datos de su cuenta de ${d.servicio} son los siguientes:`,
+    '',
+    `Correo: ${d.correo.trim() || '—'}`,
+    ...linea('Contraseña', d.clave),
+    ...linea('Perfil', d.perfil),
+    ...linea('PIN', d.pin),
+    ...linea('Vencimiento', d.vence),
+    '',
+    `¡Gracias por confiar en ${MARCA_MENSAJES}!`,
+  ].join('\n');
 }

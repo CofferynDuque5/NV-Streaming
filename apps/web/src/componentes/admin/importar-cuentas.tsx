@@ -565,7 +565,7 @@ export function ImportarCuentas({ servicios }: { servicios: { id: string; nombre
                   onChange={(e) => setModo(e.currentTarget.value as ModoCuenta)}
                 >
                   <option value="perfiles">Por perfiles</option>
-                  <option value="completa">Cuenta completa</option>
+                  <option value="completa">Cuenta individual (un solo cliente)</option>
                 </Selector>
                 {modo === 'perfiles' ? (
                   <Campo

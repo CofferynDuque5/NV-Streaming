@@ -28,6 +28,7 @@ import { Insignia } from '@/componentes/ui/insignia';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
 import { llamarApi } from '@/lib/api-cliente';
 import { Copiable, Secreto } from './cobros-cortes';
+import { CopiarIcono } from './cuentas-gestor';
 import { formatearDia, formatearFechaHora } from '@/lib/formato';
 
 /** Qué recibe el cliente: un perfil de una cuenta compartida, la cuenta entera o el cupo titular. */
@@ -47,18 +48,22 @@ function Lugar({
   destacado?: boolean;
 }) {
   const textos = TEXTOS_PLATAFORMA[tipo];
+  const correo = useContext(CorreosContexto)?.[l.cuentaId] ?? null;
   return (
     <div className="grid min-w-0 gap-0.5">
-      <Link
-        href={`/admin/cuentas/${l.cuentaId}`}
-        className={
-          destacado
-            ? 'truncate font-mono text-base font-semibold hover:text-marca'
-            : 'truncate font-mono text-sm hover:text-marca'
-        }
-      >
-        {l.pista}
-      </Link>
+      <span className="flex min-w-0 items-center gap-1">
+        <Link
+          href={`/admin/cuentas/${l.cuentaId}`}
+          className={
+            destacado
+              ? 'truncate font-mono text-base font-semibold hover:text-marca'
+              : 'truncate font-mono text-sm hover:text-marca'
+          }
+        >
+          {correo ?? l.pista}
+        </Link>
+        {correo && <CopiarIcono valor={correo} que="el correo" />}
+      </span>
       <span className="text-xs text-tinta-tenue">
         {queEs(l, tipo)} · {textos.lugar} {l.numero}
         {l.nombre && l.nombre !== `${textos.lugar} ${l.numero}` ? ` (${l.nombre})` : ''} · la cuenta
@@ -73,6 +78,126 @@ function Lugar({
 /** Pide (una vez por cuenta) el correo, la contraseña y los PIN descifrados. */
 type Revelar = (cuentaId: string) => Promise<CredencialesCuenta | string>;
 const RevelarContexto = createContext<Revelar | null>(null);
+/** Correos completos de las cuentas del servicio (con permiso de ver datos). */
+const CorreosContexto = createContext<Record<string, string> | null>(null);
+
+/** La contraseña de la cuenta con el ojo (se pide al tocarlo, queda en la auditoría) y copiar. */
+function ClaveConOjo({ cuentaId }: { cuentaId: string }) {
+  const revelar = useContext(RevelarContexto);
+  const [clave, setClave] = useState<string | null>(null);
+  const [ver, setVer] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!revelar) return null;
+
+  async function alternar() {
+    if (clave !== null) return setVer((v) => !v);
+    if (!revelar) return;
+    setCargando(true);
+    setError(null);
+    const r = await revelar(cuentaId);
+    setCargando(false);
+    if (typeof r === 'string') return setError(r);
+    setClave(r.clave);
+    setVer(true);
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1 text-sm">
+      <span className="text-xs text-tinta-tenue">Contraseña</span>
+      <span className="min-w-0 truncate font-mono">
+        {ver && clave !== null ? clave : '••••••••'}
+      </span>
+      <button
+        type="button"
+        onClick={() => void alternar()}
+        disabled={cargando}
+        aria-label={ver ? 'Ocultar la contraseña' : 'Ver la contraseña'}
+        title={ver ? 'Ocultar' : 'Ver'}
+        className="rounded-md p-1 text-tinta-tenue hover:text-tinta"
+      >
+        {ver ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+      {clave !== null && <CopiarIcono valor={clave} que="la contraseña" />}
+      {error && <span className="text-xs text-peligro">{error}</span>}
+    </span>
+  );
+}
+
+/**
+ * Lo disponible, por cuenta: correo (con copiar), contraseña con el ojo y
+ * copiar, y los perfiles o cupos libres de cada una (aptos o sin revisar).
+ */
+function DisponiblesPorCuenta({ s }: { s: EntregaWebServicio }) {
+  const correos = useContext(CorreosContexto);
+  const textos = TEXTOS_PLATAFORMA[s.tipo];
+  const cuentas = useMemo(() => {
+    const m = new Map<string, { l: LugarEntregaWeb; apto: boolean }[]>();
+    for (const l of s.todosAptos ?? s.siguientes) {
+      m.set(l.cuentaId, [...(m.get(l.cuentaId) ?? []), { l, apto: true }]);
+    }
+    for (const l of s.porRevisar) {
+      m.set(l.cuentaId, [...(m.get(l.cuentaId) ?? []), { l, apto: false }]);
+    }
+    return [...m.values()].map((x) => [...x].sort((a, b) => a.l.numero - b.l.numero));
+  }, [s]);
+  if (cuentas.length === 0) return null;
+  return (
+    <section className="grid gap-2" aria-label="Disponibles por cuenta">
+      <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+        Disponibles por cuenta ({cuentas.length})
+      </h3>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {cuentas.map((lista) => {
+          const c = lista[0]!.l;
+          const correo = correos?.[c.cuentaId] ?? null;
+          return (
+            <li key={c.cuentaId} className="grid gap-1.5 rounded-xl border border-borde p-3">
+              <span className="flex min-w-0 items-center gap-1">
+                <Link
+                  href={`/admin/cuentas/${c.cuentaId}`}
+                  className="truncate font-mono text-sm font-semibold hover:text-marca"
+                  title={correo ?? c.pista}
+                >
+                  {correo ?? c.pista}
+                </Link>
+                {correo && <CopiarIcono valor={correo} que="el correo" />}
+              </span>
+              <ClaveConOjo cuentaId={c.cuentaId} />
+              <span className="text-xs text-tinta-tenue">
+                {c.individual
+                  ? 'Cuenta individual'
+                  : `${lista.length} ${lista.length === 1 ? textos.lugar.toLowerCase() : textos.lugares.toLowerCase()} libre${lista.length === 1 ? '' : 's'}`}{' '}
+                · la cuenta vence {formatearDia(c.facturaEn)}
+              </span>
+              <span className="flex flex-wrap gap-1.5">
+                {lista.map(({ l, apto }) => (
+                  <span
+                    key={l.perfilId}
+                    title={apto ? 'Apto: la web lo puede entregar' : 'Sin revisar'}
+                    className={
+                      apto
+                        ? 'inline-flex items-center gap-1 rounded-lg border border-exito/40 bg-exito-suave/40 px-2 py-0.5 text-xs'
+                        : 'inline-flex items-center gap-1 rounded-lg border border-borde px-2 py-0.5 text-xs text-tinta-suave'
+                    }
+                  >
+                    {apto ? (
+                      <CircleCheck className="size-3 text-exito" aria-hidden="true" />
+                    ) : (
+                      <CircleDashed className="size-3" aria-hidden="true" />
+                    )}
+                    {c.individual ? 'Cuenta entera' : `${textos.lugar} ${l.numero}`}
+                    {textos.usaPin && !c.individual ? (l.conPin ? ' · PIN' : '') : ''}
+                  </span>
+                ))}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 /**
  * «Ver datos» como en Plataformas: correo, contraseña y PIN del lugar, ahí
@@ -324,7 +449,7 @@ export function EntregaWeb({
             valor={totales.listos}
             nota={
               totales.individuales > 0
-                ? `${totales.listos - totales.individuales} compartidos · ${totales.individuales} completas`
+                ? `${totales.listos - totales.individuales} compartidos · ${totales.individuales} individuales`
                 : 'Ya cargados y aptos en la web'
             }
             tono="exito"
@@ -394,7 +519,7 @@ export function EntregaWeb({
                                 ? `${s.aptos - ind} ${textos.lugares.toLowerCase()}`
                                 : null,
                               ind > 0
-                                ? `${ind} ${ind === 1 ? 'cuenta completa' : 'cuentas completas'}`
+                                ? `${ind} ${ind === 1 ? 'cuenta individual' : 'cuentas individuales'}`
                                 : null,
                               s.aptosPorVencer
                                 ? `${s.aptosPorVencer} en cuentas que vencen en 7 días`
@@ -589,220 +714,223 @@ function ServicioEntrega({
   const est = estadoStock(s);
   const idCuerpo = `${ancla(s)}-cuerpo`;
   return (
-    <Tarjeta className="min-w-0 scroll-mt-24">
-      <div id={ancla(s)} className="scroll-mt-24">
-        <button
-          type="button"
-          onClick={onAlternar}
-          aria-expanded={abierta}
-          aria-controls={idCuerpo}
-          className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left sm:px-6"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <ChevronDown
-              className={`size-4 shrink-0 text-tinta-tenue transition-transform ${abierta ? '' : '-rotate-90'}`}
-              aria-hidden="true"
-            />
-            <span className="truncate text-base font-bold">{s.servicio}</span>
-          </span>
-          <span className="flex flex-wrap gap-2">
-            <Insignia tono={est === 'agotada' ? 'peligro' : est === 'poco' ? 'aviso' : 'exito'}>
-              {s.aptos > 0
-                ? `${s.aptos} ${s.aptos === 1 ? 'listo' : 'listos'} para entregar`
-                : 'Agotado en la web'}
-            </Insignia>
-            {s.porRevisar.length > 0 && (
-              <Insignia tono="neutro">{s.porRevisar.length} por revisar</Insignia>
-            )}
-          </span>
-        </button>
-      </div>
-      {abierta && (
-        <div id={idCuerpo} className="grid gap-4 border-t border-borde px-5 py-4 sm:px-6">
-          {error && <Alerta tono="peligro">{error}</Alerta>}
-          {ahora ? (
-            <section className="grid gap-2" aria-label="Se entregaría ahora">
-              <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-                Si alguien compra ahora recibe
-              </h3>
-              <p className="text-xs text-tinta-suave">
-                Aquí solo salen los que alguien marcó como aptos. Los que nadie ha revisado están
-                abajo, en «Sin revisar».
-              </p>
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-exito/30 bg-exito-suave/40 p-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <PackageCheck className="size-5 shrink-0 text-exito" aria-hidden="true" />
-                  <div className="grid min-w-0 gap-1">
-                    <Lugar l={ahora} tipo={s.tipo} destacado />
-                    <EstadoRevision l={ahora} apto />
-                  </div>
-                </div>
-                {puedeGestionar && (
-                  <Boton
-                    tamano="sm"
-                    variante="fantasma"
-                    icono={<CircleSlash className="size-3.5" />}
-                    cargando={ocupado === ahora.perfilId}
-                    onClick={() => void marcar(ahora.perfilId, [ahora.perfilId], false)}
-                  >
-                    Quitar de la web
-                  </Boton>
-                )}
-              </div>
-              {despues.length > 0 && (
-                <>
-                  <h3 className="mt-2 text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-                    Después siguen
-                  </h3>
-                  <ol className="grid gap-2">
-                    {despues.map((l, i) => (
-                      <li
-                        key={l.perfilId}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borde px-3 py-2"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="w-5 text-right text-sm text-tinta-tenue tabular-nums">
-                            {i + 2}.
-                          </span>
-                          <div className="grid min-w-0 gap-1">
-                            <Lugar l={l} tipo={s.tipo} />
-                            <EstadoRevision l={l} apto />
-                          </div>
-                        </div>
-                        {puedeGestionar && (
-                          <Boton
-                            tamano="sm"
-                            variante="fantasma"
-                            icono={<CircleSlash className="size-3.5" />}
-                            cargando={ocupado === l.perfilId}
-                            onClick={() => void marcar(l.perfilId, [l.perfilId], false)}
-                          >
-                            Quitar de la web
-                          </Boton>
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                  {s.aptos > s.siguientes.length && (
-                    <p className="text-xs text-tinta-tenue">
-                      Y {s.aptos - s.siguientes.length} más aptos después.
-                    </p>
-                  )}
-                </>
+    <CorreosContexto.Provider value={s.correos ?? null}>
+      <Tarjeta className="min-w-0 scroll-mt-24">
+        <div id={ancla(s)} className="scroll-mt-24">
+          <button
+            type="button"
+            onClick={onAlternar}
+            aria-expanded={abierta}
+            aria-controls={idCuerpo}
+            className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left sm:px-6"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <ChevronDown
+                className={`size-4 shrink-0 text-tinta-tenue transition-transform ${abierta ? '' : '-rotate-90'}`}
+                aria-hidden="true"
+              />
+              <span className="truncate text-base font-bold">{s.servicio}</span>
+            </span>
+            <span className="flex flex-wrap gap-2">
+              <Insignia tono={est === 'agotada' ? 'peligro' : est === 'poco' ? 'aviso' : 'exito'}>
+                {s.aptos > 0
+                  ? `${s.aptos} ${s.aptos === 1 ? 'listo' : 'listos'} para entregar`
+                  : 'Agotado en la web'}
+              </Insignia>
+              {s.porRevisar.length > 0 && (
+                <Insignia tono="neutro">{s.porRevisar.length} por revisar</Insignia>
               )}
-            </section>
-          ) : (
-            <Alerta tono="aviso">
-              No hay {textos.lugares.toLowerCase()} revisados y aptos: la web lo muestra agotado.
-              {s.porRevisar.length > 0
-                ? ' Revisa los de abajo y márcalos como aptos.'
-                : ' Agrega una cuenta o libera un lugar.'}
-            </Alerta>
-          )}
-
-          {s.porRevisar.length > 0 && (
-            <section className="grid gap-2" aria-label="Por revisar">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            </span>
+          </button>
+        </div>
+        {abierta && (
+          <div id={idCuerpo} className="grid gap-4 border-t border-borde px-5 py-4 sm:px-6">
+            {error && <Alerta tono="peligro">{error}</Alerta>}
+            <DisponiblesPorCuenta s={s} />
+            {ahora ? (
+              <section className="grid gap-2" aria-label="Se entregaría ahora">
                 <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-                  Sin revisar (libres y vigentes; la web no los entrega hasta que los marques)
+                  Si alguien compra ahora recibe
                 </h3>
-                {puedeGestionar &&
-                  s.porRevisar.length > 1 &&
-                  (confirmarTodos ? (
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-tinta-suave">
-                        ¿Ya revisaste los {s.porRevisar.length}?
-                      </span>
-                      <Boton
-                        tamano="sm"
-                        icono={<CheckCheck className="size-3.5" />}
-                        cargando={ocupado === 'todos'}
-                        onClick={async () => {
-                          await marcar(
-                            'todos',
-                            s.porRevisar.map((l) => l.perfilId),
-                            true,
-                          );
-                          setConfirmarTodos(false);
-                        }}
-                      >
-                        Sí, marcar todos
-                      </Boton>
-                      <Boton
-                        tamano="sm"
-                        variante="fantasma"
-                        onClick={() => setConfirmarTodos(false)}
-                      >
-                        Cancelar
-                      </Boton>
-                    </span>
-                  ) : (
+                <p className="text-xs text-tinta-suave">
+                  Aquí solo salen los que alguien marcó como aptos. Los que nadie ha revisado están
+                  abajo, en «Sin revisar».
+                </p>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-exito/30 bg-exito-suave/40 p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <PackageCheck className="size-5 shrink-0 text-exito" aria-hidden="true" />
+                    <div className="grid min-w-0 gap-1">
+                      <Lugar l={ahora} tipo={s.tipo} destacado />
+                      <EstadoRevision l={ahora} apto />
+                    </div>
+                  </div>
+                  {puedeGestionar && (
                     <Boton
                       tamano="sm"
-                      variante="secundario"
-                      icono={<CheckCheck className="size-3.5" />}
-                      onClick={() => setConfirmarTodos(true)}
+                      variante="fantasma"
+                      icono={<CircleSlash className="size-3.5" />}
+                      cargando={ocupado === ahora.perfilId}
+                      onClick={() => void marcar(ahora.perfilId, [ahora.perfilId], false)}
                     >
-                      Marcar todos aptos ({s.porRevisar.length})
+                      Quitar de la web
                     </Boton>
-                  ))}
-              </div>
-              {porCuenta.map((grupo) => {
-                const c = grupo[0]!;
-                return (
-                  <div key={c.cuentaId} className="grid gap-1 rounded-xl border border-borde p-2">
-                    {grupo.length > 1 && puedeGestionar && (
-                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                        <span className="font-mono text-sm">{c.pista}</span>
-                        <Boton
-                          tamano="sm"
-                          variante="secundario"
-                          icono={<CheckCheck className="size-3.5" />}
-                          cargando={ocupado === c.cuentaId}
-                          onClick={() =>
-                            void marcar(
-                              c.cuentaId,
-                              grupo.map((l) => l.perfilId),
-                              true,
-                            )
-                          }
-                        >
-                          Marcar toda la cuenta apta ({grupo.length})
-                        </Boton>
-                      </div>
-                    )}
-                    <ul className="grid gap-1">
-                      {grupo.map((l) => (
+                  )}
+                </div>
+                {despues.length > 0 && (
+                  <>
+                    <h3 className="mt-2 text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+                      Después siguen
+                    </h3>
+                    <ol className="grid gap-2">
+                      {despues.map((l, i) => (
                         <li
                           key={l.perfilId}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-1 py-1.5"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borde px-3 py-2"
                         >
-                          <div className="grid min-w-0 gap-1">
-                            <Lugar l={l} tipo={s.tipo} />
-                            <EstadoRevision l={l} apto={false} />
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="w-5 text-right text-sm text-tinta-tenue tabular-nums">
+                              {i + 2}.
+                            </span>
+                            <div className="grid min-w-0 gap-1">
+                              <Lugar l={l} tipo={s.tipo} />
+                              <EstadoRevision l={l} apto />
+                            </div>
                           </div>
                           {puedeGestionar && (
                             <Boton
                               tamano="sm"
-                              variante="secundario"
-                              icono={<CircleCheck className="size-3.5" />}
+                              variante="fantasma"
+                              icono={<CircleSlash className="size-3.5" />}
                               cargando={ocupado === l.perfilId}
-                              onClick={() => void marcar(l.perfilId, [l.perfilId], true)}
-                              aria-label={`Marcar apto ${l.pista} ${TEXTOS_PLATAFORMA[s.tipo].lugar} ${l.numero}`}
+                              onClick={() => void marcar(l.perfilId, [l.perfilId], false)}
                             >
-                              Marcar apto
+                              Quitar de la web
                             </Boton>
                           )}
                         </li>
                       ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </section>
-          )}
-        </div>
-      )}
-    </Tarjeta>
+                    </ol>
+                    {s.aptos > s.siguientes.length && (
+                      <p className="text-xs text-tinta-tenue">
+                        Y {s.aptos - s.siguientes.length} más aptos después.
+                      </p>
+                    )}
+                  </>
+                )}
+              </section>
+            ) : (
+              <Alerta tono="aviso">
+                No hay {textos.lugares.toLowerCase()} revisados y aptos: la web lo muestra agotado.
+                {s.porRevisar.length > 0
+                  ? ' Revisa los de abajo y márcalos como aptos.'
+                  : ' Agrega una cuenta o libera un lugar.'}
+              </Alerta>
+            )}
+
+            {s.porRevisar.length > 0 && (
+              <section className="grid gap-2" aria-label="Por revisar">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+                    Sin revisar (libres y vigentes; la web no los entrega hasta que los marques)
+                  </h3>
+                  {puedeGestionar &&
+                    s.porRevisar.length > 1 &&
+                    (confirmarTodos ? (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-tinta-suave">
+                          ¿Ya revisaste los {s.porRevisar.length}?
+                        </span>
+                        <Boton
+                          tamano="sm"
+                          icono={<CheckCheck className="size-3.5" />}
+                          cargando={ocupado === 'todos'}
+                          onClick={async () => {
+                            await marcar(
+                              'todos',
+                              s.porRevisar.map((l) => l.perfilId),
+                              true,
+                            );
+                            setConfirmarTodos(false);
+                          }}
+                        >
+                          Sí, marcar todos
+                        </Boton>
+                        <Boton
+                          tamano="sm"
+                          variante="fantasma"
+                          onClick={() => setConfirmarTodos(false)}
+                        >
+                          Cancelar
+                        </Boton>
+                      </span>
+                    ) : (
+                      <Boton
+                        tamano="sm"
+                        variante="secundario"
+                        icono={<CheckCheck className="size-3.5" />}
+                        onClick={() => setConfirmarTodos(true)}
+                      >
+                        Marcar todos aptos ({s.porRevisar.length})
+                      </Boton>
+                    ))}
+                </div>
+                {porCuenta.map((grupo) => {
+                  const c = grupo[0]!;
+                  return (
+                    <div key={c.cuentaId} className="grid gap-1 rounded-xl border border-borde p-2">
+                      {grupo.length > 1 && puedeGestionar && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                          <span className="font-mono text-sm">{c.pista}</span>
+                          <Boton
+                            tamano="sm"
+                            variante="secundario"
+                            icono={<CheckCheck className="size-3.5" />}
+                            cargando={ocupado === c.cuentaId}
+                            onClick={() =>
+                              void marcar(
+                                c.cuentaId,
+                                grupo.map((l) => l.perfilId),
+                                true,
+                              )
+                            }
+                          >
+                            Marcar toda la cuenta apta ({grupo.length})
+                          </Boton>
+                        </div>
+                      )}
+                      <ul className="grid gap-1">
+                        {grupo.map((l) => (
+                          <li
+                            key={l.perfilId}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-1 py-1.5"
+                          >
+                            <div className="grid min-w-0 gap-1">
+                              <Lugar l={l} tipo={s.tipo} />
+                              <EstadoRevision l={l} apto={false} />
+                            </div>
+                            {puedeGestionar && (
+                              <Boton
+                                tamano="sm"
+                                variante="secundario"
+                                icono={<CircleCheck className="size-3.5" />}
+                                cargando={ocupado === l.perfilId}
+                                onClick={() => void marcar(l.perfilId, [l.perfilId], true)}
+                                aria-label={`Marcar apto ${l.pista} ${TEXTOS_PLATAFORMA[s.tipo].lugar} ${l.numero}`}
+                              >
+                                Marcar apto
+                              </Boton>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+          </div>
+        )}
+      </Tarjeta>
+    </CorreosContexto.Provider>
   );
 }

@@ -522,7 +522,7 @@ export function leerRespaldoGestor(json: unknown, prefijo = '+58'): RespaldoGest
           {
             origenId: texto(s.id),
             numero: 1,
-            nombre: 'Cuenta completa',
+            nombre: 'Cuenta individual',
             pin: PIN.test(texto(s.pin)) ? texto(s.pin) : null,
             cliente: cliente(s, prefijo, contactoMalo, supuesto),
             usuarioMiembro: null,

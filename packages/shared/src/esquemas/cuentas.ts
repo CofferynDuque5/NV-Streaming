@@ -287,8 +287,18 @@ export const marcarAptosSchema = z.object({
 });
 export type MarcarAptosEntrada = z.infer<typeof marcarAptosSchema>;
 
-/** Mover al cliente de un perfil a otro libre (de esta u otra cuenta del mismo servicio). */
-export const moverPerfilSchema = z.object({ destinoPerfilId: uuidSchema });
+/**
+ * Mover al cliente de un perfil a otro libre (de esta u otra cuenta del mismo servicio).
+ * - `soloCliente` (alquiler): pasa solo el cliente con su suscripción (vencimiento,
+ *   responsable y precio); el correo y la clave del miembro NO viajan.
+ * - `usuarioMiembro`/`claveMiembro`: correo del cliente para un cupo unido a un plan.
+ */
+export const moverPerfilSchema = z.object({
+  destinoPerfilId: uuidSchema,
+  soloCliente: z.boolean().optional(),
+  usuarioMiembro: usuarioCuentaSchema.optional(),
+  claveMiembro: claveCuentaSchema.optional(),
+});
 
 /** Orden nuevo de los perfiles de una cuenta (flechas de «Editar cuenta», como en el Gestor). */
 export const ordenarPerfilesSchema = z.object({

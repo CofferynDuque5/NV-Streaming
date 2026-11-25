@@ -261,6 +261,12 @@ export interface LugarSuscripcion {
   pistaCuenta: string | null;
   /** Otros clientes vigentes que siguen en la misma cuenta. */
   otrosActivos: number;
+  /**
+   * Cuenta con TODOS sus perfiles a nombre de la misma persona (un revendedor
+   * como «Danyelis Str.»): sale una sola vez, como cuenta completa, con las
+   * suscripciones de los perfiles que están en esta misma lista.
+   */
+  completa?: { suscripcionIds: string[]; perfiles: number } | null;
 }
 
 export interface SuscripcionConLugar extends SuscripcionPublica {
@@ -325,6 +331,10 @@ export interface EntregaWebServicio {
   /** De los aptos, cuántos están en cuentas cuyo cobro al proveedor es en 7 días o menos. */
   aptosPorVencer?: number;
   porRevisar: LugarEntregaWeb[];
+  /** Todos los aptos (no solo los siguientes), para ver qué hay disponible por cuenta. */
+  todosAptos?: LugarEntregaWeb[];
+  /** Correo completo de cada cuenta de la lista (solo con permiso de ver datos). */
+  correos?: Record<string, string> | null;
 }
 
 export interface SuscripcionPublica {

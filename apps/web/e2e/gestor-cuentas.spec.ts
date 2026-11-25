@@ -32,6 +32,7 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
       usuario: `gestor.${sufijo}@example.com`,
       clave: 'Clave-de-prueba-1',
       perfiles: 3,
+      facturaEn: '2099-12-01',
     },
     headers: { origin },
   });
@@ -54,9 +55,19 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
   // Mover al segundo cliente al perfil 3.
   await page.getByRole('button', { name: 'Mover Perfil 2' }).click();
   const mover = page.getByRole('dialog', { name: `Mover a ${dos}` });
-  await mover.getByRole('button', { name: 'Perfil 3', exact: true }).click();
-  await mover.getByRole('button', { name: 'Mover', exact: true }).click();
+  // Se ve dónde está ahora y las cuentas con su correo y sus libres.
+  await expect(mover.getByText('Ahora está en')).toBeVisible();
+  const estaCuenta = mover
+    .getByRole('listitem')
+    .filter({ hasText: `gestor.${sufijo}@example.com` });
+  await expect(estaCuenta).toContainText('esta cuenta');
+  await estaCuenta.getByRole('button', { name: 'Perfil 3', exact: true }).click();
+  await mover.getByRole('button', { name: 'Mover y armar mensaje' }).click();
   await expect(mover).toBeHidden();
+  // Al moverlo se abre solo el mensaje con sus datos.
+  const datos = page.getByRole('dialog', { name: `Mensaje para ${dos}` });
+  await expect(datos).toBeVisible();
+  await datos.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Perfil 3' })).toContainText(dos);
 
   // Cortar al primero con clave nueva: se abre el aviso para el que sigue.

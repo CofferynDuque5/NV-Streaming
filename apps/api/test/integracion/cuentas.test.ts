@@ -190,7 +190,7 @@ describe('cuentas de servicio', () => {
       perfiles: 5,
     });
     expect(cuenta2.cuerpo.perfiles.total).toBe(1);
-    expect(cuenta2.cuerpo.listaPerfiles[0].nombre).toBe('Cuenta completa');
+    expect(cuenta2.cuerpo.listaPerfiles[0].nombre).toBe('Cuenta individual');
     const otro = await e.operador.n.post(
       `/cuentas/${cuenta2.cuerpo.id}/perfiles/${cuenta2.cuerpo.listaPerfiles[0].id}/asignar`,
       { suscripcionId },
@@ -454,10 +454,11 @@ describe('cuentas de servicio', () => {
     expect((await sinPermiso.n.post(rutaMensaje)).estado).toBe(403);
     const m1 = await e.operador.n.post(rutaMensaje);
     expect(m1.estado).toBe(201);
-    // Se envía con el contrato del Gestor.
-    expect(m1.cuerpo.texto).toMatch(/^CONTRATO – FACTURA DE SERVICIO/);
+    // Se envía con el mensaje de datos de la cuenta.
+    expect(m1.cuerpo.texto).toMatch(/^Hola, .+\.\nLos datos de su cuenta de /);
     expect(m1.cuerpo.texto).toContain(`Contraseña: ${CLAVE}`);
-    expect(m1.cuerpo.texto).toContain('Pin: 2468');
+    expect(m1.cuerpo.texto).toContain('Perfil: 2\nPIN: 2468');
+    expect(m1.cuerpo.texto).toMatch(/¡Gracias por confiar en Nathan Streaming!$/);
     expect(m1.cuerpo.whatsapp).toBeNull();
     await ctx.prisma.contactoCliente.updateMany({
       where: { clienteId },
@@ -522,7 +523,21 @@ describe('cuentas de servicio', () => {
       usuario: 'otra.cine@example.com',
       clave: 'Otra-123',
       perfiles: 2,
+      facturaEn: '2099-12-01',
     });
+    // Las cuentas vencidas o sin fecha no salen como destino.
+    for (const [usuario, facturaEn] of [
+      ['vencida.cine@example.com', '2020-01-01'],
+      ['sinfecha.cine@example.com', null],
+    ] as const) {
+      await e.operador.n.post('/cuentas', {
+        servicioId: e.servicioId,
+        usuario,
+        clave: 'Vieja-123',
+        perfiles: 2,
+        ...(facturaEn ? { facturaEn } : {}),
+      });
+    }
     const destinos = await e.operador.n.get(ruta(p2!, 'destinos'));
     expect(destinos.cuerpo.map((d: { cuentaId: string }) => d.cuentaId).sort()).toEqual(
       [e.cuenta.id, otra.cuerpo.id].sort(),
@@ -890,6 +905,56 @@ describe('Cobros: vencimientos y cortes', () => {
         })
       ).estado,
     ).toBe(400);
+  });
+
+  it('una cuenta con todos sus perfiles a nombre de la misma persona sale una sola vez', async () => {
+    const e = await escenario();
+    const c = await conectar(ctx, 'cliente');
+    const subs: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+      subs.push(alta.cuerpo.suscripcion.id as string);
+    }
+    await ctx.prisma.suscripcion.updateMany({
+      where: { id: { in: subs } },
+      data: { estado: 'en_gracia', venceEn: new Date(Date.now() - 3 * DIA) },
+    });
+    const cuenta = await e.operador.n.post('/cuentas', {
+      servicioId: e.servicioId,
+      usuario: 'toda.de.uno@example.com',
+      clave: 'Uno-123',
+      perfiles: 2,
+    });
+    expect(cuenta.estado).toBe(201);
+    const perfiles = cuenta.cuerpo.listaPerfiles as { id: string }[];
+    for (const [i, id] of subs.entries()) {
+      const r = await e.operador.n.post(
+        `/cuentas/${cuenta.cuerpo.id}/perfiles/${perfiles[i]!.id}/asignar`,
+        { suscripcionId: id },
+      );
+      expect(r.estado).toBe(201);
+    }
+    const lista = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    const deLaCuenta = lista.cuerpo.cortes.filter(
+      (s: { lugar: { cuentaId: string } | null }) => s.lugar?.cuentaId === cuenta.cuerpo.id,
+    );
+    expect(deLaCuenta).toHaveLength(1);
+    expect(deLaCuenta[0].lugar.etiqueta).toBe('Cuenta completa');
+    expect([...deLaCuenta[0].lugar.completa.suscripcionIds].sort()).toEqual([...subs].sort());
+    expect(deLaCuenta[0].lugar.completa.perfiles).toBe(2);
+
+    // Si un perfil queda libre ya no es de una sola persona: sale cada uno por su lado.
+    await ctx.prisma.perfilCuenta.update({
+      where: { id: perfiles[1]!.id },
+      data: { estado: 'libre', suscripcionId: null },
+    });
+    const otra = await e.operador.n.get('/suscripciones/vencimientos-cortes');
+    const sueltas = otra.cuerpo.cortes.filter(
+      (s: { lugar: { cuentaId: string; completa?: unknown } | null }) =>
+        s.lugar?.cuentaId === cuenta.cuerpo.id,
+    );
+    expect(sueltas).toHaveLength(1);
+    expect(sueltas[0].lugar.completa ?? null).toBeNull();
   });
 
   it('separa vencimientos de cortes, corta con clave y PIN nuevos y deja el historial', async () => {
