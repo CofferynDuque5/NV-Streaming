@@ -5,13 +5,16 @@ import {
   contratoServicio,
   fechaContrato,
   type AvisosCuenta,
+  esCuentaIndividual,
   esTitular,
   type EstadoSuscripcion,
+  mensajeDatosCuenta,
   type MensajePerfil,
   type PerfilDelCliente,
   type PerfilRevelado,
   type TipoPlataforma,
   tipoPlataforma,
+  unaPersonaEnTodos,
   urlMedio,
 } from '@nv/shared';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
@@ -54,8 +57,21 @@ const SELECCION_PERFIL = {
       claveCifrada: true,
       servicio: { select: { id: true, nombre: true } },
       _count: { select: { perfiles: true } },
+      // Para saber si una sola persona ocupa todos los perfiles (cuenta completa).
+      perfiles: {
+        select: {
+          estado: true,
+          suscripcion: { select: { cliente: { select: { nombre: true } } } },
+        },
+      },
     },
   },
+} as const;
+
+/** De quién es la suscripción y quién la creó: decide qué va en «Perfil». */
+const SELECCION_ORIGEN = {
+  clienteId: true,
+  creadoPor: { select: { rol: true } },
 } as const;
 
 const noDisponible = (estado: EstadoSuscripcion) =>
@@ -118,25 +134,63 @@ export function textoDatos(d: DatosTexto, intro?: string): string[] {
   return lineas;
 }
 
+/** Cuenta de varios perfiles con la misma persona en todos (se trata como cuenta completa). */
+function deUnaPersona(cuenta: {
+  perfiles: { estado: string; suscripcion: { cliente: { nombre: string } } | null }[];
+}): boolean {
+  return Boolean(
+    unaPersonaEnTodos(
+      cuenta.perfiles.map((x) => ({
+        asignado: x.estado === 'asignado',
+        nombre: x.suscripcion?.cliente.nombre,
+      })),
+    ),
+  );
+}
+
+/**
+ * Qué va en «Perfil» del contrato y del mensaje:
+ * - Cuenta individual: «Cuenta individual».
+ * - Todos los perfiles de la misma persona: «Cuenta completa» (y sin PIN).
+ * - Plan familiar o correo: nada (no hay perfil).
+ * - Perfil de una cuenta compartida: el nombre del cliente si lo agregó o le
+ *   actualizó los datos el equipo; el número del perfil si lo compró en la web.
+ */
+export function lugarEnContrato(
+  datos: PerfilRevelado,
+  cuenta: {
+    modo: 'perfiles' | 'completa';
+    _count: { perfiles: number };
+    perfiles: { estado: string; suscripcion: { cliente: { nombre: string } } | null }[];
+  },
+  nombreCliente: string,
+  web: boolean,
+): { perfil: string; pin: string } {
+  if (esCuentaIndividual(cuenta.modo, cuenta._count.perfiles)) {
+    return { perfil: 'Cuenta individual', pin: datos.pin ?? '' };
+  }
+  if (deUnaPersona(cuenta)) return { perfil: 'Cuenta completa', pin: '' };
+  if (datos.tipo !== 'perfiles') return { perfil: '', pin: datos.pin ?? '' };
+  return { perfil: web ? datos.perfil : nombreCliente.trim(), pin: datos.pin ?? '' };
+}
+
 /**
  * «CONTRATO – FACTURA DE SERVICIO» (formato del Gestor) con los datos del
- * lugar entregado: el perfil por su nombre («Perfil 3»), «Cuenta individual»
- * o nada en la cuenta principal de un plan familiar; PIN o «NO APLICA»; y el
+ * lugar entregado (ver `lugarEnContrato`), PIN o «NO APLICA» y el
  * vencimiento del cliente en dd/mm/aaaa (hora de Venezuela).
  */
 export function contratoDe(
   servicio: string,
   datos: PerfilRevelado,
-  cuenta: { modo: 'perfiles' | 'completa'; perfiles: number },
+  lugar: { perfil: string; pin: string },
   venceEn: Date | null,
 ): string {
-  const individual = cuenta.modo === 'completa' || cuenta.perfiles === 1;
   return contratoServicio({
     servicio,
     correo: datos.usuario,
     clave: datos.clave,
-    perfil: individual ? 'Cuenta individual' : datos.tipo === 'perfiles' ? datos.perfil : '',
-    pin: datos.pin ?? '',
+    perfil: lugar.perfil,
+    pin: lugar.pin,
     vence: venceEn ? fechaContrato(fechaCaracas(venceEn)) : '',
   });
 }
@@ -273,6 +327,8 @@ export class PerfilesClienteService {
             servicio: {
               select: { id: true, nombre: true, slug: true, categoria: true, imagenId: true },
             },
+            _count: { select: { perfiles: true } },
+            perfiles: SELECCION_PERFIL.cuenta.select.perfiles,
           },
         },
         suscripcion: {
@@ -280,6 +336,7 @@ export class PerfilesClienteService {
             id: true,
             estado: true,
             venceEn: true,
+            ...SELECCION_ORIGEN,
             plan: { select: { id: true, nombre: true } },
             cliente: { select: { id: true, nombre: true } },
           },
@@ -288,6 +345,44 @@ export class PerfilesClienteService {
       orderBy: [{ asignadoEn: 'desc' }, { id: 'asc' }],
       take: 50,
     });
+    // Clientes que el equipo editó: su perfil se llama con su nombre aunque lo hayan comprado en la web.
+    const idsWeb = [
+      ...new Set(
+        filas.flatMap((p) =>
+          p.suscripcion?.creadoPor &&
+          ['cliente', 'revendedor'].includes(p.suscripcion.creadoPor.rol)
+            ? [p.suscripcion.clienteId]
+            : [],
+        ),
+      ),
+    ];
+    const editados = new Set(
+      idsWeb.length
+        ? (
+            await this.prisma.auditoria.findMany({
+              where: {
+                entidad: 'cliente',
+                entidadId: { in: idsWeb },
+                accion: 'cliente.actualizado',
+              },
+              select: { entidadId: true },
+              distinct: ['entidadId'],
+            })
+          ).map((a) => a.entidadId)
+        : [],
+    );
+    /** «Cuenta individual», «Cuenta completa», «Perfil 3» (web) o «Perfil: Ana Pérez» (equipo). */
+    const lugarDe = (p: (typeof filas)[number]): string => {
+      const tipo = tipoPlataforma(p.cuenta.servicio.nombre);
+      if (esCuentaIndividual(p.cuenta.modo, p.cuenta._count.perfiles)) return 'Cuenta individual';
+      if (deUnaPersona(p.cuenta)) return 'Cuenta completa';
+      if (tipo !== 'perfiles') return p.nombre;
+      const s = p.suscripcion!;
+      const web =
+        Boolean(s.creadoPor && ['cliente', 'revendedor'].includes(s.creadoPor.rol)) &&
+        !editados.has(s.clienteId);
+      return web ? `Perfil ${p.numero}` : `Perfil: ${s.cliente.nombre}`;
+    };
     return filas.flatMap((p) =>
       p.suscripcion
         ? [
@@ -310,8 +405,11 @@ export class PerfilesClienteService {
               },
               tipo: tipoPlataforma(p.cuenta.servicio.nombre),
               modo: p.cuenta.modo,
+              lugar: lugarDe(p),
               disponible: p.cuenta.estado === 'activa' && VIGENTES.includes(p.suscripcion.estado),
               pideCodigos: conCodigos.has(p.cuenta.servicio.id),
+              // Nombre y apellidos completos: así se distingue a quién es cada perfil.
+              titular: p.suscripcion.cliente.nombre,
               ...(conCliente ? { cliente: p.suscripcion.cliente } : {}),
               cambioReciente:
                 p.datosCambiadosEn &&
@@ -354,7 +452,13 @@ export class PerfilesClienteService {
     await this.limites.consumir(`revelar_perfil:${auth.usuario.id}`, LIMITE_REVELAR_PERFIL);
     const s = await this.prisma.suscripcion.findFirst({
       where: { id: suscripcionId, ...dueno },
-      select: { estado: true, venceEn: true, perfilCuenta: { select: SELECCION_PERFIL } },
+      select: {
+        estado: true,
+        venceEn: true,
+        ...SELECCION_ORIGEN,
+        cliente: { select: { nombre: true } },
+        perfilCuenta: { select: SELECCION_PERFIL },
+      },
     });
     if (!s?.perfilCuenta) throw Errores.noEncontrado('El perfil');
     if (!VIGENTES.includes(s.estado)) throw noDisponible(s.estado);
@@ -366,7 +470,13 @@ export class PerfilesClienteService {
         'Estamos revisando esta cuenta. Te escribiremos con los datos nuevos; si lo necesitas antes, abre un ticket.',
       );
     }
-    const datos = this.descifrar(p);
+    const revelado = this.descifrar(p);
+    const lugar = lugarEnContrato(revelado, p.cuenta, s.cliente.nombre, await this.compraWeb(s));
+    // En «Mis accesos» el perfil se llama igual que en el contrato.
+    const datos =
+      revelado.tipo === 'perfiles' && lugar.perfil
+        ? { ...revelado, perfil: lugar.perfil }
+        : revelado;
     await this.auditoria.registrar({
       actorId: auth.usuario.id,
       accion:
@@ -380,13 +490,24 @@ export class PerfilesClienteService {
     });
     return {
       ...datos,
-      contrato: contratoDe(
-        p.cuenta.servicio.nombre,
-        datos,
-        { modo: p.cuenta.modo, perfiles: p.cuenta._count.perfiles },
-        s.venceEn,
-      ),
+      contrato: contratoDe(p.cuenta.servicio.nombre, datos, lugar, s.venceEn),
     };
+  }
+
+  /**
+   * Comprado en la web (por el cliente o un revendedor con su saldo) y nunca
+   * editado por el equipo: su perfil se nombra por el número. Lo que agregó o
+   * actualizó el equipo lleva el nombre del cliente.
+   */
+  private async compraWeb(s: {
+    clienteId: string;
+    creadoPor: { rol: string } | null;
+  }): Promise<boolean> {
+    if (!s.creadoPor || !['cliente', 'revendedor'].includes(s.creadoPor.rol)) return false;
+    const editado = await this.prisma.auditoria.count({
+      where: { entidad: 'cliente', entidadId: s.clienteId, accion: 'cliente.actualizado' },
+    });
+    return editado === 0;
   }
 
   /** Arma el mensaje con los datos de un perfil asignado. El equipo lo envía a mano. */
@@ -406,6 +527,7 @@ export class PerfilesClienteService {
             id: true,
             estado: true,
             venceEn: true,
+            ...SELECCION_ORIGEN,
             plan: { select: { nombre: true } },
             cliente: { select: SELECCION_CONTACTO },
           },
@@ -420,23 +542,18 @@ export class PerfilesClienteService {
       throw new ErrorApp(409, 'CUENTA_NO_ACTIVA', 'La cuenta no está activa: revísala primero.');
     }
     const d = this.descifrar(p);
-    // Se entrega con el contrato del Gestor; las de correo con código llevan sus instrucciones.
-    const texto =
-      d.tipo === 'correo'
-        ? textoDatos({
-            nombreCliente: s.cliente.nombre,
-            servicio: p.cuenta.servicio.nombre,
-            plan: s.plan.nombre,
-            modo: p.cuenta.modo,
-            datos: d,
-            venceEn: s.venceEn,
-          }).join('\n')
-        : contratoDe(
-            p.cuenta.servicio.nombre,
-            d,
-            { modo: p.cuenta.modo, perfiles: p.cuenta._count.perfiles },
-            s.venceEn,
-          );
+    const lugar = lugarEnContrato(d, p.cuenta, s.cliente.nombre, await this.compraWeb(s));
+    // Formato de Nathan: saludo, correo, contraseña, perfil, PIN (si tiene) y vencimiento.
+    const texto = mensajeDatosCuenta({
+      cliente: s.cliente.nombre,
+      servicio: p.cuenta.servicio.nombre,
+      correo: d.usuario,
+      // Las de correo con código no usan la contraseña.
+      clave: d.tipo === 'correo' ? '' : d.clave,
+      perfil: lugar.perfil,
+      pin: lugar.pin,
+      vence: s.venceEn ? fechaContrato(fechaCaracas(s.venceEn)) : '',
+    });
     const e = enlaces(s.cliente, `Datos de tu ${p.cuenta.servicio.nombre}`, texto);
     await this.auditoria.registrar({
       actorId: auth.usuario.id,

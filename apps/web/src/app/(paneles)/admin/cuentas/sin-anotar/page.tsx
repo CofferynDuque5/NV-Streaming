@@ -96,7 +96,7 @@ export default async function SinAnotar() {
                     {c.facturaEn && <span>Vence {formatearDia(c.facturaEn)}</span>}
                     <span>
                       {c.modo === 'completa'
-                        ? 'Cuenta completa'
+                        ? 'Cuenta individual'
                         : `${c.perfiles.total} ${c.perfiles.total === 1 ? 'perfil' : 'perfiles'}`}
                     </span>
                   </p>

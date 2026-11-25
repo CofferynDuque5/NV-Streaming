@@ -324,7 +324,7 @@ export function NuevaCuenta({
             onChange={(e) => setModo(e.currentTarget.value as ModoCuenta)}
           >
             <option value="perfiles">Por perfiles</option>
-            <option value="completa">Cuenta completa</option>
+            <option value="completa">Cuenta individual (un solo cliente)</option>
           </Selector>
           {modo === 'perfiles' ? (
             <Campo
@@ -1319,10 +1319,16 @@ export function AccionesPerfil({
   tipo = 'perfiles',
   otrosActivos = 0,
   alta,
+  servicioId,
+  correoCuenta,
 }: {
   cuentaId: string;
   perfil: PerfilCuentaPublico;
   cuentaActiva: boolean;
+  /** Para «Mover» al correo del cliente (crea su cuenta individual). */
+  servicioId?: string | undefined;
+  /** Correo de esta cuenta (con permiso de ver datos), para ver dónde está ahora. */
+  correoCuenta?: string | null | undefined;
   /** Con `cuentas.revelar`: puede armar el mensaje con los datos del perfil. */
   puedeRevelar?: boolean;
   /** Por perfiles, plan familiar o correo con código. */
@@ -1454,7 +1460,13 @@ export function AccionesPerfil({
             <ArmarMensaje cuentaId={cuentaId} perfil={perfil} />
           )}
         {perfil.estado === 'asignado' && !perfil.asignacion?.terminada && (
-          <MoverPerfil cuentaId={cuentaId} perfil={perfil} tipo={tipo} />
+          <MoverPerfil
+            cuentaId={cuentaId}
+            perfil={perfil}
+            tipo={tipo}
+            servicioId={servicioId ?? alta?.servicioId}
+            correoActual={correoCuenta}
+          />
         )}
         {perfil.estado === 'asignado' && (
           <CortarPerfil

@@ -151,12 +151,17 @@ describe('stock y entrega automática desde Plataformas', () => {
     expect(contrato).toContain('CONDICIONES DE USO DEL SERVICIO');
     expect(contrato).toContain('Horario: 11:00 AM a 11:30 PM.');
 
-    // El equipo arma el mismo contrato para enviarlo.
+    // El equipo arma el mensaje con los mismos datos.
     const mensaje = await e.operador.n.post(
       `/cuentas/${lejos.id}/perfiles/${perfil.id}/mensaje`,
       {},
     );
-    expect(mensaje.cuerpo.texto).toBe(contrato);
+    const texto = mensaje.cuerpo.texto as string;
+    expect(texto).toMatch(/^Hola, .+\.\nLos datos de su cuenta de NV Cine son los siguientes:\n\n/);
+    expect(texto).toContain('Correo: lejos@example.com\nContraseña: Clave-123');
+    expect(texto).toContain(`Perfil: ${perfil.numero}`);
+    expect(texto).toContain(`Vencimiento: ${ddmmaaaa(vence)}`);
+    expect(texto).toMatch(/¡Gracias por confiar en Nathan Streaming!$/);
   });
 
   it('una cuenta individual también es stock; se entrega después de los perfiles compartidos', async () => {

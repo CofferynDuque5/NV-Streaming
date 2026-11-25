@@ -59,9 +59,10 @@ export default async function AccesosClientes() {
           ruta="/revendedor/perfiles"
           detalle={[
             `Para ${p.cliente?.nombre ?? 'tu cliente'}`,
-            p.modo === 'completa'
-              ? 'Cuenta completa'
-              : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre),
+            p.lugar ??
+              (p.modo === 'completa'
+                ? 'Cuenta individual'
+                : etiquetaPerfil(p.tipo, p.perfil.numero, p.perfil.nombre)),
             p.venceEn ? `vence el ${fechaLarga(p.venceEn)}` : null,
           ]
             .filter(Boolean)

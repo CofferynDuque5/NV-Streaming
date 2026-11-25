@@ -25,7 +25,7 @@ export function mensajeCobro(s: SuscripcionConLugar): string {
   return [
     `Hola, ${s.cliente.nombre}.`,
     '',
-    `Su suscripción de ${s.plan.servicio} ${cuandoMensaje(s.diasVencida)}.`,
+    `Su suscripción de ${s.plan.servicio}${s.lugar?.completa ? ' (cuenta completa)' : ''} ${cuandoMensaje(s.diasVencida)}.`,
     'Si desea renovar, por favor avísenos con tiempo para mantener activa la suscripción.',
     '',
     '¡Gracias por confiar en NV Streaming!',
@@ -62,7 +62,16 @@ function opcionesContacto(s: SuscripcionConLugar) {
  * enviarlo por WhatsApp o Telegram al contacto elegido. Cualquiera de las tres
  * deja marcado el cobro (con quién lo hizo). `ruta` es a dónde avisar.
  */
-export function Cobrar({ s, ruta }: { s: SuscripcionConLugar; ruta: string }) {
+export function Cobrar({
+  s,
+  ruta,
+  otrasRutas = [],
+}: {
+  s: SuscripcionConLugar;
+  ruta: string;
+  /** Cuenta completa de una sola persona: el mismo cobro marca sus otros perfiles. */
+  otrasRutas?: string[];
+}) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [marcado, setMarcado] = useState(false);
@@ -90,6 +99,7 @@ export function Cobrar({ s, ruta }: { s: SuscripcionConLugar; ruta: string }) {
   /** Queda marcado como cobrado ahora (se puede volver a cobrar otro día). */
   async function marcar(canal: Canal) {
     const r = await llamarApi('POST', ruta, { canal });
+    if (r.ok) await Promise.all(otrasRutas.map((x) => llamarApi('POST', x, { canal })));
     if (r.ok) {
       setMarcado(true);
       setErrorMarca(null);

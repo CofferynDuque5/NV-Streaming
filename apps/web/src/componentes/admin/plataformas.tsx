@@ -10,6 +10,7 @@ import {
   type ServicioInventario,
   TEXTOS_PLATAFORMA,
   tipoPlataforma,
+  unaPersonaEnTodos,
 } from '@nv/shared';
 import clsx from 'clsx';
 import {
@@ -705,6 +706,8 @@ function Lugar({
             puedeRevelar={permisos.revelar}
             tipo={tipo}
             otrosActivos={Math.max(0, vigentes - (activa ? 1 : 0))}
+            servicioId={cuenta.servicio.id}
+            correoCuenta={correo}
           />
         </Dialogo>
       )}
@@ -876,7 +879,26 @@ export function PlataformaGestor({
   const correoDe = (c: CuentaServicioDetalle) => datos.correos?.[c.id] ?? c.pista;
 
   const lugares = datos.cuentas.flatMap((c) => c.listaPerfiles.map((p) => ({ c, p })));
-  const clientes = lugares.filter(({ p }) => p.asignacion);
+  // Cuenta con todos sus perfiles a nombre de la misma persona: sale una sola vez, como completa.
+  const deUnaPersona = new Set(
+    datos.cuentas
+      .filter(
+        (c) =>
+          !esIndividual(c) &&
+          unaPersonaEnTodos(
+            c.listaPerfiles.map((p) => ({
+              asignado: p.estado === 'asignado' && Boolean(p.asignacion),
+              nombre: p.asignacion?.cliente.nombre,
+            })),
+          ),
+      )
+      .map((c) => c.id),
+  );
+  const clientes = lugares.filter(
+    ({ c, p }) =>
+      p.asignacion &&
+      (!deUnaPersona.has(c.id) || p.numero === Math.min(...c.listaPerfiles.map((x) => x.numero))),
+  );
   const libres = lugares.filter(({ p }) => p.estado === 'libre').length;
   const porVencer = clientes.filter(({ p }) => situacion(p, ahora) === 'por_vencer').length;
   const vencidos = clientes.filter(({ p }) => situacion(p, ahora) === 'vencido').length;
@@ -1220,6 +1242,7 @@ export function PlataformaGestor({
                 permisos={permisos}
                 tipo={datos.tipo}
                 contacto={datos.clientes[p.asignacion!.cliente.id]}
+                completa={deUnaPersona.has(c.id) ? c.listaPerfiles.length : 0}
               />
             ))}
           </ul>
@@ -1297,6 +1320,7 @@ function FilaCliente({
   permisos,
   tipo,
   contacto,
+  completa = 0,
 }: {
   cuenta: CuentaServicioDetalle;
   correo: string;
@@ -1306,6 +1330,8 @@ function FilaCliente({
   permisos: PermisosPlataforma;
   tipo: PlataformaCuentas['tipo'];
   contacto: ContactoPlataforma | undefined;
+  /** Perfiles de la cuenta, si todos son de esta misma persona (cuenta completa). */
+  completa?: number;
 }) {
   const [mas, setMas] = useState(false);
   const a = perfil.asignacion!;
@@ -1319,7 +1345,9 @@ function FilaCliente({
     .join('');
   const lugar = esIndividual(cuenta)
     ? 'Individual'
-    : `${textos.lugar} ${perfil.numero}${esTitular(tipo, perfil.numero) ? ' (titular)' : ''}`;
+    : completa
+      ? `Cuenta completa (${completa} ${textos.lugares.toLowerCase()})`
+      : `${textos.lugar} ${perfil.numero}${esTitular(tipo, perfil.numero) ? ' (titular)' : ''}`;
   const detalle = [contactoTexto(contacto), contacto?.responsable, correo, lugar].filter(Boolean);
   return (
     <li
@@ -1420,6 +1448,8 @@ function FilaCliente({
             puedeRevelar={permisos.revelar}
             tipo={tipo}
             otrosActivos={Math.max(0, vigentesDe(cuenta) - 1)}
+            servicioId={cuenta.servicio.id}
+            correoCuenta={correo}
           />
         </Dialogo>
       )}

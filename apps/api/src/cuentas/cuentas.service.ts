@@ -14,6 +14,7 @@ import type {
   LiberarPerfilEntrada,
   ListarCuentasEntrada,
   MarcarAptosEntrada,
+  MoverPerfilEntrada,
   PaginaCuentas,
   PerfilCuentaPublico,
   PerfilPorReponer,
@@ -22,7 +23,14 @@ import type {
   ResultadoReposicion,
   SuscripcionAsignable,
 } from '@nv/shared';
-import { esTitular, MAX_PERFILES_CUENTA, tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
+import {
+  esCuentaIndividual,
+  esTitular,
+  MAX_PERFILES_CUENTA,
+  tienePermiso,
+  tipoPlataforma,
+  urlMedio,
+} from '@nv/shared';
 import { fechaCaracas, inicioDiaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { type CambioAcceso, encolarAvisoDatos } from './aviso-datos.js';
@@ -67,7 +75,7 @@ export function pistaUsuario(usuario: string): string {
 }
 
 const nombrePerfil = (modo: 'perfiles' | 'completa', numero: number) =>
-  modo === 'completa' ? 'Cuenta completa' : `Perfil ${numero}`;
+  modo === 'completa' ? 'Cuenta individual' : `Perfil ${numero}`;
 
 const INCLUIR_RESUMEN = {
   servicio: { select: { id: true, nombre: true } },
@@ -528,7 +536,11 @@ export class CuentasService {
   private async perfil(tx: Tx | PrismaClient, cuentaId: string, perfilId: string) {
     const p = await tx.perfilCuenta.findFirst({
       where: { id: perfilId, cuentaId },
-      include: { cuenta: { select: { servicioId: true, estado: true } } },
+      include: {
+        cuenta: {
+          select: { servicioId: true, estado: true, servicio: { select: { nombre: true } } },
+        },
+      },
     });
     if (!p) throw Errores.noEncontrado('El perfil');
     return p;
@@ -937,8 +949,45 @@ export class CuentasService {
   }
 
   /** Entrega web: qué se entregaría ahora, los siguientes y lo que falta revisar. */
-  async entregaWeb(ahora = new Date()): Promise<EntregaWebServicio[]> {
-    return entregaWeb(this.prisma, ahora);
+  /**
+   * Entrega web. Con permiso de ver datos, también el correo completo de cada
+   * cuenta con lugares libres (queda en la auditoría), para saber qué hay disponible.
+   */
+  async entregaWeb(
+    auth?: ContextoAuth,
+    cliente?: InfoCliente,
+    ahora = new Date(),
+  ): Promise<EntregaWebServicio[]> {
+    const lista = await entregaWeb(this.prisma, ahora);
+    if (!auth || !tienePermiso(auth.usuario.rol, 'cuentas.revelar')) return lista;
+    const ids = [
+      ...new Set(lista.flatMap((s) => [...s.todosAptos, ...s.porRevisar].map((l) => l.cuentaId))),
+    ];
+    if (ids.length === 0) return lista;
+    const cuentas = await this.prisma.cuentaServicio.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, usuarioCifrado: true },
+    });
+    const correos = new Map(
+      cuentas.map((c) => [c.id, this.cifrador.descifrar(c.usuarioCifrado, contextoUsuario(c.id))]),
+    );
+    await this.auditoria.registrar({
+      actorId: auth.usuario.id,
+      accion: 'cuenta.correos_vistos',
+      entidad: 'servicio',
+      entidadId: null,
+      despues: { cuentas: ids.length, para: 'entrega_web' },
+      ...(cliente ? { cliente } : {}),
+    });
+    return lista.map((s) => ({
+      ...s,
+      correos: Object.fromEntries(
+        [...s.todosAptos, ...s.porRevisar].flatMap((l) => {
+          const c = correos.get(l.cuentaId);
+          return c ? [[l.cuentaId, c]] : [];
+        }),
+      ),
+    }));
   }
 
   /**
@@ -975,8 +1024,17 @@ export class CuentasService {
     });
   }
 
-  /** Lugares libres del mismo servicio donde se puede mover al cliente de un perfil. */
-  async destinos(cuentaId: string, perfilId: string): Promise<DestinoMover[]> {
+  /**
+   * Lugares libres del mismo servicio donde se puede mover al cliente de un
+   * perfil. Con permiso de ver datos, también el correo completo de cada cuenta
+   * (queda en la auditoría) para saber en qué cuenta está cada lugar.
+   */
+  async destinos(
+    auth: ContextoAuth,
+    cuentaId: string,
+    perfilId: string,
+    cliente: InfoCliente,
+  ): Promise<DestinoMover[]> {
     const p = await this.perfil(this.prisma, cuentaId, perfilId);
     const cuentas = await this.prisma.cuentaServicio.findMany({
       where: {
@@ -990,28 +1048,48 @@ export class CuentasService {
         plan: true,
         facturaEn: true,
         modo: true,
+        usuarioCifrado: true,
+        _count: { select: { perfiles: true } },
         perfiles: {
-          where: { estado: { in: ['libre', 'respaldo'] }, id: { not: p.id } },
           orderBy: { numero: 'asc' },
           select: { id: true, numero: true, nombre: true, estado: true },
         },
       },
       // La que vence más tarde primero: así el cliente no se queda sin servicio.
       orderBy: [{ facturaEn: { sort: 'desc', nulls: 'last' } }, { creadoEn: 'asc' }],
-      take: 50,
+      take: 80,
     });
+    const verCorreos = tienePermiso(auth.usuario.rol, 'cuentas.revelar') && cuentas.length > 0;
+    if (verCorreos) {
+      await this.auditoria.registrar({
+        actorId: auth.usuario.id,
+        accion: 'cuenta.correos_vistos',
+        entidad: 'perfil_cuenta',
+        entidadId: p.id,
+        despues: { cuentas: cuentas.length, para: 'mover' },
+        cliente,
+      });
+    }
     return cuentas.map((c) => ({
       cuentaId: c.id,
       pista: c.pista,
+      correo: verCorreos
+        ? this.cifrador.descifrar(c.usuarioCifrado, contextoUsuario(c.id))
+        : null,
       plan: c.plan,
       facturaEn: dia(c.facturaEn),
       modo: c.modo,
-      perfiles: c.perfiles.map((x) => ({
-        id: x.id,
-        numero: x.numero,
-        nombre: x.nombre,
-        respaldo: x.estado === 'respaldo',
-      })),
+      individual: esCuentaIndividual(c.modo, c._count.perfiles),
+      total: c._count.perfiles,
+      ocupados: c.perfiles.filter((x) => x.estado === 'asignado').length,
+      perfiles: c.perfiles
+        .filter((x) => (x.estado === 'libre' || x.estado === 'respaldo') && x.id !== p.id)
+        .map((x) => ({
+          id: x.id,
+          numero: x.numero,
+          nombre: x.nombre,
+          respaldo: x.estado === 'respaldo',
+        })),
     }));
   }
 
@@ -1024,9 +1102,10 @@ export class CuentasService {
     auth: ContextoAuth,
     cuentaId: string,
     perfilId: string,
-    destinoPerfilId: string,
+    e: MoverPerfilEntrada,
     cliente: InfoCliente,
   ): Promise<CuentaServicioDetalle> {
+    const destinoPerfilId = e.destinoPerfilId;
     return this.prisma.$transaction(async (tx) => {
       const viejo = await this.perfil(tx, cuentaId, perfilId);
       if (viejo.estado !== 'asignado' || !viejo.suscripcionId) {
@@ -1065,8 +1144,24 @@ export class CuentasService {
       if (r.count === 0) {
         throw new ErrorApp(409, 'PERFIL_NO_LIBRE', 'Ese perfil ya no está libre. Elige otro.');
       }
-      // El correo propio del miembro (plan familiar) viaja con él.
-      if (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada) {
+      // El correo propio del miembro (plan familiar) viaja con él, salvo que pase a
+      // alquiler (solo el cliente) o que se escriba otro correo para el cupo nuevo.
+      const tipo = tipoPlataforma(viejo.cuenta.servicio.nombre);
+      const aCupo = tipo === 'familiar' && !esTitular(tipo, destino.numero);
+      const nuevoMiembro = aCupo && e.usuarioMiembro ? e.usuarioMiembro : null;
+      const viaja =
+        !e.soloCliente && !nuevoMiembro && (viejo.usuarioMiembroCifrado || viejo.claveMiembroCifrada);
+      if (nuevoMiembro) {
+        await tx.perfilCuenta.update({
+          where: { id: destino.id },
+          data: {
+            usuarioMiembroCifrado: this.cifrador.cifrar(nuevoMiembro, contextoMiembro(destino.id)),
+            claveMiembroCifrada: e.claveMiembro
+              ? this.cifrador.cifrar(e.claveMiembro, contextoClaveMiembro(destino.id))
+              : null,
+          },
+        });
+      } else if (viaja) {
         const miembro = viejo.usuarioMiembroCifrado
           ? this.cifrador.descifrar(viejo.usuarioMiembroCifrado, contextoMiembro(viejo.id))
           : null;
@@ -1099,7 +1194,14 @@ export class CuentasService {
           entidad: 'perfil_cuenta',
           entidadId: destino.id,
           antes: { cuentaId, numero: viejo.numero },
-          despues: { cuentaId: destino.cuenta.id, numero: destino.numero, suscripcionId },
+          // Sin correos ni claves: solo cómo se movió.
+          despues: {
+            cuentaId: destino.cuenta.id,
+            numero: destino.numero,
+            suscripcionId,
+            ...(e.soloCliente ? { soloCliente: true } : {}),
+            ...(nuevoMiembro ? { correoMiembroNuevo: true } : {}),
+          },
           cliente,
         },
         tx,

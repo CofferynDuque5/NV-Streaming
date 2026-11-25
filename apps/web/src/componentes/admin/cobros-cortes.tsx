@@ -218,14 +218,16 @@ export function ListaVencimientosCortes({
                     puedeRevelar={puedeRevelar}
                     metodos={puedeRenovar ? pedirMetodos : null}
                     hermanos={
-                      s.lugar
-                        ? lista.filter(
-                            (o) =>
-                              o.id !== s.id &&
-                              o.cliente.id === s.cliente.id &&
-                              o.lugar?.cuentaId === s.lugar?.cuentaId,
-                          ).length
-                        : 0
+                      s.lugar?.completa
+                        ? s.lugar.completa.perfiles - 1
+                        : s.lugar
+                          ? lista.filter(
+                              (o) =>
+                                o.id !== s.id &&
+                                o.cliente.id === s.cliente.id &&
+                                o.lugar?.cuentaId === s.lugar?.cuentaId,
+                            ).length
+                          : 0
                     }
                   />
                 ))}
@@ -269,11 +271,13 @@ function Fila({
           {s.lugar && (
             <>
               {' · '}
-              {s.lugar.etiqueta}
+              {s.lugar.completa
+                ? `Cuenta completa (${s.lugar.completa.perfiles} perfiles)`
+                : s.lugar.etiqueta}
               {s.lugar.pistaCuenta ? ` · ${s.lugar.pistaCuenta}` : ''}
             </>
           )}
-          {hermanos > 0 && ` · +${hermanos} en la misma cuenta`}
+          {hermanos > 0 && !s.lugar?.completa && ` · +${hermanos} en la misma cuenta`}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm sm:justify-end">
@@ -307,7 +311,13 @@ function Fila({
           {s.facturaAbierta ? `Factura ${s.facturaAbierta.numero}` : 'Renovar'}
         </Link>
         {metodos && s.plan.renovable && <Renovar s={s} metodos={metodos} />}
-        <Cobrar s={s} ruta={`/suscripciones/${s.id}/cobrado`} />
+        <Cobrar
+          s={s}
+          ruta={`/suscripciones/${s.id}/cobrado`}
+          otrasRutas={(s.lugar?.completa?.suscripcionIds ?? [])
+            .filter((id) => id !== s.id)
+            .map((id) => `/suscripciones/${id}/cobrado`)}
+        />
         {puedeCortar && s.lugar && <CambiarDatos s={s} />}
         {puedeCortar && s.lugar && seccion === 'cortes' && (
           <Cortar s={s} hermanos={hermanos} puedeRevelar={puedeRevelar} />
@@ -399,20 +409,40 @@ function Renovar({
         ? new Date(`${fecha}T16:00:00Z`).toISOString()
         : null;
 
+  // Cuenta completa de una sola persona: se renuevan todos sus perfiles juntos.
+  const ids = s.lugar?.completa?.suscripcionIds ?? [s.id];
+
   async function confirmar() {
     setCargando(true);
     setError(null);
-    const r = await llamarApi<{
-      factura: { numero: string; total: string; moneda: string };
-      venceEn: string;
-    }>('POST', `/suscripciones/${s.id}/renovar-pagada`, {
-      ...(plazo.tipo === 'fecha' ? { venceEn: fecha } : { meses }),
-      metodoCobroId: metodoId,
-      ...(referencia.trim() ? { referenciaExterna: referencia.trim() } : {}),
-    });
+    let ultimo: { numero: string; total: string; moneda: string; venceEn: string } | null = null;
+    let total = 0;
+    for (const id of ids) {
+      const r = await llamarApi<{
+        factura: { numero: string; total: string; moneda: string };
+        venceEn: string;
+      }>('POST', `/suscripciones/${id}/renovar-pagada`, {
+        ...(plazo.tipo === 'fecha' ? { venceEn: fecha } : { meses }),
+        metodoCobroId: metodoId,
+        ...(referencia.trim() ? { referenciaExterna: referencia.trim() } : {}),
+      });
+      if (!r.ok) {
+        setCargando(false);
+        // Lo que ya se renovó queda renovado: se avisa para no cobrarlo dos veces.
+        if (ultimo) router.refresh();
+        return setError(r.error);
+      }
+      total += Number(r.datos.factura.total);
+      ultimo = { ...r.datos.factura, venceEn: r.datos.venceEn };
+    }
     setCargando(false);
-    if (!r.ok) return setError(r.error);
-    setListo({ ...r.datos.factura, venceEn: r.datos.venceEn });
+    if (ultimo) {
+      setListo(
+        ids.length > 1
+          ? { ...ultimo, numero: `${ids.length} perfiles`, total: total.toFixed(2) }
+          : ultimo,
+      );
+    }
   }
 
   const chip = (activo: boolean) =>
@@ -441,8 +471,9 @@ function Renovar({
           {listo ? (
             <>
               <Alerta tono="exito">
-                Renovada hasta el {formatearFecha(listo.venceEn)}. Factura {listo.numero} pagada (
-                {listo.total} {listo.moneda}).
+                {ids.length > 1
+                  ? `Cuenta completa renovada hasta el ${formatearFecha(listo.venceEn)}: ${listo.numero}, ${listo.total} ${listo.moneda} en total.`
+                  : `Renovada hasta el ${formatearFecha(listo.venceEn)}. Factura ${listo.numero} pagada (${listo.total} ${listo.moneda}).`}
               </Alerta>
               <div className="flex justify-end">
                 <Boton onClick={cerrar}>Listo</Boton>
@@ -453,6 +484,7 @@ function Renovar({
               <p className="text-sm text-tinta-suave">
                 {s.plan.servicio} · {s.plan.nombre}
                 {s.venceEn ? ` · vence ${formatearFecha(s.venceEn)}` : ''}
+                {ids.length > 1 ? ` · cuenta completa: se renuevan sus ${ids.length} perfiles` : ''}
               </p>
               <fieldset className="grid gap-2">
                 <legend className="mb-1 text-sm font-medium">¿Cuánto tiempo?</legend>

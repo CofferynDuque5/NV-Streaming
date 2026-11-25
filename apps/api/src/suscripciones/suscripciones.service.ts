@@ -23,8 +23,10 @@ import {
   type VencimientosCortes,
   type SuscripcionConLugar,
   type CortarSuscripcionEntrada,
+  esCuentaIndividual,
   esTitular,
   TEXTOS_PLATAFORMA,
+  unaPersonaEnTodos,
   etiquetaPerfil,
   tipoPlataforma,
   tienePermiso,
@@ -97,6 +99,43 @@ export function baseRenovacion(
   if (desdeHoy || !venceEn) return ahora;
   if (venceEn > ahora) return venceEn;
   return sumarDuracion(venceEn, cantidad, unidad) > ahora ? venceEn : ahora;
+}
+
+/**
+ * Una cuenta con todos sus perfiles a nombre de la misma persona sale una sola
+ * vez (la primera fila), marcada como cuenta completa y con las suscripciones
+ * de sus perfiles que están en esta lista.
+ */
+function juntarCompletas(
+  filas: SuscripcionConLugar[],
+  deUnaPersona: Map<string, string[]>,
+): SuscripcionConLugar[] {
+  const grupos = new Map<string, SuscripcionConLugar[]>();
+  for (const f of filas) {
+    const id = f.lugar?.cuentaId;
+    if (id && deUnaPersona.has(id)) grupos.set(id, [...(grupos.get(id) ?? []), f]);
+  }
+  const vistos = new Set<string>();
+  const salida: SuscripcionConLugar[] = [];
+  for (const f of filas) {
+    const id = f.lugar?.cuentaId;
+    const grupo = id ? grupos.get(id) : undefined;
+    if (!f.lugar || !grupo || grupo.length < 2) {
+      salida.push(f);
+      continue;
+    }
+    if (vistos.has(id!)) continue;
+    vistos.add(id!);
+    salida.push({
+      ...f,
+      lugar: {
+        ...f.lugar,
+        etiqueta: 'Cuenta completa',
+        completa: { suscripcionIds: grupo.map((x) => x.id), perfiles: grupo.length },
+      },
+    });
+  }
+  return salida;
 }
 
 @Injectable()
@@ -219,6 +258,7 @@ export class SuscripcionesService {
               id: true,
               pista: true,
               modo: true,
+              _count: { select: { perfiles: true } },
               perfiles: {
                 where: {
                   estado: 'asignado',
@@ -305,20 +345,65 @@ export class SuscripcionesService {
               etiqueta: etiquetaPerfil(tipo, p.numero, p.nombre),
               nombre: p.nombre,
               tipo,
-              individual: p.cuenta.modo === 'completa',
+              individual: esCuentaIndividual(p.cuenta.modo, p.cuenta._count.perfiles),
               pistaCuenta: p.cuenta.pista,
               otrosActivos: p.cuenta.perfiles.filter((x) => x.id !== p.id).length,
             }
           : null,
       };
     };
+    const deUnaPersona = await this.cuentasDeUnaPersona(
+      [...vencimientos, ...cortes].flatMap((f) =>
+        f.perfilCuenta &&
+        !esCuentaIndividual(f.perfilCuenta.cuenta.modo, f.perfilCuenta.cuenta._count.perfiles)
+          ? [f.perfilCuenta.cuenta.id]
+          : [],
+      ),
+    );
     return {
       horaCorte: REGLAS_COBRO.horaCorte,
       pasoHoraCorte,
-      vencimientos: vencimientos.map(conLugar),
+      vencimientos: juntarCompletas(vencimientos.map(conLugar), deUnaPersona),
       // Los más recientes primero, como en el Gestor (lo de hoy arriba).
-      cortes: cortes.map(conLugar).reverse(),
+      cortes: juntarCompletas(cortes.map(conLugar).reverse(), deUnaPersona),
     };
+  }
+
+  /**
+   * Cuentas (de las dadas) con todos sus perfiles ocupados por la misma persona,
+   * con los ids de los clientes que la ocupan (pueden ser fichas distintas con el
+   * mismo nombre, como las que trajo el Gestor).
+   */
+  private async cuentasDeUnaPersona(
+    ids: string[],
+    db: Prisma.TransactionClient | PrismaClient = this.prisma,
+  ): Promise<Map<string, string[]>> {
+    const unicas = [...new Set(ids)];
+    if (unicas.length === 0) return new Map();
+    const perfiles = await db.perfilCuenta.findMany({
+      where: { cuentaId: { in: unicas } },
+      select: {
+        cuentaId: true,
+        estado: true,
+        suscripcion: { select: { clienteId: true, cliente: { select: { nombre: true } } } },
+      },
+    });
+    const porCuenta = new Map<string, typeof perfiles>();
+    for (const x of perfiles) porCuenta.set(x.cuentaId, [...(porCuenta.get(x.cuentaId) ?? []), x]);
+    const r = new Map<string, string[]>();
+    for (const [id, lista] of porCuenta) {
+      const nombre = unaPersonaEnTodos(
+        lista.map((x) => ({
+          asignado: x.estado === 'asignado',
+          nombre: x.suscripcion?.cliente.nombre,
+        })),
+      );
+      if (nombre)
+        r.set(id, [
+          ...new Set(lista.flatMap((x) => (x.suscripcion ? [x.suscripcion.clienteId] : []))),
+        ]);
+    }
+    return r;
   }
 
   /**
@@ -408,13 +493,16 @@ export class SuscripcionesService {
         throw new ErrorApp(400, 'SIN_PIN', 'Esta plataforma no usa PIN.');
       }
       // El lugar elegido y los otros vencidos del mismo cliente en la misma cuenta.
+      // Si toda la cuenta es de la misma persona (aunque sean fichas distintas con
+      // el mismo nombre), se corta como cuenta completa.
+      const mismaPersona = (await this.cuentasDeUnaPersona([p.cuentaId], tx)).get(p.cuentaId) ?? [];
       const hermanos = await tx.perfilCuenta.findMany({
         where: {
           cuentaId: p.cuentaId,
           estado: 'asignado',
           id: { not: p.id },
           suscripcion: {
-            clienteId: s.clienteId,
+            clienteId: { in: [...new Set([s.clienteId, ...mismaPersona])] },
             venceEn: { lt: manana },
             estado: { in: ['activa', 'en_gracia', 'suspendida', 'vencida'] },
           },

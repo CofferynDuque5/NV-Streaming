@@ -81,8 +81,8 @@ export class CuentasController {
   @Get('entrega-web')
   @RequierePermiso('cuentas.ver')
   @Header('Cache-Control', SIN_CACHE)
-  entregaWeb() {
-    return this.cuentas.entregaWeb();
+  entregaWeb(@Auth() auth: ContextoAuth, @Cliente() cliente: InfoCliente) {
+    return this.cuentas.entregaWeb(auth, cliente);
   }
 
   /** Marca o desmarca lugares libres como aptos para la entrega web (revisión manual). */
@@ -278,8 +278,14 @@ export class CuentasController {
   /** Lugares libres del mismo servicio adonde se puede mover al cliente del perfil. */
   @Get(':id/perfiles/:perfilId/destinos')
   @RequierePermiso('cuentas.gestionar')
-  destinos(@Param('id', idValido) id: string, @Param('perfilId', idValido) perfilId: string) {
-    return this.cuentas.destinos(id, perfilId);
+  @Header('Cache-Control', SIN_CACHE)
+  destinos(
+    @Auth() auth: ContextoAuth,
+    @Param('id', idValido) id: string,
+    @Param('perfilId', idValido) perfilId: string,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.cuentas.destinos(auth, id, perfilId, cliente);
   }
 
   @Post(':id/perfiles/:perfilId/mover')
@@ -293,7 +299,7 @@ export class CuentasController {
     @Body(validar(moverPerfilSchema)) cuerpo: z.output<typeof moverPerfilSchema>,
     @Cliente() cliente: InfoCliente,
   ) {
-    return this.cuentas.mover(auth, id, perfilId, cuerpo.destinoPerfilId, cliente);
+    return this.cuentas.mover(auth, id, perfilId, cuerpo, cliente);
   }
 
   /** Un mensaje por cliente con los datos de la cuenta, para avisar a mano. Cuenta como ver credenciales. */
