@@ -110,7 +110,7 @@ export class ConectorCodigosService {
       tieneClave: Boolean(c?.claveCifrada),
       marcaProveedor: c?.marcaProveedor ?? 'Iker',
       buzonId: c?.buzonId ?? null,
-      carpetaAprobacion: c?.carpetaAprobacion ?? 'NV-Iker',
+      carpetaAprobacion: c?.carpetaAprobacion ?? 'INBOX',
       remitenteAprobacion: c?.remitenteAprobacion ?? REMITENTE_PREDETERMINADO,
       // Por defecto los clientes ven todos los botones (también «Link»: pueden cambiar la clave).
       accionesCliente: (c?.accionesCliente ?? [...ACCIONES_PROVEEDOR]) as AccionProveedor[],
@@ -222,11 +222,20 @@ export class ConectorCodigosService {
     };
   }
 
-  /** Lee el buzón hasta que llegue el correo con el enlace de aprobación de IP. */
+  /**
+   * Lee el buzón hasta que llegue el correo con el enlace de aprobación de IP.
+   * Si no puede, lanza un Error con un motivo claro para el panel (sin claves).
+   */
   private async esperarAprobacion(c: ConectorCodigos, desde: Date): Promise<string | null> {
-    if (!c.buzonId) return null;
+    if (!c.buzonId) {
+      throw new Error(
+        'No hay buzón elegido para el correo de aprobación. Elige uno, guarda y vuelve a probar.',
+      );
+    }
     const b = await this.prisma.buzonCodigos.findUnique({ where: { id: c.buzonId } });
-    if (!b) return null;
+    if (!b) {
+      throw new Error('El buzón elegido ya no existe. Elige otro, guarda y vuelve a probar.');
+    }
     await this.prisma.conectorCodigos.update({
       where: { id: c.id },
       data: { estado: 'esperando_aprobacion' },
@@ -240,20 +249,30 @@ export class ConectorCodigosService {
       carpeta: c.carpetaAprobacion,
     };
     const limite = Date.now() + ESPERA_APROBACION_MS;
+    let vistos = 0;
     while (Date.now() < limite) {
       await espera(5000);
       try {
         const correos = await this.lector.deRemitente(conexion, c.remitenteAprobacion, desde);
+        vistos = Math.max(vistos, correos.length);
         for (const correo of correos) {
           const enlace = enlaceAprobacion(`${correo.html ?? ''}\n${correo.texto ?? ''}`, c.urlBase);
           if (enlace) return enlace;
         }
       } catch (err) {
-        if (err instanceof ErrorBuzon) return null;
+        if (err instanceof ErrorBuzon) {
+          throw new Error(
+            `No se pudo leer la carpeta «${c.carpetaAprobacion}» del buzón «${b.nombre}» (${err.message}). Si esa carpeta no existe, pon INBOX.`,
+          );
+        }
         throw err;
       }
     }
-    return null;
+    throw new Error(
+      vistos > 0
+        ? `Llegó el correo de ${c.remitenteAprobacion} pero no traía un enlace de aprobación válido.`
+        : `En 2 minutos no llegó ningún correo de ${c.remitenteAprobacion} a la carpeta «${c.carpetaAprobacion}» del buzón «${b.nombre}». Revisa que el reenvío sea con filtro (no a mano) y vuelve a probar.`,
+    );
   }
 
   private async anotar(

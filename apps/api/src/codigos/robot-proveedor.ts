@@ -111,6 +111,11 @@ interface BotonFila {
   icono: string;
 }
 
+/** Lo que cuenta como botón en una fila: botones, enlaces y elementos con clic. */
+const CLICABLES = 'button, a, [role="button"], [onclick]';
+/** Emojis de correo que algunos paneles usan como botón. */
+const EMOJI_CORREO = /[\u2709\u{1F4E7}\u{1F4E8}\u{1F4E9}\u{1F48C}\u{1F4EC}\u{1F4EB}]/u;
+
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function diagnostico(paso: string, extra: Partial<DiagnosticoConector> = {}): DiagnosticoConector {
@@ -302,11 +307,19 @@ export class RobotProveedor implements OnModuleDestroy {
     await this.llenarYEntrar(page, p);
     let r = await this.resultadoEntrada(page);
     if (r === 'aprobar') {
-      const enlace = await p.aprobar(desde);
+      let enlace: string | null = null;
+      let motivo: string | null = null;
+      try {
+        enlace = await p.aprobar(desde);
+      } catch (err) {
+        motivo = err instanceof Error ? err.message : null;
+      }
       if (!enlace) {
         throw new ErrorRobot(
           'APROBACION',
-          'El proveedor pidió aprobar la IP del servidor y el correo no llegó a tiempo. Revisa el reenvío y el filtro, y vuelve a probar.',
+          motivo
+            ? `El proveedor pidió aprobar la IP del servidor. ${motivo}`
+            : 'El proveedor pidió aprobar la IP del servidor y el correo no llegó a tiempo. Revisa el reenvío y el filtro, y vuelve a probar.',
           diagnostico('esperando_aprobacion'),
         );
       }
@@ -380,13 +393,19 @@ export class RobotProveedor implements OnModuleDestroy {
       await espera(1500);
       await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined);
     }
-    const conBotones = 'xpath=ancestor-or-self::*[count(.//button | .//a[@role="button"]) >= 2][1]';
+    const conBotones =
+      'xpath=ancestor-or-self::*[count(.//button | .//a | .//*[@role="button"] | .//*[@onclick]) >= 2][1]';
+    // La fila de la tabla si la hay; si no, el primer contenedor con al menos dos botones.
+    const filaDe = async (celda: Locator) => {
+      const tr = celda.locator('xpath=ancestor-or-self::tr[1]');
+      return (await tr.count()) ? tr : celda.locator(conBotones);
+    };
     for (let intento = 0; intento < 3; intento++) {
       // 1) El correo completo en el texto o en un título (las celdas largas se cortan con «…»).
       const texto = page.getByText(correo, { exact: false }).first();
-      if (await texto.count()) return texto.locator(conBotones);
+      if (await texto.count()) return filaDe(texto);
       const titulo = page.locator(`[title="${correo.replace(/"/g, '')}" i]`).first();
-      if (await titulo.count()) return titulo.locator(conBotones);
+      if (await titulo.count()) return filaDe(titulo);
       // 2) El buscador dejó una sola fila: es esa.
       const filas = page.locator('tbody tr, [role="row"]:has(button)').filter({ visible: true });
       if (buscador && (await buscador.count()) && (await filas.count()) === 1) return filas.first();
@@ -400,7 +419,7 @@ export class RobotProveedor implements OnModuleDestroy {
   }
 
   private async botonesDe(fila: Locator): Promise<BotonFila[]> {
-    return fila.locator('button, a[role="button"]').evaluateAll((els) =>
+    return fila.locator(CLICABLES).evaluateAll((els) =>
       els.map((el) => ({
         texto: (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 40),
         titulo: [
@@ -412,14 +431,21 @@ export class RobotProveedor implements OnModuleDestroy {
           .filter(Boolean)
           .join(' ')
           .slice(0, 60),
-        icono: Array.from(
-          el.querySelectorAll('svg, i') as unknown as ArrayLike<{
-            getAttribute(n: string): string | null;
-          }>,
-        )
-          .map((i) => `${i.getAttribute('class') ?? ''} ${i.getAttribute('data-icon') ?? ''}`)
+        icono: [
+          el.getAttribute('class') ?? '',
+          ...Array.from(
+            el.querySelectorAll('svg, i, img, use, span') as unknown as ArrayLike<{
+              getAttribute(n: string): string | null;
+            }>,
+          ).map((i) =>
+            ['class', 'data-icon', 'alt', 'src', 'href', 'xlink:href']
+              .map((a) => i.getAttribute(a) ?? '')
+              .join(' '),
+          ),
+        ]
           .join(' ')
-          .slice(0, 120),
+          .replace(/\s+/g, ' ')
+          .slice(0, 200),
       })),
     );
   }
@@ -430,17 +456,19 @@ export class RobotProveedor implements OnModuleDestroy {
       const i = botones.findIndex((b) => patron.test(b.texto) || patron.test(b.titulo));
       return i;
     }
-    // El sobre: un botón con ícono de correo, o con título de código/correo.
-    const porIcono = botones.findIndex((b) => /mail|envelope|sobre|correo/i.test(b.icono));
+    // El sobre: emoji o ícono de correo, o título de código/correo.
+    const porEmoji = botones.findIndex((b) => EMOJI_CORREO.test(b.texto + b.titulo));
+    if (porEmoji >= 0) return porEmoji;
+    const porIcono = botones.findIndex((b) => /mail|envelope|sobre|correo|inbox/i.test(b.icono));
     if (porIcono >= 0) return porIcono;
     const porTitulo = botones.findIndex((b) => /c[oó]digo|correo|mail|code/i.test(b.titulo));
     if (porTitulo >= 0) return porTitulo;
+    // Si no, el único botón sin palabras (solo ícono) que no sea de otra cosa.
+    const otros = /renov|copi|edit|elimin|borr|ojo|eye|pais|activar|hogar|link|^code/i;
     const soloIcono = botones
       .map((b, i) => ({ b, i }))
       .filter(
-        ({ b }) =>
-          !b.texto &&
-          !/renov|copi|edit|elimin|borr|ver|ojo|eye|pais|activar/i.test(b.titulo + b.icono),
+        ({ b }) => !/\p{L}{2,}/u.test(b.texto) && !otros.test(`${b.texto} ${b.titulo} ${b.icono}`),
       );
     return soloIcono.length === 1 ? soloIcono[0]!.i : -1;
   }
@@ -453,7 +481,9 @@ export class RobotProveedor implements OnModuleDestroy {
     await this.irASeccion(page, p.urlBase, p.plataforma);
     const fila = await this.buscarFila(page, p.correoCuenta);
     const botones = await this.botonesDe(fila);
-    const nombres = botones.map((b) => b.texto || b.titulo || '(ícono)').slice(0, 15);
+    const nombres = botones
+      .map((b) => b.texto || b.titulo || `(ícono ${b.icono.slice(0, 40)})`)
+      .slice(0, 15);
     const indice = this.elegirBoton(botones, p.accion);
     if (indice < 0) {
       throw new ErrorRobot(
@@ -492,7 +522,7 @@ export class RobotProveedor implements OnModuleDestroy {
     page.on('dialog', alDialogo);
     page.context().on('page', alAbrir);
     try {
-      await fila.locator('button, a[role="button"]').nth(indice).click();
+      await fila.locator(CLICABLES).nth(indice).click();
       const limite = Date.now() + ESPERA_RESPUESTA_MS;
       while (Date.now() < limite) {
         await espera(600);

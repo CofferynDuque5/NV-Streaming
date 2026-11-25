@@ -166,9 +166,9 @@ function plataformas(){
   app.querySelectorAll('h1 ~ button').forEach(b=>b.addEventListener('click',()=>{
     document.getElementById('t').innerHTML = b.textContent==='HBO Max'
       ? '<tr><td>max@platonuma.com</td><td><button title="Ver código"><svg class="lucide-mail"></svg></button><button>Hogar</button><button>Renovar</button></td></tr>'
-      : '<tr><td>dis@platonuma.com</td><td><button><svg class="lucide-mail"></svg></button><button>Renovar</button></td></tr>';
+      : '<tr><td>dis@platonuma.com</td><td>Premium</td><td>26/11/2026</td></tr><tr><td colspan="3"><span class="accion" onclick="1">\u{1F4E7}</span><button>Renovar $6</button></td></tr>'.replace('</td></tr><tr><td colspan="3">','</td><td>');
   }));
-  document.getElementById('t').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  document.getElementById('t').addEventListener('click',e=>{const b=e.target.closest('button, .accion');if(!b)return;
     setTimeout(()=>toast(b.textContent==='Hogar'?'Enlace: https://www.max.com/travel/verify?t=9':'Código de acceso: 778899'),300);});
 }
 if(!logueado){

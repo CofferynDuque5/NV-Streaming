@@ -135,7 +135,7 @@ export function ConectorProveedor({
             etiqueta="Carpeta del correo de aprobación"
             name="carpetaAprobacion"
             defaultValue={conector.carpetaAprobacion}
-            ayuda="La carpeta del filtro, por ejemplo NV-Iker."
+            ayuda="Normalmente INBOX (la bandeja de entrada)."
             error={campos.carpetaAprobacion}
           />
           <Campo
