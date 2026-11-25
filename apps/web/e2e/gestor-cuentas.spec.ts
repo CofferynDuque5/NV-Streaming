@@ -67,6 +67,8 @@ test('mueve, corta con clave nueva y avisa a los que siguen en la cuenta', async
   await expect(
     corte.getByText(/mensaje con la clave nueva para la persona que sigue/),
   ).toBeVisible();
+  // Aún no vence: cortar antes de tiempo pide el motivo.
+  await corte.getByLabel('Motivo del corte').fill('Pidió la baja antes de tiempo');
   await corte.getByRole('button', { name: 'Confirmar corte' }).click();
   const aviso = page.getByRole('dialog', { name: 'Avisar datos nuevos' });
   await expect(aviso.getByText('Cambiaste la contraseña de esta cuenta')).toBeVisible();
