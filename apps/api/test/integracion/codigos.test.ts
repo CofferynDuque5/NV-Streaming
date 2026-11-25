@@ -437,6 +437,21 @@ describe('conector con el panel de ikercuentas', () => {
       expect.any(Date),
     );
     expect(probado.cuerpo.estado).toBe('conectado');
+    // Si la carpeta no existe, el aviso lo dice (en vez de «no llegó a tiempo»).
+    vi.mocked(lector.deRemitente).mockRejectedValueOnce(new ErrorBuzon('Mailbox does not exist'));
+    let motivo = '';
+    vi.mocked(robot.entrar).mockImplementationOnce(async (p) => {
+      motivo = await p.aprobar(new Date()).then(
+        () => '',
+        (err: Error) => err.message,
+      );
+      throw new Error('fin');
+    });
+    await e.admin.post('/codigos/conector/probar');
+    expect(motivo).toContain('carpeta «NV-Iker» del buzón «Dominio»');
+    expect(motivo).toContain('pon INBOX');
+    expect(motivo).not.toContain(CLAVE_BUZON);
+
     const conSesion = await ctx.prisma.conectorCodigos.findFirstOrThrow();
     expect(conSesion.sesionCifrada).toBeTruthy();
     expect(conSesion.sesionCifrada).not.toContain('cookies');

@@ -180,8 +180,10 @@ export class LectorImap {
       )) {
         if (!m.source) continue;
         const p = await simpleParser(m.source);
-        const fecha = p.date ?? (m.internalDate instanceof Date ? m.internalDate : new Date(0));
-        if (fecha < desde) continue;
+        // Vale la fecha de llegada al buzón (un reenvío llega después de la fecha del original).
+        const llegada = m.internalDate instanceof Date ? m.internalDate : null;
+        const fecha = llegada ?? p.date ?? new Date(0);
+        if (fecha < desde && (!p.date || p.date < desde)) continue;
         correos.push({
           asunto: p.subject ?? '',
           de: p.from?.text ?? '',
@@ -218,8 +220,10 @@ export class LectorImap {
       )) {
         if (!m.source) continue;
         const p = await simpleParser(m.source);
-        const fecha = p.date ?? (m.internalDate instanceof Date ? m.internalDate : new Date(0));
-        if (fecha < desde) continue;
+        // Vale la fecha de llegada al buzón (un reenvío llega después de la fecha del original).
+        const llegada = m.internalDate instanceof Date ? m.internalDate : null;
+        const fecha = llegada ?? p.date ?? new Date(0);
+        if (fecha < desde && (!p.date || p.date < desde)) continue;
         const de = p.from?.value?.[0]?.address?.toLowerCase() ?? '';
         if (de !== remitente.toLowerCase()) continue;
         correos.push({

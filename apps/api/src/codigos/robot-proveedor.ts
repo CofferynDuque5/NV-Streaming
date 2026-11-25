@@ -302,11 +302,19 @@ export class RobotProveedor implements OnModuleDestroy {
     await this.llenarYEntrar(page, p);
     let r = await this.resultadoEntrada(page);
     if (r === 'aprobar') {
-      const enlace = await p.aprobar(desde);
+      let enlace: string | null = null;
+      let motivo: string | null = null;
+      try {
+        enlace = await p.aprobar(desde);
+      } catch (err) {
+        motivo = err instanceof Error ? err.message : null;
+      }
       if (!enlace) {
         throw new ErrorRobot(
           'APROBACION',
-          'El proveedor pidió aprobar la IP del servidor y el correo no llegó a tiempo. Revisa el reenvío y el filtro, y vuelve a probar.',
+          motivo
+            ? `El proveedor pidió aprobar la IP del servidor. ${motivo}`
+            : 'El proveedor pidió aprobar la IP del servidor y el correo no llegó a tiempo. Revisa el reenvío y el filtro, y vuelve a probar.',
           diagnostico('esperando_aprobacion'),
         );
       }
