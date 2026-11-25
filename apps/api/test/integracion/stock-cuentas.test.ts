@@ -161,7 +161,7 @@ describe('stock y entrega automática desde Plataformas', () => {
     expect(texto).toContain('Correo: lejos@example.com\nContraseña: Clave-123');
     expect(texto).toContain(`Perfil: ${perfil.numero}`);
     expect(texto).toContain(`Vencimiento: ${ddmmaaaa(vence)}`);
-    expect(texto).toMatch(/¡Gracias por confiar en Nathan Streaming!$/);
+    expect(texto).toMatch(/¡Gracias por confiar en NV Streaming!$/);
   });
 
   it('una cuenta individual también es stock; se entrega después de los perfiles compartidos', async () => {

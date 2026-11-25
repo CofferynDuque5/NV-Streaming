@@ -458,7 +458,7 @@ describe('cuentas de servicio', () => {
     expect(m1.cuerpo.texto).toMatch(/^Hola, .+\.\nLos datos de su cuenta de /);
     expect(m1.cuerpo.texto).toContain(`Contraseña: ${CLAVE}`);
     expect(m1.cuerpo.texto).toContain('Perfil: 2\nPIN: 2468');
-    expect(m1.cuerpo.texto).toMatch(/¡Gracias por confiar en Nathan Streaming!$/);
+    expect(m1.cuerpo.texto).toMatch(/¡Gracias por confiar en NV Streaming!$/);
     expect(m1.cuerpo.whatsapp).toBeNull();
     await ctx.prisma.contactoCliente.updateMany({
       where: { clienteId },
