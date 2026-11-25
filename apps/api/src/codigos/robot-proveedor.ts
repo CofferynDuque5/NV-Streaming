@@ -393,7 +393,8 @@ export class RobotProveedor implements OnModuleDestroy {
       await espera(1500);
       await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined);
     }
-    const conBotones = 'xpath=ancestor-or-self::*[count(.//button | .//a | .//*[@role="button"] | .//*[@onclick]) >= 2][1]';
+    const conBotones =
+      'xpath=ancestor-or-self::*[count(.//button | .//a | .//*[@role="button"] | .//*[@onclick]) >= 2][1]';
     // La fila de la tabla si la hay; si no, el primer contenedor con al menos dos botones.
     const filaDe = async (celda: Locator) => {
       const tr = celda.locator('xpath=ancestor-or-self::tr[1]');
@@ -467,8 +468,7 @@ export class RobotProveedor implements OnModuleDestroy {
     const soloIcono = botones
       .map((b, i) => ({ b, i }))
       .filter(
-        ({ b }) =>
-          !/\p{L}{2,}/u.test(b.texto) && !otros.test(`${b.texto} ${b.titulo} ${b.icono}`),
+        ({ b }) => !/\p{L}{2,}/u.test(b.texto) && !otros.test(`${b.texto} ${b.titulo} ${b.icono}`),
       );
     return soloIcono.length === 1 ? soloIcono[0]!.i : -1;
   }
