@@ -216,6 +216,10 @@ services:
     build:
       context: .
       dockerfile: infra/respaldos/Dockerfile
+      args:
+        # Debe ser la versión del servidor de la base (o mayor): Neon y la local usan 16;
+        # Supabase usa 17 (RESPALDO_PG_VERSION=17 en .env.produccion).
+        POSTGRES_IMAGEN: postgres:${RESPALDO_PG_VERSION:-16}-bookworm
     <<: *registros
     restart: unless-stopped
     # Con el usuario dueño de .env.produccion y de la carpeta de copias (no root).
