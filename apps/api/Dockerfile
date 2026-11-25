@@ -72,7 +72,10 @@ WORKDIR /app
 COPY --from=compilacion /salida/api ./
 COPY infra/docker/salud-trabajador.mjs ./salud-trabajador.mjs
 # ffmpeg convierte las notas de voz grabadas en el panel al formato de WhatsApp (OGG/Opus).
-RUN apk add --no-cache ffmpeg
+# chromium: navegador sin ventana que entra al panel del proveedor de cuentas (ikercuentas)
+# para pedir los códigos (Code, Code6, Link, sobre, Hogar).
+RUN apk add --no-cache ffmpeg chromium nss freetype harfbuzz ttf-freefont
+ENV NAVEGADOR_RUTA=/usr/bin/chromium-browser
 # Carpeta privada de comprobantes (volumen en producción), la única con escritura.
 RUN mkdir -p /datos/almacen && chown node:node /datos/almacen
 USER node

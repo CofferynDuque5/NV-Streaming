@@ -1,3 +1,4 @@
+import type { AccionProveedor } from './esquemas/codigos.js';
 import type { Referencia } from './tipos-negocio.js';
 
 export interface BuzonPublico {
@@ -21,8 +22,11 @@ export interface AsuntoCodigoPublico {
   activo: boolean;
 }
 
-/** hogar: actualizar el Hogar o viaje (Netflix). verificar: confirmar el acceso. acceso: otro enlace de entrada. */
-export type TipoEnlaceCodigo = 'hogar' | 'verificar' | 'acceso';
+/**
+ * hogar: actualizar el Hogar o viaje. verificar: confirmar el acceso. acceso: otro enlace de entrada.
+ * restablecer: cambiar la contraseña (solo desde el panel del proveedor, botón «Link»).
+ */
+export type TipoEnlaceCodigo = 'hogar' | 'verificar' | 'acceso' | 'restablecer';
 
 export interface EnlaceCodigo {
   url: string;
@@ -54,4 +58,46 @@ export interface CodigoDelCliente {
   codigo: string | null;
   enlace: EnlaceCodigo | null;
   recibidoEn: string;
+}
+
+/** Estado del conector con el panel del proveedor. */
+export type EstadoConector = 'sin_probar' | 'conectado' | 'esperando_aprobacion' | 'error';
+
+/** Lo último que vio el navegador automático, sin datos sensibles (para afinar el conector). */
+export interface DiagnosticoConector {
+  paso: string;
+  /** Rutas internas que llamó el panel al pulsar (sin parámetros). */
+  rutas: string[];
+  /** Botones que había en la fila de la cuenta. */
+  botones: string[];
+  /** Avisos que mostró el panel, con los números y enlaces tapados. */
+  avisos: string[];
+  en: string;
+}
+
+export interface ConectorPublico {
+  nombre: string;
+  activo: boolean;
+  urlBase: string;
+  /** «na•••@gmail.com», o null si no hay usuario guardado. */
+  pista: string | null;
+  tieneClave: boolean;
+  marcaProveedor: string;
+  buzonId: string | null;
+  carpetaAprobacion: string;
+  remitenteAprobacion: string;
+  accionesCliente: AccionProveedor[];
+  estado: EstadoConector;
+  ultimoError: string | null;
+  probadoEn: string | null;
+  diagnostico: DiagnosticoConector | null;
+}
+
+/** Resultado de pulsar un botón del proveedor. */
+export interface ResultadoProveedor {
+  codigo: string | null;
+  enlace: EnlaceCodigo | null;
+  /** Lo que respondió el panel cuando no hay código («No hay códigos recientes»…). */
+  mensaje: string | null;
+  obtenidoEn: string;
 }

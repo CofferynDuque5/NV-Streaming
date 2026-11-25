@@ -91,6 +91,9 @@ importers:
       otplib:
         specifier: ^13.5.0
         version: 13.5.0
+      playwright-core:
+        specifier: 1.63.0
+        version: 1.63.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type CorreoLeido, ErrorBuzon, LectorImap } from '../../src/codigos/lector-imap.js';
+import { ErrorRobot, RobotProveedor } from '../../src/codigos/robot-proveedor.js';
 import { conectar, type Contexto, crearContexto, limpiar, prepararCatalogo } from './ayudas.js';
 
 let ctx: Contexto;
@@ -360,5 +361,144 @@ describe('correos de códigos', () => {
       data: { usuarioId: otro.usuario.id, estado: 'aprobado', nombreComercial: 'Tienda Dos' },
     });
     expect((await otro.n.post(ruta)).estado).toBe(404);
+  });
+});
+
+describe('conector con el panel de ikercuentas', () => {
+  it('guarda el acceso cifrado, aprueba la IP por correo y entrega el código al cliente', async () => {
+    const e = await escenario();
+    const robot = ctx.app.get(RobotProveedor);
+    // La cuenta es un Netflix individual comprado en Iker.
+    await ctx.prisma.servicio.update({
+      where: { id: e.servicioId },
+      data: { nombre: 'Netflix Individual' },
+    });
+    await ctx.prisma.cuentaServicio.update({
+      where: { id: e.cuenta.id },
+      data: { proveedor: 'Iker Cuentas' },
+    });
+    const buzon = await e.admin.post('/codigos/buzones', {
+      nombre: 'Dominio',
+      host: 'mail.midominio.com',
+      usuario: 'info@midominio.com',
+      clave: CLAVE_BUZON,
+    });
+
+    // Solo el admin configura; el operador puede verlo sin secretos.
+    const datos = {
+      activo: true,
+      urlBase: 'https://ikercuentas.com/',
+      usuario: 'nathan@gmail.com',
+      clave: 'Clave-De-Iker-1',
+      marcaProveedor: 'Iker',
+      buzonId: buzon.cuerpo.id,
+      carpetaAprobacion: 'NV-Iker',
+      remitenteAprobacion: 'no-reply@ikercuentas.com',
+      accionesCliente: ['code', 'code6', 'link', 'sobre', 'hogar'],
+    };
+    expect((await e.operador.put('/codigos/conector', datos)).estado).toBe(403);
+    const guardado = await e.admin.put('/codigos/conector', datos);
+    expect(guardado.estado).toBe(200);
+    expect(guardado.cuerpo).toMatchObject({
+      urlBase: 'https://ikercuentas.com',
+      pista: 'na•••@gmail.com',
+      tieneClave: true,
+      estado: 'sin_probar',
+    });
+    expect(JSON.stringify(guardado.cuerpo)).not.toContain('Clave-De-Iker-1');
+    const fila = await ctx.prisma.conectorCodigos.findFirstOrThrow();
+    expect(fila.claveCifrada).not.toContain('Clave-De-Iker-1');
+    expect(fila.usuarioCifrado).not.toContain('nathan@gmail.com');
+    expect((await e.operador.get('/codigos/conector')).cuerpo.pista).toBe('na•••@gmail.com');
+
+    // «Probar entrada»: el panel pide aprobar la IP y el enlace llega al buzón.
+    vi.spyOn(lector, 'deRemitente').mockResolvedValue([
+      correo({
+        de: 'no-reply@ikercuentas.com',
+        asunto: 'Nuevo dispositivo detectado — ikercuentas',
+        html: '<a href="https://ikercuentas.com/api/auth/approve-ip?token=t0k">Aprobar</a>',
+      }),
+    ]);
+    let enlace: string | null = null;
+    vi.spyOn(robot, 'entrar').mockImplementation(async (p) => {
+      expect(p.usuario).toBe('nathan@gmail.com');
+      expect(p.clave).toBe('Clave-De-Iker-1');
+      enlace = await p.aprobar(new Date(Date.now() - 60_000));
+      return {
+        sesion: '{"cookies":[{"name":"s","value":"v"}]}',
+        diagnostico: { paso: 'sesion_iniciada', rutas: [], botones: [], avisos: [], en: '' },
+      };
+    });
+    const probado = await e.admin.post('/codigos/conector/probar');
+    expect(enlace).toBe('https://ikercuentas.com/api/auth/approve-ip?token=t0k');
+    expect(lector.deRemitente).toHaveBeenCalledWith(
+      expect.objectContaining({ carpeta: 'NV-Iker' }),
+      'no-reply@ikercuentas.com',
+      expect.any(Date),
+    );
+    expect(probado.cuerpo.estado).toBe('conectado');
+    const conSesion = await ctx.prisma.conectorCodigos.findFirstOrThrow();
+    expect(conSesion.sesionCifrada).toBeTruthy();
+    expect(conSesion.sesionCifrada).not.toContain('cookies');
+
+    // El cliente ve los botones de Netflix y recibe el código.
+    const cliente = await conectar(ctx, 'cliente');
+    const alta = await cliente.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
+    const suscripcionId = alta.cuerpo.suscripcion.id as string;
+    await e.operador.post(
+      `/cuentas/${e.cuenta.id}/perfiles/${e.cuenta.listaPerfiles[0].id}/asignar`,
+      { suscripcionId },
+    );
+    await ctx.prisma.suscripcion.update({
+      where: { id: suscripcionId },
+      data: { estado: 'activa' },
+    });
+    const lista = await cliente.n.get('/mi/perfiles');
+    expect(lista.cuerpo[0].accionesProveedor).toEqual(['code', 'code6', 'link']);
+
+    const pulsar = vi.spyOn(robot, 'pulsar').mockResolvedValue({
+      textos: ['Código 4 dígitos: 5090'],
+      sesion: null,
+      diagnostico: { paso: 'boton_pulsado', rutas: [], botones: ['Code'], avisos: [], en: '' },
+    });
+    const ruta = `/mi/perfiles/${suscripcionId}/codigo-proveedor`;
+    const r = await cliente.n.post(ruta, { accion: 'code' });
+    expect(r.estado).toBe(200);
+    expect(r.cuerpo).toMatchObject({ codigo: '5090', enlace: null, mensaje: null });
+    expect(pulsar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        correoCuenta: 'cine.uno@midominio.com',
+        plataforma: 'netflix',
+        accion: 'code',
+      }),
+    );
+    // Netflix no tiene botón «Hogar» ni otro cliente puede usar ese perfil.
+    expect((await cliente.n.post(ruta, { accion: 'hogar' })).cuerpo.error.codigo).toBe(
+      'ACCION_NO_DISPONIBLE',
+    );
+    const otro = await conectar(ctx, 'cliente');
+    expect((await otro.n.post(ruta, { accion: 'code' })).estado).toBe(404);
+
+    // Si el panel no encuentra la cuenta, se avisa sin dejar el conector en error.
+    pulsar.mockRejectedValueOnce(
+      new ErrorRobot('NO_ENCONTRADA', 'Esa cuenta no aparece en el panel del proveedor.'),
+    );
+    const falla = await cliente.n.post(ruta, { accion: 'code6' });
+    expect(falla.estado).toBe(404);
+    expect((await e.admin.get('/codigos/conector')).cuerpo.estado).toBe('conectado');
+
+    // El código nunca queda en la auditoría.
+    const auditoria = await ctx.prisma.auditoria.findMany({
+      where: { accion: { startsWith: 'codigo_proveedor' } },
+    });
+    expect(auditoria.length).toBeGreaterThan(0);
+    expect(JSON.stringify(auditoria)).not.toContain('5090');
+
+    // Si se desactiva el conector, el cliente deja de ver los botones.
+    await e.admin.put('/codigos/conector', { ...datos, usuario: '', clave: '', activo: false });
+    expect((await cliente.n.get('/mi/perfiles')).cuerpo[0].accionesProveedor).toEqual([]);
+    expect((await cliente.n.post(ruta, { accion: 'code' })).cuerpo.error.codigo).toBe(
+      'CONECTOR_INACTIVO',
+    );
   });
 });

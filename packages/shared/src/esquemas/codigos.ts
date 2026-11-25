@@ -180,3 +180,103 @@ export const buscarCodigoSchema = z
     path: ['correo'],
   });
 export type BuscarCodigoEntrada = z.infer<typeof buscarCodigoSchema>;
+
+// ── Conector con el panel de un proveedor (ikercuentas.com) ─────────────────
+
+/**
+ * Botones del panel del proveedor que se pulsan desde NV:
+ * Netflix → code (inicio de sesión), code6 (verificación de 6 dígitos), link (restablecer clave);
+ * Disney+ → sobre (códigos); HBO Max → sobre (acceso único) y hogar (estoy de viaje / actualizar Hogar).
+ */
+export const ACCIONES_PROVEEDOR = ['code', 'code6', 'link', 'sobre', 'hogar'] as const;
+export type AccionProveedor = (typeof ACCIONES_PROVEEDOR)[number];
+
+export const NOMBRE_ACCION_PROVEEDOR: Record<AccionProveedor, string> = {
+  code: 'Código de inicio de sesión',
+  code6: 'Código de verificación (6 dígitos)',
+  link: 'Enlace para cambiar la contraseña',
+  sobre: 'Código de acceso',
+  hogar: 'Hogar / Estoy de viaje',
+};
+
+export type PlataformaProveedor = 'netflix' | 'disney' | 'hbo';
+
+/** Plataforma del panel del proveedor según el nombre del servicio, o null si no tiene botones. */
+export function plataformaProveedor(nombreServicio: string): PlataformaProveedor | null {
+  const n = nombreServicio.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (/netflix/.test(n)) return 'netflix';
+  if (/disney/.test(n)) return 'disney';
+  if (/\bhbo\b|\bmax\b|hbomax/.test(n)) return 'hbo';
+  return null;
+}
+
+export const ACCIONES_POR_PLATAFORMA: Record<PlataformaProveedor, AccionProveedor[]> = {
+  netflix: ['code', 'code6', 'link'],
+  disney: ['sobre'],
+  hbo: ['sobre', 'hogar'],
+};
+
+export const accionProveedorSchema = z.enum(ACCIONES_PROVEEDOR, {
+  error: 'Elige qué botón pulsar.',
+});
+
+export const conectorSchema = z.object({
+  activo: z.boolean().default(false),
+  urlBase: z
+    .string({ error: 'Escribe la dirección del panel.' })
+    .trim()
+    .max(200)
+    .pipe(z.url({ protocol: /^https$/, error: 'Usa una dirección https://' }))
+    .transform((u) => u.replace(/\/+$/, '')),
+  /** Vacío: se conserva el guardado. */
+  usuario: z
+    .string()
+    .trim()
+    .max(254)
+    .transform((v) => v || undefined)
+    .optional(),
+  /** Vacía: se conserva la guardada. */
+  clave: z
+    .string()
+    .max(300, 'La clave es demasiado larga.')
+    .transform((v) => v || undefined)
+    .optional(),
+  marcaProveedor: z
+    .string({ error: 'Escribe cómo aparece el proveedor en tus cuentas.' })
+    .trim()
+    .min(2, 'Mínimo 2 letras.')
+    .max(60),
+  buzonId: uuidSchema.nullable().default(null),
+  carpetaAprobacion: z.string().trim().min(1, 'Escribe la carpeta.').max(120).default('INBOX'),
+  remitenteAprobacion: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(254)
+    .pipe(z.email({ error: 'Escribe un correo válido.' })),
+  accionesCliente: z.array(accionProveedorSchema).max(ACCIONES_PROVEEDOR.length).default([]),
+});
+export type ConectorEntrada = z.infer<typeof conectorSchema>;
+
+/** El equipo pulsa un botón del proveedor para una cuenta guardada o un correo escrito a mano. */
+export const pedirProveedorSchema = z
+  .object({
+    cuentaId: uuidSchema.optional(),
+    correo: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(254)
+      .pipe(z.email({ error: 'Escribe un correo válido.' }))
+      .optional(),
+    /** Con correo a mano: en qué pestaña del panel buscarlo. */
+    plataforma: z.enum(['netflix', 'disney', 'hbo']).optional(),
+    accion: accionProveedorSchema,
+  })
+  .refine((o) => Boolean(o.cuentaId) !== Boolean(o.correo), {
+    message: 'Elige una cuenta o escribe un correo.',
+    path: ['correo'],
+  });
+export type PedirProveedorEntrada = z.infer<typeof pedirProveedorSchema>;
+
+export const pedirProveedorClienteSchema = z.object({ accion: accionProveedorSchema });

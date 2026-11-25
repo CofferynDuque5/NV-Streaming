@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
@@ -16,6 +17,9 @@ import {
   asuntoCodigoSchema,
   buscarCodigoSchema,
   buzonSchema,
+  conectorSchema,
+  pedirProveedorClienteSchema,
+  pedirProveedorSchema,
   uuidSchema,
 } from '@nv/shared';
 import { z } from 'zod';
@@ -29,6 +33,7 @@ import {
 import { DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CodigosService } from './codigos.service.js';
+import { ConectorCodigosService } from './conector.service.js';
 
 const idValido = validar(uuidSchema);
 const SIN_CACHE = 'private, no-store, max-age=0';
@@ -38,7 +43,50 @@ const sugerirSchema = z.object({ servicioId: uuidSchema });
 @ApiTags('Correos de códigos')
 @Controller('codigos')
 export class CodigosController {
-  constructor(@Inject(CodigosService) private readonly codigos: CodigosService) {}
+  constructor(
+    @Inject(CodigosService) private readonly codigos: CodigosService,
+    @Inject(ConectorCodigosService) private readonly conector: ConectorCodigosService,
+  ) {}
+
+  /** Conexión con el panel del proveedor (ikercuentas): sin usuario ni clave. */
+  @Get('conector')
+  @RequierePermiso('codigos.consultar')
+  verConector() {
+    return this.conector.ver();
+  }
+
+  @Put('conector')
+  @RequierePermiso('codigos.configurar')
+  @DocCuerpo(conectorSchema)
+  guardarConector(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(conectorSchema)) cuerpo: z.output<typeof conectorSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.conector.guardar(auth, cuerpo, cliente);
+  }
+
+  /** Entra al panel del proveedor (aprobando la IP por correo si hace falta). */
+  @Post('conector/probar')
+  @HttpCode(200)
+  @RequierePermiso('codigos.configurar')
+  probarConector(@Auth() auth: ContextoAuth, @Cliente() cliente: InfoCliente) {
+    return this.conector.probar(auth, cliente);
+  }
+
+  /** Pulsa un botón del proveedor (Code, Code6, Link, sobre, Hogar). Queda registrado. */
+  @Post('conector/pedir')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('codigos.consultar')
+  @DocCuerpo(pedirProveedorSchema)
+  pedirAlProveedor(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(pedirProveedorSchema)) cuerpo: z.output<typeof pedirProveedorSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.conector.pedir(auth, cuerpo, cliente);
+  }
 
   @Get('buzones')
   @RequierePermiso('codigos.configurar')
@@ -145,7 +193,26 @@ export class CodigosController {
 @ApiTags('Autoservicio del cliente')
 @Controller('mi/perfiles')
 export class MisCodigosController {
-  constructor(@Inject(CodigosService) private readonly codigos: CodigosService) {}
+  constructor(
+    @Inject(CodigosService) private readonly codigos: CodigosService,
+    @Inject(ConectorCodigosService) private readonly conector: ConectorCodigosService,
+  ) {}
+
+  /** Pulsa un botón del panel del proveedor para este perfil (Code, Code6, Link, sobre, Hogar). */
+  @Post(':suscripcionId/codigo-proveedor')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('autoservicio.usar')
+  @DocCuerpo(pedirProveedorClienteSchema)
+  codigoProveedor(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Body(validar(pedirProveedorClienteSchema))
+    cuerpo: z.output<typeof pedirProveedorClienteSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.conector.pedirMio(auth, suscripcionId, cuerpo.accion, cliente);
+  }
 
   @Post(':suscripcionId/codigo')
   @HttpCode(200)
@@ -164,7 +231,26 @@ export class MisCodigosController {
 @ApiTags('Revendedores: panel')
 @Controller('revendedor/perfiles')
 export class CodigosRevendedorController {
-  constructor(@Inject(CodigosService) private readonly codigos: CodigosService) {}
+  constructor(
+    @Inject(CodigosService) private readonly codigos: CodigosService,
+    @Inject(ConectorCodigosService) private readonly conector: ConectorCodigosService,
+  ) {}
+
+  /** Pulsa un botón del panel del proveedor para este perfil (Code, Code6, Link, sobre, Hogar). */
+  @Post(':suscripcionId/codigo-proveedor')
+  @HttpCode(200)
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('reventa.usar')
+  @DocCuerpo(pedirProveedorClienteSchema)
+  codigoProveedor(
+    @Auth() auth: ContextoAuth,
+    @Param('suscripcionId', idValido) suscripcionId: string,
+    @Body(validar(pedirProveedorClienteSchema))
+    cuerpo: z.output<typeof pedirProveedorClienteSchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.conector.pedirDeRevendedor(auth, suscripcionId, cuerpo.accion, cliente);
+  }
 
   @Post(':suscripcionId/codigo')
   @HttpCode(200)
