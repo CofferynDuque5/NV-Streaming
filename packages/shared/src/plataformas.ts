@@ -228,7 +228,7 @@ export function unaPersonaEnTodos(
 
 /* ─────────────────────── Mensaje con los datos (botón «Mensaje») ─────────────────────── */
 
-export const MARCA_MENSAJES = 'Nathan Streaming';
+export const MARCA_MENSAJES = 'NV Streaming';
 
 export interface DatosMensajeCuenta {
   cliente: string;

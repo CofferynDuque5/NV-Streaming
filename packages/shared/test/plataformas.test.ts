@@ -183,7 +183,7 @@ describe('mensaje con los datos (botón «Mensaje»)', () => {
         'PIN: 1234',
         'Vencimiento: 25/12/2026',
         '',
-        '¡Gracias por confiar en Nathan Streaming!',
+        '¡Gracias por confiar en NV Streaming!',
       ].join('\n'),
     );
     const sinPin = mensajeDatosCuenta({
