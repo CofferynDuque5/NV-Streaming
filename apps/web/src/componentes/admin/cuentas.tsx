@@ -454,8 +454,9 @@ export function EditarCuenta({
       return;
     }
     setActuales({ usuario: r.datos.usuario, clave: r.datos.clave });
-    setUsuario(r.datos.usuario);
-    setClave(r.datos.clave);
+    // Si ya escribió algo mientras cargaba, se respeta lo suyo.
+    setUsuario((u) => u || r.datos.usuario);
+    setClave((c) => c || r.datos.clave);
     const porNumero = new Map(cuenta.listaPerfiles.map((p) => [p.id, p.numero]));
     setFilas((lista) =>
       lista.map((f) => {

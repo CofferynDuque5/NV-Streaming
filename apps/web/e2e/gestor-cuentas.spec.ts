@@ -168,6 +168,7 @@ test('edita la cuenta como en el Gestor: plan, país, pago, fecha, PIN y orden d
 
   await page.goto(`/admin/cuentas/${cuenta.id}`);
   await page.getByRole('button', { name: 'Editar cuenta' }).click();
+  await page.getByRole('tab', { name: 'Cobro y datos' }).click();
   await page.getByRole('button', { name: 'Premium' }).click();
   await page.getByLabel('País').selectOption('CO');
   await page.getByRole('button', { name: 'Tarjeta', exact: true }).click();
@@ -175,13 +176,17 @@ test('edita la cuenta como en el Gestor: plan, país, pago, fecha, PIN y orden d
   await page.getByLabel('Fecha de vencimiento').fill('2026-03-31');
   await page.getByRole('button', { name: 'Sumar 1 mes' }).click();
   await expect(page.getByLabel('Fecha de vencimiento')).toHaveValue('2026-04-30');
+  await page.getByRole('tab', { name: 'Acceso' }).click();
   await page.getByRole('button', { name: 'Generar una clave segura' }).click();
   await expect(page.getByText(/^(Buena|Fuerte)$/)).toBeVisible();
   // El cliente del perfil 3 sube al primer lugar, con su PIN nuevo.
+  await page.getByRole('tab', { name: /^Perfiles/ }).click();
   await expect(page.getByText(cliente).filter({ visible: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Subir Perfil 3' }).click();
   await page.getByRole('button', { name: 'Subir Perfil 3' }).click();
   await page.getByLabel('PIN de Perfil 3').fill('2468');
+  await expect(page.getByText(/Vas a cambiar:/)).toBeVisible();
+  await page.getByRole('tab', { name: 'Cobro y datos' }).click();
   await expect(page.getByRole('complementary', { name: 'Resumen de la cuenta' })).toContainText(
     '1 de 3',
   );
