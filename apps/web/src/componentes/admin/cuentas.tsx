@@ -426,6 +426,7 @@ export function EditarCuenta({
   const [opcionesResponsable, setOpcionesResponsable] = useState<string[]>([]);
   const idListaResponsables = useId();
   const [guardando, setGuardando] = useState(false);
+  const [pestana, setPestana] = useState<'acceso' | 'perfiles' | 'cobro'>('acceso');
 
   function abrir() {
     setFilas(filasIniciales());
@@ -437,7 +438,10 @@ export function EditarCuenta({
     setClave('');
     setActuales(null);
     setErrorPrevio(null);
+    setPestana('acceso');
     setAbierto(true);
+    // Con permiso, los datos actuales se cargan solos: se edita encima, sin otro clic.
+    if (puedeRevelar) void mostrarDatos();
   }
 
   async function mostrarDatos() {
@@ -450,8 +454,9 @@ export function EditarCuenta({
       return;
     }
     setActuales({ usuario: r.datos.usuario, clave: r.datos.clave });
-    setUsuario(r.datos.usuario);
-    setClave(r.datos.clave);
+    // Si ya escribió algo mientras cargaba, se respeta lo suyo.
+    setUsuario((u) => u || r.datos.usuario);
+    setClave((c) => c || r.datos.clave);
     const porNumero = new Map(cuenta.listaPerfiles.map((p) => [p.id, p.numero]));
     setFilas((lista) =>
       lista.map((f) => {
@@ -561,52 +566,76 @@ export function EditarCuenta({
       ].join('\n')
     : '';
 
+  const usuarioCambia = Boolean(usuario.trim()) && usuario.trim() !== (actuales?.usuario ?? '');
+  const claveCambia = Boolean(clave) && clave !== (actuales?.clave ?? '');
+  const responsablesAntes = responsablesIniciales();
+  const responsableCambia = Object.entries(responsables).some(
+    ([id, v]) => v.trim() !== (responsablesAntes[id] ?? '').trim(),
+  );
+  const resumenCambios = [
+    usuarioCambia && 'correo',
+    claveCambia && 'clave',
+    ...pinsNuevos.map((f) => `PIN de ${f.nombre}`),
+    ordenCambiado && 'orden de perfiles',
+    responsableCambia && 'responsable',
+  ].filter(Boolean) as string[];
+  const errorEn = {
+    acceso: Boolean(campos.usuario || campos.clave || campos.estado || campos.perfiles),
+    perfiles: Boolean(pinMalo),
+    cobro: Object.keys(campos).some((k) => !['usuario', 'clave', 'estado', 'perfiles'].includes(k)),
+  };
+  const pestanas = [
+    ['acceso', 'Acceso'],
+    ['perfiles', `Perfiles · ${filas.length}`],
+    ['cobro', 'Cobro y datos'],
+  ] as const;
+
   return (
     <PanelFormulario
       titulo="Editar cuenta"
-      descripcion="Deja vacíos el correo y la clave para conservarlos. Para quitar perfiles, deben estar libres los últimos."
+      descripcion="Cambia solo lo que necesites y guarda. Lo demás se queda igual."
       onCerrar={() => setAbierto(false)}
     >
       <form onSubmit={enviar} className="grid gap-5" noValidate autoComplete="off">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Selector etiqueta="Estado" name="estado" defaultValue={cuenta.estado}>
-            {ESTADOS_CUENTA_SERVICIO.map((e) => (
-              <option key={e} value={e}>
-                {ETIQUETA_ESTADO_CUENTA[e]}
-              </option>
+        <div
+          role="tablist"
+          aria-label="Partes de la cuenta"
+          className="flex gap-1 border-b border-borde"
+        >
+          {pestanas
+            .filter(([clave]) => clave !== 'perfiles' || filas.length > 0)
+            .map(([clave, nombre]) => (
+              <button
+                key={clave}
+                type="button"
+                role="tab"
+                aria-selected={pestana === clave}
+                onClick={() => setPestana(clave)}
+                className={
+                  '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold ' +
+                  (pestana === clave
+                    ? 'border-marca text-marca'
+                    : 'border-transparent text-tinta-suave hover:text-tinta')
+                }
+              >
+                {nombre}
+                {errorEn[clave] && (
+                  <span className="size-2 rounded-full bg-peligro" aria-label="(revisar)" />
+                )}
+              </button>
             ))}
-          </Selector>
-          {cuenta.modo === 'perfiles' && (
-            <Campo
-              etiqueta="Perfiles"
-              name="perfiles"
-              type="number"
-              min={1}
-              max={MAX_PERFILES_CUENTA}
-              defaultValue={cuenta.perfiles.total}
-              error={campos.perfiles}
-            />
-          )}
         </div>
-        <fieldset className="grid gap-3">
-          <legend className="sr-only">Acceso</legend>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold">Acceso</h4>
-            <div className="flex flex-wrap gap-2">
-              {puedeRevelar && !actuales && (
-                <Boton
-                  tamano="sm"
-                  variante="secundario"
-                  cargando={mostrando}
-                  onClick={() => void mostrarDatos()}
-                  icono={<Eye className="size-3.5" aria-hidden="true" />}
-                >
-                  Mostrar datos actuales
-                </Boton>
-              )}
-              {textoTodo && <BotonCopiar texto={textoTodo} que="todos los datos" />}
-            </div>
-          </div>
+
+        {/* Las tres partes siguen en el formulario aunque estén ocultas: se guarda todo junto. */}
+        <div role="tabpanel" hidden={pestana !== 'acceso'} className="grid gap-4">
+          {puedeRevelar && mostrando && !actuales && (
+            <p className="text-sm text-tinta-tenue">Cargando los datos actuales…</p>
+          )}
+          {!puedeRevelar && (
+            <p className="text-sm text-tinta-tenue">
+              Deja vacíos el correo y la clave para conservarlos.
+            </p>
+          )}
           <CamposCredenciales
             usuario={usuario}
             clave={clave}
@@ -616,23 +645,57 @@ export function EditarCuenta({
             obligatorios={false}
             pista={cuenta.pista}
           />
-        </fieldset>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Selector etiqueta="Estado" name="estado" defaultValue={cuenta.estado}>
+              {ESTADOS_CUENTA_SERVICIO.map((e) => (
+                <option key={e} value={e}>
+                  {ETIQUETA_ESTADO_CUENTA[e]}
+                </option>
+              ))}
+            </Selector>
+            {cuenta.modo === 'perfiles' && (
+              <Campo
+                etiqueta="Cantidad de perfiles"
+                name="perfiles"
+                type="number"
+                min={1}
+                max={MAX_PERFILES_CUENTA}
+                defaultValue={cuenta.perfiles.total}
+                ayuda="Para quitar perfiles, deben estar libres los últimos."
+                error={campos.perfiles}
+              />
+            )}
+          </div>
+          {textoTodo && (
+            <div className="flex items-center gap-2">
+              <BotonCopiar texto={textoTodo} que="todos los datos" />
+              <span className="text-xs text-tinta-tenue">Correo, clave y PIN de cada perfil.</span>
+            </div>
+          )}
+        </div>
+
         {filas.length > 0 && (
-          <fieldset className="grid gap-2 rounded-xl border border-borde p-3 sm:p-4">
-            <legend className="px-1 text-sm font-semibold">Perfiles</legend>
+          <div role="tabpanel" hidden={pestana !== 'perfiles'} className="grid gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-tinta-tenue">
-                PIN vacío: se conserva el actual. Con las flechas cambias el orden.
+                Escribe encima del PIN para cambiarlo. Con las flechas cambias el orden.
               </p>
               <button type="button" className="chip" onClick={pinsParaTodos}>
                 <Dices className="size-3.5" aria-hidden="true" /> PINs únicos para todos
               </button>
             </div>
+            <div className="hidden grid-cols-[auto_7rem_minmax(0,1fr)_10rem_6.5rem] gap-x-3 px-2 text-xs font-semibold text-tinta-tenue sm:grid">
+              <span className="w-[3.25rem]" />
+              <span>Perfil</span>
+              <span>Cliente · vence</span>
+              <span>Responsable</span>
+              <span>PIN</span>
+            </div>
             <ul className="grid gap-2">
               {filas.map((f, i) => (
                 <li
                   key={f.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_6.5rem] items-center gap-2 rounded-lg border border-borde px-2 py-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_6.5rem]"
+                  className="grid grid-cols-[auto_minmax(0,1fr)_6.5rem] items-center gap-x-3 gap-y-2 rounded-lg border border-borde px-2 py-2 sm:grid-cols-[auto_7rem_minmax(0,1fr)_10rem_6.5rem]"
                 >
                   <div className="flex items-center gap-0.5">
                     <span className="w-6 text-center text-sm font-semibold text-tinta-tenue tabular-nums">
@@ -682,9 +745,24 @@ export function EditarCuenta({
                       </span>
                     )}
                   </p>
+                  <input
+                    value={f.pin}
+                    onChange={(e) => {
+                      const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 8);
+                      setFilas((lista) => lista.map((x) => (x.id === f.id ? { ...x, pin: v } : x)));
+                    }}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={8}
+                    placeholder={f.tienePin ? '••••' : 'PIN'}
+                    aria-label={`PIN de ${f.nombre}`}
+                    aria-invalid={f.pin && !/^\d{4,8}$/.test(f.pin) ? true : undefined}
+                    className={`${clasesEntrada} py-1.5 sm:order-last`}
+                  />
+                  {!f.asignacion && <span className="hidden sm:block" aria-hidden="true" />}
                   {f.asignacion && (
-                    <label className="col-span-full flex items-center gap-2 text-xs text-tinta-suave">
-                      <span className="shrink-0">Responsable</span>
+                    <label className="col-span-2 col-start-2 flex items-center gap-2 text-xs text-tinta-suave sm:order-none sm:col-span-1 sm:col-start-auto">
+                      <span className="shrink-0 sm:sr-only">Responsable</span>
                       <input
                         value={responsables[f.asignacion.cliente.id] ?? ''}
                         onChange={(e) => {
@@ -701,20 +779,6 @@ export function EditarCuenta({
                       />
                     </label>
                   )}
-                  <input
-                    value={f.pin}
-                    onChange={(e) => {
-                      const v = e.currentTarget.value.replace(/\D/g, '').slice(0, 8);
-                      setFilas((lista) => lista.map((x) => (x.id === f.id ? { ...x, pin: v } : x)));
-                    }}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    maxLength={8}
-                    placeholder={f.tienePin ? '••••' : 'PIN'}
-                    aria-label={`PIN de ${f.nombre}`}
-                    aria-invalid={f.pin && !/^\d{4,8}$/.test(f.pin) ? true : undefined}
-                    className={clasesEntrada}
-                  />
                 </li>
               ))}
             </ul>
@@ -726,31 +790,45 @@ export function EditarCuenta({
             <p className="text-xs text-tinta-tenue">
               El responsable es de la persona: cambia en todos sus perfiles.
             </p>
-          </fieldset>
+          </div>
         )}
-        <DatosCuenta
-          campos={campos}
-          cuenta={cuenta}
-          conLiberacion={cuenta.estado === 'en_espera'}
-          lateral={(v) => (
-            <ResumenCuenta
-              costoUsd={Number(v.costoUsd) || 0}
-              cicloMeses={v.cicloMeses}
-              total={filas.length}
-              asignados={asignados}
-              ingresoMensualUsd={ingresoMensual}
-              facturaEn={v.facturaEn}
-            />
-          )}
-        />
+
+        <div role="tabpanel" hidden={pestana !== 'cobro'}>
+          <DatosCuenta
+            campos={campos}
+            cuenta={cuenta}
+            conLiberacion={cuenta.estado === 'en_espera'}
+            lateral={(v) => (
+              <ResumenCuenta
+                costoUsd={Number(v.costoUsd) || 0}
+                cicloMeses={v.cicloMeses}
+                total={filas.length}
+                asignados={asignados}
+                ingresoMensualUsd={ingresoMensual}
+                facturaEn={v.facturaEn}
+              />
+            )}
+          />
+        </div>
+
         {errorPrevio && <Alerta tono="peligro">{errorPrevio}</Alerta>}
         <ErrorGeneral error={error} />
-        <div className="flex flex-wrap gap-2">
-          <Boton type="submit" cargando={cargando || guardando}>
-            Guardar cambios
-          </Boton>
+        <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center gap-3 rounded-b-nv border-t border-borde bg-elevada/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:-mb-6 sm:px-6">
+          <p className="min-w-0 flex-1 text-sm text-tinta-suave">
+            {resumenCambios.length > 0 ? (
+              <>
+                <span className="font-semibold text-tinta">Vas a cambiar:</span>{' '}
+                {resumenCambios.join(', ')}.
+              </>
+            ) : (
+              'Sin cambios en el acceso ni en los perfiles.'
+            )}
+          </p>
           <Boton variante="fantasma" onClick={() => setAbierto(false)}>
             Cerrar
+          </Boton>
+          <Boton type="submit" cargando={cargando || guardando}>
+            Guardar cambios
           </Boton>
         </div>
       </form>

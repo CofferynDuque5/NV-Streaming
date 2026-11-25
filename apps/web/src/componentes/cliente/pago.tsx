@@ -218,11 +218,14 @@ export function BotonCopiar({
   texto,
   etiqueta,
   soloIcono = false,
+  rotulo = 'Copiar',
 }: {
   texto: string;
   etiqueta: string;
   /** Botón cuadrado con solo el ícono (filas compactas de «Mis accesos»). */
   soloIcono?: boolean;
+  /** Texto visible del botón (por defecto «Copiar»). */
+  rotulo?: string;
 }) {
   const notificar = useNotificar();
   const [copiado, setCopiado] = useState(false);
@@ -250,7 +253,7 @@ export function BotonCopiar({
       ) : (
         <Copy className="size-3.5" aria-hidden="true" />
       )}
-      {soloIcono ? null : copiado ? 'Copiado' : 'Copiar'}
+      {soloIcono ? null : copiado ? 'Copiado' : rotulo}
     </button>
   );
 }

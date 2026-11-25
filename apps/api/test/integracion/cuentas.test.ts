@@ -502,8 +502,10 @@ describe('cuentas de servicio', () => {
   it('corta con clave y PIN nuevos, mueve al cliente y arma los avisos de la cuenta', async () => {
     const e = await escenario();
     const subs: string[] = [];
+    const clientes: Awaited<ReturnType<typeof conectar>>[] = [];
     for (let i = 0; i < 2; i++) {
       const c = await conectar(ctx, 'cliente');
+      clientes.push(c);
       const alta = await c.n.post('/mi/suscripciones', { planId: e.planId, moneda: 'USD' });
       subs.push(alta.cuerpo.suscripcion.id as string);
     }
@@ -548,12 +550,36 @@ describe('cuentas de servicio', () => {
       (await (await conectar(ctx, 'ventas')).n.post(`/cuentas/${otra.cuerpo.id}/avisos`)).estado,
     ).toBe(403);
 
+    // Cortar a quien aún está vigente pide el motivo.
+    const sinMotivo = await e.operador.n.post(ruta(p1!, 'liberar'), { nuevoPin: '9753' });
+    expect(sinMotivo.estado).toBe(400);
+    expect(sinMotivo.cuerpo.error.codigo).toBe('MOTIVO_REQUERIDO');
+    expect(
+      (await ctx.prisma.perfilCuenta.findUniqueOrThrow({ where: { id: p1!.id } })).estado,
+    ).toBe('asignado');
+
     // Cortar con clave y PIN nuevos: la cuenta guarda la clave y el perfil el PIN.
     const corte = await e.operador.n.post(ruta(p1!, 'liberar'), {
+      motivo: 'Compartió la cuenta con otras personas',
       nuevaClave: 'Nueva-456',
       nuevoPin: '9753',
     });
     expect(corte.estado).toBe(201);
+    // Queda suspendida con su motivo: el cliente lo ve y no la renueva él mismo.
+    const suya = await ctx.prisma.suscripcion.findUniqueOrThrow({ where: { id: subs[0] } });
+    expect(suya).toMatchObject({
+      estado: 'suspendida',
+      motivoSuspension: 'Compartió la cuenta con otras personas',
+    });
+    const vista = await clientes[0]!.n.get(`/mi/suscripciones/${subs[0]}`);
+    expect(vista.cuerpo.motivoSuspension).toBe('Compartió la cuenta con otras personas');
+    const renovar = await clientes[0]!.n.post(`/mi/suscripciones/${subs[0]}/renovar`, {});
+    expect(renovar.cuerpo.error.codigo).toBe('SUSPENDIDA_POR_EQUIPO');
+    expect(
+      await ctx.prisma.eventoSuscripcion.count({
+        where: { suscripcionId: subs[0], tipo: 'suspension', motivo: { contains: 'Compartió' } },
+      }),
+    ).toBe(1);
     expect(corte.cuerpo.listaPerfiles[0]).toMatchObject({ estado: 'libre', tienePin: true });
     const cred = await e.operador.n.post(`/cuentas/${e.cuenta.id}/revelar`);
     expect(cred.cuerpo.clave).toBe('Nueva-456');
@@ -631,7 +657,7 @@ describe('cuentas de servicio', () => {
     expect(fila.usuarioMiembroCifrado).not.toContain('miembro');
 
     // Al cortar, el cupo queda libre y conserva el correo del miembro (como en el Gestor).
-    const corte = await e.operador.n.post(`${rutaCupo}/liberar`);
+    const corte = await e.operador.n.post(`${rutaCupo}/liberar`, { motivo: 'Dejó el plan' });
     expect(corte.cuerpo.listaPerfiles[2]).toMatchObject({ estado: 'libre', tieneMiembro: true });
   });
 
@@ -938,9 +964,9 @@ describe('Cobros: vencimientos y cortes', () => {
       }),
     ).toBe(2);
 
-    // No se corta a quien todavía no vence.
+    // A quien todavía no vence solo se le corta con motivo.
     const pronto = await e.operador.n.post(`/suscripciones/${subs[0]}/cortar`, {});
-    expect(pronto.cuerpo.error.codigo).toBe('AUN_VIGENTE');
+    expect(pronto.cuerpo.error.codigo).toBe('MOTIVO_REQUERIDO');
     // Ventas no tiene permiso para cortar.
     expect(
       (await (await conectar(ctx, 'ventas')).n.post(`/suscripciones/${subs[1]}/cortar`)).estado,
@@ -1042,6 +1068,23 @@ describe('avisos de datos nuevos y planes familiares', () => {
     expect(ana2[1]!.texto).toContain('el PIN de tu perfil');
     expect(ana2[1]!.texto).not.toContain('2468');
     expect(await avisosDe(beto.usuario.correo)).toHaveLength(1);
+    // En «Mis accesos» queda qué cambió y cuándo (sin los valores).
+    const mios = await ana.n.get('/mi/perfiles');
+    expect(mios.cuerpo[0].cambioReciente.cambios).toEqual(['pin']);
+    expect(JSON.stringify(mios.cuerpo)).not.toContain('2468');
+    expect((await beto.n.get('/mi/perfiles')).cuerpo[0].cambioReciente.cambios).toEqual([
+      'correo',
+      'clave',
+    ]);
+
+    // Cambiar el nombre del perfil también se avisa.
+    await e.operador.n.patch(`/cuentas/${e.cuenta.id}/perfiles/${perfiles[0]!.id}`, {
+      nombre: 'Ana TV',
+    });
+    await trabajos.procesarTodo();
+    const ana3 = await avisosDe(ana.usuario.correo);
+    expect(ana3).toHaveLength(3);
+    expect(ana3[2]!.texto).toContain('el nombre de tu perfil');
 
     // Apagada la automatización, no sale nada.
     await ctx.prisma.automatizacion.update({

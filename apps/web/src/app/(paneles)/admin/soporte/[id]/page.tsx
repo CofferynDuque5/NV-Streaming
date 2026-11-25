@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cargarEquipo } from '@/componentes/admin/equipo-servidor';
 import { Iniciales, ListaDatos, Volver } from '@/componentes/admin/piezas-crm';
-import { GestionTicket, ResponderTicket } from '@/componentes/admin/soporte';
+import { CompletarTicket, GestionTicket, ResponderTicket } from '@/componentes/admin/soporte';
 import { Alerta } from '@/componentes/ui/alerta';
 import { EstadoTicketInsignia, PrioridadInsignia } from '@/componentes/ui/estado';
 import { EstadoVacio } from '@/componentes/ui/estado-vacio';
@@ -152,6 +152,7 @@ export default async function DetalleTicket({ params }: { params: Promise<{ id: 
             Lo abrió {AUTOR_SISTEMA} por una automatización. Revísalo como cualquier otro ticket.
           </p>
         )}
+        {puedeGestionar && t.estado !== 'cerrado' && <CompletarTicket id={t.id} />}
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">

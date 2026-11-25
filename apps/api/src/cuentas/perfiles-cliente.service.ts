@@ -263,6 +263,9 @@ export class PerfilesClienteService {
         numero: true,
         nombre: true,
         pinCifrado: true,
+        asignadoEn: true,
+        datosCambiadosEn: true,
+        datosCambiados: true,
         cuenta: {
           select: {
             modo: true,
@@ -310,6 +313,13 @@ export class PerfilesClienteService {
               disponible: p.cuenta.estado === 'activa' && VIGENTES.includes(p.suscripcion.estado),
               pideCodigos: conCodigos.has(p.cuenta.servicio.id),
               ...(conCliente ? { cliente: p.suscripcion.cliente } : {}),
+              cambioReciente:
+                p.datosCambiadosEn &&
+                p.datosCambiados &&
+                (!p.asignadoEn || p.datosCambiadosEn >= p.asignadoEn) &&
+                Date.now() - p.datosCambiadosEn.getTime() < 15 * 86_400_000
+                  ? { en: p.datosCambiadosEn.toISOString(), cambios: p.datosCambiados.split(',') }
+                  : null,
             },
           ]
         : [],

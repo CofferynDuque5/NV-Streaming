@@ -64,6 +64,7 @@ function vigencia(s: SuscripcionPublica): string {
       ? 'Se activa cuando tu revendedor confirme el pago.'
       : 'Se activa cuando confirmemos tu pago.';
   if (s.estado === 'pausada') return 'Pausada. Los días que te quedaban se conservan.';
+  if (s.motivoSuspension) return `Suspendida por: ${s.motivoSuspension}. Ya no está vigente.`;
   if (s.estado === 'cancelada')
     return s.canceladaEn ? `Cancelada el ${fLarga(s.canceladaEn)}.` : 'Cancelada.';
   if (!s.venceEn) return '';
@@ -85,6 +86,7 @@ function fechaClave(
     return { principal: formatearMonto(factura.total, factura.moneda), nota: 'por pagar' };
   if (s.estado === 'cancelada')
     return s.canceladaEn ? { principal: fCorta(s.canceladaEn), nota: 'terminó' } : null;
+  if (s.motivoSuspension) return { principal: 'Suspendida', nota: 'no vigente' };
   if (!s.venceEn || esCompraUnica(s.plan.tipo)) return null;
   const d = diasHasta(s.venceEn);
   return {
@@ -94,7 +96,7 @@ function fechaClave(
 }
 
 function barra(s: SuscripcionPublica, ahora = Date.now()): VistaServicio['barra'] {
-  if (esCompraUnica(s.plan.tipo)) return null;
+  if (esCompraUnica(s.plan.tipo) || s.motivoSuspension) return null;
   if (!s.inicioEn || !s.venceEn || ['cancelada', 'pendiente_pago'].includes(s.estado)) return null;
   const ini = new Date(s.inicioEn).getTime();
   const total = Math.max(new Date(s.venceEn).getTime() - ini, 1);
@@ -167,6 +169,7 @@ export default async function MisServicios() {
         !s.facturaAbierta &&
         !s.cancelarAlVencer &&
         s.plan.renovable &&
+        !s.motivoSuspension &&
         RENOVABLES.has(s.estado),
       renovarDestacado: s.estado !== 'activa' || porVencer(s),
       puedeCancelar:
@@ -179,6 +182,7 @@ export default async function MisServicios() {
         !conRevendedor &&
         s.plan.renovable &&
         CON_COBRO_AUTOMATICO.has(s.estado) &&
+        !s.motivoSuspension &&
         !s.cancelarAlVencer &&
         monedaAdmitePagoEnLinea(s.moneda),
       accesoId: acceso?.id ?? null,

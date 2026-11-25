@@ -115,13 +115,25 @@ export function FormularioEntrega({
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Casilla
-          name="entregarRenovaciones"
-          etiqueta="Entregar también en cada renovación"
-          ayuda="Un código nuevo o un aviso al proveedor por cada periodo pagado."
-          defaultChecked={config.entregarRenovaciones}
-          disabled={!puedeGestionar}
-        />
+        {adaptador === 'manual' ? (
+          <>
+            {/* Se conserva lo elegido por si luego cambia a códigos o webhook. */}
+            {config.entregarRenovaciones && (
+              <input type="hidden" name="entregarRenovaciones" value="on" />
+            )}
+            <p className="text-xs text-tinta-suave">
+              Las renovaciones no crean entregas: el cliente sigue con su mismo lugar.
+            </p>
+          </>
+        ) : (
+          <Casilla
+            name="entregarRenovaciones"
+            etiqueta="Entregar también en cada renovación"
+            ayuda="Un código nuevo o un aviso al proveedor por cada periodo pagado."
+            defaultChecked={config.entregarRenovaciones}
+            disabled={!puedeGestionar}
+          />
+        )}
         {adaptador === 'webhook' && (
           <Casilla
             name="incluirCorreo"

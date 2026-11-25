@@ -237,6 +237,16 @@ export const liberarPerfilSchema = z.preprocess(
   z.object({
     nuevaClave: claveCuentaSchema.optional(),
     nuevoPin: pinSchema.optional(),
+    /**
+     * Por qué se corta antes de tiempo. Obligatorio si el cliente aún está vigente:
+     * el cliente lo ve como «Suspendida: <motivo>».
+     */
+    motivo: z
+      .string()
+      .trim()
+      .min(3, 'Escribe el motivo (al menos 3 letras).')
+      .max(300, 'Como máximo 300 caracteres.')
+      .optional(),
   }),
 );
 export type LiberarPerfilEntrada = z.infer<typeof liberarPerfilSchema>;
@@ -253,6 +263,16 @@ export const cortarSuscripcionSchema = z.preprocess(
   z.object({
     nuevaClave: claveCuentaSchema.optional(),
     nuevoPin: pinSchema.optional(),
+    /**
+     * Por qué se corta antes de tiempo. Obligatorio si el cliente aún está vigente:
+     * el cliente lo ve como «Suspendida: <motivo>».
+     */
+    motivo: z
+      .string()
+      .trim()
+      .min(3, 'Escribe el motivo (al menos 3 letras).')
+      .max(300, 'Como máximo 300 caracteres.')
+      .optional(),
   }),
 );
 export type CortarSuscripcionEntrada = z.infer<typeof cortarSuscripcionSchema>;

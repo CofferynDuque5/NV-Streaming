@@ -76,6 +76,22 @@ describe('soporte', () => {
     expect(tarde.cuerpo.error.codigo).toBe('TICKET_CERRADO');
   });
 
+  it('el equipo da por completado un ticket ya resuelto y deja de contar como abierto', async () => {
+    const cliente = await conectar(ctx, 'cliente');
+    const admin = await conectar(ctx, 'admin');
+    const t = await cliente.n.post('/mi/tickets', {
+      asunto: 'Ya se arregló',
+      categoria: 'acceso',
+      mensaje: 'Era la clave, ya entré.',
+    });
+    expect((await admin.n.get('/tickets?abiertos=true')).cuerpo.total).toBe(1);
+    const listo = await admin.n.patch(`/tickets/${t.cuerpo.id}`, { estado: 'cerrado' });
+    expect(listo.estado).toBe(200);
+    expect(listo.cuerpo.estado).toBe('cerrado');
+    expect(listo.cuerpo.resueltoEn).not.toBeNull();
+    expect((await admin.n.get('/tickets?abiertos=true')).cuerpo.total).toBe(0);
+  });
+
   it('cada quien ve solo lo que le toca', async () => {
     const a = await conectar(ctx, 'cliente');
     const b = await conectar(ctx, 'cliente');

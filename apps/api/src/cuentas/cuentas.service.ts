@@ -23,7 +23,7 @@ import type {
   SuscripcionAsignable,
 } from '@nv/shared';
 import { esTitular, MAX_PERFILES_CUENTA, tienePermiso, tipoPlataforma, urlMedio } from '@nv/shared';
-import { fechaCaracas } from '../automatizaciones/horario.js';
+import { fechaCaracas, inicioDiaCaracas } from '../automatizaciones/horario.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { type CambioAcceso, encolarAvisoDatos } from './aviso-datos.js';
 import { entregaWeb } from './stock-cuentas.js';
@@ -592,6 +592,7 @@ export class CuentasService {
       await tx.perfilCuenta.update({ where: { id: p.id }, data });
       if (p.estado === 'asignado') {
         const avisar: CambioAcceso[] = [];
+        if (e.nombre !== undefined && e.nombre !== p.nombre) avisar.push('nombre');
         if (e.pin) avisar.push('pin');
         if (e.usuarioMiembro) avisar.push('correo_miembro');
         if (e.claveMiembro) avisar.push('clave_miembro');
@@ -814,6 +815,7 @@ export class CuentasService {
         select: {
           numero: true,
           cuenta: { select: { modo: true, servicio: { select: { nombre: true } } } },
+          suscripcion: { select: { id: true, estado: true, venceEn: true } },
         },
       });
       const tipo = p ? tipoPlataforma(p.cuenta.servicio.nombre) : 'perfiles';
@@ -822,7 +824,49 @@ export class CuentasService {
         tipo === 'familiar' &&
         p.cuenta.modo !== 'completa' &&
         !esTitular(tipo, p.numero);
+      // Cortar a alguien que aún está vigente pide el motivo: su suscripción queda
+      // suspendida y el cliente ve «Suspendida: <motivo>».
+      const sus = p?.suscripcion ?? null;
+      const vigente =
+        sus !== null &&
+        (sus.estado === 'activa' || sus.estado === 'en_gracia') &&
+        (!sus.venceEn || sus.venceEn >= inicioDiaCaracas(new Date(), 1));
+      if (vigente && !e.motivo) {
+        throw new ErrorApp(
+          400,
+          'MOTIVO_REQUERIDO',
+          'Este cliente todavía no vence: escribe el motivo del corte.',
+          { motivo: ['Escribe por qué lo cortas antes de tiempo.'] },
+        );
+      }
       await this.liberarEn(tx, auth, cuentaId, perfilId, e, cliente, miembro);
+      if (sus && vigente && e.motivo) {
+        await tx.suscripcion.update({
+          where: { id: sus.id },
+          data: { estado: 'suspendida', motivoSuspension: e.motivo },
+        });
+        await tx.eventoSuscripcion.create({
+          data: {
+            suscripcionId: sus.id,
+            tipo: 'suspension',
+            actorId: auth.usuario.id,
+            motivo: e.motivo,
+            datos: { de: sus.estado, a: 'suspendida', corte: true, anticipado: true },
+          },
+        });
+        await this.auditoria.registrar(
+          {
+            actorId: auth.usuario.id,
+            accion: 'suscripcion.cortada',
+            entidad: 'suscripcion',
+            entidadId: sus.id,
+            antes: { estado: sus.estado, perfilId },
+            despues: { estado: 'suspendida', motivo: e.motivo, anticipado: true },
+            cliente,
+          },
+          tx,
+        );
+      }
       return this.ver(cuentaId, tx);
     });
   }
@@ -1042,7 +1086,12 @@ export class CuentasService {
         });
       }
       // En otro lugar cambian sus datos de acceso: se le avisa.
-      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, ['correo', 'clave', 'pin']);
+      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, [
+        'movido',
+        'correo',
+        'clave',
+        'pin',
+      ]);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,
@@ -1259,7 +1308,12 @@ export class CuentasService {
             WHERE id = ${suscripcionId}::uuid AND vence_en IS NOT NULL`;
         }
       }
-      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, ['correo', 'clave', 'pin']);
+      await encolarAvisoDatos(tx, destino.cuenta.id, destino.id, [
+        'movido',
+        'correo',
+        'clave',
+        'pin',
+      ]);
       await this.auditoria.registrar(
         {
           actorId: auth.usuario.id,

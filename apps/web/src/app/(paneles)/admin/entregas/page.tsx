@@ -11,7 +11,11 @@ import { ChevronRight, PackageCheck, Search } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { AccionesEntrega, CajonLateral } from '@/componentes/admin/entregas';
+import {
+  AccionesEntrega,
+  CajonLateral,
+  CerrarRenovacionesPendientes,
+} from '@/componentes/admin/entregas';
 import { clasesFiltro, FiltroSelector } from '@/componentes/admin/piezas-crm';
 import { Paginacion } from '@/componentes/panel/paginacion';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -45,10 +49,14 @@ export default async function Entregas({
   });
   const id = typeof crudo.id === 'string' && /^[0-9a-f-]{36}$/i.test(crudo.id) ? crudo.id : null;
 
-  const [rLista, rDetalle] = await Promise.all([
+  const [rLista, rDetalle, rRenovaciones] = await Promise.all([
     leerApi<PaginaEntregas>(`/entregas?${consulta}`),
     id ? leerApi<EntregaDetalle>(`/entregas/${id}`) : Promise.resolve(null),
+    puedeGestionar
+      ? leerApi<{ total: number }>('/entregas/renovaciones-pendientes')
+      : Promise.resolve(null),
   ]);
+  const renovacionesPendientes = rRenovaciones?.datos?.total ?? 0;
   const pagina = rLista.datos;
   const detalle = rDetalle?.datos ?? null;
   const config =
@@ -111,6 +119,10 @@ export default async function Entregas({
             </div>
           ))}
         </dl>
+      )}
+
+      {puedeGestionar && renovacionesPendientes > 0 && (
+        <CerrarRenovacionesPendientes total={renovacionesPendientes} />
       )}
 
       {atencion > 0 && !filtro.estado && (

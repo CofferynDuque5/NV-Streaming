@@ -469,6 +469,37 @@ describe('clientes de un revendedor', () => {
   });
 });
 
+describe('resumen de vencimientos', () => {
+  it('un correo al día al cliente (lo suyo) y al revendedor (lo de sus clientes), con la lista', async () => {
+    const e = await escenario();
+    const r = await revendedor();
+    const luis = await cliente({ revendedorId: r.r.id, nombre: 'Luis Pérez' });
+    const ahora = new Date();
+    const enDias = (d: number) => new Date(inicioDiaCaracas(ahora, d).getTime() + 15 * 3600_000);
+    await suscripcion(luis.id, e.planId, { venceEn: enDias(2) });
+    await suscripcion(luis.id, e.planId, { venceEn: enDias(1), revendedorId: r.r.id });
+    await suscripcion(luis.id, e.planId, { venceEn: enDias(10), revendedorId: r.r.id });
+    const lejos = await cliente();
+    await suscripcion(lejos.id, e.planId, { venceEn: enDias(12) });
+
+    const { ejecutor } = s();
+    const primera = await ejecutor.ejecutar('resumen_vencimientos', { disparo: 'manual', ahora });
+    expect(primera).toMatchObject({ procesados: 2, errores: 0 });
+    const [aLuis] = await correosA(luis.correo!, 'resumenVencimientos');
+    expect(aLuis?.asunto).toBe('1 suscripción por vencer');
+    expect(aLuis?.texto).toContain('/cuenta/accesos');
+    const [aRev] = await correosA(r.usuario.correo, 'resumenVencimientos');
+    expect(aRev?.texto).toContain('Luis Pérez:');
+    expect(aRev?.texto).toContain('vence mañana');
+    expect(aRev?.texto).toContain('/revendedor/accesos');
+    expect(await correosA(lejos.correo!, 'resumenVencimientos')).toHaveLength(0);
+
+    // El mismo día no se repite.
+    await ejecutor.ejecutar('resumen_vencimientos', { disparo: 'manual', ahora });
+    expect(await correosA(r.usuario.correo, 'resumenVencimientos')).toHaveLength(1);
+  });
+});
+
 describe('avisos al equipo', () => {
   it('escalado: abre un ticket del sistema una sola vez por suspensión y avisa a soporte', async () => {
     const e = await escenario();

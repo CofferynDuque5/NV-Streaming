@@ -713,6 +713,8 @@ model Suscripcion {
   /// Último cobro a mano por WhatsApp o Telegram (Vencimientos y Cortes). Se puede volver a cobrar.
   cobradoEn          DateTime?         @map("cobrado_en") @db.Timestamptz(3)
   cobradoPorId       String?           @map("cobrado_por_id") @db.Uuid
+  /// Por qué se cortó antes de vencer (lo ve el cliente). Se borra al renovar.
+  motivoSuspension   String?           @map("motivo_suspension") @db.VarChar(300)
   creadoPorId        String?           @map("creado_por_id") @db.Uuid
   creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn      DateTime          @updatedAt @map("actualizado_en") @db.Timestamptz(3)
@@ -2335,6 +2337,10 @@ model PerfilCuenta {
   aptoWeb               Boolean      @default(false) @map("apto_web")
   aptoRevisadoEn        DateTime?    @map("apto_revisado_en") @db.Timestamptz(3)
   aptoRevisadoPorId     String?      @map("apto_revisado_por_id") @db.Uuid
+  /// Último cambio de datos que se le avisó a quien lo usa (lo ve en Mis accesos).
+  datosCambiadosEn      DateTime?    @map("datos_cambiados_en") @db.Timestamptz(3)
+  /// Qué cambió («clave,pin,movido»…), sin los valores.
+  datosCambiados        String?      @map("datos_cambiados") @db.VarChar(120)
   creadoEn              DateTime     @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn         DateTime     @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 

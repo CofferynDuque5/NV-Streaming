@@ -8,6 +8,9 @@ import {
 } from '@nv/shared';
 import {
   CheckCheck,
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   CircleCheck,
   CircleDashed,
   CircleSlash,
@@ -203,10 +206,22 @@ function EstadoRevision({ l, apto }: { l: LugarEntregaWeb; apto: boolean }) {
   );
 }
 
+/** Con esta cantidad o menos de aptos, la plataforma se marca con poco stock. */
+const POCO_STOCK = 2;
+
+type Filtro = 'todas' | 'agotadas' | 'poco' | 'revisar' | 'con_stock';
+type Orden = 'stock' | 'nombre';
+
+const estadoStock = (s: EntregaWebServicio): 'agotada' | 'poco' | 'ok' =>
+  s.aptos === 0 ? 'agotada' : s.aptos <= POCO_STOCK ? 'poco' : 'ok';
+
+const ancla = (s: EntregaWebServicio) => `plataforma-${s.servicioId}`;
+
 /**
- * Entrega web: por plataforma, el lugar que recibiría quien compre ahora, los
- * que siguen (mismo orden que la entrega automática) y lo libre que falta
- * revisar. Solo se entrega lo que el equipo marcó como apto.
+ * Entrega web: arriba el stock listo de cada plataforma (lo que la web puede
+ * entregar ya), con filtros y orden; abajo, por plataforma, el lugar que
+ * recibiría quien compre ahora, los que siguen y lo libre que falta revisar.
+ * Solo se entrega lo que el equipo marcó como apto.
  */
 export function EntregaWeb({
   servicios: iniciales,
@@ -218,8 +233,17 @@ export function EntregaWeb({
   puedeRevelar: boolean;
 }) {
   const [busqueda, setBusqueda] = useState('');
+  const [filtro, setFiltro] = useState<Filtro>('todas');
+  const [orden, setOrden] = useState<Orden>('stock');
   // La lista vive aquí: al marcar o quitar se vuelve a pedir y se ve al momento.
   const [servicios, setServicios] = useState(iniciales);
+  // Abiertas al entrar: las agotadas o con algo por revisar (lo que pide trabajo).
+  const [abiertas, setAbiertas] = useState<Set<string>>(
+    () =>
+      new Set(
+        iniciales.filter((s) => s.aptos === 0 || s.porRevisar.length > 0).map((s) => s.servicioId),
+      ),
+  );
   const recargar = useCallback(async () => {
     const r = await llamarApi<EntregaWebServicio[]>('GET', '/cuentas/entrega-web');
     if (r.ok) setServicios(r.datos);
@@ -240,16 +264,167 @@ export function EntregaWeb({
     credenciales.current.set(cuentaId, p);
     return p;
   }, []);
+
+  const totales = useMemo(
+    () => ({
+      listos: servicios.reduce((n, s) => n + s.aptos, 0),
+      individuales: servicios.reduce((n, s) => n + (s.aptosIndividuales ?? 0), 0),
+      agotadas: servicios.filter((s) => s.aptos === 0).length,
+      poco: servicios.filter((s) => estadoStock(s) === 'poco').length,
+      porRevisar: servicios.reduce((n, s) => n + s.porRevisar.length, 0),
+      conRevision: servicios.filter((s) => s.porRevisar.length > 0).length,
+      conStock: servicios.filter((s) => s.aptos > 0).length,
+    }),
+    [servicios],
+  );
+
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    return q ? servicios.filter((s) => s.servicio.toLowerCase().includes(q)) : servicios;
-  }, [busqueda, servicios]);
-  const agotados = servicios.filter((s) => s.aptos === 0).length;
-  const porRevisar = servicios.reduce((n, s) => n + s.porRevisar.length, 0);
+    const lista = servicios.filter((s) => {
+      if (q && !s.servicio.toLowerCase().includes(q)) return false;
+      if (filtro === 'agotadas') return s.aptos === 0;
+      if (filtro === 'poco') return estadoStock(s) === 'poco';
+      if (filtro === 'revisar') return s.porRevisar.length > 0;
+      if (filtro === 'con_stock') return s.aptos > 0;
+      return true;
+    });
+    return orden === 'nombre'
+      ? lista
+      : [...lista].sort((a, b) => a.aptos - b.aptos || b.porRevisar.length - a.porRevisar.length);
+  }, [busqueda, filtro, orden, servicios]);
+
+  const alternar = (id: string) =>
+    setAbiertas((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const irA = (s: EntregaWebServicio) => {
+    setAbiertas((prev) => new Set(prev).add(s.servicioId));
+    requestAnimationFrame(() =>
+      document.getElementById(ancla(s))?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  };
+
+  const filtros: { valor: Filtro; texto: string; n: number }[] = [
+    { valor: 'todas', texto: 'Todas', n: servicios.length },
+    { valor: 'agotadas', texto: 'Agotadas', n: totales.agotadas },
+    { valor: 'poco', texto: 'Poco stock', n: totales.poco },
+    { valor: 'revisar', texto: 'Por revisar', n: totales.conRevision },
+    { valor: 'con_stock', texto: 'Con stock', n: totales.conStock },
+  ];
 
   return (
     <RevelarContexto.Provider value={puedeRevelar ? revelar : null}>
       <div className="grid gap-4">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-nv border border-borde bg-borde shadow-nv sm:grid-cols-4">
+          <Cifra
+            titulo="Listos para entregar"
+            valor={totales.listos}
+            nota={
+              totales.individuales > 0
+                ? `${totales.listos - totales.individuales} compartidos · ${totales.individuales} completas`
+                : 'Ya cargados y aptos en la web'
+            }
+            tono="exito"
+          />
+          <Cifra
+            titulo="Plataformas agotadas"
+            valor={totales.agotadas}
+            nota={`de ${servicios.length} en la web`}
+            tono={totales.agotadas > 0 ? 'aviso' : undefined}
+            onClick={() => setFiltro('agotadas')}
+          />
+          <Cifra
+            titulo={`Poco stock (${POCO_STOCK} o menos)`}
+            valor={totales.poco}
+            nota="Conviene cargar más"
+            tono={totales.poco > 0 ? 'aviso' : undefined}
+            onClick={() => setFiltro('poco')}
+          />
+          <Cifra
+            titulo="Por revisar"
+            valor={totales.porRevisar}
+            nota={`en ${totales.conRevision} ${totales.conRevision === 1 ? 'plataforma' : 'plataformas'}`}
+            onClick={() => setFiltro('revisar')}
+          />
+        </dl>
+
+        <Tarjeta className="min-w-0">
+          <CabeceraTarjeta
+            titulo="Stock por plataforma"
+            descripcion="Cuánto puede entregar sola la web ahora mismo. Toca una plataforma para ir a su detalle."
+          />
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-b border-borde text-left text-xs text-tinta-tenue">
+                  <th className="px-5 py-2 font-medium sm:px-6">Plataforma</th>
+                  <th className="px-3 py-2 text-right font-medium">Listos</th>
+                  <th className="px-3 py-2 font-medium">Detalle</th>
+                  <th className="px-3 py-2 text-right font-medium">Por revisar</th>
+                  <th className="px-5 py-2 font-medium sm:px-6">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((s) => {
+                  const est = estadoStock(s);
+                  const ind = s.aptosIndividuales ?? 0;
+                  const textos = TEXTOS_PLATAFORMA[s.tipo];
+                  return (
+                    <tr key={s.servicioId} className="border-b border-borde last:border-0">
+                      <td className="px-5 py-2 sm:px-6">
+                        <button
+                          type="button"
+                          onClick={() => irA(s)}
+                          className="text-left font-medium hover:text-marca"
+                        >
+                          {s.servicio}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2 text-right font-titulo text-base font-semibold tabular-nums">
+                        {s.aptos}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-tinta-tenue">
+                        {s.aptos === 0
+                          ? '—'
+                          : [
+                              s.aptos - ind > 0
+                                ? `${s.aptos - ind} ${textos.lugares.toLowerCase()}`
+                                : null,
+                              ind > 0
+                                ? `${ind} ${ind === 1 ? 'cuenta completa' : 'cuentas completas'}`
+                                : null,
+                              s.aptosPorVencer
+                                ? `${s.aptosPorVencer} en cuentas que vencen en 7 días`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {s.porRevisar.length || <span className="text-tinta-tenue">0</span>}
+                      </td>
+                      <td className="px-5 py-2 sm:px-6">
+                        <Insignia
+                          tono={est === 'agotada' ? 'peligro' : est === 'poco' ? 'aviso' : 'exito'}
+                        >
+                          {est === 'agotada'
+                            ? 'Agotada'
+                            : est === 'poco'
+                              ? 'Poco stock'
+                              : 'Con stock'}
+                        </Insignia>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Tarjeta>
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-52 flex-1">
             <Search
@@ -264,20 +439,65 @@ export function EntregaWeb({
               className="h-11 w-full rounded-xl border border-borde bg-hundida pr-3 pl-9 text-sm"
             />
           </div>
-          <p className="text-sm text-tinta-suave">
-            {agotados > 0 && (
-              <>
-                <b className="text-aviso">{agotados}</b> {agotados === 1 ? 'agotada' : 'agotadas'}{' '}
-                en la web ·{' '}
-              </>
-            )}
-            <b className="text-tinta">{porRevisar}</b> por revisar
-          </p>
+          <label className="flex items-center gap-2 text-sm text-tinta-suave">
+            Orden
+            <select
+              value={orden}
+              onChange={(e) => setOrden(e.currentTarget.value as Orden)}
+              className="h-11 rounded-xl border border-borde bg-hundida px-3 text-sm text-tinta"
+            >
+              <option value="stock">Menos stock primero</option>
+              <option value="nombre">Por nombre</option>
+            </select>
+          </label>
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar plataformas">
+            {filtros.map((f) => (
+              <button
+                key={f.valor}
+                type="button"
+                aria-pressed={filtro === f.valor}
+                onClick={() => setFiltro(f.valor)}
+                className={
+                  filtro === f.valor
+                    ? 'rounded-full border border-marca bg-marca/10 px-3 py-1 text-sm font-medium text-tinta'
+                    : 'rounded-full border border-borde px-3 py-1 text-sm text-tinta-suave hover:text-tinta'
+                }
+              >
+                {f.texto} <span className="tabular-nums text-tinta-tenue">{f.n}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Boton
+              tamano="sm"
+              variante="fantasma"
+              icono={<ChevronsUpDown className="size-3.5" />}
+              onClick={() => setAbiertas(new Set(visibles.map((s) => s.servicioId)))}
+            >
+              Abrir todas
+            </Boton>
+            <Boton
+              tamano="sm"
+              variante="fantasma"
+              icono={<ChevronsDownUp className="size-3.5" />}
+              onClick={() => setAbiertas(new Set())}
+            >
+              Cerrar todas
+            </Boton>
+          </div>
+        </div>
+
+        {visibles.length === 0 && (
+          <Alerta tono="info">Ninguna plataforma coincide con la búsqueda o el filtro.</Alerta>
+        )}
         {visibles.map((s) => (
           <ServicioEntrega
             key={s.servicioId}
             s={s}
+            abierta={abiertas.has(s.servicioId)}
+            onAlternar={() => alternar(s.servicioId)}
             puedeGestionar={puedeGestionar}
             recargar={recargar}
           />
@@ -287,15 +507,58 @@ export function EntregaWeb({
   );
 }
 
+function Cifra({
+  titulo,
+  valor,
+  nota,
+  tono,
+  onClick,
+}: {
+  titulo: string;
+  valor: number;
+  nota: string;
+  tono?: 'exito' | 'aviso';
+  onClick?: () => void;
+}) {
+  const color = tono === 'exito' ? 'text-exito' : tono === 'aviso' ? 'text-aviso' : '';
+  const numero = (
+    <span className={`font-titulo text-2xl font-semibold tabular-nums ${color}`}>{valor}</span>
+  );
+  return (
+    <div className="grid gap-0.5 bg-superficie px-4 py-4 sm:px-6">
+      <dt className="text-xs text-tinta-tenue">{titulo}</dt>
+      <dd>
+        {onClick ? (
+          <button
+            type="button"
+            onClick={onClick}
+            className="underline-offset-4 hover:underline focus-visible:underline"
+          >
+            {numero}
+          </button>
+        ) : (
+          numero
+        )}
+      </dd>
+      <dd className="text-xs text-tinta-tenue">{nota}</dd>
+    </div>
+  );
+}
+
 function ServicioEntrega({
   s,
+  abierta,
+  onAlternar,
   puedeGestionar,
   recargar,
 }: {
   s: EntregaWebServicio;
+  abierta: boolean;
+  onAlternar: () => void;
   puedeGestionar: boolean;
   recargar: () => Promise<boolean>;
 }) {
+  const [confirmarTodos, setConfirmarTodos] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const textos = TEXTOS_PLATAFORMA[s.tipo];
@@ -323,165 +586,223 @@ function ServicioEntrega({
     return [...m.values()];
   }, [s.porRevisar]);
 
+  const est = estadoStock(s);
+  const idCuerpo = `${ancla(s)}-cuerpo`;
   return (
-    <Tarjeta className="min-w-0">
-      <CabeceraTarjeta
-        titulo={s.servicio}
-        descripcion={
+    <Tarjeta className="min-w-0 scroll-mt-24">
+      <div id={ancla(s)} className="scroll-mt-24">
+        <button
+          type="button"
+          onClick={onAlternar}
+          aria-expanded={abierta}
+          aria-controls={idCuerpo}
+          className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left sm:px-6"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ChevronDown
+              className={`size-4 shrink-0 text-tinta-tenue transition-transform ${abierta ? '' : '-rotate-90'}`}
+              aria-hidden="true"
+            />
+            <span className="truncate text-base font-bold">{s.servicio}</span>
+          </span>
           <span className="flex flex-wrap gap-2">
-            <Insignia tono={s.aptos > 0 ? 'exito' : 'aviso'}>
+            <Insignia tono={est === 'agotada' ? 'peligro' : est === 'poco' ? 'aviso' : 'exito'}>
               {s.aptos > 0
-                ? `${s.aptos} ${s.aptos === 1 ? 'apto' : 'aptos'} para vender`
+                ? `${s.aptos} ${s.aptos === 1 ? 'listo' : 'listos'} para entregar`
                 : 'Agotado en la web'}
             </Insignia>
             {s.porRevisar.length > 0 && (
               <Insignia tono="neutro">{s.porRevisar.length} por revisar</Insignia>
             )}
           </span>
-        }
-      />
-      <div className="grid gap-4 px-5 py-4 sm:px-6">
-        {error && <Alerta tono="peligro">{error}</Alerta>}
-        {ahora ? (
-          <section className="grid gap-2" aria-label="Se entregaría ahora">
-            <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-              Si alguien compra ahora recibe
-            </h3>
-            <p className="text-xs text-tinta-suave">
-              Aquí solo salen los que alguien marcó como aptos. Los que nadie ha revisado están
-              abajo, en «Sin revisar».
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-exito/30 bg-exito-suave/40 p-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <PackageCheck className="size-5 shrink-0 text-exito" aria-hidden="true" />
-                <div className="grid min-w-0 gap-1">
-                  <Lugar l={ahora} tipo={s.tipo} destacado />
-                  <EstadoRevision l={ahora} apto />
+        </button>
+      </div>
+      {abierta && (
+        <div id={idCuerpo} className="grid gap-4 border-t border-borde px-5 py-4 sm:px-6">
+          {error && <Alerta tono="peligro">{error}</Alerta>}
+          {ahora ? (
+            <section className="grid gap-2" aria-label="Se entregaría ahora">
+              <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+                Si alguien compra ahora recibe
+              </h3>
+              <p className="text-xs text-tinta-suave">
+                Aquí solo salen los que alguien marcó como aptos. Los que nadie ha revisado están
+                abajo, en «Sin revisar».
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-exito/30 bg-exito-suave/40 p-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <PackageCheck className="size-5 shrink-0 text-exito" aria-hidden="true" />
+                  <div className="grid min-w-0 gap-1">
+                    <Lugar l={ahora} tipo={s.tipo} destacado />
+                    <EstadoRevision l={ahora} apto />
+                  </div>
                 </div>
-              </div>
-              {puedeGestionar && (
-                <Boton
-                  tamano="sm"
-                  variante="fantasma"
-                  icono={<CircleSlash className="size-3.5" />}
-                  cargando={ocupado === ahora.perfilId}
-                  onClick={() => void marcar(ahora.perfilId, [ahora.perfilId], false)}
-                >
-                  Quitar de la web
-                </Boton>
-              )}
-            </div>
-            {despues.length > 0 && (
-              <>
-                <h3 className="mt-2 text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-                  Después siguen
-                </h3>
-                <ol className="grid gap-2">
-                  {despues.map((l, i) => (
-                    <li
-                      key={l.perfilId}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borde px-3 py-2"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="w-5 text-right text-sm text-tinta-tenue tabular-nums">
-                          {i + 2}.
-                        </span>
-                        <div className="grid min-w-0 gap-1">
-                          <Lugar l={l} tipo={s.tipo} />
-                          <EstadoRevision l={l} apto />
-                        </div>
-                      </div>
-                      {puedeGestionar && (
-                        <Boton
-                          tamano="sm"
-                          variante="fantasma"
-                          icono={<CircleSlash className="size-3.5" />}
-                          cargando={ocupado === l.perfilId}
-                          onClick={() => void marcar(l.perfilId, [l.perfilId], false)}
-                        >
-                          Quitar de la web
-                        </Boton>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-                {s.aptos > s.siguientes.length && (
-                  <p className="text-xs text-tinta-tenue">
-                    Y {s.aptos - s.siguientes.length} más aptos después.
-                  </p>
+                {puedeGestionar && (
+                  <Boton
+                    tamano="sm"
+                    variante="fantasma"
+                    icono={<CircleSlash className="size-3.5" />}
+                    cargando={ocupado === ahora.perfilId}
+                    onClick={() => void marcar(ahora.perfilId, [ahora.perfilId], false)}
+                  >
+                    Quitar de la web
+                  </Boton>
                 )}
-              </>
-            )}
-          </section>
-        ) : (
-          <Alerta tono="aviso">
-            No hay {textos.lugares.toLowerCase()} revisados y aptos: la web lo muestra agotado.
-            {s.porRevisar.length > 0
-              ? ' Revisa los de abajo y márcalos como aptos.'
-              : ' Agrega una cuenta o libera un lugar.'}
-          </Alerta>
-        )}
-
-        {s.porRevisar.length > 0 && (
-          <section className="grid gap-2" aria-label="Por revisar">
-            <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
-              Sin revisar (libres y vigentes; la web no los entrega hasta que los marques)
-            </h3>
-            {porCuenta.map((grupo) => {
-              const c = grupo[0]!;
-              return (
-                <div key={c.cuentaId} className="grid gap-1 rounded-xl border border-borde p-2">
-                  {grupo.length > 1 && puedeGestionar && (
-                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                      <span className="font-mono text-sm">{c.pista}</span>
-                      <Boton
-                        tamano="sm"
-                        variante="secundario"
-                        icono={<CheckCheck className="size-3.5" />}
-                        cargando={ocupado === c.cuentaId}
-                        onClick={() =>
-                          void marcar(
-                            c.cuentaId,
-                            grupo.map((l) => l.perfilId),
-                            true,
-                          )
-                        }
-                      >
-                        Marcar toda la cuenta apta ({grupo.length})
-                      </Boton>
-                    </div>
-                  )}
-                  <ul className="grid gap-1">
-                    {grupo.map((l) => (
+              </div>
+              {despues.length > 0 && (
+                <>
+                  <h3 className="mt-2 text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+                    Después siguen
+                  </h3>
+                  <ol className="grid gap-2">
+                    {despues.map((l, i) => (
                       <li
                         key={l.perfilId}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-1 py-1.5"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-borde px-3 py-2"
                       >
-                        <div className="grid min-w-0 gap-1">
-                          <Lugar l={l} tipo={s.tipo} />
-                          <EstadoRevision l={l} apto={false} />
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="w-5 text-right text-sm text-tinta-tenue tabular-nums">
+                            {i + 2}.
+                          </span>
+                          <div className="grid min-w-0 gap-1">
+                            <Lugar l={l} tipo={s.tipo} />
+                            <EstadoRevision l={l} apto />
+                          </div>
                         </div>
                         {puedeGestionar && (
                           <Boton
                             tamano="sm"
-                            variante="secundario"
-                            icono={<CircleCheck className="size-3.5" />}
+                            variante="fantasma"
+                            icono={<CircleSlash className="size-3.5" />}
                             cargando={ocupado === l.perfilId}
-                            onClick={() => void marcar(l.perfilId, [l.perfilId], true)}
-                            aria-label={`Marcar apto ${l.pista} ${TEXTOS_PLATAFORMA[s.tipo].lugar} ${l.numero}`}
+                            onClick={() => void marcar(l.perfilId, [l.perfilId], false)}
                           >
-                            Marcar apto
+                            Quitar de la web
                           </Boton>
                         )}
                       </li>
                     ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </section>
-        )}
-      </div>
+                  </ol>
+                  {s.aptos > s.siguientes.length && (
+                    <p className="text-xs text-tinta-tenue">
+                      Y {s.aptos - s.siguientes.length} más aptos después.
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
+          ) : (
+            <Alerta tono="aviso">
+              No hay {textos.lugares.toLowerCase()} revisados y aptos: la web lo muestra agotado.
+              {s.porRevisar.length > 0
+                ? ' Revisa los de abajo y márcalos como aptos.'
+                : ' Agrega una cuenta o libera un lugar.'}
+            </Alerta>
+          )}
+
+          {s.porRevisar.length > 0 && (
+            <section className="grid gap-2" aria-label="Por revisar">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-xs font-semibold tracking-wide text-tinta-tenue uppercase">
+                  Sin revisar (libres y vigentes; la web no los entrega hasta que los marques)
+                </h3>
+                {puedeGestionar &&
+                  s.porRevisar.length > 1 &&
+                  (confirmarTodos ? (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-tinta-suave">
+                        ¿Ya revisaste los {s.porRevisar.length}?
+                      </span>
+                      <Boton
+                        tamano="sm"
+                        icono={<CheckCheck className="size-3.5" />}
+                        cargando={ocupado === 'todos'}
+                        onClick={async () => {
+                          await marcar(
+                            'todos',
+                            s.porRevisar.map((l) => l.perfilId),
+                            true,
+                          );
+                          setConfirmarTodos(false);
+                        }}
+                      >
+                        Sí, marcar todos
+                      </Boton>
+                      <Boton
+                        tamano="sm"
+                        variante="fantasma"
+                        onClick={() => setConfirmarTodos(false)}
+                      >
+                        Cancelar
+                      </Boton>
+                    </span>
+                  ) : (
+                    <Boton
+                      tamano="sm"
+                      variante="secundario"
+                      icono={<CheckCheck className="size-3.5" />}
+                      onClick={() => setConfirmarTodos(true)}
+                    >
+                      Marcar todos aptos ({s.porRevisar.length})
+                    </Boton>
+                  ))}
+              </div>
+              {porCuenta.map((grupo) => {
+                const c = grupo[0]!;
+                return (
+                  <div key={c.cuentaId} className="grid gap-1 rounded-xl border border-borde p-2">
+                    {grupo.length > 1 && puedeGestionar && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                        <span className="font-mono text-sm">{c.pista}</span>
+                        <Boton
+                          tamano="sm"
+                          variante="secundario"
+                          icono={<CheckCheck className="size-3.5" />}
+                          cargando={ocupado === c.cuentaId}
+                          onClick={() =>
+                            void marcar(
+                              c.cuentaId,
+                              grupo.map((l) => l.perfilId),
+                              true,
+                            )
+                          }
+                        >
+                          Marcar toda la cuenta apta ({grupo.length})
+                        </Boton>
+                      </div>
+                    )}
+                    <ul className="grid gap-1">
+                      {grupo.map((l) => (
+                        <li
+                          key={l.perfilId}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-lg px-1 py-1.5"
+                        >
+                          <div className="grid min-w-0 gap-1">
+                            <Lugar l={l} tipo={s.tipo} />
+                            <EstadoRevision l={l} apto={false} />
+                          </div>
+                          {puedeGestionar && (
+                            <Boton
+                              tamano="sm"
+                              variante="secundario"
+                              icono={<CircleCheck className="size-3.5" />}
+                              cargando={ocupado === l.perfilId}
+                              onClick={() => void marcar(l.perfilId, [l.perfilId], true)}
+                              aria-label={`Marcar apto ${l.pista} ${TEXTOS_PLATAFORMA[s.tipo].lugar} ${l.numero}`}
+                            >
+                              Marcar apto
+                            </Boton>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      )}
     </Tarjeta>
   );
 }

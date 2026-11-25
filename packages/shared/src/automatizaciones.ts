@@ -26,6 +26,7 @@ export const TIPOS_AUTOMATIZACION = [
   'cobro_automatico',
   'stock_bajo_codigos',
   'aviso_datos_acceso',
+  'resumen_vencimientos',
 ] as const;
 export type TipoAutomatizacion = (typeof TIPOS_AUTOMATIZACION)[number];
 
@@ -97,6 +98,10 @@ export const PARAMETROS_AUTOMATIZACION = {
     hora,
   }),
   aviso_datos_acceso: z.object({}),
+  resumen_vencimientos: z.object({
+    diasAntes: entero(1, 15, 'días'),
+    hora,
+  }),
 } as const satisfies Record<TipoAutomatizacion, z.ZodType>;
 
 export type ParametrosAutomatizacion<T extends TipoAutomatizacion> = z.output<
@@ -255,6 +260,17 @@ export const AUTOMATIZACIONES: { [T in TipoAutomatizacion]: DefinicionAutomatiza
     canales: ['correo', 'whatsapp'],
     activaPorDefecto: true,
     parametrosPorDefecto: {},
+  },
+  resumen_vencimientos: {
+    tipo: 'resumen_vencimientos',
+    nombre: 'Resumen de vencimientos',
+    descripcion:
+      'Un correo al día a cada cliente y revendedor con cuántas suscripciones le vencen pronto (o ya vencieron y están en gracia), con la lista y el enlace a «Mis accesos» o «Accesos de clientes». Si no tiene ninguna, no se envía.',
+    grupo: 'revendedores',
+    disparo: 'programada',
+    canales: ['correo'],
+    activaPorDefecto: true,
+    parametrosPorDefecto: { diasAntes: 3, hora: 8 },
   },
 };
 

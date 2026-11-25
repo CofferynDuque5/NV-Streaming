@@ -119,6 +119,11 @@ export class EjecutorAutomatizacionesService implements OnModuleInit {
           config as ConfigAutomatizacion<typeof config.tipo>,
           ahora,
         );
+      case 'resumen_vencimientos':
+        return this.clientes.resumenVencimientos(
+          config as ConfigAutomatizacion<typeof config.tipo>,
+          ahora,
+        );
       case 'factura_renovacion':
         return this.clientes.renovaciones(
           config as ConfigAutomatizacion<typeof config.tipo>,

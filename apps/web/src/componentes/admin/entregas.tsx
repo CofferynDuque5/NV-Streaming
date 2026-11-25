@@ -261,3 +261,67 @@ function AnularEntrega({
     </PanelFormulario>
   );
 }
+
+/**
+ * Cierra las renovaciones que quedaron como entregas pendientes: el cliente
+ * sigue con su mismo lugar, no hay nada que entregar. Pide confirmar antes.
+ */
+export function CerrarRenovacionesPendientes({ total }: { total: number }) {
+  const accion = useAccion();
+  const [confirmando, setConfirmando] = useState(false);
+  const [cerradas, setCerradas] = useState<number | null>(null);
+
+  if (cerradas !== null) {
+    return (
+      <Alerta tono="exito">
+        {cerradas === 1
+          ? 'Se cerró 1 renovación pendiente.'
+          : `Se cerraron ${cerradas} renovaciones pendientes.`}
+      </Alerta>
+    );
+  }
+  if (total === 0) return null;
+
+  return (
+    <Alerta tono="aviso" titulo={`${total} pendientes son renovaciones`}>
+      <div className="grid gap-3">
+        <p>
+          Son renovaciones de cuentas o perfiles: el cliente sigue con el mismo lugar y no hay nada
+          que entregar. Desde ahora las renovaciones ya no se anotan aquí. Puedes cerrar estas de
+          una vez; quedan anuladas con su motivo, no se borra nada.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {confirmando ? (
+            <>
+              <Boton
+                cargando={accion.cargando}
+                icono={<CircleCheck className="size-4" aria-hidden="true" />}
+                onClick={async () => {
+                  const r = await accion.ejecutar<{ cerradas: number }>(
+                    'POST',
+                    '/entregas/renovaciones-pendientes/cerrar',
+                  );
+                  if (r) setCerradas(r.datos.cerradas);
+                }}
+              >
+                Sí, cerrar {total}
+              </Boton>
+              <Boton variante="secundario" onClick={() => setConfirmando(false)}>
+                Cancelar
+              </Boton>
+            </>
+          ) : (
+            <Boton
+              variante="secundario"
+              icono={<CircleCheck className="size-4" aria-hidden="true" />}
+              onClick={() => setConfirmando(true)}
+            >
+              Cerrar renovaciones pendientes ({total})
+            </Boton>
+          )}
+        </div>
+        <ErrorGeneral error={accion.error} />
+      </div>
+    </Alerta>
+  );
+}

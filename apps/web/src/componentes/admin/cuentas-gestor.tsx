@@ -166,6 +166,7 @@ export function CortarPerfil({
   const [modoPin, setModoPin] = useState('mismo');
   const [pin, setPin] = useState('');
   const [avisar, setAvisar] = useState(true);
+  const [motivo, setMotivo] = useState('');
   const [listo, setListo] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<ErrorLlamada | null>(null);
@@ -173,6 +174,12 @@ export function CortarPerfil({
   const campos = erroresPorCampo(error);
   const textos = TEXTOS_PLATAFORMA[tipo];
   const terminada = perfil.asignacion?.terminada ?? false;
+  // Cortar a quien aún no vence pide el motivo: el cliente lo ve como «Suspendida por…».
+  const a = perfil.asignacion;
+  const vigente =
+    !!a &&
+    (a.estado === 'activa' || a.estado === 'en_gracia') &&
+    (!a.venceEn || claveDia(a.venceEn) > claveDia(new Date().toISOString()));
   // Miembro de un plan familiar con su correo: el cupo lo conserva y la clave nueva es la suya.
   const miembro = tipo === 'familiar' && !esTitular(tipo, perfil.numero) && perfil.tieneMiembro;
 
@@ -184,6 +191,7 @@ export function CortarPerfil({
     setModoPin('mismo');
     setClave('');
     setPin('');
+    setMotivo('');
   }
 
   async function confirmar() {
@@ -191,6 +199,7 @@ export function CortarPerfil({
     setCargando(true);
     setError(null);
     const r = await llamarApi('POST', `/cuentas/${cuentaId}/perfiles/${perfil.id}/liberar`, {
+      ...(motivo.trim() ? { motivo: motivo.trim() } : {}),
       ...(claveNueva ? { nuevaClave: claveNueva } : {}),
       ...(modoPin === 'nuevo' && pin.trim() ? { nuevoPin: pin.trim() } : {}),
     });
@@ -261,10 +270,31 @@ export function CortarPerfil({
             <>
               <p className="text-sm text-tinta-suave">
                 {perfil.asignacion?.cliente.nombre ?? 'El cliente'} deja de tener {perfil.nombre}.
-                Su suscripción no cambia: si no pagó, márcala aparte. Hay{' '}
-                {otrosActivos === 1 ? '1 persona más' : `${otrosActivos} personas más`} usando la
-                cuenta.
+                {vigente
+                  ? ' Todavía no vence: su suscripción queda suspendida y verá el motivo.'
+                  : ' Su suscripción no cambia: si no pagó, márcala aparte.'}{' '}
+                Hay {otrosActivos === 1 ? '1 persona más' : `${otrosActivos} personas más`} usando
+                la cuenta.
               </p>
+              {(vigente || campos.motivo) && (
+                <label className="grid gap-1.5 text-sm">
+                  <span className="font-medium">Motivo del corte</span>
+                  <textarea
+                    value={motivo}
+                    onChange={(e) => setMotivo(e.currentTarget.value)}
+                    rows={2}
+                    maxLength={300}
+                    required
+                    placeholder="Ej.: Compartió la cuenta con otras personas."
+                    aria-invalid={campos.motivo ? true : undefined}
+                    className="min-w-0 rounded-xl border border-borde bg-hundida px-3 py-2 text-sm"
+                  />
+                  <span className="text-xs text-tinta-tenue">
+                    El cliente verá «Suspendida por: …» y su servicio deja de estar vigente.
+                  </span>
+                  {campos.motivo && <span className="text-xs text-peligro">{campos.motivo}</span>}
+                </label>
+              )}
               <fieldset className="grid gap-2">
                 <legend className="mb-1 text-sm font-medium">
                   {miembro ? 'Contraseña del miembro' : 'Contraseña de la cuenta'}
@@ -370,7 +400,11 @@ export function CortarPerfil({
                 <Boton variante="fantasma" onClick={cerrar} disabled={cargando}>
                   Cancelar
                 </Boton>
-                <Boton cargando={cargando} onClick={() => void confirmar()}>
+                <Boton
+                  cargando={cargando}
+                  disabled={vigente && motivo.trim().length < 3}
+                  onClick={() => void confirmar()}
+                >
                   Confirmar corte
                 </Boton>
               </div>
