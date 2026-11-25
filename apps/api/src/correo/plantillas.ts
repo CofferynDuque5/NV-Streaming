@@ -174,6 +174,34 @@ export const Plantillas = {
 
   // ── Fase 3: avisos automáticos ─────────────────────────────────────────────
 
+  /** Resumen diario: cuántas suscripciones le vencen pronto, con la lista. */
+  resumenVencimientos(
+    nombre: string,
+    items: string[],
+    total: number,
+    dias: number,
+    url: string,
+    revendedor: boolean,
+  ): CorreoRenderizado {
+    const cuantas = total === 1 ? '1 suscripción' : `${total} suscripciones`;
+    const p = [
+      `Hola, ${nombre}.`,
+      revendedor
+        ? `Tus clientes tienen ${cuantas} que vencen en los próximos ${dias} días o ya vencieron:`
+        : `Tienes ${cuantas} que vencen en los próximos ${dias} días o ya vencieron:`,
+      ...items.slice(0, 40).map((i) => `• ${i}`),
+      ...(items.length > 40 ? [`… y ${items.length - 40} más.`] : []),
+      revendedor
+        ? 'Revísalas en «Accesos de clientes» y renuévalas a tiempo para que no pierdan el servicio.'
+        : 'Revísalas en «Mis accesos» y renuévalas a tiempo para no perder el servicio.',
+    ];
+    const boton = { texto: revendedor ? 'Ver accesos de clientes' : 'Ver mis accesos', url };
+    return {
+      asunto: `${cuantas} por vencer`,
+      texto: texto(p, url),
+      html: envolver(`${cuantas} por vencer`, p, boton, PIE_RECORDATORIO),
+    };
+  },
   recordatorioVencimiento(
     nombre: string,
     servicio: string,

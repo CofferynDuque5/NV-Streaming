@@ -125,6 +125,122 @@ export class TareasClientesService implements OnModuleInit {
   }
 
   /**
+   * Resumen diario: a cada cliente (lo que compró él) y a cada revendedor (lo de
+   * sus clientes), cuántas suscripciones le vencen en los próximos días o están
+   * en gracia, con la lista y el enlace a sus accesos. Una vez al día; si no
+   * tiene ninguna, no se envía nada.
+   */
+  async resumenVencimientos(
+    config: ConfigAutomatizacion<'resumen_vencimientos'>,
+    ahora: Date,
+  ): Promise<ResultadoTarea> {
+    const r = new Recuento();
+    const dias = config.parametros.diasAntes;
+    const hoy = inicioDiaCaracas(ahora);
+    const subs = await this.prisma.suscripcion.findMany({
+      where: {
+        estado: { in: ['activa', 'en_gracia'] },
+        cancelarAlVencer: false,
+        plan: { tipo: 'suscripcion' },
+        cliente: { estado: 'activo' },
+        venceEn: { lt: inicioDiaCaracas(ahora, dias + 1) },
+      },
+      select: {
+        id: true,
+        clienteId: true,
+        revendedorId: true,
+        venceEn: true,
+        estado: true,
+        cliente: { select: { nombre: true } },
+        plan: { select: { nombre: true, servicio: { select: { nombre: true } } } },
+      },
+      orderBy: [{ venceEn: 'asc' }, { id: 'asc' }],
+      take: 5000,
+    });
+    const linea = (s: (typeof subs)[number], conCliente: boolean) => {
+      const v = s.venceEn!;
+      const d = Math.round((inicioDiaCaracas(v).getTime() - hoy.getTime()) / DIA_MS);
+      const cuando =
+        d < 0
+          ? `venció el ${fechaLarga(v)}`
+          : d === 0
+            ? 'vence hoy'
+            : d === 1
+              ? 'vence mañana'
+              : `vence el ${fechaLarga(v)}`;
+      return `${conCliente ? `${s.cliente.nombre}: ` : ''}${nombreServicio(s)}, ${cuando}`;
+    };
+    const directos = new Map<string, typeof subs>();
+    const deRevendedor = new Map<string, typeof subs>();
+    for (const s of subs) {
+      const m = s.revendedorId ? deRevendedor : directos;
+      const k = s.revendedorId ?? s.clienteId;
+      m.set(k, [...(m.get(k) ?? []), s]);
+    }
+    const dia = hoy.toISOString().slice(0, 10);
+    const urlCliente = this.correo.urlWeb('/cuenta/accesos');
+    for (const [clienteId, lista] of directos) {
+      try {
+        r.aviso(
+          await this.avisos.avisar({
+            plantilla: 'resumenVencimientos',
+            destinatario: { clienteId },
+            claveUnica: `resumen_vencimientos:cliente:${clienteId}:${dia}`,
+            automatizacion: 'resumen_vencimientos',
+            canales: ['correo'],
+            contenido: (nombre) => ({
+              correo: Plantillas.resumenVencimientos(
+                nombre,
+                lista.map((s) => linea(s, false)),
+                lista.length,
+                dias,
+                urlCliente,
+                false,
+              ),
+            }),
+          }),
+        );
+      } catch (e) {
+        r.error(`Cliente ${clienteId}: ${mensajeError(e)}`);
+      }
+    }
+    if (deRevendedor.size) {
+      const revendedores = await this.prisma.revendedor.findMany({
+        where: { id: { in: [...deRevendedor.keys()] } },
+        select: { id: true, usuarioId: true },
+      });
+      const urlRevendedor = this.correo.urlWeb('/revendedor/accesos');
+      for (const rv of revendedores) {
+        const lista = deRevendedor.get(rv.id) ?? [];
+        try {
+          r.aviso(
+            await this.avisos.avisar({
+              plantilla: 'resumenVencimientos',
+              destinatario: { usuarioId: rv.usuarioId },
+              claveUnica: `resumen_vencimientos:revendedor:${rv.id}:${dia}`,
+              automatizacion: 'resumen_vencimientos',
+              canales: ['correo'],
+              contenido: (nombre) => ({
+                correo: Plantillas.resumenVencimientos(
+                  nombre,
+                  lista.map((s) => linea(s, true)),
+                  lista.length,
+                  dias,
+                  urlRevendedor,
+                  true,
+                ),
+              }),
+            }),
+          );
+        } catch (e) {
+          r.error(`Revendedor ${rv.id}: ${mensajeError(e)}`);
+        }
+      }
+    }
+    return r.resultado(resumenAvisos(r, 'resumen enviado', 'resúmenes enviados'));
+  }
+
+  /**
    * Emite la factura de renovación de las suscripciones que vencen en los
    * próximos días y no tienen una abierta, con las mismas reglas que una
    * renovación manual, y envía las instrucciones de pago. Repetirla no emite
