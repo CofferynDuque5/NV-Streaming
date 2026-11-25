@@ -41,6 +41,7 @@ const TEXTO_ENLACE = {
   hogar: 'Abrir enlace del Hogar',
   verificar: 'Abrir enlace de verificación',
   acceso: 'Abrir enlace de acceso',
+  restablecer: 'Abrir enlace para cambiar la contraseña',
 } as const;
 
 const textoMinutos = (m: number) =>

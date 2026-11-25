@@ -197,4 +197,44 @@ export class LectorImap {
       await imap?.logout().catch(() => undefined);
     }
   }
+
+  /** Correos de `remitente` en `carpeta` desde `desde`, del más reciente al más antiguo. */
+  async deRemitente(c: ConexionBuzon, remitente: string, desde: Date): Promise<CorreoLeido[]> {
+    let imap: ImapFlow | null = null;
+    try {
+      imap = await this.cliente(c);
+      await imap.mailboxOpen(c.carpeta, { readOnly: true });
+      const uids = await imap.search(
+        { since: new Date(desde.getTime() - 86_400_000), from: remitente },
+        { uid: true },
+      );
+      if (!uids || uids.length === 0) return [];
+      const ultimos = [...uids].sort((a, b) => b - a).slice(0, 5);
+      const correos: CorreoLeido[] = [];
+      for await (const m of imap.fetch(
+        ultimos,
+        { source: true, internalDate: true },
+        { uid: true },
+      )) {
+        if (!m.source) continue;
+        const p = await simpleParser(m.source);
+        const fecha = p.date ?? (m.internalDate instanceof Date ? m.internalDate : new Date(0));
+        if (fecha < desde) continue;
+        const de = p.from?.value?.[0]?.address?.toLowerCase() ?? '';
+        if (de !== remitente.toLowerCase()) continue;
+        correos.push({
+          asunto: p.subject ?? '',
+          de,
+          fecha,
+          texto: p.text ?? null,
+          html: typeof p.html === 'string' ? p.html : null,
+        });
+      }
+      return correos.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
+    } catch (err) {
+      throw new ErrorBuzon(mensajeDe(err));
+    } finally {
+      await imap?.logout().catch(() => undefined);
+    }
+  }
 }

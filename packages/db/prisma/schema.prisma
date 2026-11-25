@@ -2416,7 +2416,46 @@ model BuzonCodigos {
   creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn  DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
+  conectores ConectorCodigos[]
+
   @@map("buzones_codigos")
+}
+
+/// Panel web de un proveedor de cuentas (ikercuentas.com): un navegador automático entra
+/// con el usuario del negocio y pulsa los botones de códigos (Code, Code6, Link, sobre, Hogar).
+model ConectorCodigos {
+  id                  String    @id @db.Uuid
+  /// «ikercuentas».
+  nombre              String    @unique @db.VarChar(60)
+  urlBase             String    @map("url_base") @db.VarChar(200)
+  /// Cifrado (contexto "conector:<id>:usuario").
+  usuarioCifrado      String?   @map("usuario_cifrado") @db.VarChar(1000)
+  pista               String?   @db.VarChar(120)
+  /// Cifrada (contexto "conector:<id>:clave").
+  claveCifrada        String?   @map("clave_cifrada") @db.VarChar(1000)
+  /// Cookies de la sesión del navegador, cifradas (contexto "conector:<id>:sesion").
+  sesionCifrada       String?   @map("sesion_cifrada")
+  /// Texto que aparece en «Proveedor» de las cuentas compradas ahí («Iker»).
+  marcaProveedor      String    @map("marca_proveedor") @db.VarChar(60)
+  /// Buzón donde llega el correo «Nuevo dispositivo detectado» para aprobar la IP.
+  buzonId             String?   @map("buzon_id") @db.Uuid
+  carpetaAprobacion   String    @default("INBOX") @map("carpeta_aprobacion") @db.VarChar(120)
+  remitenteAprobacion String    @map("remitente_aprobacion") @db.VarChar(254)
+  /// Botones que también ven clientes y revendedores (code, code6, link, sobre, hogar).
+  accionesCliente     String[]  @default([]) @map("acciones_cliente")
+  activo              Boolean   @default(false)
+  /// sin_probar | conectado | esperando_aprobacion | error
+  estado              String    @default("sin_probar") @db.VarChar(30)
+  ultimoError         String?   @map("ultimo_error") @db.VarChar(300)
+  probadoEn           DateTime? @map("probado_en") @db.Timestamptz(3)
+  /// Lo último que vio el navegador (rutas, botones, avisos con números tapados).
+  diagnostico         Json?
+  creadoEn            DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn       DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  buzon BuzonCodigos? @relation(fields: [buzonId], references: [id], onDelete: SetNull)
+
+  @@map("conectores_codigos")
 }
 
 /// Asunto (o parte) de los correos que traen códigos de un servicio.

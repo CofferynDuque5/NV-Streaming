@@ -37,7 +37,9 @@ import {
   MisCodigosController,
 } from './codigos/codigos.controller.js';
 import { CodigosService } from './codigos/codigos.service.js';
+import { ConectorCodigosService } from './codigos/conector.service.js';
 import { LectorImap } from './codigos/lector-imap.js';
+import { RobotProveedor } from './codigos/robot-proveedor.js';
 import { InventarioCuentasService } from './cuentas/inventario-cuentas.service.js';
 import { ReporteCaidasService } from './cuentas/reporte-caidas.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
@@ -174,6 +176,8 @@ export class AppModule {
         ReporteCaidasService,
         LectorImap,
         CodigosService,
+        RobotProveedor,
+        ConectorCodigosService,
         ImportarCuentasService,
         ImportarGestorService,
         CostosService,

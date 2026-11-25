@@ -1,3 +1,4 @@
+import { accionesDelProveedor, NOMBRE_CONECTOR } from '../codigos/conector.service.js';
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@nv/db';
 import {
@@ -299,8 +300,12 @@ export class PerfilesClienteService {
     dueno: Prisma.SuscripcionWhereInput,
     conCliente = false,
   ): Promise<PerfilDelCliente[]> {
-    const [buzones, conAsuntos] = await Promise.all([
+    const [buzones, conector, conAsuntos] = await Promise.all([
       this.prisma.buzonCodigos.count({ where: { activo: true } }),
+      this.prisma.conectorCodigos.findUnique({
+        where: { nombre: NOMBRE_CONECTOR },
+        select: { activo: true, marcaProveedor: true, accionesCliente: true },
+      }),
       this.prisma.asuntoCodigo.findMany({
         where: { activo: true },
         select: { servicioId: true },
@@ -324,6 +329,7 @@ export class PerfilesClienteService {
           select: {
             modo: true,
             estado: true,
+            proveedor: true,
             servicio: {
               select: { id: true, nombre: true, slug: true, categoria: true, imagenId: true },
             },
@@ -408,6 +414,7 @@ export class PerfilesClienteService {
               lugar: lugarDe(p),
               disponible: p.cuenta.estado === 'activa' && VIGENTES.includes(p.suscripcion.estado),
               pideCodigos: conCodigos.has(p.cuenta.servicio.id),
+              accionesProveedor: accionesDelProveedor(conector, p.cuenta),
               // Nombre y apellidos completos: así se distingue a quién es cada perfil.
               titular: p.suscripcion.cliente.nombre,
               ...(conCliente ? { cliente: p.suscripcion.cliente } : {}),

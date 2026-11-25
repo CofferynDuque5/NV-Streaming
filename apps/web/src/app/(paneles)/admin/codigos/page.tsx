@@ -1,11 +1,13 @@
 import type {
   AsuntoCodigoPublico,
   BuzonPublico,
+  ConectorPublico,
   CuentaServicioDetalle,
   ServicioPublico,
 } from '@nv/shared';
 import type { Metadata } from 'next';
 import { BuscarCodigo, ListaAsuntos, ListaBuzones } from '@/componentes/admin/codigos';
+import { ConectorProveedor } from '@/componentes/admin/conector-proveedor';
 import { Alerta } from '@/componentes/ui/alerta';
 import { CabeceraPagina } from '@/componentes/ui/cabecera-pagina';
 import { CabeceraTarjeta, Tarjeta } from '@/componentes/ui/tarjeta';
@@ -26,7 +28,7 @@ export default async function CorreosDeCodigos({
   const q = await searchParams;
   const cuentaId = typeof q.cuenta === 'string' && UUID.test(q.cuenta) ? q.cuenta : null;
 
-  const [asuntos, buzones, servicios, cuenta] = await Promise.all([
+  const [asuntos, buzones, servicios, cuenta, conector] = await Promise.all([
     leerApi<AsuntoCodigoPublico[]>('/codigos/asuntos').then((r) => r.datos),
     puedeConfigurar
       ? leerApi<BuzonPublico[]>('/codigos/buzones').then((r) => r.datos)
@@ -37,6 +39,7 @@ export default async function CorreosDeCodigos({
     cuentaId && sesion.permisos.includes('cuentas.ver')
       ? leerApi<CuentaServicioDetalle>(`/cuentas/${cuentaId}`).then((r) => r.datos)
       : Promise.resolve(null),
+    leerApi<ConectorPublico>('/codigos/conector').then((r) => r.datos),
   ]);
   const opciones = (
     servicios.length
@@ -86,6 +89,15 @@ export default async function CorreosDeCodigos({
           </div>
         )}
       </Tarjeta>
+      {puedeConfigurar && conector && (
+        <Tarjeta>
+          <CabeceraTarjeta
+            titulo="Proveedor ikercuentas"
+            descripcion="El servidor entra al panel de ikercuentas con tu usuario, busca la cuenta y pulsa Code, Code6, Link, el sobre o Hogar. Tus clientes ven esos botones en «Mis accesos» para las cuentas de ese proveedor."
+          />
+          <ConectorProveedor conector={conector} buzones={buzones ?? []} />
+        </Tarjeta>
+      )}
       {puedeConfigurar && (
         <Tarjeta>
           <CabeceraTarjeta

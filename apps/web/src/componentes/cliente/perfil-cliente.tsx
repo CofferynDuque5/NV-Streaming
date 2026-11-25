@@ -1,9 +1,11 @@
 'use client';
 
 import {
+  type AccionProveedor,
   type CodigoDelCliente,
   type PerfilDelCliente,
   type PerfilRevelado,
+  type ResultadoProveedor,
   ZONA_HORARIA,
 } from '@nv/shared';
 import clsx from 'clsx';
@@ -46,7 +48,110 @@ const TEXTO_ENLACE = {
   hogar: 'Sí, fui yo: actualizar el Hogar',
   verificar: 'Abrir el enlace de verificación',
   acceso: 'Abrir el enlace de acceso',
+  restablecer: 'Abrir el enlace para cambiar la contraseña',
 } as const;
+
+/** Nombre corto de cada botón del proveedor, como en su panel. */
+const BOTON_PROVEEDOR: Record<AccionProveedor, string> = {
+  code: 'Código de inicio',
+  code6: 'Código de 6 dígitos',
+  link: 'Cambiar contraseña',
+  sobre: 'Código de acceso',
+  hogar: 'Hogar / viaje',
+};
+
+/**
+ * Cuentas del proveedor (ikercuentas): el servidor entra a su panel, pulsa el mismo
+ * botón y muestra el código o el enlace. Tarda unos segundos.
+ */
+function BotonesProveedor({
+  suscripcionId,
+  ruta,
+  acciones,
+}: {
+  suscripcionId: string;
+  ruta: string;
+  acciones: AccionProveedor[];
+}) {
+  const [cargando, setCargando] = useState<AccionProveedor | null>(null);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+  const [resultado, setResultado] = useState<{
+    accion: AccionProveedor;
+    r: ResultadoProveedor;
+  } | null>(null);
+
+  async function pedir(accion: AccionProveedor) {
+    setCargando(accion);
+    setError(null);
+    setResultado(null);
+    const r = await llamarApi<ResultadoProveedor>(
+      'POST',
+      `${ruta}/${suscripcionId}/codigo-proveedor`,
+      { accion },
+    );
+    setCargando(null);
+    if (!r.ok) return setError(r.error);
+    setResultado({ accion, r: r.datos });
+  }
+
+  const c = resultado?.r;
+  return (
+    <div className="grid gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        {acciones.map((a) => (
+          <Boton
+            key={a}
+            variante="secundario"
+            tamano="sm"
+            cargando={cargando === a}
+            disabled={cargando !== null && cargando !== a}
+            icono={<MailSearch className="size-3.5" aria-hidden="true" />}
+            onClick={() => void pedir(a)}
+          >
+            {BOTON_PROVEEDOR[a]}
+          </Boton>
+        ))}
+      </div>
+      <span className="text-xs text-tinta-tenue">
+        {cargando
+          ? 'Buscando en el panel del proveedor… puede tardar hasta un minuto.'
+          : 'Pídelo primero en la app y luego toca el botón que corresponda.'}
+      </span>
+      {error && <MensajeError error={error} />}
+      <div aria-live="polite">
+        {c &&
+          (c.codigo || c.enlace ? (
+            <div className="grid gap-2">
+              {c.codigo && (
+                <div className="flex items-center justify-between gap-3 rounded-[0.875rem] bg-cian/[0.07] px-3.5 py-3">
+                  <b className="font-mono text-[1.375rem] tracking-[0.18em] break-all select-all">
+                    {c.codigo}
+                  </b>
+                  <BotonCopiar texto={c.codigo} etiqueta="el código" soloIcono />
+                </div>
+              )}
+              {c.enlace && (
+                <a
+                  href={c.enlace.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex items-center gap-2 justify-self-start rounded-[0.875rem] border border-cian bg-cian/[0.08] px-3.5 py-2 text-sm font-semibold hover:bg-cian/[0.14]"
+                >
+                  <ExternalLink className="size-4" aria-hidden="true" />
+                  {TEXTO_ENLACE[c.enlace.tipo]}
+                </a>
+              )}
+              <p className="text-xs text-tinta-tenue">
+                Úsalo enseguida: los códigos vencen en pocos minutos.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-tinta-suave">{c.mensaje}</p>
+          ))}
+      </div>
+    </div>
+  );
+}
 
 /** El último código o enlace que llegó al correo de la cuenta (Netflix, Disney+…). */
 function PedirCodigo({ suscripcionId, ruta }: { suscripcionId: string; ruta: string }) {
@@ -424,10 +529,21 @@ export function TarjetaPerfilCliente({
       {(abierto || !perfil.disponible) && (
         <div id={cuerpoId} className="grid gap-3 border-t border-borde px-3.5 pt-1 pb-3.5">
           <div className="grid gap-3 pt-2.5">{cuerpo}</div>
-          {perfil.disponible && perfil.pideCodigos && (
+          {perfil.disponible && Boolean(perfil.accionesProveedor?.length) ? (
             <div className="border-t border-borde pt-3">
-              <PedirCodigo suscripcionId={perfil.suscripcionId} ruta={ruta} />
+              <BotonesProveedor
+                suscripcionId={perfil.suscripcionId}
+                ruta={ruta}
+                acciones={perfil.accionesProveedor!}
+              />
             </div>
+          ) : (
+            perfil.disponible &&
+            perfil.pideCodigos && (
+              <div className="border-t border-borde pt-3">
+                <PedirCodigo suscripcionId={perfil.suscripcionId} ruta={ruta} />
+              </div>
+            )
           )}
         </div>
       )}

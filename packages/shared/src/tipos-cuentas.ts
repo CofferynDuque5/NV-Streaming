@@ -1,4 +1,5 @@
 import type { CategoriaServicio } from './categorias.js';
+import type { AccionProveedor } from './esquemas/codigos.js';
 import type { EstadoCuentaServicio, EstadoPerfil, ModoCuenta } from './esquemas/cuentas.js';
 import type { EstadoSuscripcion } from './esquemas/suscripciones.js';
 import type { TipoPlataforma } from './plataformas.js';
@@ -248,6 +249,8 @@ export interface PerfilDelCliente {
   disponible: boolean;
   /** El servicio tiene asuntos de códigos y hay un buzón activo: puede pedir su código. */
   pideCodigos: boolean;
+  /** Botones del panel del proveedor (ikercuentas) que puede pulsar desde «Mis accesos». */
+  accionesProveedor?: AccionProveedor[];
   /** Solo en el panel del revendedor: para qué cliente es. */
   cliente?: Referencia;
   /** Último cambio de datos (en los últimos 15 días): cuándo y qué cambió, sin valores. */
