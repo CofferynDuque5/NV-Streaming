@@ -245,6 +245,21 @@ export function TarjetaPerfilCliente({
             : 'Usa solo tu perfil y no cambies la clave, el correo ni los otros perfiles.'}{' '}
           Se ocultan solos en dos minutos.
         </p>
+        {datos.contrato && (
+          <details className="min-w-0">
+            <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">
+              Ver mi contrato
+            </summary>
+            <div className="mt-2.5 grid gap-2 rounded-[0.875rem] border border-borde bg-white/[0.03] px-3.5 py-3">
+              <pre className="max-h-80 overflow-auto font-mono text-[0.78rem] leading-relaxed whitespace-pre-wrap text-tinta-suave">
+                {datos.contrato}
+              </pre>
+              <div className="justify-self-start">
+                <BotonCopiar texto={datos.contrato} etiqueta="el contrato" />
+              </div>
+            </div>
+          </details>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <details className="group min-w-0 flex-1">
             <summary className="cursor-pointer list-none text-[0.84rem] text-tinta-suave underline underline-offset-4 hover:text-tinta [&::-webkit-details-marker]:hidden">

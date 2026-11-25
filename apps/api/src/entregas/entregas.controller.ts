@@ -55,6 +55,19 @@ export class EntregasController {
     return this.entregas.listar(filtro);
   }
 
+  @Get('renovaciones-pendientes')
+  @RequierePermiso('entregas.ver')
+  renovacionesPendientes() {
+    return this.entregas.renovacionesPendientes();
+  }
+
+  @Post('renovaciones-pendientes/cerrar')
+  @HttpCode(200)
+  @RequierePermiso('entregas.gestionar')
+  cerrarRenovacionesPendientes(@Auth() auth: ContextoAuth, @Cliente() cliente: InfoCliente) {
+    return this.entregas.cerrarRenovacionesPendientes(auth, cliente);
+  }
+
   @Get(':id')
   @RequierePermiso('entregas.ver')
   obtener(@Param('id', idValido) id: string) {

@@ -51,7 +51,15 @@ export async function registrarEntrega(tx: Tx, n: NuevaEntrega): Promise<string 
   });
   const proveedor = s.plan.servicio.proveedor;
   const config = leerConfiguracionProveedor(proveedor.configuracion);
-  if (n.concepto === 'renovacion' && !config.entregarRenovaciones) return null;
+  // Una renovación de una cuenta o perfil (entrega manual) no es una entrega:
+  // el cliente sigue con el mismo lugar. Solo los códigos o el proveedor con
+  // webhook entregan de nuevo en cada periodo, si así se configuró.
+  if (
+    n.concepto === 'renovacion' &&
+    (proveedor.adaptador === 'manual' || !config.entregarRenovaciones)
+  ) {
+    return null;
+  }
 
   let revendedorId: string | null = null;
   if (n.origen.tipo === 'compra') {

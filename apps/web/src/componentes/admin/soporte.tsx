@@ -13,7 +13,7 @@ import {
   type TicketDetalle,
 } from '@nv/shared';
 import clsx from 'clsx';
-import { LoaderCircle, Lock, Search, Send, UserRoundCheck } from 'lucide-react';
+import { CircleCheck, LoaderCircle, Lock, Search, Send, UserRoundCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -455,5 +455,37 @@ export function GestionTicket({
         )}
       </div>
     </form>
+  );
+}
+
+/**
+ * Cierra de una vez un ticket ya resuelto («Completado»). Queda como cerrado;
+ * si hiciera falta, se reabre cambiando su estado en Gestión.
+ */
+export function CompletarTicket({ id }: { id: string }) {
+  const router = useRouter();
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<ErrorLlamada | null>(null);
+
+  async function completar() {
+    setCargando(true);
+    setError(null);
+    const r = await llamarApi<TicketDetalle>('PATCH', `/tickets/${id}`, { estado: 'cerrado' });
+    setCargando(false);
+    if (!r.ok) return setError(r.error);
+    router.refresh();
+  }
+
+  return (
+    <div className="grid justify-items-start gap-2">
+      <Boton
+        cargando={cargando}
+        icono={<CircleCheck className="size-4" aria-hidden="true" />}
+        onClick={() => void completar()}
+      >
+        Completado
+      </Boton>
+      {error && <Alerta tono="peligro">{error.mensaje}</Alerta>}
+    </div>
   );
 }

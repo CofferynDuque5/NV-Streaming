@@ -86,6 +86,17 @@ const texto500 = (t: string | undefined | null) => (t ? t.slice(0, 500) : null);
  * anular). El código o enlace se guarda cifrado y nunca va a registros,
  * auditoría, correos ni al asistente.
  */
+/** Renovaciones de cuentas o perfiles (entrega manual) que esperan sin nada que entregar. */
+const RENOVACIONES_PENDIENTES = {
+  adaptador: 'manual',
+  estado: { in: ['pendiente', 'fallida'] },
+  OR: [
+    { motivo: 'renovacion' },
+    { compraRevendedor: { tipo: 'renovacion' } },
+    { factura: { concepto: 'renovacion' } },
+  ],
+} satisfies Prisma.EntregaWhereInput;
+
 @Injectable()
 export class EntregasService implements OnModuleInit {
   private readonly logger = new Logger('Entregas');
@@ -588,6 +599,57 @@ export class EntregasService implements OnModuleInit {
       );
     });
     return this.obtener(id);
+  }
+
+  /** Renovaciones manuales que quedaron como entregas pendientes (antes de no crearlas). */
+  async renovacionesPendientes(): Promise<{ total: number }> {
+    const total = await this.prisma.entrega.count({ where: RENOVACIONES_PENDIENTES });
+    return { total };
+  }
+
+  /**
+   * Cierra de una vez las renovaciones manuales pendientes: el cliente sigue
+   * con su mismo lugar, no hay nada que entregar. Quedan anuladas (no se borran)
+   * con su motivo en la auditoría.
+   */
+  async cerrarRenovacionesPendientes(
+    auth: ContextoAuth,
+    cliente: InfoCliente,
+  ): Promise<{ cerradas: number }> {
+    const ahora = new Date();
+    const motivo = 'Renovación: el cliente sigue con su mismo lugar, no requiere entrega.';
+    const cerradas = await this.prisma.$transaction(async (tx) => {
+      const filas = await tx.entrega.findMany({
+        where: RENOVACIONES_PENDIENTES,
+        select: { id: true, estado: true },
+      });
+      if (filas.length === 0) return 0;
+      await tx.entrega.updateMany({
+        where: { id: { in: filas.map((f) => f.id) }, ...RENOVACIONES_PENDIENTES },
+        data: {
+          estado: 'anulada',
+          anuladaEn: ahora,
+          motivoAnulacion: motivo,
+          proximoIntentoEn: null,
+        },
+      });
+      for (const f of filas) {
+        await this.auditoria.registrar(
+          {
+            actorId: auth.usuario.id,
+            accion: 'entrega.anulada',
+            entidad: 'entrega',
+            entidadId: f.id,
+            antes: { estado: f.estado },
+            despues: { estado: 'anulada', motivo, enLote: true },
+            cliente,
+          },
+          tx,
+        );
+      }
+      return filas.length;
+    });
+    return { cerradas };
   }
 
   // ── Consultas del panel ────────────────────────────────────────────────

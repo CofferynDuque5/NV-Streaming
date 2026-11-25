@@ -215,6 +215,62 @@ describe('registro de entregas', () => {
   });
 });
 
+describe('renovaciones', () => {
+  it('renovar una cuenta o perfil (entrega manual) no crea otra entrega', async () => {
+    const e = await escenario();
+    const c = await clientePagado(e);
+    const otraFactura = randomUUID();
+    const r = await ctx.prisma.$transaction((tx) =>
+      registrarEntrega(tx, {
+        origen: { tipo: 'factura', facturaId: otraFactura },
+        suscripcionId: c.suscripcionId,
+        concepto: 'renovacion',
+        periodo: { inicio: new Date(), fin: null },
+      }),
+    );
+    expect(r).toBeNull();
+    expect(await ctx.prisma.entrega.count()).toBe(1);
+  });
+
+  it('las renovaciones que quedaron pendientes se cierran de una vez, sin tocar las altas', async () => {
+    const e = await escenario();
+    const c = await clientePagado(e);
+    const alta = await ctx.prisma.entrega.findUniqueOrThrow({ where: { id: c.entregaId } });
+    const vieja = await ctx.prisma.entrega.create({
+      data: {
+        proveedorId: alta.proveedorId,
+        planId: alta.planId,
+        clienteId: alta.clienteId,
+        suscripcionId: alta.suscripcionId,
+        adaptador: 'manual',
+        motivo: 'renovacion',
+        claveIdempotencia: `prueba:${randomUUID()}`,
+      },
+    });
+
+    const cuenta = await e.admin.get('/entregas/renovaciones-pendientes');
+    expect(cuenta.estado).toBe(200);
+    expect(cuenta.cuerpo).toEqual({ total: 1 });
+
+    const cerrar = await e.admin.post('/entregas/renovaciones-pendientes/cerrar', {});
+    expect(cerrar.estado).toBe(200);
+    expect(cerrar.cuerpo).toEqual({ cerradas: 1 });
+
+    const fila = await ctx.prisma.entrega.findUniqueOrThrow({ where: { id: vieja.id } });
+    expect(fila.estado).toBe('anulada');
+    expect(fila.motivoAnulacion).toContain('Renovación');
+    expect(
+      (await ctx.prisma.entrega.findUniqueOrThrow({ where: { id: c.entregaId } })).estado,
+    ).toBe('pendiente');
+    expect(
+      await ctx.prisma.auditoria.count({
+        where: { accion: 'entrega.anulada', entidadId: vieja.id },
+      }),
+    ).toBe(1);
+    expect((await e.admin.get('/entregas/renovaciones-pendientes')).cuerpo).toEqual({ total: 0 });
+  });
+});
+
 describe('códigos de inventario', () => {
   it('un lote descarta repetidos, nunca devuelve los códigos y se reparte sin duplicar en paralelo', async () => {
     const e = await escenario();
