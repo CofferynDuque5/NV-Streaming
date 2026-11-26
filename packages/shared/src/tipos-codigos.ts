@@ -104,7 +104,8 @@ export interface ResultadoProveedor {
 
 // ── Revisión automática de cuentas Spotify principales ──────────────────────
 
-export type EstadoRevisionSpotify = 'en_cola' | 'revisando' | 'lista' | 'error';
+/** «pendiente»: tiene una sesión pegada y aún no se revisó. */
+export type EstadoRevisionSpotify = 'pendiente' | 'en_cola' | 'revisando' | 'lista' | 'error';
 /** Lo que mostró Spotify: al día, pago fallido, en pausa, caída (sin Premium) o no se pudo saber. */
 export type SituacionSpotify = 'al_dia' | 'pago_fallido' | 'pausa' | 'caida' | 'desconocida';
 
@@ -116,6 +117,8 @@ export interface RevisionSpotifyPublica {
   estadoCuenta: string;
   /** Fecha de vencimiento guardada hoy en la web (AAAA-MM-DD). */
   facturaEn: string | null;
+  /** Hay una sesión de Spotify guardada (cifrada) para entrar sin código ni captcha. */
+  conSesion: boolean;
   /** null si la cuenta nunca se revisó. */
   revision: {
     estado: EstadoRevisionSpotify;

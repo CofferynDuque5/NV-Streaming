@@ -20,6 +20,7 @@ import {
   conectorSchema,
   pedirProveedorClienteSchema,
   pedirProveedorSchema,
+  pegarSesionSpotifySchema,
   revisarSpotifySchema,
   uuidSchema,
 } from '@nv/shared';
@@ -70,6 +71,20 @@ export class CodigosController {
     @Cliente() cliente: InfoCliente,
   ) {
     return this.spotify.revisar(auth, cuerpo, cliente);
+  }
+
+  /** Guarda cifrada la sesión (cookie sp_dc) de una cuenta, copiada del navegador. */
+  @Post('spotify/:cuentaId/sesion')
+  @HttpCode(200)
+  @RequierePermiso('codigos.configurar')
+  @DocCuerpo(pegarSesionSpotifySchema)
+  pegarSesionSpotify(
+    @Auth() auth: ContextoAuth,
+    @Param('cuentaId', idValido) cuentaId: string,
+    @Body(validar(pegarSesionSpotifySchema)) cuerpo: z.output<typeof pegarSesionSpotifySchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.spotify.pegarSesion(auth, cuentaId, cuerpo, cliente);
   }
 
   /** Conexión con el panel del proveedor (ikercuentas): sin usuario ni clave. */

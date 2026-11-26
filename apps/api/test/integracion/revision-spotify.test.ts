@@ -160,6 +160,59 @@ describe('revisión de cuentas Spotify', () => {
     expect(c.facturaEn?.toISOString().slice(0, 10)).toBe('2026-11-30');
   });
 
+  it('pegar la sesión: se guarda cifrada y el robot la usa sin pedir código', async () => {
+    const e = await escenario();
+    const spDc = 'AQ' + 'x'.repeat(120);
+    // El operador no puede; una cuenta de otro dominio tampoco.
+    expect((await e.operador.post(`/codigos/spotify/${e.alDia}/sesion`, { spDc })).estado).toBe(
+      403,
+    );
+    expect((await e.admin.post(`/codigos/spotify/${e.ajena}/sesion`, { spDc })).estado).toBe(404);
+    expect(
+      (await e.admin.post(`/codigos/spotify/${e.alDia}/sesion`, { spDc: 'corto' })).estado,
+    ).toBe(400);
+    const r = await e.admin.post(`/codigos/spotify/${e.alDia}/sesion`, { spDc: `sp_dc=${spDc}` });
+    expect(r.estado).toBe(200);
+    const fila = r.cuerpo.cuentas.find((c: { cuentaId: string }) => c.cuentaId === e.alDia);
+    expect(fila.conSesion).toBe(true);
+    expect(fila.revision.estado).toBe('pendiente');
+    const guardada = await ctx.prisma.revisionSpotify.findUniqueOrThrow({
+      where: { cuentaId: e.alDia },
+    });
+    expect(guardada.sesionCifrada).not.toContain(spDc);
+    // Ni la auditoría guarda la cookie.
+    const audit = await ctx.prisma.auditoria.findFirstOrThrow({
+      where: { accion: 'spotify.sesion_pegada' },
+    });
+    expect(JSON.stringify(audit)).not.toContain(spDc);
+
+    let recibida: string | null = null;
+    vi.spyOn(robot, 'revisar').mockImplementation(async (p) => {
+      recibida = p.sesion;
+      return paginas('Premium Familiar\nTu próximo pago es el 15/12/26');
+    });
+    await e.admin.post('/codigos/spotify/revisar', { cuentaIds: [e.alDia] });
+    await esperarFin();
+    expect(recibida).toContain(spDc);
+    expect(recibida).toContain('.spotify.com');
+  });
+
+  it('con un captcha, las que tienen sesión guardada siguen', async () => {
+    const e = await escenario();
+    await e.admin.post(`/codigos/spotify/${e.fallida}/sesion`, { spDc: 'AQ' + 'y'.repeat(120) });
+    const espia = vi.spyOn(robot, 'revisar').mockImplementation(async (p) => {
+      if (!p.sesion) throw new ErrorSpotify('CAPTCHA', 'Spotify pidió un captcha.');
+      return paginas('Premium Familiar\nTu próximo pago es el 15/12/26');
+    });
+    await e.admin.post('/codigos/spotify/revisar', { cuentaIds: [e.alDia, e.fallida] });
+    await esperarFin();
+    expect(espia).toHaveBeenCalledTimes(2);
+    const f = await ctx.prisma.revisionSpotify.findUniqueOrThrow({
+      where: { cuentaId: e.fallida },
+    });
+    expect(f.estado).toBe('lista');
+  });
+
   it('busca el código de Spotify en los buzones', async () => {
     const e = await escenario();
     await e.admin.post('/codigos/buzones', {
