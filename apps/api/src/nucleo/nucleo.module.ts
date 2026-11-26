@@ -20,7 +20,10 @@ export class NucleoModule implements OnApplicationShutdown {
       module: NucleoModule,
       providers: [
         { provide: ENTORNO, useValue: entorno },
-        { provide: PRISMA, useFactory: () => crearClientePrisma(entorno.DATABASE_URL, entorno.DB_CONEXIONES_MAX) },
+        {
+          provide: PRISMA,
+          useFactory: () => crearClientePrisma(entorno.DATABASE_URL, entorno.DB_CONEXIONES_MAX),
+        },
         {
           provide: Cifrador,
           useFactory: () => new Cifrador(Buffer.from(entorno.CLAVE_CIFRADO, 'base64')),
