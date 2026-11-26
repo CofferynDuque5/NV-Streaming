@@ -68,7 +68,9 @@ const rutaNavegador = () =>
     (r): r is string => Boolean(r) && existsSync(r!),
   ) ?? '/usr/bin/chromium';
 /** Cierra el navegador tras este tiempo sin uso, para liberar memoria. */
-const INACTIVO_MS = 5 * 60_000;
+const INACTIVO_MS = 15 * 60_000;
+/** Tope para esperar que el panel termine de cargar (si consulta sin parar, no se espera de más). */
+const CALMA_MS = 2_500;
 /** Cuánto se espera la respuesta del panel después de pulsar un botón. */
 const ESPERA_RESPUESTA_MS = 45_000;
 
@@ -125,6 +127,11 @@ function diagnostico(paso: string, extra: Partial<DiagnosticoConector> = {}): Di
 @Injectable()
 export class RobotProveedor implements OnModuleDestroy {
   private navegador: Browser | null = null;
+  /**
+   * Contexto que se reusa entre pedidos del mismo panel y usuario: guarda las cookies
+   * y la caché, así el panel abre más rápido. Cada pedido usa una pestaña nueva.
+   */
+  private caliente: { clave: string; ctx: BrowserContext } | null = null;
   private temporizador: NodeJS.Timeout | null = null;
   /** Un solo pedido a la vez: el panel y la memoria del servidor lo agradecen. */
   private cola: Promise<unknown> = Promise.resolve();
@@ -138,6 +145,7 @@ export class RobotProveedor implements OnModuleDestroy {
     this.temporizador = null;
     const n = this.navegador;
     this.navegador = null;
+    this.caliente = null;
     await n?.close().catch(() => undefined);
   }
 
@@ -168,6 +176,33 @@ export class RobotProveedor implements OnModuleDestroy {
       this.temporizador = setTimeout(() => void this.cerrar(), INACTIVO_MS);
       this.temporizador.unref();
     });
+  }
+
+  /** El contexto caliente si sirve para este pedido; si no, uno nuevo que queda caliente. */
+  private async contextoCaliente(p: PedidoRobot): Promise<{ ctx: BrowserContext; host: string }> {
+    const host = new URL(p.urlBase).hostname.toLowerCase();
+    const clave = `${p.urlBase}\n${p.usuario}`;
+    const c = this.caliente;
+    if (c && c.clave === clave && p.sesion && this.navegador?.isConnected()) {
+      if (this.temporizador) clearTimeout(this.temporizador);
+      return { ctx: c.ctx, host };
+    }
+    await this.soltarCaliente();
+    const r = await this.contexto(p);
+    this.caliente = { clave, ctx: r.ctx };
+    return r;
+  }
+
+  /** Cierra el contexto caliente (tras un error, para empezar limpio la próxima vez). */
+  private async soltarCaliente() {
+    const c = this.caliente;
+    this.caliente = null;
+    await c?.ctx.close().catch(() => undefined);
+  }
+
+  /** Espera a que el panel se calme, con un tope corto. */
+  private async calmar(page: Page, ms = CALMA_MS) {
+    await page.waitForLoadState('networkidle', { timeout: ms }).catch(() => undefined);
   }
 
   private async contexto(p: PedidoRobot): Promise<{ ctx: BrowserContext; host: string }> {
@@ -214,14 +249,18 @@ export class RobotProveedor implements OnModuleDestroy {
   /** Entra, busca la cuenta, pulsa el botón y junta lo que responde el panel. */
   pulsar(p: PedidoBoton): Promise<RespuestaRobot> {
     return this.enCola(async () => {
-      const { ctx, host } = await this.contexto(p);
+      const { ctx, host } = await this.contextoCaliente(p);
       let sesion: string | null = null;
+      let page: Page | null = null;
+      let bien = false;
       try {
-        const page = await ctx.newPage();
+        page = await ctx.newPage();
         await this.iniciarSesion(page, p);
         sesion = JSON.stringify(await ctx.storageState());
         try {
-          return { ...(await this.pulsarEnFila(page, p, host)), sesion };
+          const r = { ...(await this.pulsarEnFila(page, p, host)), sesion };
+          bien = true;
+          return r;
         } catch (err) {
           if (err instanceof ErrorRobot) {
             throw new ErrorRobot(err.motivo, err.message, err.diagnostico, sesion);
@@ -237,7 +276,8 @@ export class RobotProveedor implements OnModuleDestroy {
           sesion,
         );
       } finally {
-        await ctx.close().catch(() => undefined);
+        await page?.close().catch(() => undefined);
+        if (!bien) await this.soltarCaliente();
       }
     });
   }
@@ -275,7 +315,7 @@ export class RobotProveedor implements OnModuleDestroy {
   private async resultadoEntrada(page: Page): Promise<'dentro' | 'aprobar' | 'credenciales'> {
     const limite = Date.now() + 20_000;
     while (Date.now() < limite) {
-      await espera(700);
+      await espera(300);
       const texto = await page
         .locator('body')
         .innerText()
@@ -291,7 +331,7 @@ export class RobotProveedor implements OnModuleDestroy {
     await page.goto(p.urlBase, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {
       throw new ErrorRobot('PANEL', 'No se pudo abrir el panel del proveedor.');
     });
-    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+    await this.calmar(page);
     if (!(await this.pideClave(page))) {
       // ¿La portada es pública y hay que ir al acceso?
       const acceso = page
@@ -300,7 +340,7 @@ export class RobotProveedor implements OnModuleDestroy {
         .first();
       if (!(await acceso.count())) return;
       await acceso.click().catch(() => undefined);
-      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await this.calmar(page);
       if (!(await this.pideClave(page))) return;
     }
     const desde = new Date(Date.now() - 60_000);
@@ -330,7 +370,7 @@ export class RobotProveedor implements OnModuleDestroy {
       await espera(1500);
       await aprobacion.close().catch(() => undefined);
       await page.goto(p.urlBase, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await this.calmar(page);
       if (await this.pideClave(page)) {
         await this.llenarYEntrar(page, p);
         r = await this.resultadoEntrada(page);
@@ -366,15 +406,15 @@ export class RobotProveedor implements OnModuleDestroy {
         waitUntil: 'domcontentloaded',
       });
     }
-    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
-    await espera(800);
+    await this.calmar(page);
     const pestana = PESTANA[plataforma];
     if (pestana) {
       const tab = page.locator('[role="tab"], button, a').filter({ hasText: pestana }).first();
+      // La pestaña puede tardar un poco en dibujarse.
+      await tab.waitFor({ state: 'visible', timeout: 4_000 }).catch(() => undefined);
       if (await tab.count()) {
         await tab.click();
-        await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
-        await espera(800);
+        await this.calmar(page);
       }
     }
   }
@@ -387,11 +427,16 @@ export class RobotProveedor implements OnModuleDestroy {
       )
       .filter({ visible: true })
       .first();
+    await buscador.waitFor({ state: 'visible', timeout: 4_000 }).catch(() => undefined);
     if (await buscador.count()) {
       await buscador.fill(correo);
       await buscador.press('Enter').catch(() => undefined);
-      await espera(1500);
-      await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined);
+      // En vez de una pausa fija: sigue apenas el correo aparece en la página.
+      await page
+        .getByText(correo, { exact: false })
+        .first()
+        .waitFor({ state: 'attached', timeout: 6_000 })
+        .catch(() => undefined);
     }
     const conBotones =
       'xpath=ancestor-or-self::*[count(.//button | .//a | .//*[@role="button"] | .//*[@onclick]) >= 2][1]';
@@ -409,7 +454,7 @@ export class RobotProveedor implements OnModuleDestroy {
       // 2) El buscador dejó una sola fila: es esa.
       const filas = page.locator('tbody tr, [role="row"]:has(button)').filter({ visible: true });
       if (buscador && (await buscador.count()) && (await filas.count()) === 1) return filas.first();
-      await espera(1500);
+      await this.calmar(page, 1_500);
     }
     throw new ErrorRobot(
       'NO_ENCONTRADA',
@@ -525,7 +570,7 @@ export class RobotProveedor implements OnModuleDestroy {
       await fila.locator(CLICABLES).nth(indice).click();
       const limite = Date.now() + ESPERA_RESPUESTA_MS;
       while (Date.now() < limite) {
-        await espera(600);
+        await espera(300);
         const avisos = await page
           .locator(SELECTOR_AVISOS)
           .evaluateAll((els) =>
