@@ -94,3 +94,11 @@ Neon no se tocó. Vuelve a la configuración anterior:
 cp .env.produccion.neon .env.produccion
 bash infra/actualizar.sh
 ```
+
+## Límite de conexiones
+
+El «Session pooler» del plan gratis de Supabase deja unas 15 conexiones a la vez. La API
+abre hasta 10 (`DB_CONEXIONES_MAX`, por defecto 10) y el trabajador 3
+(`TRABAJADOR_CONEXIONES_MAX` en `.env.produccion`, por defecto 3). Si la suma pasa del
+tope, la base rechaza consultas: el panel se queda cargando o no muestra datos. Si subes de
+plan en Supabase puedes subir esos dos números.
