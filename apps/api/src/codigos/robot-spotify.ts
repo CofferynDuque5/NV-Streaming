@@ -151,16 +151,36 @@ async function visible(l: Locator, ms = 1_500): Promise<boolean> {
     .catch(() => false);
 }
 
+/** Avisos legales de reCAPTCHA que salen siempre al pie del inicio de sesión: no son un reto. */
+const AVISO_RECAPTCHA =
+  /protegid[oa] por recaptcha|protected by recaptcha|recaptcha.*(google|privacidad|privacy|t[eé]rminos|terms)/i;
+
+/**
+ * ¿Spotify está pidiendo de verdad un captcha? El inicio de sesión carga siempre un
+ * reCAPTCHA invisible (y su aviso al pie): eso no cuenta. Cuenta solo la página de reto,
+ * un recuadro de captcha visible y de tamaño real, o un texto que lo pida.
+ */
 async function hayCaptcha(page: Page): Promise<boolean> {
   if (/challenge\.spotify\.com/i.test(page.url())) return true;
-  if ((await page.locator('iframe[src*="captcha" i], iframe[title*="captcha" i]').count()) > 0) {
-    return true;
+  const marcos = page.locator(
+    'iframe[src*="captcha" i], iframe[title*="captcha" i], iframe[src*="arkoselabs" i], iframe[src*="funcaptcha" i]',
+  );
+  const n = await marcos.count().catch(() => 0);
+  for (let i = 0; i < n; i++) {
+    const m = marcos.nth(i);
+    const src = (await m.getAttribute('src').catch(() => null)) ?? '';
+    if (/size=invisible/i.test(src)) continue;
+    if (await m.evaluate((el) => !!el.closest('.grecaptcha-badge')).catch(() => false)) continue;
+    if (!(await m.isVisible().catch(() => false))) continue;
+    const caja = await m.boundingBox().catch(() => null);
+    if (caja && caja.width >= 250 && caja.height >= 70) return true;
   }
   const t = await page
     .locator('body')
     .innerText({ timeout: 3_000 })
     .catch(() => '');
-  return CAPTCHA.test(t) && !/account|cuenta/i.test(sinConsulta(page.url()));
+  const lineas = t.split('\n').filter((l) => !AVISO_RECAPTCHA.test(l));
+  return CAPTCHA.test(lineas.join('\n')) && !/account|cuenta/i.test(sinConsulta(page.url()));
 }
 
 /** ¿Está en las páginas de la cuenta (ya entró)? */
