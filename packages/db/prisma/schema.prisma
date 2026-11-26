@@ -593,6 +593,7 @@ model Plan {
   combos            ComboPlan[]
 
   @@index([activo, visible, orden])
+  @@index([servicioId])
   @@map("planes")
 }
 
@@ -735,6 +736,7 @@ model Suscripcion {
   @@index([clienteId, estado])
   @@index([estado, venceEn])
   @@index([revendedorId, estado])
+  @@index([planId])
   @@map("suscripciones")
 }
 
@@ -837,6 +839,7 @@ model LineaFactura {
   plan    Plan?   @relation(fields: [planId], references: [id], onDelete: Restrict)
 
   @@index([facturaId])
+  @@index([planId])
   @@map("lineas_factura")
 }
 
@@ -896,6 +899,7 @@ model CanjeCupon {
   factura Factura @relation(fields: [facturaId], references: [id], onDelete: Restrict)
 
   @@unique([cuponId, clienteId])
+  @@index([clienteId])
   @@map("canjes_cupon")
 }
 
@@ -1033,6 +1037,7 @@ model Ticket {
   @@index([estado, prioridad, creadoEn])
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([asignadoAId, estado])
+  @@index([suscripcionId])
   @@map("tickets")
 }
 
@@ -1082,6 +1087,7 @@ model ConversacionWhatsApp {
   mensajes MensajeWhatsApp[]
 
   @@index([cerrada, ultimoMensajeEn(sort: Desc)])
+  @@index([clienteId])
   @@map("conversaciones_whatsapp")
 }
 
@@ -1221,6 +1227,7 @@ model Revendedor {
   pagosRenovacion PagoRenovacionRevendedor[]
 
   @@index([estado, creadoEn(sort: Desc)])
+  @@index([nivelId])
   @@map("revendedores")
 }
 
@@ -1353,6 +1360,9 @@ model CompraRevendedor {
 
   @@unique([revendedorId, claveIdempotencia])
   @@index([revendedorId, creadoEn(sort: Desc)])
+  @@index([clienteId])
+  @@index([suscripcionId])
+  @@index([planId])
   @@map("compras_revendedor")
 }
 
@@ -1558,6 +1568,7 @@ model Notificacion {
   @@index([clienteId, creadoEn(sort: Desc)])
   @@index([automatizacion, creadoEn(sort: Desc)])
   @@index([estado, creadoEn])
+  @@index([usuarioId])
   @@map("notificaciones")
 }
 
@@ -1718,6 +1729,7 @@ model CobroAutomatico {
 
   @@unique([facturaId, intento])
   @@index([estado, programadoPara])
+  @@index([suscripcionId])
   @@map("cobros_automaticos")
 }
 
@@ -2005,6 +2017,7 @@ model Entrega {
   @@index([suscripcionId])
   @@index([compraRevendedorId])
   @@index([planId, estado])
+  @@index([facturaId])
   @@map("entregas")
 }
 
@@ -2483,6 +2496,7 @@ model ConsultaCodigo {
 
   @@index([usuarioId, creadoEn])
   @@index([creadoEn])
+  @@index([cuentaId])
   @@map("consultas_codigo")
 }
 

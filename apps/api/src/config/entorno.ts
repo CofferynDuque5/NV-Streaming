@@ -55,6 +55,11 @@ const EntornoSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     API_PUERTO: z.coerce.number().int().positive().default(4000),
     DATABASE_URL: z.url({ error: 'DATABASE_URL debe ser una URL de conexión de PostgreSQL.' }),
+    /**
+     * Conexiones a la base que abre este proceso. La API y el trabajador suman las suyas
+     * y deben quedar bajo el tope del proveedor (Supabase gratis, Session pooler: ~15).
+     */
+    DB_CONEXIONES_MAX: z.coerce.number().int().min(1).max(50).default(10),
     WEB_ORIGEN: z
       .url({ error: 'WEB_ORIGEN debe ser la URL pública de la web.' })
       .transform((v) => new URL(v).origin),

@@ -133,6 +133,9 @@ services:
       ALMACEN_DIR: /datos/almacen
       NO_COLOR: '1'
       NODE_OPTIONS: --max-old-space-size=512
+      # El trabajador hace poco a la vez: 3 conexiones. Con las 10 de la API quedan 13,
+      # bajo el tope de ~15 del Session pooler de Supabase gratis.
+      DB_CONEXIONES_MAX: ${TRABAJADOR_CONEXIONES_MAX:-3}
     healthcheck:
       # Sano si dejó su latido en la base en los últimos 2 minutos (con BASE_AHORRO se lo
       # pregunta al propio trabajador, sin despertar la base).
