@@ -68,14 +68,18 @@ function Accion({ item, plan, moneda, mayorista }: PropsTarjeta) {
   return <BotonCarrito planId={plan.id} nombre={`${nombre} (${plan.nombre})`} />;
 }
 
-/** Tarjeta de servicio con brillo de su color, imagen, precio desde y carrito. */
+/**
+ * Tarjeta de servicio: la tarjeta de regalo del servicio en grande, sobre una
+ * vitrina con haces de luz de su color; al pasar el mouse se levanta, se inclina
+ * y le cruza un destello. Debajo, nombre, precio desde y botones.
+ */
 export function TarjetaServicio(props: PropsTarjeta) {
   const { item, plan, prioridad } = props;
   const { servicio } = item;
   const href = `/catalogo/${servicio.slug}`;
   return (
     <article
-      className="tarjeta-brillo @container/t grid min-w-0 content-start overflow-hidden"
+      className="tarjeta-brillo tarjeta-vitrina group/t @container/t grid min-w-0 content-start overflow-hidden"
       style={{ '--c': item.color } as CSSProperties}
       aria-labelledby={`srv-${servicio.id}`}
     >
@@ -83,19 +87,21 @@ export function TarjetaServicio(props: PropsTarjeta) {
         href={href}
         tabIndex={-1}
         aria-hidden="true"
-        className="escenario relative h-48 rounded-t-[1.3rem] @max-[13rem]/t:h-40"
+        className="vitrina-escena relative grid h-72 place-items-center rounded-t-[1.3rem] pt-3 @max-[13rem]/t:h-56"
       >
-        <ArteServicio
-          arte={item.arte}
-          nombre={servicio.nombre}
-          categoria={servicio.categoria}
-          color={item.color}
-          prioridad={prioridad}
-          className={clsx(
-            'relative h-40 w-auto @max-[13rem]/t:h-32',
-            servicio.vitrina?.invertirLogo && servicio.imagen && '[&_img]:invert',
-          )}
-        />
+        <span className="vitrina-tarjeta relative h-60 @max-[13rem]/t:h-44">
+          <ArteServicio
+            arte={item.arte}
+            nombre={servicio.nombre}
+            categoria={servicio.categoria}
+            color={item.color}
+            prioridad={prioridad}
+            className={clsx(
+              'relative h-full w-auto',
+              servicio.vitrina?.invertirLogo && servicio.imagen && '[&_img]:invert',
+            )}
+          />
+        </span>
         {(servicio.vitrina?.destacado || servicio.vitrina?.nuevo) && (
           <span className="absolute top-3 left-3 z-10 flex gap-1.5">
             {servicio.vitrina.destacado && (
@@ -111,10 +117,10 @@ export function TarjetaServicio(props: PropsTarjeta) {
           </span>
         )}
       </Link>
-      <div className="grid gap-2.5 p-4 pt-3.5 @max-[13rem]/t:p-3">
-        <p className="flex items-center gap-1.5 text-[0.68rem] font-bold tracking-[0.12em] text-tinta-tenue uppercase">
+      <div className="relative grid gap-2 p-4 pt-1 text-center @max-[13rem]/t:p-3 @max-[13rem]/t:pt-1">
+        <p className="mx-auto flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[0.66rem] font-bold tracking-[0.12em] text-tinta-suave uppercase">
           <i
-            className="size-1.5 rounded-full"
+            className="size-1.5 shrink-0 rounded-full"
             style={{ background: item.color, boxShadow: `0 0 6px ${item.color}` }}
             aria-hidden="true"
           />
@@ -122,22 +128,24 @@ export function TarjetaServicio(props: PropsTarjeta) {
         </p>
         <h3
           id={`srv-${servicio.id}`}
-          className="truncate font-titulo text-base font-bold"
+          className="truncate font-titulo text-lg leading-tight font-bold @max-[13rem]/t:text-base"
           title={servicio.nombre}
         >
           {servicio.nombre}
         </h3>
-        <Precio plan={plan} moneda={props.moneda} mayorista={props.mayorista} />
+        <div className="flex justify-center">
+          <Precio plan={plan} moneda={props.moneda} mayorista={props.mayorista} />
+        </div>
         <div className="mt-1 flex gap-2 @max-[13rem]/t:gap-1.5">
           <Link
             href={href}
             className={clasesBoton(
-              'secundario',
+              'primario',
               'md',
               'min-w-0 flex-1 @max-[13rem]/t:px-2 @max-[13rem]/t:text-[0.8125rem]',
             )}
           >
-            Ver detalles
+            Elegir plan
             <span className="sr-only"> de {servicio.nombre}</span>
           </Link>
           <Accion {...props} />
