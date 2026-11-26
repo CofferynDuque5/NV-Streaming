@@ -34,7 +34,8 @@ x-entorno-app: &entorno-app
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # 16 por defecto; 17 si la base vino de Supabase (infra/pasar-a-base-local.sh lo pone).
+    image: postgres:${BASE_LOCAL_PG_VERSION:-16}-alpine
     profiles: ['base-local']
     <<: *registros
     restart: unless-stopped
