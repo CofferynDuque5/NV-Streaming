@@ -419,7 +419,29 @@ export class RobotProveedor implements OnModuleDestroy {
     }
   }
 
-  private async buscarFila(page: Page, correo: string): Promise<Locator> {
+  /**
+   * Busca la fila de la cuenta. Sigue apenas aparece (camino rápido); si no aparece,
+   * espera hasta 15 s y, antes de rendirse, recarga la sección y busca otra vez.
+   * Así un panel lento no da un «no aparece» falso.
+   */
+  private async buscarFila(page: Page, p: PedidoBoton): Promise<Locator> {
+    const correo = p.correoCuenta.trim();
+    const primera = await this.intentarFila(page, correo, 15_000);
+    if (primera) return primera;
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => undefined);
+    await this.calmar(page);
+    await this.irASeccion(page, p.urlBase, p.plataforma);
+    const segunda = await this.intentarFila(page, correo, 20_000);
+    if (segunda) return segunda;
+    throw new ErrorRobot(
+      'NO_ENCONTRADA',
+      'Esa cuenta no aparece en el panel del proveedor (se buscó dos veces). Revisa que el correo sea igual al del proveedor.',
+      diagnostico('cuenta_no_encontrada'),
+    );
+  }
+
+  /** Escribe el correo en el buscador y espera la fila hasta `ms`. Devuelve null si no salió. */
+  private async intentarFila(page: Page, correo: string, ms: number): Promise<Locator | null> {
     // El buscador (la lupa): «Buscar por email...».
     const buscador = page
       .locator(
@@ -427,16 +449,11 @@ export class RobotProveedor implements OnModuleDestroy {
       )
       .filter({ visible: true })
       .first();
-    await buscador.waitFor({ state: 'visible', timeout: 4_000 }).catch(() => undefined);
-    if (await buscador.count()) {
+    await buscador.waitFor({ state: 'visible', timeout: 8_000 }).catch(() => undefined);
+    const hayBuscador = (await buscador.count()) > 0;
+    if (hayBuscador) {
       await buscador.fill(correo);
       await buscador.press('Enter').catch(() => undefined);
-      // En vez de una pausa fija: sigue apenas el correo aparece en la página.
-      await page
-        .getByText(correo, { exact: false })
-        .first()
-        .waitFor({ state: 'attached', timeout: 6_000 })
-        .catch(() => undefined);
     }
     const conBotones =
       'xpath=ancestor-or-self::*[count(.//button | .//a | .//*[@role="button"] | .//*[@onclick]) >= 2][1]';
@@ -445,22 +462,22 @@ export class RobotProveedor implements OnModuleDestroy {
       const tr = celda.locator('xpath=ancestor-or-self::tr[1]');
       return (await tr.count()) ? tr : celda.locator(conBotones);
     };
-    for (let intento = 0; intento < 3; intento++) {
+    const limite = Date.now() + ms;
+    while (Date.now() < limite) {
       // 1) El correo completo en el texto o en un título (las celdas largas se cortan con «…»).
       const texto = page.getByText(correo, { exact: false }).first();
       if (await texto.count()) return filaDe(texto);
       const titulo = page.locator(`[title="${correo.replace(/"/g, '')}" i]`).first();
       if (await titulo.count()) return filaDe(titulo);
-      // 2) El buscador dejó una sola fila: es esa.
+      // 2) El buscador dejó una sola fila con botones: es esa.
       const filas = page.locator('tbody tr, [role="row"]:has(button)').filter({ visible: true });
-      if (buscador && (await buscador.count()) && (await filas.count()) === 1) return filas.first();
-      await this.calmar(page, 1_500);
+      if (hayBuscador && (await filas.count()) === 1) {
+        const unica = filas.first();
+        if ((await unica.locator(CLICABLES).count()) >= 2) return unica;
+      }
+      await espera(400);
     }
-    throw new ErrorRobot(
-      'NO_ENCONTRADA',
-      'Esa cuenta no aparece en el panel del proveedor.',
-      diagnostico('cuenta_no_encontrada'),
-    );
+    return null;
   }
 
   private async botonesDe(fila: Locator): Promise<BotonFila[]> {
@@ -524,7 +541,7 @@ export class RobotProveedor implements OnModuleDestroy {
     host: string,
   ): Promise<Omit<RespuestaRobot, 'sesion'>> {
     await this.irASeccion(page, p.urlBase, p.plataforma);
-    const fila = await this.buscarFila(page, p.correoCuenta);
+    const fila = await this.buscarFila(page, p);
     const botones = await this.botonesDe(fila);
     const nombres = botones
       .map((b) => b.texto || b.titulo || `(ícono ${b.icono.slice(0, 40)})`)
