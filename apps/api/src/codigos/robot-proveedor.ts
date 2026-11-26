@@ -63,7 +63,7 @@ export class ErrorRobot extends Error {
 }
 
 /** Ruta del Chromium del sistema (en la imagen Docker: apk add chromium). */
-const rutaNavegador = () =>
+export const rutaNavegador = () =>
   [process.env['NAVEGADOR_RUTA'], '/usr/bin/chromium-browser', '/usr/bin/chromium'].find(
     (r): r is string => Boolean(r) && existsSync(r!),
   ) ?? '/usr/bin/chromium';
@@ -176,6 +176,14 @@ export class RobotProveedor implements OnModuleDestroy {
       this.temporizador = setTimeout(() => void this.cerrar(), INACTIVO_MS);
       this.temporizador.unref();
     });
+  }
+
+  /**
+   * El mismo navegador y la misma cola (un trabajo a la vez) para otro robot,
+   * como el que revisa las cuentas de Spotify.
+   */
+  usarNavegador<T>(fn: (navegador: Browser) => Promise<T>): Promise<T> {
+    return this.enCola(async () => fn(await this.abrir()));
   }
 
   /** El contexto caliente si sirve para este pedido; si no, uno nuevo que queda caliente. */

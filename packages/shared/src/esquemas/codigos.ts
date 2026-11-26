@@ -280,3 +280,14 @@ export const pedirProveedorSchema = z
 export type PedirProveedorEntrada = z.infer<typeof pedirProveedorSchema>;
 
 export const pedirProveedorClienteSchema = z.object({ accion: accionProveedorSchema });
+
+// ── Revisión automática de cuentas Spotify principales ──────────────────────
+
+/** Dominio de las cuentas principales propias que revisa el robot de Spotify. */
+export const DOMINIO_SPOTIFY_PREDETERMINADO = 'serviciosnat.com';
+
+/** Sin cuentas: revisa todas las Spotify del dominio propio. */
+export const revisarSpotifySchema = z.object({
+  cuentaIds: z.array(uuidSchema).max(500).optional(),
+});
+export type RevisarSpotifyEntrada = z.infer<typeof revisarSpotifySchema>;

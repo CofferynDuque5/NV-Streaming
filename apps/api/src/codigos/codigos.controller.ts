@@ -20,6 +20,7 @@ import {
   conectorSchema,
   pedirProveedorClienteSchema,
   pedirProveedorSchema,
+  revisarSpotifySchema,
   uuidSchema,
 } from '@nv/shared';
 import { z } from 'zod';
@@ -34,6 +35,7 @@ import { DocCuerpo } from '../comun/documentacion.js';
 import { validar } from '../comun/zod.pipe.js';
 import { CodigosService } from './codigos.service.js';
 import { ConectorCodigosService } from './conector.service.js';
+import { RevisionSpotifyService } from './revision-spotify.service.js';
 
 const idValido = validar(uuidSchema);
 const SIN_CACHE = 'private, no-store, max-age=0';
@@ -46,7 +48,29 @@ export class CodigosController {
   constructor(
     @Inject(CodigosService) private readonly codigos: CodigosService,
     @Inject(ConectorCodigosService) private readonly conector: ConectorCodigosService,
+    @Inject(RevisionSpotifyService) private readonly spotify: RevisionSpotifyService,
   ) {}
+
+  /** Cuentas Spotify del dominio propio y lo que encontró la última revisión de cada una. */
+  @Get('spotify')
+  @Header('Cache-Control', SIN_CACHE)
+  @RequierePermiso('codigos.consultar')
+  revisionesSpotify() {
+    return this.spotify.listar();
+  }
+
+  /** Revisa ahora las cuentas pedidas (o todas las del dominio), una a la vez, en segundo plano. */
+  @Post('spotify/revisar')
+  @HttpCode(202)
+  @RequierePermiso('codigos.configurar')
+  @DocCuerpo(revisarSpotifySchema)
+  revisarSpotify(
+    @Auth() auth: ContextoAuth,
+    @Body(validar(revisarSpotifySchema)) cuerpo: z.output<typeof revisarSpotifySchema>,
+    @Cliente() cliente: InfoCliente,
+  ) {
+    return this.spotify.revisar(auth, cuerpo, cliente);
+  }
 
   /** Conexión con el panel del proveedor (ikercuentas): sin usuario ni clave. */
   @Get('conector')

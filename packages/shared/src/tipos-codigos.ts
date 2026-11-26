@@ -101,3 +101,41 @@ export interface ResultadoProveedor {
   mensaje: string | null;
   obtenidoEn: string;
 }
+
+// ── Revisión automática de cuentas Spotify principales ──────────────────────
+
+export type EstadoRevisionSpotify = 'en_cola' | 'revisando' | 'lista' | 'error';
+/** Lo que mostró Spotify: al día, pago fallido, en pausa, caída (sin Premium) o no se pudo saber. */
+export type SituacionSpotify = 'al_dia' | 'pago_fallido' | 'pausa' | 'caida' | 'desconocida';
+
+export interface RevisionSpotifyPublica {
+  cuentaId: string;
+  /** «ma•••@serviciosnat.com». */
+  pista: string;
+  servicio: string;
+  estadoCuenta: string;
+  /** Fecha de vencimiento guardada hoy en la web (AAAA-MM-DD). */
+  facturaEn: string | null;
+  /** null si la cuenta nunca se revisó. */
+  revision: {
+    estado: EstadoRevisionSpotify;
+    situacion: SituacionSpotify | null;
+    plan: string | null;
+    vencimiento: string | null;
+    cuposUsados: number | null;
+    cuposTotal: number | null;
+    fechaAnterior: string | null;
+    fechaAplicada: boolean;
+    ultimoError: string | null;
+    diagnostico: DiagnosticoSpotify | null;
+    revisadaEn: string | null;
+  } | null;
+}
+
+/** Lo que vio el navegador en Spotify, con correos y números largos tapados. */
+export interface DiagnosticoSpotify {
+  paso: string;
+  url: string;
+  textos: string[];
+  en: string;
+}
