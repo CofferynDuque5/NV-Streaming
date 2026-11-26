@@ -8,8 +8,12 @@ export * from './generated/prisma/client.js';
  *
  * Con la base lejos del servidor (Neon), abrir una conexión cuesta varios viajes de
  * ida y vuelta (TLS y contraseña). Por defecto `pg` cierra las conexiones libres a los
- * 10 s, así que casi cada clic del panel volvía a abrirlas. Se mantienen 4 minutos:
- * menos que los 5 de inactividad tras los que Neon gratis se apaga, para no impedirlo.
+ * 10 s, así que casi cada clic del panel volvía a abrirlas. Se mantienen 1 minuto.
+ *
+ * Con Supabase (Session pooler) se vio «Connection terminated unexpectedly»: una
+ * conexión quieta se cortaba por el camino sin que `pg` se enterara, y la siguiente
+ * consulta fallaba (panel vacío o cargando). Por eso se activa el «keepalive» de TCP
+ * (detecta y descarta la conexión muerta) y las libres se cierran al minuto.
  *
  * Cuántas conexiones abre cada proceso lo fija `maxConexiones` (10 por defecto). La API
  * y el trabajador abren cada uno las suyas, y su suma debe quedar por debajo del tope
@@ -25,8 +29,10 @@ export function crearClientePrisma(urlConexion: string, maxConexiones = 10): Pri
   const adapter = new PrismaPg({
     connectionString: urlConexion,
     max: maxConexiones,
-    idleTimeoutMillis: 240_000,
+    idleTimeoutMillis: 60_000,
     connectionTimeoutMillis: 20_000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 15_000,
   });
   return new PrismaClient({
     adapter,
