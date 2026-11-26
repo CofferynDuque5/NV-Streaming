@@ -6,6 +6,7 @@ import type {
   ServicioPublico,
 } from '@nv/shared';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { BuscarCodigo, ListaAsuntos, ListaBuzones } from '@/componentes/admin/codigos';
 import { ConectorProveedor } from '@/componentes/admin/conector-proveedor';
 import { Alerta } from '@/componentes/ui/alerta';
@@ -60,6 +61,13 @@ export default async function CorreosDeCodigos({
           de cada servicio.
         </Alerta>
       )}
+      <Alerta tono="info" titulo="Revisión de Spotify">
+        Revisa el vencimiento, los pagos fallidos y los cupos de tus cuentas Spotify principales en{' '}
+        <Link href="/admin/codigos/spotify" className="font-semibold underline">
+          Revisión de Spotify
+        </Link>
+        .
+      </Alerta>
       <Tarjeta>
         <CabeceraTarjeta
           titulo="Buscar el último código"

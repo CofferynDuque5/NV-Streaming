@@ -150,7 +150,8 @@ export type ModuloEquipo =
   | 'cortes'
   | 'devoluciones'
   | 'por-pagar'
-  | 'caidas';
+  | 'caidas'
+  | 'spotify';
 
 export type GrupoEquipo = 'atender' | 'ventas' | 'tienda' | 'sistema';
 
@@ -368,6 +369,16 @@ export const MODULOS_EQUIPO: ModuloInfo[] = [
     color: '#f43f5e',
     href: '/admin/codigos',
     permiso: 'codigos.consultar',
+  },
+  {
+    clave: 'spotify',
+    grupo: 'tienda',
+    nombre: 'Revisión de Spotify',
+    descripcion: 'Vencimiento, pago fallido y cupos libres de tus cuentas Spotify principales',
+    color: '#1db954',
+    href: '/admin/codigos/spotify',
+    permiso: 'codigos.consultar',
+    dentroDe: 'codigos',
   },
   {
     clave: 'inventario',

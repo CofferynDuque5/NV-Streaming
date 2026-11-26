@@ -2290,10 +2290,11 @@ model CuentaServicio {
   creadoEn       DateTime             @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn  DateTime             @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
-  servicio  Servicio             @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  creadoPor Usuario?             @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
-  perfiles  PerfilCuenta[]
-  pagos     PagoCuentaServicio[]
+  servicio        Servicio             @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  creadoPor       Usuario?             @relation(fields: [creadoPorId], references: [id], onDelete: Restrict)
+  perfiles        PerfilCuenta[]
+  pagos           PagoCuentaServicio[]
+  revisionSpotify RevisionSpotify?
 
   @@index([servicioId, estado])
   @@index([estado, facturaEn])
@@ -2602,4 +2603,36 @@ model CorreoPaypal {
   @@index([referencia])
   @@index([recibidoEn(sort: Desc)])
   @@map("correos_paypal")
+}
+
+/// Última revisión automática de una cuenta Spotify principal (plan familiar del dominio propio).
+/// El robot entra con el código que llega al correo y lee vencimiento, pago y cupos.
+model RevisionSpotify {
+  cuentaId      String    @id @map("cuenta_id") @db.Uuid
+  /// en_cola | revisando | lista | error
+  estado        String    @default("en_cola") @db.VarChar(20)
+  /// al_dia | pago_fallido | pausa | caida | desconocida
+  situacion     String?   @db.VarChar(20)
+  plan          String?   @db.VarChar(80)
+  /// Fecha de vencimiento que muestra Spotify (próximo cobro o fin del Premium).
+  vencimiento   DateTime? @db.Date
+  cuposUsados   Int?      @map("cupos_usados")
+  cuposTotal    Int?      @map("cupos_total")
+  /// Fecha que tenía la cuenta en la web antes de actualizarla.
+  fechaAnterior DateTime? @map("fecha_anterior") @db.Date
+  /// Si en esta revisión se actualizó la fecha de vencimiento de la cuenta.
+  fechaAplicada Boolean   @default(false) @map("fecha_aplicada")
+  ultimoError   String?   @map("ultimo_error") @db.VarChar(300)
+  /// Lo que vio el navegador (textos con correos y números tapados), para ajustar el robot.
+  diagnostico   Json?
+  /// Cookies de la sesión de Spotify, cifradas (contexto "spotify:<cuentaId>:sesion").
+  sesionCifrada String?   @map("sesion_cifrada")
+  pedidaPorId   String?   @map("pedida_por_id") @db.Uuid
+  revisadaEn    DateTime? @map("revisada_en") @db.Timestamptz(3)
+  creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime  @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  cuenta CuentaServicio @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+
+  @@map("revisiones_spotify")
 }

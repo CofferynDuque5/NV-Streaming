@@ -39,7 +39,9 @@ import {
 import { CodigosService } from './codigos/codigos.service.js';
 import { ConectorCodigosService } from './codigos/conector.service.js';
 import { LectorImap } from './codigos/lector-imap.js';
+import { RevisionSpotifyService } from './codigos/revision-spotify.service.js';
 import { RobotProveedor } from './codigos/robot-proveedor.js';
+import { RobotSpotify } from './codigos/robot-spotify.js';
 import { InventarioCuentasService } from './cuentas/inventario-cuentas.service.js';
 import { ReporteCaidasService } from './cuentas/reporte-caidas.service.js';
 import { PerfilesClienteService } from './cuentas/perfiles-cliente.service.js';
@@ -178,6 +180,8 @@ export class AppModule {
         CodigosService,
         RobotProveedor,
         ConectorCodigosService,
+        RobotSpotify,
+        RevisionSpotifyService,
         ImportarCuentasService,
         ImportarGestorService,
         CostosService,

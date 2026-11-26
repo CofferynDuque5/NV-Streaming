@@ -129,6 +129,8 @@ Object.assign(ACCIONES_AUDITORIA, {
   'perfil_cuenta.editado': 'Perfil editado',
   'perfil_cuenta.visto_por_cliente': 'Datos del perfil vistos por el cliente',
   'perfil_cuenta.mensaje_armado': 'Mensaje con datos del perfil armado',
+  'spotify.revision_pedida': 'Revisión de cuentas Spotify pedida',
+  'cuenta.vencimiento_spotify': 'Vencimiento actualizado desde Spotify',
   'buzon_codigos.creado': 'Buzón de códigos agregado',
   'buzon_codigos.actualizado': 'Buzón de códigos editado',
   'buzon_codigos.eliminado': 'Buzón de códigos quitado',

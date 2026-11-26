@@ -102,7 +102,7 @@ test('administración: colas reales, cifras, módulos con buscador y por área, 
   const buscador = page.getByRole('combobox', { name: 'Buscar en todo el panel' });
   await expect(buscador).toBeFocused();
   await buscador.fill('codigos');
-  await expect(page.getByRole('option', { name: /Códigos por correo/ })).toBeVisible();
+  await expect(page.getByRole('option', { name: /^Códigos por correo/ })).toBeVisible();
   await buscador.fill('cliente@nv.test');
   await expect(page.getByRole('option', { name: /cliente@nv\.test/ })).toBeVisible();
   await buscador.fill('cobros');

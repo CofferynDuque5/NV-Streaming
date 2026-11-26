@@ -348,5 +348,7 @@ export function estadoModulo(
       return ok('Cobros de proveedores');
     case 'caidas':
       return ok('Reponer clientes e historial');
+    case 'spotify':
+      return ok('Solo cuando pulsas «Revisar»');
   }
 }

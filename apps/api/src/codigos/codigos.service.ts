@@ -35,8 +35,8 @@ export const LIMITE_CODIGOS_CLIENTE = { maximo: 5, ventanaSegundos: 600 };
 const VIGENTES: readonly EstadoSuscripcion[] = ['activa', 'en_gracia'];
 const MAX_MENSAJES = 5;
 
-const contextoUsuarioBuzon = (id: string) => `buzon:${id}:usuario`;
-const contextoClaveBuzon = (id: string) => `buzon:${id}:clave`;
+export const contextoUsuarioBuzon = (id: string) => `buzon:${id}:usuario`;
+export const contextoClaveBuzon = (id: string) => `buzon:${id}:clave`;
 
 function publico(b: BuzonCodigos): BuzonPublico {
   return {

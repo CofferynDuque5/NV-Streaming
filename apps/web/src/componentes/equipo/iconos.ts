@@ -11,6 +11,7 @@ import {
   type LucideIcon,
   MailSearch,
   MessageCircle,
+  Music,
   Package,
   Paintbrush,
   Repeat,
@@ -61,4 +62,5 @@ export const ICONOS_MODULO: Record<ModuloEquipo, LucideIcon> = {
   devoluciones: Calculator,
   'por-pagar': HandCoins,
   caidas: Unplug,
+  spotify: Music,
 };
