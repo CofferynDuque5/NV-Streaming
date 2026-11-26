@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DiagnosticoSpotify } from '@nv/shared';
 import type { Browser, BrowserContextOptions, Locator, Page } from 'playwright-core';
@@ -52,6 +53,53 @@ export interface UrlsSpotify {
 }
 
 const CUENTA = 'https://www.spotify.com/account/overview/';
+/**
+ * Proxy residencial por el que sale el robot de Spotify (SPOTIFY_PROXY en .env.produccion),
+ * p. ej. «http://usuario:clave@geo.iproyal.com:12321». Sin él, sale con la IP del servidor,
+ * y Spotify le pone captcha a los inicios de sesión desde servidores.
+ * Con IPRoyal se pide una IP fija durante cada cuenta («_session-…_lifetime-30m») y, si se
+ * indica SPOTIFY_PROXY_PAIS (p. ej. «ve»), una IP de ese país. Devuelve null si no hay proxy.
+ */
+export function proxySpotify(
+  entorno: NodeJS.ProcessEnv = process.env,
+  sesion: string = randomBytes(4).toString('hex'),
+): BrowserContextOptions['proxy'] | null {
+  const crudo = entorno['SPOTIFY_PROXY']?.trim();
+  if (!crudo) return null;
+  let u: URL;
+  try {
+    u = new URL(/^[a-z0-9]+:\/\//i.test(crudo) ? crudo : `http://${crudo}`);
+  } catch {
+    return null;
+  }
+  let clave = decodeURIComponent(u.password);
+  if (/iproyal/i.test(u.hostname) && clave) {
+    const pais = entorno['SPOTIFY_PROXY_PAIS']?.trim().toLowerCase();
+    if (pais && /^[a-z]{2}$/.test(pais) && !/_country-/i.test(clave)) clave += `_country-${pais}`;
+    if (!/_session-/i.test(clave)) clave += `_session-${sesion}_lifetime-30m`;
+  }
+  return {
+    server: `${u.protocol}//${u.host}`,
+    ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
+    ...(clave ? { password: clave } : {}),
+  };
+}
+
+/** Zona horaria del navegador según el país del proxy, para que coincida con la IP. */
+const ZONAS: Record<string, string> = {
+  in: 'Asia/Kolkata',
+  ve: 'America/Caracas',
+  co: 'America/Bogota',
+  us: 'America/New_York',
+  mx: 'America/Mexico_City',
+  br: 'America/Sao_Paulo',
+  es: 'Europe/Madrid',
+};
+export const zonaSpotify = (entorno: NodeJS.ProcessEnv = process.env) =>
+  (entorno['SPOTIFY_PROXY']?.trim() &&
+    ZONAS[entorno['SPOTIFY_PROXY_PAIS']?.trim().toLowerCase() ?? '']) ||
+  'America/Caracas';
+
 export const URLS_SPOTIFY: UrlsSpotify = {
   cuenta: CUENTA,
   familia: 'https://www.spotify.com/account/family/',
@@ -208,10 +256,12 @@ export class RobotSpotify {
     }
     let ctx;
     try {
+      const proxy = proxySpotify();
       ctx = await navegador.newContext({
+        ...(proxy ? { proxy } : {}),
         storageState: estado,
         locale: 'es-419',
-        timezoneId: 'America/Caracas',
+        timezoneId: zonaSpotify(),
         viewport: { width: 1366, height: 768 },
         extraHTTPHeaders: { 'Accept-Language': 'es-419,es;q=0.9,en;q=0.6' },
         userAgent:
