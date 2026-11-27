@@ -7,6 +7,7 @@ import {
   fechaDe,
   leerCuentaSpotify,
 } from '../../src/codigos/leer-spotify.js';
+import { proxySpotify, zonaSpotify } from '../../src/codigos/robot-spotify.js';
 
 describe('correo con el código de Spotify', () => {
   it('reconoce el remitente y el asunto', () => {
@@ -128,5 +129,37 @@ describe('cupos', () => {
     expect(cuposDe('Your plan is full', 6, null)).toEqual({ usados: 6, total: 6 });
     expect(cuposDe('Lista de miembros', 6, 3)).toEqual({ usados: 3, total: 6 });
     expect(cuposDe('Lista de miembros', 6, null)).toEqual({ usados: null, total: 6 });
+  });
+});
+
+describe('proxy del robot de Spotify', () => {
+  it('sin SPOTIFY_PROXY sale directo', () => {
+    expect(proxySpotify({})).toBeNull();
+  });
+  it('IPRoyal: IP fija por cuenta y país opcional', () => {
+    const p = proxySpotify(
+      { SPOTIFY_PROXY: 'http://usu:cl%40ve@geo.iproyal.com:12321', SPOTIFY_PROXY_PAIS: 'VE' },
+      'abc123',
+    );
+    expect(p).toEqual({
+      server: 'http://geo.iproyal.com:12321',
+      username: 'usu',
+      password: 'cl@ve_country-ve_session-abc123_lifetime-30m',
+    });
+  });
+  it('la hora del navegador sigue al país del proxy', () => {
+    expect(
+      zonaSpotify({ SPOTIFY_PROXY: 'http://u:p@geo.iproyal.com:1', SPOTIFY_PROXY_PAIS: 'in' }),
+    ).toBe('Asia/Kolkata');
+    expect(zonaSpotify({ SPOTIFY_PROXY_PAIS: 'in' })).toBe('America/Caracas');
+  });
+  it('respeta una sesión ya escrita y otros proveedores tal cual', () => {
+    expect(proxySpotify({ SPOTIFY_PROXY: 'geo.iproyal.com:12321' }, 'x')?.server).toBe(
+      'http://geo.iproyal.com:12321',
+    );
+    expect(
+      proxySpotify({ SPOTIFY_PROXY: 'http://u:p_session-fija@geo.iproyal.com:1' }, 'x')?.password,
+    ).toBe('p_session-fija');
+    expect(proxySpotify({ SPOTIFY_PROXY: 'http://u:p@otro.proxy:8080' }, 'x')?.password).toBe('p');
   });
 });

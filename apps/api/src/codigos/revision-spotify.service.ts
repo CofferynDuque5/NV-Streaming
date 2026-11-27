@@ -1,9 +1,17 @@
-import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  type OnModuleInit,
+} from '@nestjs/common';
 import type { Prisma, PrismaClient, RevisionSpotify } from '@nv/db';
 import {
   DOMINIO_SPOTIFY_PREDETERMINADO,
   type DiagnosticoSpotify,
   type EstadoRevisionSpotify,
+  type PegarSesionSpotifyEntrada,
   type RevisarSpotifyEntrada,
   type RevisionSpotifyPublica,
   type SituacionSpotify,
@@ -113,6 +121,7 @@ export class RevisionSpotifyService implements OnModuleInit {
       servicio: f.servicio.nombre,
       estadoCuenta: f.estado,
       facturaEn: dia(f.facturaEn),
+      conSesion: !!r?.sesionCifrada,
       revision: r
         ? {
             estado: r.estado as EstadoRevisionSpotify,
@@ -168,6 +177,64 @@ export class RevisionSpotifyService implements OnModuleInit {
       });
       void this.procesar();
     }
+    return this.listar();
+  }
+
+  /**
+   * Guarda (cifrada) la sesión de una cuenta copiada del navegador de quien ya entró.
+   * Así el robot entra directo a la cuenta, sin pedir código ni pasar por el captcha
+   * que Spotify pone a los inicios de sesión desde servidores.
+   */
+  async pegarSesion(
+    auth: ContextoAuth,
+    cuentaId: string,
+    e: PegarSesionSpotifyEntrada,
+    cliente: InfoCliente,
+  ) {
+    const cuenta = (await this.cuentasDelDominio()).find((c) => c.id === cuentaId);
+    if (!cuenta) {
+      throw new NotFoundException({
+        codigo: 'CUENTA_NO_ENCONTRADA',
+        mensaje: `Esa cuenta no es una Spotify con correo @${dominioSpotify()}.`,
+      });
+    }
+    const actual = cuenta.revisionSpotify;
+    if (actual && ['en_cola', 'revisando'].includes(actual.estado)) {
+      throw new ConflictException({
+        codigo: 'REVISION_EN_CURSO',
+        mensaje: 'Esa cuenta se está revisando. Espera a que termine.',
+      });
+    }
+    const unAnio = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+    const estado = {
+      cookies: ['.spotify.com', 'accounts.spotify.com'].map((domain) => ({
+        name: 'sp_dc',
+        value: e.spDc,
+        domain,
+        path: '/',
+        expires: unAnio,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None' as const,
+      })),
+      origins: [],
+    };
+    const sesionCifrada = this.cifrador.cifrar(JSON.stringify(estado), ctxSesion(cuentaId));
+    await this.prisma.revisionSpotify.upsert({
+      where: { cuentaId },
+      create: { cuentaId, estado: 'pendiente', sesionCifrada },
+      update: {
+        sesionCifrada,
+        ...(actual?.estado === 'error' ? { estado: 'pendiente', ultimoError: null } : {}),
+      },
+    });
+    await this.auditoria.registrar({
+      actorId: auth.usuario.id,
+      accion: 'spotify.sesion_pegada',
+      entidad: 'cuenta_servicio',
+      entidadId: cuentaId,
+      cliente,
+    });
     return this.listar();
   }
 
@@ -273,11 +340,15 @@ export class RevisionSpotifyService implements OnModuleInit {
       });
     } catch (err) {
       const e = err instanceof ErrorSpotify ? err : null;
+      const mensaje =
+        sesion && (e?.motivo === 'CAPTCHA' || e?.motivo === 'SIN_CODIGO' || e?.motivo === 'ENTRADA')
+          ? 'La sesión guardada ya no sirve y Spotify no dejó entrar desde el servidor. Vuelve a pegar la sesión.'
+          : (e?.message ?? 'No se pudo revisar la cuenta.');
       await this.prisma.revisionSpotify.update({
         where: { cuentaId: cuenta.id },
         data: {
           estado: 'error',
-          ultimoError: (e?.message ?? 'No se pudo revisar la cuenta.').slice(0, 300),
+          ultimoError: mensaje.slice(0, 300),
           diagnostico: (e?.diagnostico ?? undefined) as Prisma.InputJsonValue | undefined,
           revisadaEn: new Date(),
           // Si Spotify no dejó entrar, la sesión guardada ya no sirve.
@@ -286,10 +357,11 @@ export class RevisionSpotifyService implements OnModuleInit {
             : {}),
         },
       });
-      // Ante un captcha se detiene toda la cola: insistir es lo que provoca bloqueos.
+      // Ante un captcha no se intenta entrar con código a las demás: insistir provoca
+      // bloqueos. Las que tienen sesión guardada siguen, porque no pasan por el inicio de sesión.
       if (e?.motivo === 'CAPTCHA') {
         await this.prisma.revisionSpotify.updateMany({
-          where: { estado: 'en_cola' },
+          where: { estado: 'en_cola', sesionCifrada: null },
           data: {
             estado: 'error',
             ultimoError: 'No se revisó: Spotify pidió un captcha en otra cuenta. Prueba más tarde.',

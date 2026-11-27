@@ -291,3 +291,27 @@ export const revisarSpotifySchema = z.object({
   cuentaIds: z.array(uuidSchema).max(500).optional(),
 });
 export type RevisarSpotifyEntrada = z.infer<typeof revisarSpotifySchema>;
+
+/**
+ * Cookie «sp_dc» copiada del navegador donde la cuenta ya inició sesión. Se acepta
+ * con o sin «sp_dc=» y comillas.
+ */
+export const pegarSesionSpotifySchema = z.object({
+  spDc: z
+    .string()
+    .trim()
+    .transform((v) =>
+      v
+        .replace(/^sp_dc\s*=\s*/i, '')
+        .replace(/^["']|["';]+$/g, '')
+        .trim(),
+    )
+    .pipe(
+      z
+        .string()
+        .min(40, 'La cookie sp_dc es más larga. Cópiala completa.')
+        .max(2000, 'Eso no parece la cookie sp_dc.')
+        .regex(/^[A-Za-z0-9_-]+$/, 'Copia solo el valor de la cookie sp_dc.'),
+    ),
+});
+export type PegarSesionSpotifyEntrada = z.infer<typeof pegarSesionSpotifySchema>;
